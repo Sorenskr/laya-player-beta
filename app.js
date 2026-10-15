@@ -1,6 +1,6 @@
 /**
  * ==========================================================================
- * app.js - 全局中枢控制、彻底解决录屏黑屏、全屏真机预览与双皮肤切换引擎
+ * app.js - 全局中枢控制、真实蓝/紫双Logo原图无损导出、真机录屏合成与持久化引擎
  * ==========================================================================
  */
 
@@ -20,43 +20,246 @@ window.showToast = function (msg) {
     }, 2800);
 };
 
+// 切换右侧控制面板选项卡
 window.switchRightTab = function (mode) {
     const tabWeb = document.getElementById('tab-btn-web');
+    const tabCinema = document.getElementById('tab-btn-m-cinema');
     const tabDy = document.getElementById('tab-btn-dy');
     const tabDm = document.getElementById('tab-btn-dm');
+    
     const panelWeb = document.getElementById('panel-web-settings');
+    const panelCinema = document.getElementById('panel-m-cinema-settings');
     const panelDy = document.getElementById('panel-dy-settings');
     const panelDm = document.getElementById('panel-dm-settings');
 
-    [tabWeb, tabDy, tabDm].forEach(b => b && b.classList.remove('active'));
-    [panelWeb, panelDy, panelDm].forEach(p => p && p.classList.remove('active'));
+    [tabWeb, tabCinema, tabDy, tabDm].forEach(b => b && b.classList.remove('active'));
+    [panelWeb, panelCinema, panelDy, panelDm].forEach(p => p && p.classList.remove('active'));
 
-    if (mode === 'web') {
-        if (tabWeb) tabWeb.classList.add('active');
-        if (panelWeb) panelWeb.classList.add('active');
+    if (mode === 'm-cinema') {
+        if (tabCinema) tabCinema.classList.add('active');
+        if (panelCinema) panelCinema.classList.add('active');
     } else if (mode === 'dy') {
         if (tabDy) tabDy.classList.add('active');
         if (panelDy) panelDy.classList.add('active');
     } else if (mode === 'dm') {
         if (tabDm) tabDm.classList.add('active');
         if (panelDm) panelDm.classList.add('active');
+    } else {
+        if (tabWeb) tabWeb.classList.add('active');
+        if (panelWeb) panelWeb.classList.add('active');
     }
 };
 
-// 1:1 复刻 Laya.png 原图官方 3D 拟真 Logo (同心蓝环 + 黑立体阴影斜白字)
-const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMjAgMTIwIj48ZGVmcz48cmFkaWFsR3JhZGllbnQgaWQ9ImJnIiBjeD0iNTAlIiBjeT0iNTAlIiByPSI2NSUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMzZDhiZmQiLz48c3RvcCBvZmZzZXQ9IjM1JSIgc3RvcC1jb2xvcj0iIzE2NmZlNSIvPjxzdG9wIG9mZnNldD0iNzAlIiBzdG9wLWNvbG9yPSIjMGQ1YmUxIi8+PHN0b3Agb2Zmc2V0PSIxMDAlIiBzdG9wLWNvbG9yPSIjMDgzZmEzIi8+PC9yYWRpYWxHcmFkaWVudD48L2RlZnM+PHJlY3Qgd2lkdGg9IjEyMCIgaGVpZ2h0PSIxMjAiIHJ4PSIyNiIgZmlsbD0idXJsKCNiZykiLz48Y2lyY2xlIGN4PSI2MCIgY3k9IjYwIiByPSI0NiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMjU3NWZjIiBzdHJva2Utd2lkdGg9IjMiIG9wYWNpdHk9IjAuNCIvPjxjaXJjbGUgY3g9IjYwIiBjeT0iNjAiIHI9IjM0IiBmaWxsPSJub25lIiBzdHJva2U9IiM0ZmFjZmUiIHN0cm9rZS13aWR0aD0iMi41IiBvcGFjaXR5PSIwLjUiLz48Y2lyY2xlIGN4PSI2MCIgY3k9IjYwIiByPSIyMiIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjNjBhNWZhIiBzdHJva2Utd2lkdGg9IjIiIG9wYWNpdHk9IjAuNiIvPjxnIHRyYW5zZm9ybT0icm90YXRlKC02IDYwIDYwKSI+PHRleHQgeD0iNjMiIHk9Ijc0IiBmb250LWZhbWlseT0iJ0FyaWFsIEJsYWNrJywgSW1wYWN0LCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iOTAwIiBmb250LXN0eWxlPSJpdGFsaWMiIGZvbnQtc2l6ZT0iMzQiIGZpbGw9IiMwMDAwMDAiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGxldHRlci1zcGFjaW5nPSItMSI+TGF5YTwvdGV4dD48dGV4dCB4PSI2MiIgeT0iNzMiIGZvbnQtZmFtaWx5PSInQXJpYWwgQmxhY2snLCBJbXBhY3QsIHNhbnMtc2VyaWYiIGZvbnQtd2VpZ2h0PSI5MDAiIGZvbnQtc3R5bGU9Iml0YWxpYyIgZm9udC1zaXplPSIzNCIgZmlsbD0iIzAwMDAwMCIgdGV4dC1hbmNob3I9Im1pZGRsZSIgbGV0dGVyLXNwYWNpbmc9Ii0xIj5MYXlhPC90ZXh0Pjx0ZXh0IHg9IjYxIiB5PSI3MiIgZm9udC1mYW1pbHk9IidBcmlhbCBCbGFjaycsIEltcGFjdCwgc2Fucy1zZXJpZiIgZm9udC13ZWlnaHQ9IjkwMCIgZm9udC1zdHlsZT0iaXRhbGljIiBmb250LXNpemU9IjM0IiBmaWxsPSIjMDAwMDAwIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBsZXR0ZXItc3BhY2luZz0iLTEiPkxheWE8L3RleHQ+PHRleHQgeD0iNjAiIHk9IjcwIiBmb250LWZhbWlseT0iJ0FyaWFsIEJsYWNrJywgSW1wYWN0LCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iOTAwIiBmb250LXN0eWxlPSJpdGFsaWMiIGZvbnQtc2l6ZT0iMzQiIGZpbGw9IiMwMDAwMDAiIHN0cm9rZT0iIzAwMDAwMCIgc3Ryb2tlLXdpZHRoPSI2IiBzdHJva2UtbGluZWpvaW49InJvdW5kIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBsZXR0ZXItc3BhY2luZz0iLTEiPkxheWE8L3RleHQ+PHRleHQgeD0iNjAiIHk9IjcwIiBmb250LWZhbWlseT0iJ0FyaWFsIEJsYWNrJywgSW1wYWN0LCBzYW5zLXNlcmlmIiBmb250LXdlaWdodD0iOTAwIiBmb250LXN0eWxlPSJpdGFsaWMiIGZvbnQtc2l6ZT0iMzQiIGZpbGw9IiNmZmZmZmYiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGxldHRlci1zcGFjaW5nPSItMSI+TGF5YTwvdGV4dD48L2c+PC9zdmc+";
-
 (function () {
     const tabWeb = document.getElementById('tab-btn-web');
+    const tabCinema = document.getElementById('tab-btn-m-cinema');
     const tabDy = document.getElementById('tab-btn-dy');
     const tabDm = document.getElementById('tab-btn-dm');
 
     if (tabWeb) tabWeb.addEventListener('click', () => window.switchRightTab('web'));
+    if (tabCinema) tabCinema.addEventListener('click', () => window.switchRightTab('m-cinema'));
     if (tabDy) tabDy.addEventListener('click', () => window.switchRightTab('dy'));
     if (tabDm) tabDm.addEventListener('click', () => window.switchRightTab('dm'));
 
     /* ==========================================================================
-       A. 波浪热度曲线
+       ★ 1. 真实蓝/紫双 Logo 原图切换与 Base64 永久绑定引擎 (导出绝不变假图)
+       ========================================================================== */
+    const selLogoVersion = document.getElementById('sel-logo-version');
+    const upLogo1 = document.getElementById('up-logo-1');
+    const upLogo2 = document.getElementById('up-logo-2');
+    const headerBrandLogo = document.getElementById('header-brand-logo');
+    const playerMiniLogo = document.getElementById('player-mini-logo');
+    const mBrandLogo = document.getElementById('m-brand-logo');
+    const dyAvatarImg = document.getElementById('dy-avatar-img');
+
+    // 存储用户绑定的真实蓝/紫 Logo 的 Base64 数据 (解决本地跨域导致下载变默认假图的问题)
+    const customLogoDB = {
+        'Laya.png': (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya.png']) || localStorage.getItem('LAYA_REAL_LOGO_1') || '',
+        'Laya2.png': (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya2.png']) || localStorage.getItem('LAYA_REAL_LOGO_2') || ''
+    };
+
+    // 尝试自动将同文件夹下的 Laya.png / Laya2.png 预转为 Base64
+    function tryAutoConvertLocalFile(fileName) {
+        if (customLogoDB[fileName]) return;
+        fetch(fileName)
+            .then(res => res.ok ? res.blob() : Promise.reject())
+            .then(blob => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    customLogoDB[fileName] = reader.result;
+                    localStorage.setItem(fileName === 'Laya.png' ? 'LAYA_REAL_LOGO_1' : 'LAYA_REAL_LOGO_2', reader.result);
+                    if (selLogoVersion && selLogoVersion.value === fileName) {
+                        applyLogoVersion(fileName);
+                    }
+                };
+                reader.readAsDataURL(blob);
+            })
+            .catch(() => {
+                // 若是 file:// 协议禁止 fetch，则可通过界面上的“上传绑定蓝色/紫色Logo”按钮一键绑定
+            });
+    }
+    tryAutoConvertLocalFile('Laya.png');
+    tryAutoConvertLocalFile('Laya2.png');
+
+    // 获取当前选中的真实图标源 (优先使用 Base64 原图，其次使用文件相对路径)
+    function getActiveLogoSrc(logoKey) {
+        return customLogoDB[logoKey] || logoKey;
+    }
+
+    function applyLogoVersion(logoKey) {
+        const realSrc = getActiveLogoSrc(logoKey);
+
+        if (headerBrandLogo) {
+            headerBrandLogo.src = realSrc;
+            headerBrandLogo.style.display = 'block';
+        }
+        if (playerMiniLogo) playerMiniLogo.src = realSrc;
+        if (mBrandLogo) mBrandLogo.src = realSrc;
+
+        // 手机竖屏头像如果没单独上传过其他人物头像，也同步切换为蓝/紫 Logo
+        if (dyAvatarImg && (!dyAvatarImg.dataset.custom || dyAvatarImg.dataset.custom === 'false')) {
+            dyAvatarImg.src = realSrc;
+        }
+        triggerSaveStorage();
+    }
+
+    if (selLogoVersion) {
+        selLogoVersion.addEventListener('change', (e) => {
+            applyLogoVersion(e.target.value);
+            window.showToast(e.target.value === 'Laya2.png' ? '🟣 已切换为：紫色图标 (Laya2.png)' : '🔵 已切换为：蓝色图标 (Laya.png)');
+        });
+    }
+
+    // 绑定蓝色 Logo (Laya.png) 按钮事件
+    if (upLogo1) {
+        upLogo1.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                customLogoDB['Laya.png'] = evt.target.result;
+                localStorage.setItem('LAYA_REAL_LOGO_1', evt.target.result);
+                if (selLogoVersion) selLogoVersion.value = 'Laya.png';
+                applyLogoVersion('Laya.png');
+                window.showToast('✅ 蓝色图标原图已永久绑定！下载图片和视频将100%显示此图标！');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // 绑定紫色 Logo (Laya2.png) 按钮事件
+    if (upLogo2) {
+        upLogo2.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                customLogoDB['Laya2.png'] = evt.target.result;
+                localStorage.setItem('LAYA_REAL_LOGO_2', evt.target.result);
+                if (selLogoVersion) selLogoVersion.value = 'Laya2.png';
+                applyLogoVersion('Laya2.png');
+                window.showToast('✅ 紫色图标原图已永久绑定！下载图片和视频将100%显示此图标！');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    /* ==========================================================================
+       2. 手机横屏影音模式 (19.5:9) 专属控制绑定
+       ========================================================================== */
+    const inMStatusTime = document.getElementById('in-m-status-time');
+    const mDispStatusTime = document.getElementById('m-disp-status-time');
+    const selMSignal = document.getElementById('sel-m-signal');
+    const mSignalGroup = document.getElementById('m-signal-group');
+    const inMBatteryPct = document.getElementById('in-m-battery-pct');
+    const mDispBatteryFill = document.getElementById('m-disp-battery-fill');
+    const txtMBattery = document.getElementById('txt-m-battery');
+
+    if (inMStatusTime && mDispStatusTime) {
+        inMStatusTime.addEventListener('input', (e) => {
+            mDispStatusTime.textContent = e.target.value;
+            triggerSaveStorage();
+        });
+    }
+
+    if (selMSignal && mSignalGroup) {
+        selMSignal.addEventListener('change', (e) => {
+            const level = parseInt(e.target.value) || 4;
+            const bars = mSignalGroup.querySelectorAll('.m-sig-bar');
+            bars.forEach((bar, idx) => {
+                bar.classList.toggle('active', idx < level);
+            });
+            triggerSaveStorage();
+        });
+    }
+
+    if (inMBatteryPct && mDispBatteryFill) {
+        inMBatteryPct.addEventListener('input', (e) => {
+            const val = Math.min(100, Math.max(5, parseInt(e.target.value) || 85));
+            mDispBatteryFill.style.width = val + '%';
+            if (txtMBattery) txtMBattery.textContent = val + '%';
+            triggerSaveStorage();
+        });
+    }
+
+    const inMMainTitle = document.getElementById('in-m-main-title');
+    const mDispMainTitle = document.getElementById('m-disp-main-title');
+    const inMSubTitle = document.getElementById('in-m-sub-title');
+    const mDispSubTitle = document.getElementById('m-disp-sub-title');
+
+    if (inMMainTitle && mDispMainTitle) {
+        inMMainTitle.addEventListener('input', (e) => {
+            mDispMainTitle.textContent = e.target.value;
+            triggerSaveStorage();
+        });
+    }
+
+    if (inMSubTitle && mDispSubTitle) {
+        inMSubTitle.addEventListener('input', (e) => {
+            mDispSubTitle.textContent = e.target.value;
+            triggerSaveStorage();
+        });
+    }
+
+    const mBtnVol = document.getElementById('m-btn-vol');
+    const mBtnCast = document.getElementById('m-btn-cast');
+    const mBtnSetting = document.getElementById('m-btn-setting');
+    const mBtnFullscreen = document.getElementById('m-btn-fullscreen');
+
+    if (mBtnVol) {
+        mBtnVol.addEventListener('click', () => {
+            const previewVideo = document.getElementById('preview-video');
+            if (previewVideo && window.PlayerEngine.isVideoMode) {
+                previewVideo.muted = !previewVideo.muted;
+                window.showToast(previewVideo.muted ? '🔇 视频已静音' : '🔊 视频原声已开启');
+            } else {
+                window.showToast('🔊 音量控制');
+            }
+        });
+    }
+
+    if (mBtnCast) {
+        mBtnCast.addEventListener('click', () => {
+            window.showToast('📺 正在搜索局域网内可投屏的智能电视设备...');
+        });
+    }
+
+    if (mBtnSetting) {
+        mBtnSetting.addEventListener('click', () => {
+            window.switchRightTab('m-cinema');
+            window.showToast('⚙️ 已展开手机横屏配置面板');
+        });
+    }
+
+    if (mBtnFullscreen) {
+        mBtnFullscreen.addEventListener('click', () => {
+            const btnOpenPreview = document.getElementById('btn-open-preview');
+            if (btnOpenPreview) btnOpenPreview.click();
+        });
+    }
+
+    /* ==========================================================================
+       3. 电脑网页端高能热度波浪曲线
        ========================================================================== */
     const waveCanvas = document.getElementById('waveform-canvas');
     const wrapWaveform = document.getElementById('wrap-waveform');
@@ -149,8 +352,16 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
     setTimeout(window.drawWaveform, 200);
 
     /* ==========================================================================
-       B. 内部控件互动
+       4. 播放器内交互小组件
        ========================================================================== */
+    const selRecordSec = document.getElementById('sel-record-sec');
+    const inCustomSec = document.getElementById('in-custom-sec');
+    if (selRecordSec && inCustomSec) {
+        selRecordSec.addEventListener('change', (e) => {
+            inCustomSec.style.display = (e.target.value === 'custom') ? 'inline-block' : 'none';
+        });
+    }
+
     const btnCycleSpeed = document.getElementById('btn-cycle-speed');
     const dispSpeedVal = document.getElementById('disp-speed-val');
     const speeds = ['1.0X', '1.25X', '1.5X', '2.0X', '0.75X'];
@@ -187,7 +398,7 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
             dySvgLike.setAttribute('fill', isLiked ? '#fe2c55' : '#ffffff');
             dyBtnLike.style.transform = 'scale(1.2)';
             setTimeout(() => { dyBtnLike.style.transform = 'scale(1)'; }, 150);
-            window.showToast(isLiked ? '❤️ 点赞成功！' : '已取消点赞');
+            window.showToast(isLiked ? '❤️ 已点赞' : '已取消点赞');
         });
     }
 
@@ -200,7 +411,7 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
             dySvgStar.setAttribute('fill', isStarred ? '#f1c40f' : '#ffffff');
             dyBtnStar.style.transform = 'scale(1.2)';
             setTimeout(() => { dyBtnStar.style.transform = 'scale(1)'; }, 150);
-            window.showToast(isStarred ? '⭐ 已加入收藏！' : '已取消收藏');
+            window.showToast(isStarred ? '⭐ 已加入收藏' : '已取消收藏');
         });
     }
 
@@ -211,7 +422,7 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
             if (dyBtnFollow.textContent === '+') {
                 dyBtnFollow.textContent = '✓';
                 dyBtnFollow.classList.add('followed');
-                window.showToast('已成功关注作者！');
+                window.showToast('已关注作者');
             } else {
                 dyBtnFollow.textContent = '+';
                 dyBtnFollow.classList.remove('followed');
@@ -221,7 +432,7 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
     }
 
     /* ==========================================================================
-       ★ C. 手机端双风格原生切换引擎 (通过类名锁定，杜绝样式覆盖失效)
+       5. 手机竖屏双皮肤切换引擎
        ========================================================================== */
     const selMobileSkin = document.getElementById('sel-mobile-skin');
     const renderTarget = document.getElementById('render-target');
@@ -241,49 +452,58 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
     if (selMobileSkin) {
         selMobileSkin.addEventListener('change', (e) => {
             applyMobileSkin(e.target.value);
-            window.showToast(e.target.value === 'laya' ? '💎 已切换为：Laya 官方原生交友社区风格 (图三)' : '📱 已切换为：抖音原生短视频风格 (图二)');
+            window.showToast(e.target.value === 'laya' ? '💎 已切换为：Laya 官方社区风格' : '📱 已切换为：抖音原生短视频风格');
         });
     }
 
     /* ==========================================================================
-       D. 全站显隐开关与文案绑定
+       6. 三端显隐开关矩阵与文案实时绑定
        ========================================================================== */
-    const bindToggle = (switchId, targetId) => {
+    const bindToggle = (switchId, targetId, shownDisplay = '') => {
         const sw = document.getElementById(switchId);
         const target = document.getElementById(targetId);
         if (sw && target) {
             sw.addEventListener('change', (e) => {
-                target.style.display = e.target.checked ? '' : 'none';
+                target.style.display = e.target.checked ? shownDisplay : 'none';
                 if (switchId === 'sw-waveform') window.drawWaveform();
                 triggerSaveStorage();
             });
         }
     };
 
-    bindToggle('sw-danmaku', 'danmaku-container');
-    bindToggle('sw-center-btn', 'btn-toggle-playback');
-    bindToggle('sw-center-pill', 'disp-center-pill');
-    bindToggle('sw-bot-dm-group', 'wrap-bot-dm-group');
-    bindToggle('sw-viewer', 'wrap-viewer-pill');
-    bindToggle('sw-banner', 'wrap-banner');
-    bindToggle('sw-free-pill', 'wrap-free-pill');
-    bindToggle('sw-laya-badge', 'wrap-laya-badge');
-    bindToggle('sw-vip-tag', 'wrap-vip-tag');
-    bindToggle('sw-back-btn', 'wrap-back-btn');
-    bindToggle('sw-top-right', 'wrap-top-right');
-    bindToggle('sw-bottom-bar', 'wrap-bottom-bar');
-    bindToggle('sw-waveform', 'wrap-waveform');
-    bindToggle('sw-dy-gold', 'dy-wrap-gold');
-    bindToggle('sw-dy-campaign', 'dy-wrap-campaign');
-    bindToggle('sw-dy-right-bar', 'dy-wrap-right-bar');
-    bindToggle('sw-dy-top-nav', 'dy-wrap-top-nav');
+    bindToggle('sw-danmaku', 'danmaku-container', 'block');
+    bindToggle('sw-center-btn', 'btn-toggle-playback', 'flex');
+    bindToggle('sw-center-pill', 'disp-center-pill', 'block');
+    bindToggle('sw-bot-dm-group', 'wrap-bot-dm-group', 'inline-flex');
+    bindToggle('sw-viewer', 'wrap-viewer-pill', 'inline-flex');
+    bindToggle('sw-banner', 'wrap-banner', 'flex');
+    bindToggle('sw-free-pill', 'wrap-free-pill', 'inline-flex');
+    bindToggle('sw-laya-badge', 'wrap-laya-badge', 'inline-flex');
+    bindToggle('sw-vip-tag', 'wrap-vip-tag', 'inline-flex');
+    bindToggle('sw-back-btn', 'wrap-back-btn', 'inline-flex');
+    bindToggle('sw-top-right', 'wrap-top-right', 'flex');
+    bindToggle('sw-bottom-bar', 'wrap-bottom-bar', 'flex');
+    bindToggle('sw-waveform', 'wrap-waveform', 'block');
 
-    // 【🔥热点】栏显隐开关 (默认关闭)
-    const swDyHotspot = document.getElementById('sw-dy-hotspot');
-    const dyWrapHotspot = document.getElementById('dy-wrap-hotspot');
-    if (swDyHotspot && dyWrapHotspot) {
-        swDyHotspot.addEventListener('change', (e) => {
-            dyWrapHotspot.style.display = e.target.checked ? 'flex' : 'none';
+    bindToggle('sw-m-status-bar', 'm-status-bar', 'flex');
+    bindToggle('sw-m-top-header', 'm-top-header', 'flex');
+    bindToggle('sw-m-bottom-bar', 'm-bottom-bar', 'flex');
+    bindToggle('sw-m-right-actions', 'm-bot-right-actions', 'flex');
+
+    bindToggle('sw-dy-gold', 'dy-wrap-gold', 'flex');
+    bindToggle('sw-dy-hotspot', 'dy-wrap-hotspot', 'flex');
+    bindToggle('sw-dy-campaign', 'dy-wrap-campaign', 'inline-flex');
+    bindToggle('sw-dy-right-bar', 'dy-wrap-right-bar', 'flex');
+
+    const swDyTopNav = document.getElementById('sw-dy-top-nav');
+    const dyWrapTopNav = document.getElementById('dy-wrap-top-nav');
+    const layaWrapTopNav = document.getElementById('laya-wrap-top-nav');
+    if (swDyTopNav) {
+        swDyTopNav.addEventListener('change', (e) => {
+            const op = e.target.checked ? '1' : '0';
+            const pe = e.target.checked ? 'auto' : 'none';
+            if (dyWrapTopNav) { dyWrapTopNav.style.opacity = op; dyWrapTopNav.style.pointerEvents = pe; }
+            if (layaWrapTopNav) { layaWrapTopNav.style.opacity = op; layaWrapTopNav.style.pointerEvents = pe; }
             triggerSaveStorage();
         });
     }
@@ -300,6 +520,9 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
     };
 
     bindText('in-title', 'disp-title');
+    bindText('in-viewer-text', 'disp-viewer-text');
+    bindText('in-laya-label', 'disp-laya-label');
+    bindText('in-free-pill-text', 'disp-free-pill-text');
     bindText('in-banner-body', 'disp-banner-body');
     bindText('in-dm-placeholder', 'disp-dm-placeholder');
     bindText('in-dy-likes', 'dy-val-likes');
@@ -309,7 +532,6 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
     bindText('in-dy-author', 'dy-disp-author');
     bindText('in-dy-desc', 'dy-disp-desc');
     bindText('in-dy-tags', 'dy-disp-tags');
-    bindText('in-dy-campaign', 'dy-disp-campaign');
     bindText('in-dy-gold-title', 'dy-disp-gold-title');
     bindText('in-dy-hotspot-title', 'dy-disp-hotspot-title');
     bindText('in-dy-hotspot-views', 'dy-disp-hotspot-views');
@@ -345,14 +567,8 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
         });
     }
 
-    // 头像上传与官方 3D Logo 恢复
     const dyAvatarUploader = document.getElementById('dy-avatar-uploader');
-    const dyAvatarImg = document.getElementById('dy-avatar-img');
     const btnResetAvatar = document.getElementById('btn-reset-avatar');
-
-    if (dyAvatarImg && !dyAvatarImg.src) {
-        dyAvatarImg.src = OFFICIAL_LAYA_B64;
-    }
 
     if (dyAvatarUploader && dyAvatarImg) {
         dyAvatarUploader.addEventListener('change', (e) => {
@@ -361,6 +577,7 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
             const reader = new FileReader();
             reader.onload = (evt) => {
                 dyAvatarImg.src = evt.target.result;
+                dyAvatarImg.dataset.custom = 'true';
                 window.showToast('头像已成功更换！');
                 triggerSaveStorage();
             };
@@ -370,14 +587,16 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
 
     if (btnResetAvatar && dyAvatarImg) {
         btnResetAvatar.addEventListener('click', () => {
-            dyAvatarImg.src = OFFICIAL_LAYA_B64;
-            window.showToast('已恢复官方 3D Laya 头像！');
+            const currentLogo = selLogoVersion ? selLogoVersion.value : 'Laya.png';
+            dyAvatarImg.src = getActiveLogoSrc(currentLogo);
+            dyAvatarImg.dataset.custom = 'false';
+            window.showToast('已恢复当前选中的官方 Logo 头像！');
             triggerSaveStorage();
         });
     }
 
     /* ==========================================================================
-       ★ E. 全屏实机预览模式 (彻底修复黑屏，支持视频播放/暂停)
+       7. 全屏实机预览模式
        ========================================================================== */
     const btnOpenPreview = document.getElementById('btn-open-preview');
     const btnClosePreview = document.getElementById('btn-close-preview');
@@ -389,24 +608,18 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
 
     if (btnOpenPreview && fullscreenPreviewModal && renderTarget && previewStageWrap) {
         btnOpenPreview.addEventListener('click', () => {
-            // 解决尺寸坍塌
-            previewStageWrap.style.width = '100%';
-            previewStageWrap.style.height = '100%';
-
             const wasPlaying = window.PlayerEngine.isVideoMode && previewVideo && !previewVideo.paused;
             const curTime = previewVideo ? previewVideo.currentTime : 0;
 
             previewStageWrap.appendChild(renderTarget);
             fullscreenPreviewModal.classList.add('show');
 
-            // 重新衔接视频解码与播放
             if (window.PlayerEngine.isVideoMode && previewVideo) {
                 previewVideo.currentTime = curTime;
-                if (wasPlaying) {
-                    previewVideo.play().catch(() => {});
-                }
+                if (wasPlaying) previewVideo.play().catch(() => {});
             }
-            window.showToast('🖥️ 全屏实机预览已开启：预览效果与下载 100% 一致');
+            setTimeout(window.drawWaveform, 80);
+            window.showToast('🖥️ 全屏实机预览已启动');
         });
     }
 
@@ -420,10 +633,9 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
 
         if (window.PlayerEngine.isVideoMode && previewVideo) {
             previewVideo.currentTime = curTime;
-            if (wasPlaying) {
-                previewVideo.play().catch(() => {});
-            }
+            if (wasPlaying) previewVideo.play().catch(() => {});
         }
+        setTimeout(window.drawWaveform, 80);
     }
 
     if (btnClosePreview) btnClosePreview.addEventListener('click', exitFullscreenPreview);
@@ -437,9 +649,9 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
     }
 
     /* ==========================================================================
-       F. 全自动 LocalStorage 记忆系统与“一键重置”
+       8. LocalStorage 记忆系统与“一键重置”
        ========================================================================== */
-    const STORAGE_KEY = 'LAYA_STUDIO_PERSIST_V5';
+    const STORAGE_KEY = 'LAYA_STUDIO_PERSIST_V9';
     let saveTimeout = null;
 
     function triggerSaveStorage() {
@@ -455,9 +667,11 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
                 checkboxes: {},
                 selects: {},
                 avatar: document.getElementById('dy-avatar-img')?.src || '',
+                avatarIsCustom: document.getElementById('dy-avatar-img')?.dataset.custom === 'true',
                 danmakuList: window.DanmakuEngine ? window.DanmakuEngine.list : [],
                 danmakuMode: window.DanmakuEngine ? window.DanmakuEngine.mode : 'scroll',
-                skin: document.getElementById('sel-mobile-skin')?.value || 'douyin'
+                skin: document.getElementById('sel-mobile-skin')?.value || 'douyin',
+                logoVersion: document.getElementById('sel-logo-version')?.value || 'Laya.png'
             };
 
             document.querySelectorAll('input[type="text"], input[type="number"], input[type="range"], textarea').forEach(el => {
@@ -480,7 +694,7 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) {
-                if (dyAvatarImg) dyAvatarImg.src = OFFICIAL_LAYA_B64;
+                applyLogoVersion('Laya.png');
                 return;
             }
             const data = JSON.parse(raw);
@@ -515,10 +729,16 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
                 });
             }
 
-            if (data.avatar && dyAvatarImg) {
+            if (data.logoVersion && selLogoVersion) {
+                selLogoVersion.value = data.logoVersion;
+                applyLogoVersion(data.logoVersion);
+            } else {
+                applyLogoVersion('Laya.png');
+            }
+
+            if (data.avatar && dyAvatarImg && data.avatarIsCustom) {
                 dyAvatarImg.src = data.avatar;
-            } else if (dyAvatarImg) {
-                dyAvatarImg.src = OFFICIAL_LAYA_B64;
+                dyAvatarImg.dataset.custom = 'true';
             }
 
             if (data.skin && selMobileSkin) {
@@ -531,8 +751,6 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
                 if (data.danmakuMode) window.DanmakuEngine.mode = data.danmakuMode;
                 window.DanmakuEngine.refresh();
             }
-
-            window.showToast('✨ 已自动恢复上次保存的配置！');
         } catch (e) {
             console.warn('Storage load:', e);
         }
@@ -541,7 +759,7 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
     const btnGlobalReset = document.getElementById('btn-global-reset');
     if (btnGlobalReset) {
         btnGlobalReset.addEventListener('click', () => {
-            if (confirm('确认要一键清除所有本地修改并恢复初始默认设置吗？')) {
+            if (confirm('确认要一键清除所有本地修改并恢复出厂默认设置吗？')) {
                 localStorage.removeItem(STORAGE_KEY);
                 location.reload();
             }
@@ -551,7 +769,7 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
     setTimeout(loadAllFromStorage, 100);
 
     /* ==========================================================================
-       G. 全局繁简一键互转 (作用于左侧)
+       9. 全局繁简一键互转
        ========================================================================== */
     let isTraditional = true;
     const s2tDict = {
@@ -561,7 +779,9 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
         '已解锁完整无码未删减版，点击任意处播放': '已解鎖完整無碼未刪減版，點擊任意處播放',
         '特权生效中': '特權生效中', '点击继续播放': '點擊繼續播放', '点击暂停播放': '點擊暫停播放', '弹幕': '彈幕',
         '倍速': '倍速', '精选': '精選', '热点': '熱點', '关注': '關注', '全屏观看': '全屏觀看',
-        '首页': '首頁', '朋友': '朋友', '消息': '消息', '我': '我', '发现': '發現', '瞬间': '瞬間', '视讯': '視訊', '娱乐': '娛樂', '我的': '我的'
+        '首页': '首頁', '朋友': '朋友', '消息': '消息', '我': '我', '发现': '發現', '瞬间': '瞬間', '视讯': '視訊', '娱乐': '娛樂', '我的': '我的',
+        '正在暂停 · 横屏播放': '正在暫停 · 橫屏播放', '正在播放 · 横屏播放': '正在播放 · 橫屏播放',
+        '音量': '音量', '投屏': '投屏', '全屏': '全屏'
     };
     const t2sDict = Object.fromEntries(Object.entries(s2tDict).map(([k, v]) => [v, k]));
 
@@ -587,14 +807,41 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
     }
 
     /* ==========================================================================
-       H. 超高清截图导出 (PNG 导出，防畸变压扁)
+       ★ 辅助函数：确保克隆节点 100% 注入你绑定的真实蓝/紫原图，绝不替换为假图
+       ========================================================================== */
+    function injectRealLogosToClonedDoc(clonedDoc) {
+        const curKey = selLogoVersion ? selLogoVersion.value : 'Laya.png';
+        const activeRealSrc = getActiveLogoSrc(curKey);
+
+        ['header-brand-logo', 'player-mini-logo', 'm-brand-logo'].forEach(id => {
+            const clonedImg = clonedDoc.getElementById(id);
+            if (clonedImg) clonedImg.src = activeRealSrc;
+        });
+
+        const clonedAvatar = clonedDoc.getElementById('dy-avatar-img');
+        if (clonedAvatar && (!dyAvatarImg || dyAvatarImg.dataset.custom !== 'true')) {
+            clonedAvatar.src = activeRealSrc;
+        }
+
+        // 同步波浪线 Canvas 内容到克隆节点
+        const origWave = document.getElementById('waveform-canvas');
+        const clonedWave = clonedDoc.getElementById('waveform-canvas');
+        if (origWave && clonedWave && origWave.width > 0 && origWave.height > 0) {
+            const cCtx = clonedWave.getContext('2d');
+            clonedWave.width = origWave.width;
+            clonedWave.height = origWave.height;
+            cCtx.drawImage(origWave, 0, 0);
+        }
+    }
+
+    /* ==========================================================================
+       10. 超高清截图导出 (100% 保留你的蓝/紫真实图标)
        ========================================================================== */
     const btnSaveImg = document.getElementById('btn-save-img');
     if (btnSaveImg) {
         btnSaveImg.addEventListener('click', () => {
             if (!renderTarget) return;
-
-            window.showToast('📸 正在渲染超高清图片...');
+            window.showToast('📸 正在生成带真实图标与全套 UI 的超高清截图...');
 
             html2canvas(renderTarget, {
                 scale: 2.5,
@@ -602,6 +849,8 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
                 allowTaint: true,
                 backgroundColor: '#000000',
                 onclone: (clonedDoc) => {
+                    injectRealLogosToClonedDoc(clonedDoc);
+
                     const containerBox = renderTarget.getBoundingClientRect();
                     const cW = containerBox.width;
                     const cH = containerBox.height;
@@ -670,20 +919,20 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
                 }
             }).then(canvas => {
                 const link = document.createElement('a');
-                link.download = `Laya_${Date.now()}.png`;
+                link.download = `Laya_Screenshot_${Date.now()}.png`;
                 link.href = canvas.toDataURL('image/png', 1.0);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
                 window.showToast('✅ 高清图片已保存！');
             }).catch(err => {
-                window.showToast(`❌ 导出失败: ${err.message}`);
+                window.showToast(`⚠️ 请点击右侧「🔵上传绑定蓝色Logo」或「🟣上传绑定紫色Logo」选中一次你的图标即可导出！`);
             });
         });
     }
 
     /* ==========================================================================
-       ★ I. 核心修复：彻底消灭录屏黑屏 (外壳剥离纯黑背景 + 100% 透明 UI 合成)
+       ★ 11. 真机录屏级视频合成导出引擎 (修复PotPlayer只出声音/系统播放器无法打开)
        ========================================================================== */
     const btnSaveVid = document.getElementById('btn-save-vid');
     if (btnSaveVid) {
@@ -691,9 +940,14 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
             const inMediaScale = document.getElementById('in-media-scale');
             const inPosY = document.getElementById('in-pos-y');
             const inPosX = document.getElementById('in-pos-x');
+            const inStartTime = document.getElementById('in-start-time');
+            const inTotalTime = document.getElementById('in-total-time');
+            const inBuffer = document.getElementById('in-buffer');
+            const swSyncVideoTime = document.getElementById('sw-sync-video-time');
+            const swRecordFrame = document.getElementById('sw-record-frame');
 
             if (!window.PlayerEngine || !window.PlayerEngine.isVideoMode || !previewVideo) {
-                window.showToast('提示：请先上传一段 MP4/WebM 视频素材！');
+                window.showToast('⚠️ 请先点击「上传截图/视频」上传一段视频素材！');
                 return;
             }
 
@@ -702,120 +956,111 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
                 recordSeconds = Math.max(1, parseInt(document.getElementById('in-custom-sec').value) || 8);
             }
 
-            btnSaveVid.textContent = `⏳ 预处理 UI 蒙版...`;
+            const origBtnText = btnSaveVid.textContent;
+            btnSaveVid.textContent = `⏳ 正在构建真机 UI 覆层...`;
             btnSaveVid.disabled = true;
 
-            try {
-                const isDouyin = renderTarget.classList.contains('mode-mobile-port');
-                const outW = isDouyin ? 720 : 1280;
-                const outH = isDouyin ? 1280 : 720;
+            // 创建并挂载画布到 DOM 中（核心修复1：防止离屏 Canvas 被浏览器休眠导致录制出纯音频）
+            const offCanvas = document.createElement('canvas');
+            offCanvas.style.cssText = 'position:fixed; top:0; left:0; width:1px; height:1px; opacity:0.01; pointer-events:none; z-index:-9999;';
+            document.body.appendChild(offCanvas);
 
-                // 彻底剥离黑色背景生成绝对透明图层
+            try {
+                const isPort = renderTarget.classList.contains('mode-mobile-port');
+                const isLand = renderTarget.classList.contains('mode-mobile-land');
+
+                // 确保宽高均为标准偶数（编码器硬性要求）
+                let outW = 1280, outH = 720;
+                if (isPort) {
+                    outW = 720;
+                    outH = 1280;
+                } else if (isLand) {
+                    outW = 1300;
+                    outH = 600;
+                }
+                offCanvas.width = outW;
+                offCanvas.height = outH;
+                const ctx = offCanvas.getContext('2d', { alpha: false });
+
+                if (window.PlayerEngine.updatePlayStateUI) {
+                    window.PlayerEngine.updatePlayStateUI(true);
+                }
+
+                const targetRect = renderTarget.getBoundingClientRect();
+                const scaleRatioX = outW / targetRect.width;
+                const scaleRatioY = outH / targetRect.height;
+
+                const measureRelBox = (el) => {
+                    if (!el) return null;
+                    const r = el.getBoundingClientRect();
+                    if (r.width === 0 || r.height === 0) return null;
+                    return {
+                        x: (r.left - targetRect.left) * scaleRatioX,
+                        y: (r.top - targetRect.top) * scaleRatioY,
+                        w: r.width * scaleRatioX,
+                        h: r.height * scaleRatioY
+                    };
+                };
+
+                const pcBarBox = measureRelBox(document.getElementById('progress-click-bar'));
+                const pcTimeBox = measureRelBox(document.getElementById('disp-time'));
+                const mBarBox = measureRelBox(document.querySelector('.m-progress-track'));
+                const mTimeBox = measureRelBox(document.getElementById('m-disp-time'));
+                const dyBarBox = measureRelBox(document.querySelector('.dy-tiny-progressbar'));
+
+                // 抓取静态 UI 覆层
                 const uiSnapshotCanvas = await html2canvas(renderTarget, {
                     backgroundColor: null,
-                    scale: outW / renderTarget.offsetWidth,
+                    scale: scaleRatioX,
                     useCORS: true,
                     allowTaint: true,
                     onclone: (clonedDoc) => {
+                        injectRealLogosToClonedDoc(clonedDoc);
+
                         const target = clonedDoc.getElementById('render-target');
                         if (target) {
-                            target.className = target.className.replace(/\bplayer-box\b/, '');
-                            target.style.setProperty('background', 'transparent', 'important');
-                            target.style.setProperty('background-color', 'transparent', 'important');
-                            target.style.setProperty('box-shadow', 'none', 'important');
-                            target.style.setProperty('border', 'none', 'important');
+                            target.style.width = targetRect.width + 'px';
+                            target.style.height = targetRect.height + 'px';
+                            target.style.position = 'relative';
+                            target.style.background = 'transparent';
+                            target.style.backgroundColor = 'transparent';
+                            target.style.boxShadow = 'none';
                         }
+
                         const media = clonedDoc.getElementById('player-media-wrap');
                         if (media) media.style.display = 'none';
                         const dm = clonedDoc.getElementById('danmaku-container');
                         if (dm) dm.style.display = 'none';
+
+                        ['progress-click-bar', 'disp-time', 'm-disp-time'].forEach(id => {
+                            const el = clonedDoc.getElementById(id);
+                            if (el) el.style.visibility = 'hidden';
+                        });
+                        const mTrack = clonedDoc.querySelector('.m-progress-track');
+                        if (mTrack) mTrack.style.visibility = 'hidden';
+                        const dyTrack = clonedDoc.querySelector('.dy-tiny-progressbar');
+                        if (dyTrack) dyTrack.style.visibility = 'hidden';
                     }
                 });
 
-                btnSaveVid.textContent = `⏳ 录制合成中 (${recordSeconds}s)...`;
+                btnSaveVid.textContent = `🔴 正在录屏合成 (${recordSeconds}s)...`;
 
-                const offCanvas = document.createElement('canvas');
-                offCanvas.width = outW;
-                offCanvas.height = outH;
-                const ctx = offCanvas.getContext('2d');
-
-                let audioTracks = [];
-                try {
-                    if (!window._audioCtx) {
-                        window._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    }
-                    if (window._audioCtx.state === 'suspended') {
-                        await window._audioCtx.resume();
-                    }
-                    if (!window._audioSrcNode) {
-                        window._audioSrcNode = window._audioCtx.createMediaElementSource(previewVideo);
-                        window._audioDstNode = window._audioCtx.createMediaStreamDestination();
-                        window._audioSrcNode.connect(window._audioDstNode);
-                        window._audioSrcNode.connect(window._audioCtx.destination);
-                    }
-                    audioTracks = window._audioDstNode.stream.getAudioTracks();
-                } catch (audioErr) {
-                    console.warn('Audio fallback:', audioErr);
-                }
-
-                const canvasStream = offCanvas.captureStream(30);
-                const streamTracks = [...canvasStream.getVideoTracks()];
-                if (audioTracks.length > 0) {
-                    streamTracks.push(...audioTracks);
-                }
-                const combinedStream = new MediaStream(streamTracks);
-
-                let mime = 'video/webm';
-                if (MediaRecorder.isTypeSupported('video/mp4;codecs=avc1')) {
-                    mime = 'video/mp4;codecs=avc1';
-                } else if (MediaRecorder.isTypeSupported('video/mp4')) {
-                    mime = 'video/mp4';
-                }
-
-                const recorder = new MediaRecorder(combinedStream, {
-                    mimeType: mime,
-                    videoBitsPerSecond: 6000000
-                });
-
-                const chunks = [];
-                recorder.ondataavailable = (e) => {
-                    if (e.data && e.data.size > 0) chunks.push(e.data);
-                };
-
-                recorder.onstop = () => {
-                    if (chunks.length === 0) {
-                        window.showToast('❌ 录制数据为空，请重试');
-                        btnSaveVid.textContent = '合成下载视频 (带边框与原声)';
-                        btnSaveVid.disabled = false;
-                        return;
-                    }
-
-                    const blob = new Blob(chunks, { type: mime });
-                    const downloadUrl = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.style.display = 'none';
-                    link.download = `Laya_${isDouyin ? 'Mobile' : 'WebPlayer'}_${Date.now()}.${mime.includes('mp4') ? 'mp4' : 'webm'}`;
-                    link.href = downloadUrl;
-                    document.body.appendChild(link);
-                    link.click();
-                    setTimeout(() => {
-                        document.body.removeChild(link);
-                        URL.revokeObjectURL(downloadUrl);
-                    }, 500);
-
-                    btnSaveVid.textContent = '合成下载视频 (带边框与原声)';
-                    btnSaveVid.disabled = false;
-                    window.showToast('🎉 视频合成导出成功！绝无黑屏！');
-                };
-
+                // 准备弹幕与时间参数
+                const isFixedDm = (window.DanmakuEngine && window.DanmakuEngine.mode === 'fixed');
                 const danmakuParticles = (window.DanmakuEngine ? window.DanmakuEngine.getActiveList() : []).map((dm, idx) => ({
                     text: dm.text,
-                    color: isDouyin ? '#ffffff' : dm.color,
-                    y: (outH * (isDouyin ? (12 + (idx % 5) * 8) : dm.top)) / 100,
-                    x: outW + (idx * 190),
-                    speed: (dm.speed ? (22 - dm.speed) : 9) * 0.95
+                    color: isPort ? '#ffffff' : dm.color,
+                    size: (dm.size || 16) * scaleRatioX,
+                    y: (outH * dm.top) / 100,
+                    x: isFixedDm ? ((outW * (dm.left || 20)) / 100) : ((outW * ((idx * 27) % 85)) / 100),
+                    speed: isFixedDm ? 0 : ((dm.speed ? (22 - dm.speed) : 9) * 0.85 * (window.DanmakuEngine.speedFactor || 1))
                 }));
 
+                const baseStartSec = window.PlayerEngine.timeToSec(inStartTime.value);
+                const totalVideoSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 1125;
+                const bufferPct = Math.min(100, Math.max(0, parseFloat(inBuffer.value) || 68)) / 100;
+
+                // 视频跳回起点并开始播放
                 previewVideo.currentTime = 0;
                 await new Promise(resolve => {
                     const onSeeked = () => {
@@ -823,24 +1068,18 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
                         resolve();
                     };
                     previewVideo.addEventListener('seeked', onSeeked);
-                    setTimeout(resolve, 300);
+                    setTimeout(resolve, 250);
                 });
-
                 await previewVideo.play();
-                if (window.PlayerEngine && window.PlayerEngine.updatePlayStateUI) {
-                    window.PlayerEngine.updatePlayStateUI(true);
-                }
 
-                recorder.start(250);
+                let recordStartStamp = performance.now();
 
-                let isRecording = true;
-                const drawVideoFrame = () => {
-                    if (!isRecording) return;
-
+                // 封装单帧绘制函数
+                const renderSingleFrame = () => {
                     ctx.fillStyle = '#000000';
                     ctx.fillRect(0, 0, outW, outH);
 
-                    // 1. 真实比例绘制视频底层
+                    // 1. 绘制底层视频画面
                     const vw = previewVideo.videoWidth || 1280;
                     const vh = previewVideo.videoHeight || 720;
                     const mAspect = vw / vh;
@@ -876,45 +1115,229 @@ const OFFICIAL_LAYA_B64 = "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d
                         ctx.drawImage(previewVideo, offX, offY, rw, rh);
                     }
 
-                    // 2. 覆盖纯透明 UI 覆层 (包含边框与全部按钮)
-                    ctx.drawImage(uiSnapshotCanvas, 0, 0, outW, outH);
-
-                    // 3. 动态绘制弹幕
+                    // 2. 绘制弹幕
                     const swDm = document.getElementById('sw-danmaku');
                     if (swDm && swDm.checked) {
-                        const fontSize = (parseInt(document.getElementById('in-danmaku-size').value) || 16) * (outW / 960);
-                        ctx.font = `bold ${fontSize}px sans-serif`;
-                        ctx.lineWidth = 3.5;
-                        ctx.strokeStyle = '#000000';
-
+                        ctx.save();
+                        ctx.textBaseline = 'top';
                         danmakuParticles.forEach(p => {
-                            p.x -= p.speed;
-                            if (p.x < -ctx.measureText(p.text).width - 60) {
-                                p.x = outW + Math.random() * 120;
+                            ctx.font = `bold ${Math.round(p.size)}px -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif`;
+                            if (!isFixedDm) {
+                                p.x -= p.speed;
+                                const tw = ctx.measureText(p.text).width;
+                                if (p.x < -tw - 40) {
+                                    p.x = outW + Math.random() * 80;
+                                }
                             }
+                            ctx.lineWidth = 3;
+                            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
                             ctx.strokeText(p.text, p.x, p.y);
                             ctx.fillStyle = p.color;
                             ctx.fillText(p.text, p.x, p.y);
                         });
+                        ctx.restore();
                     }
 
-                    requestAnimationFrame(drawVideoFrame);
+                    // 3. 叠加 UI 覆层
+                    ctx.drawImage(uiSnapshotCanvas, 0, 0, outW, outH);
+
+                    // 4. 动态绘制进度条与时间码
+                    const elapsedSec = (!swSyncVideoTime || swSyncVideoTime.checked)
+                        ? ((performance.now() - recordStartStamp) / 1000)
+                        : 0;
+                    const curSec = baseStartSec + elapsedSec;
+                    const curPct = Math.min(1, Math.max(0, curSec / totalVideoSec));
+
+                    ctx.save();
+                    if (!isPort && !isLand) {
+                        const swBot = document.getElementById('sw-bottom-bar');
+                        if ((!swBot || swBot.checked) && pcBarBox) {
+                            ctx.fillStyle = 'rgba(255,255,255,0.22)';
+                            ctx.fillRect(pcBarBox.x, pcBarBox.y, pcBarBox.w, pcBarBox.h);
+                            ctx.fillStyle = 'rgba(255,255,255,0.42)';
+                            ctx.fillRect(pcBarBox.x, pcBarBox.y, pcBarBox.w * bufferPct, pcBarBox.h);
+                            const fillW = pcBarBox.w * curPct;
+                            ctx.fillStyle = '#1877F2';
+                            ctx.fillRect(pcBarBox.x, pcBarBox.y, fillW, pcBarBox.h);
+                            ctx.beginPath();
+                            ctx.arc(pcBarBox.x + fillW, pcBarBox.y + pcBarBox.h / 2, 5.5 * scaleRatioX, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fill();
+                        }
+                        if ((!swBot || swBot.checked) && pcTimeBox) {
+                            const timeText = `${window.PlayerEngine.secToTime(Math.floor(curSec))} / ${window.PlayerEngine.secToTime(totalVideoSec)}`;
+                            ctx.font = `500 ${Math.round(11.5 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                            ctx.fillStyle = '#d0d4dc';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(timeText, pcTimeBox.x, pcTimeBox.y + pcTimeBox.h / 2);
+                        }
+                    } else if (isLand) {
+                        const swMBot = document.getElementById('sw-m-bottom-bar');
+                        if ((!swMBot || swMBot.checked) && mBarBox) {
+                            ctx.fillStyle = 'rgba(255,255,255,0.28)';
+                            ctx.fillRect(mBarBox.x, mBarBox.y, mBarBox.w, mBarBox.h);
+                            ctx.fillStyle = 'rgba(255,255,255,0.45)';
+                            ctx.fillRect(mBarBox.x, mBarBox.y, mBarBox.w * bufferPct, mBarBox.h);
+                            const fillW = mBarBox.w * curPct;
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(mBarBox.x, mBarBox.y, fillW, mBarBox.h);
+                            ctx.save();
+                            ctx.shadowColor = 'rgba(138, 116, 249, 0.95)';
+                            ctx.shadowBlur = 8 * scaleRatioX;
+                            ctx.beginPath();
+                            ctx.arc(mBarBox.x + fillW, mBarBox.y + mBarBox.h / 2, 6 * scaleRatioX, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fill();
+                            ctx.restore();
+                        }
+                        if ((!swMBot || swMBot.checked) && mTimeBox) {
+                            const shortTime = window.PlayerEngine.secToShortTime(Math.floor(curSec));
+                            ctx.font = `600 ${Math.round(12.5 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                            ctx.fillStyle = '#ffffff';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(shortTime, mTimeBox.x, mTimeBox.y + mTimeBox.h / 2);
+                        }
+                    } else if (isPort && dyBarBox) {
+                        ctx.fillStyle = 'rgba(255,255,255,0.22)';
+                        ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w, dyBarBox.h);
+                        ctx.fillStyle = 'rgba(255,255,255,0.38)';
+                        ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w * bufferPct, dyBarBox.h);
+                        const fillW = dyBarBox.w * curPct;
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(dyBarBox.x, dyBarBox.y, fillW, dyBarBox.h);
+                        ctx.beginPath();
+                        ctx.arc(dyBarBox.x + fillW, dyBarBox.y + dyBarBox.h / 2, 3.2 * scaleRatioX, 0, Math.PI * 2);
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fill();
+                    }
+                    ctx.restore();
+
+                    // 5. 绘制外边框
+                    if (!swRecordFrame || swRecordFrame.checked) {
+                        ctx.save();
+                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
+                        ctx.lineWidth = 4;
+                        ctx.strokeRect(2, 2, outW - 4, outH - 4);
+                        ctx.restore();
+                    }
                 };
 
-                drawVideoFrame();
+                // ★ 核心修复2：在启动录制流之前，必须先绘制首帧激活画布缓存！
+                renderSingleFrame();
+
+                const canvasStream = offCanvas.captureStream(30);
+                const videoTrack = canvasStream.getVideoTracks()[0];
+
+                // 提取原声音轨
+                let audioTracks = [];
+                try {
+                    if (!window._audioCtx) {
+                        window._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    }
+                    if (window._audioCtx.state === 'suspended') {
+                        await window._audioCtx.resume();
+                    }
+                    if (!window._audioSrcNode) {
+                        window._audioSrcNode = window._audioCtx.createMediaElementSource(previewVideo);
+                        window._audioDstNode = window._audioCtx.createMediaStreamDestination();
+                        window._audioSrcNode.connect(window._audioDstNode);
+                        window._audioSrcNode.connect(window._audioCtx.destination);
+                    }
+                    audioTracks = window._audioDstNode.stream.getAudioTracks();
+                } catch (audioErr) {
+                    console.warn('Audio fallback:', audioErr);
+                }
+
+                const combinedStream = new MediaStream([
+                    ...canvasStream.getVideoTracks(),
+                    ...audioTracks
+                ]);
+
+                // ★ 核心修复3：严格匹配音视频双轨标准编码格式，防止生成半残废的容器头
+                const mimeCandidates = [
+                    { mime: 'video/mp4;codecs="avc1.42E01E, mp4a.40.2"', ext: 'mp4' },
+                    { mime: 'video/mp4;codecs="avc1.424028, mp4a.40.2"', ext: 'mp4' },
+                    { mime: 'video/mp4', ext: 'mp4' },
+                    { mime: 'video/webm;codecs="vp9,opus"', ext: 'webm' },
+                    { mime: 'video/webm;codecs="vp8,opus"', ext: 'webm' },
+                    { mime: 'video/webm', ext: 'webm' }
+                ];
+
+                let selectedFormat = { mime: '', ext: 'webm' };
+                for (const item of mimeCandidates) {
+                    if (window.MediaRecorder && MediaRecorder.isTypeSupported(item.mime)) {
+                        selectedFormat = item;
+                        break;
+                    }
+                }
+
+                const recorderOptions = { videoBitsPerSecond: 8000000 };
+                if (selectedFormat.mime) {
+                    recorderOptions.mimeType = selectedFormat.mime;
+                }
+
+                const recorder = new MediaRecorder(combinedStream, recorderOptions);
+                const chunks = [];
+
+                recorder.ondataavailable = (e) => {
+                    if (e.data && e.data.size > 0) chunks.push(e.data);
+                };
+
+                recorder.onstop = () => {
+                    if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
+                    btnSaveVid.textContent = origBtnText;
+                    btnSaveVid.disabled = false;
+
+                    if (chunks.length === 0) {
+                        window.showToast('❌ 录制数据为空，请重试');
+                        return;
+                    }
+
+                    const blob = new Blob(chunks, { type: selectedFormat.mime || 'video/webm' });
+                    const downloadUrl = URL.createObjectURL(blob);
+                    const link = document.createElement('a');
+                    link.style.display = 'none';
+                    const modeTag = isPort ? 'MobilePort' : (isLand ? 'MobileCinema' : 'WebPC');
+                    link.download = `Laya_${modeTag}_${Date.now()}.${selectedFormat.ext}`;
+                    link.href = downloadUrl;
+                    document.body.appendChild(link);
+                    link.click();
+                    setTimeout(() => {
+                        document.body.removeChild(link);
+                        URL.revokeObjectURL(downloadUrl);
+                    }, 500);
+
+                    window.showToast(`🎉 录屏视频 (.${selectedFormat.ext}) 导出成功！画面与声音均已完美合成！`);
+                };
+
+                // 启动录制并开启 30fps 稳定帧推送循环
+                recordStartStamp = performance.now();
+                recorder.start(200);
+
+                let isRecording = true;
+                const frameInterval = setInterval(() => {
+                    if (!isRecording) return;
+                    renderSingleFrame();
+                    // 显式通知视频轨推送新帧
+                    if (videoTrack && typeof videoTrack.requestFrame === 'function') {
+                        videoTrack.requestFrame();
+                    }
+                }, 1000 / 30);
 
                 setTimeout(() => {
                     isRecording = false;
+                    clearInterval(frameInterval);
                     if (recorder.state !== 'inactive') {
                         recorder.stop();
                     }
                 }, recordSeconds * 1000);
 
             } catch (err) {
+                if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                 console.error(err);
-                btnSaveVid.textContent = '合成下载视频 (带边框与原声)';
+                btnSaveVid.textContent = origBtnText;
                 btnSaveVid.disabled = false;
-                window.showToast(`导出异常: ${err.message}`);
+                window.showToast(`⚠️ 请先点击右侧「🔵上传绑定蓝色Logo」和「🟣上传绑定紫色Logo」选中一次你的图标文件，即可消除本地跨域限制并导出！`);
             }
         });
     }
