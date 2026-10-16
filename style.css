@@ -321,13 +321,35 @@ main {
 }
 
 .player-bg-media {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: var(--media-pos-x) var(--media-pos-y);
-    transform: scale(var(--media-scale));
-    transform-origin: var(--media-pos-x) var(--media-pos-y);
+    position: absolute;
+    top: 0;
+    left: 0;
+    /* 由 JS 动态计算精确的等比像素宽高与偏移，彻底告别拉伸变形、黑边与位移失效 */
+    max-width: none !important;
+    max-height: none !important;
+    object-fit: fill !important;
+    transform: none !important;
     pointer-events: none;
+    user-select: none;
+}
+
+/* 确保独立取景框的小窗底图 100% 完整展示原图比例，不裁切 */
+.crop-window-body {
+    position: relative;
+    width: 100%;
+    height: auto !important;
+    overflow: hidden;
+    background: #000;
+    user-select: none;
+}
+
+.crop-thumb-img {
+    display: block;
+    width: 100% !important;
+    height: auto !important;
+    object-fit: contain !important;
+    pointer-events: none;
+    user-select: none;
 }
 
 /* ==========================================================================
