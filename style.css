@@ -1023,14 +1023,68 @@ main {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 2px;
+    gap: 3px;
+}
+
+.m-main-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* ★ 精致高质感画质徽标 (4K / 1080P / 藍光 / 8K) */
+.m-res-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5px 6px;
+    border-radius: 4px;
+    font-size: 10.5px;
+    font-weight: 900;
+    letter-spacing: 0.4px;
+    line-height: 1.15;
+    font-family: -apple-system, BlinkMacSystemFont, "Arial Black", "Segoe UI", sans-serif;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+/* 款式 1：黑金尊享流光 (默认 4K) */
+.m-res-badge.badge-gold {
+    background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 45%, #e17055 100%);
+    color: #141619;
+    border: 1px solid rgba(255, 243, 196, 0.9);
+    box-shadow: 0 2px 8px rgba(253, 203, 110, 0.45);
+}
+
+/* 款式 2：蓝光超清 (1080P) */
+.m-res-badge.badge-blue {
+    background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+    color: #ffffff;
+    border: 1px solid rgba(130, 204, 221, 0.75);
+    box-shadow: 0 2px 8px rgba(58, 123, 213, 0.5);
+}
+
+/* 款式 3：极光紫钻 (藍光 4K) */
+.m-res-badge.badge-purple {
+    background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 55%, #e84393 100%);
+    color: #ffffff;
+    border: 1px solid rgba(223, 230, 233, 0.65);
+    box-shadow: 0 2px 8px rgba(108, 92, 231, 0.5);
+}
+
+/* 款式 4：赤焰巅峰 (8K 原畫) */
+.m-res-badge.badge-red {
+    background: linear-gradient(135deg, #ff7675 0%, #fe2c55 55%, #d63031 100%);
+    color: #ffffff;
+    border: 1px solid rgba(255, 184, 184, 0.75);
+    box-shadow: 0 2px 8px rgba(254, 44, 85, 0.5);
 }
 
 .m-main-title {
     font-size: 14.5px;
     font-weight: 800;
     color: #ffffff;
-    letter-spacing: 0.3px;
+    letter-spacing: 0.4px;
     line-height: 1.2;
 }
 
@@ -1039,6 +1093,73 @@ main {
     font-weight: 500;
     color: rgba(255, 255, 255, 0.78);
     line-height: 1.2;
+}
+
+/* ★ 手机横屏中央悬浮播放/暂停大按键 */
+.m-center-play-wrap {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 12;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto;
+}
+
+.m-center-play-btn {
+    position: relative;
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(35, 42, 58, 0.78), rgba(10, 12, 18, 0.88));
+    border: 1.8px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75), 0 0 18px rgba(255, 255, 255, 0.15), inset 0 1px 3px rgba(255, 255, 255, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28), border-color 0.2s ease;
+}
+
+.m-center-play-btn:hover {
+    transform: scale(1.08);
+    border-color: #ffffff;
+}
+
+.m-center-ring {
+    position: absolute;
+    inset: -5px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    pointer-events: none;
+}
+
+.m-center-triangle {
+    width: 0;
+    height: 0;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-left: 17px solid #ffffff;
+    margin-left: 4px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+}
+
+.m-center-pause {
+    width: 16px;
+    height: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.m-center-pause span {
+    width: 5px;
+    height: 100%;
+    background: #ffffff;
+    border-radius: 2px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 /* 底部播放控制矩阵 */
@@ -2327,4 +2448,27 @@ input[type="range"] {
     background: rgba(230, 126, 34, 0.25);
     border-color: #e67e22;
     color: #f39c12;
+}
+
+/* 强制右侧控制面板所有卡片上下垂直排列，防止并排挤压出界 */
+.tab-panel.active {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+}
+
+.panel-card {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+.switch-tile {
+    gap: 6px;
+    min-width: 0;
+}
+
+.switch-tile span:first-child {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
