@@ -4,9 +4,154 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Laya 播放器 · 全真机录屏与截图工作台</title>
-    <link rel="icon" href="favicon.png" type="image/png">
+    <!-- 浏览器标签页图标 (上传到 GitHub Pages 后不再显示地球图标) -->
+    <link rel="icon" href="Laya.png" type="image/png">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <link rel="stylesheet" href="style.css">
+    <style>
+        /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
+        .sidebar .tab-panel.active {
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 10px !important;
+            width: 100% !important;
+        }
+        .sidebar .panel-card {
+            width: 100% !important;
+            min-width: 100% !important;
+            box-sizing: border-box !important;
+            display: flex !important;
+            flex-direction: column !important;
+        }
+        .sidebar .switch-grid {
+            display: grid !important;
+            grid-template-columns: 1fr 1fr !important;
+            gap: 6px !important;
+            width: 100% !important;
+        }
+        .sidebar .switch-tile {
+            min-width: 0 !important;
+            gap: 6px !important;
+            overflow: hidden !important;
+        }
+        .sidebar .switch-tile span:first-child {
+            white-space: nowrap !important;
+            overflow: hidden !important;
+            text-overflow: ellipsis !important;
+        }
+
+        /* 手机横屏左上角双行标题与高光画质徽标 */
+        .m-title-text-group {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 3px;
+        }
+        .m-main-title-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .m-res-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5px 6px;
+            border-radius: 4px;
+            font-size: 10.5px;
+            font-weight: 900;
+            letter-spacing: 0.4px;
+            line-height: 1.15;
+            font-family: -apple-system, BlinkMacSystemFont, "Arial Black", "Segoe UI", sans-serif;
+            user-select: none;
+            flex-shrink: 0;
+        }
+        .m-res-badge.badge-gold {
+            background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 45%, #e17055 100%);
+            color: #141619;
+            border: 1px solid rgba(255, 243, 196, 0.9);
+            box-shadow: 0 2px 8px rgba(253, 203, 110, 0.45);
+        }
+        .m-res-badge.badge-blue {
+            background: linear-gradient(135deg, #00d2ff 0%, #3a7bd5 100%);
+            color: #ffffff;
+            border: 1px solid rgba(130, 204, 221, 0.75);
+            box-shadow: 0 2px 8px rgba(58, 123, 213, 0.5);
+        }
+        .m-res-badge.badge-purple {
+            background: linear-gradient(135deg, #a29bfe 0%, #6c5ce7 55%, #e84393 100%);
+            color: #ffffff;
+            border: 1px solid rgba(223, 230, 233, 0.65);
+            box-shadow: 0 2px 8px rgba(108, 92, 231, 0.5);
+        }
+        .m-res-badge.badge-red {
+            background: linear-gradient(135deg, #ff7675 0%, #fe2c55 55%, #d63031 100%);
+            color: #ffffff;
+            border: 1px solid rgba(255, 184, 184, 0.75);
+            box-shadow: 0 2px 8px rgba(254, 44, 85, 0.5);
+        }
+
+        /* 手机横屏中央悬浮播放/暂停大按键 */
+        .m-center-play-wrap {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 12;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            pointer-events: auto;
+        }
+        .m-center-play-btn {
+            position: relative;
+            width: 62px;
+            height: 62px;
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(35, 42, 58, 0.78), rgba(10, 12, 18, 0.88));
+            border: 1.8px solid rgba(255, 255, 255, 0.55);
+            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75), 0 0 18px rgba(255, 255, 255, 0.15), inset 0 1px 3px rgba(255, 255, 255, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: transform 0.2s cubic-bezier(0.18, 0.89, 0.32, 1.28), border-color 0.2s ease;
+        }
+        .m-center-play-btn:hover {
+            transform: scale(1.08);
+            border-color: #ffffff;
+        }
+        .m-center-ring {
+            position: absolute;
+            inset: -5px;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 255, 255, 0.22);
+            pointer-events: none;
+        }
+        .m-center-triangle {
+            width: 0;
+            height: 0;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            border-left: 17px solid #ffffff;
+            margin-left: 4px;
+            filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+        }
+        .m-center-pause {
+            width: 16px;
+            height: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .m-center-pause span {
+            width: 5px;
+            height: 100%;
+            background: #ffffff;
+            border-radius: 2px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
+        }
+    </style>
 </head>
 <body>
 
@@ -49,7 +194,7 @@
         </div>
 
         <div class="player-stage">
-            <!-- 播放器核心容器：由 mode-pc / mode-mobile-land / mode-mobile-port 严格控制内部各层显隐 -->
+            <!-- 播放器核心容器 -->
             <div class="player-box mode-pc skin-douyin" id="render-target">
                 <!-- 媒体底层容器 -->
                 <div class="media-container" id="player-media-wrap">
@@ -61,7 +206,7 @@
                 <div class="danmaku-layer" id="danmaku-container" style="display: none;"></div>
 
                 <!-- =================================================================
-                     模式 1: 电脑网页端 UI (完整保留全部小配件)
+                     模式 1: 电脑网页端 UI (完整保留全部 12 项小配件)
                      ================================================================= -->
                 <div class="player-top" id="web-player-top">
                     <div class="top-first-row">
@@ -137,7 +282,7 @@
                             <div class="interactive-elem" id="btn-bot-next" title="下一部">
                                 <svg width="14" height="14" viewBox="0 0 24 24" fill="#ffffff"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="#fff" stroke-width="2"/></svg>
                             </div>
-                            <span class="time-label" id="disp-time">00:37:16 / 01:28:45</span>
+                            <span class="time-label" id="disp-time">00:04:07 / 02:06:21</span>
                             
                             <div id="wrap-bot-dm-group">
                                 <div class="dm-switch-capsule" id="btn-quick-dm-toggle" title="開關彈幕">
@@ -157,18 +302,18 @@
                             <span id="wrap-bot-danmaku-count" class="interactive-elem"><span id="disp-bot-danmaku-count">● 彈幕 1.8W</span></span>
                             <span class="interactive-elem live-tag-btn" id="btn-cycle-speed" title="點擊切換倍速">倍速 <span id="disp-speed-val">1.0X</span></span>
                             <span id="wrap-bot-res" class="interactive-elem"><span class="res-tag" id="disp-bot-res" title="點擊切換畫質">原畫 1080P 60幀 ▾</span></span>
-                            <div class="interactive-elem" id="btn-toggle-fs" title="全屏">
-                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d0d4dc" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                            <div class="interactive-elem" id="btn-toggle-fs" title="退出全屏/缩小">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#d0d4dc" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6m10-10h-6V4m0 6l7-7M3 21l7-7"/></svg>
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <!-- =================================================================
-                     模式 2: 手机横屏影音 HUD (1:1 复刻状态栏/4K-Laya标题/底部四键)
+                     模式 2: 手机横屏影音 HUD (1:1 复刻状态栏 / 4K徽标+Laya-1896 / 中央按键 / 底部五键)
                      ================================================================= -->
                 <div class="mobile-cinema-hud" id="mobile-cinema-hud">
-                    <!-- 1. 顶部手机原生状态栏 (时间、阶梯信号、电池电量) -->
+                    <!-- 1. 顶部手机原生状态栏 -->
                     <div class="m-status-bar" id="m-status-bar">
                         <span class="m-status-time" id="m-disp-status-time">14:24</span>
                         <div class="m-status-icons">
@@ -187,18 +332,32 @@
                         </div>
                     </div>
 
-                    <!-- 2. 左上角圆角方形 Logo 与 4K-Laya 双行标题区 -->
+                    <!-- 2. 左上角圆角方形 Logo 与 [4K徽标 + Laya-1896] 双行标题区 -->
                     <div class="m-top-header" id="m-top-header">
                         <div class="m-logo-box" id="m-wrap-logo">
                             <img src="Laya.png" id="m-brand-logo" alt="Logo" class="m-logo-img">
                         </div>
                         <div class="m-title-text-group">
-                            <span class="m-main-title" id="m-disp-main-title">4K-Laya-8669</span>
+                            <div class="m-main-title-row">
+                                <span class="m-res-badge badge-gold interactive-elem" id="m-disp-res-badge" title="点击可快速切换画质徽标">4K</span>
+                                <span class="m-main-title" id="m-disp-main-title">Laya-1896</span>
+                            </div>
                             <span class="m-sub-title" id="m-disp-sub-title">正在暫停 · 橫屏播放</span>
                         </div>
                     </div>
 
-                    <!-- 3. 底部播放控制矩阵 (白圆钮 + 时间 + 进度条 + 音量/投屏/设置/全屏) -->
+                    <!-- 2.5 手机横屏中央悬浮播放/暂停大按键 -->
+                    <div class="m-center-play-wrap" id="m-wrap-center-play">
+                        <div class="m-center-play-btn interactive-elem" id="m-btn-center-play" title="点击播放/暂停">
+                            <div class="m-center-ring"></div>
+                            <div class="m-center-triangle" id="m-center-icon-play"></div>
+                            <div class="m-center-pause" id="m-center-icon-pause" style="display: none;">
+                                <span></span><span></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 3. 底部播放控制矩阵 (白圆钮 + 起始/结尾时间 + 进度条 + 音量/投屏/设置/转发/缩小) -->
                     <div class="m-bottom-bar" id="m-bottom-bar">
                         <div class="m-bot-left">
                             <div class="m-play-circle-btn interactive-elem" id="m-btn-toggle-play" title="播放/暂停">
@@ -207,13 +366,13 @@
                                     <span></span><span></span>
                                 </div>
                             </div>
-                            <span class="m-time-text" id="m-disp-time">0:04:07</span>
+                            <span class="m-time-text" id="m-disp-time">0:04:07 / 2:06:21</span>
                         </div>
 
                         <div class="m-progress-container" id="m-progress-container" title="点击跳转进度">
                             <div class="m-progress-track">
                                 <div class="m-progress-buffer" id="m-disp-buffer" style="width: 68%;"></div>
-                                <div class="m-progress-fill" id="m-disp-progress" style="width: 22%;">
+                                <div class="m-progress-fill" id="m-disp-progress" style="width: 5%;">
                                     <div class="m-scrubber-dot"></div>
                                 </div>
                             </div>
@@ -242,11 +401,18 @@
                                 </svg>
                                 <span>設置</span>
                             </div>
-                            <div class="m-action-item interactive-elem" id="m-btn-fullscreen" title="全屏">
-                                <svg class="m-action-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
-                                    <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/>
+                            <div class="m-action-item interactive-elem" id="m-btn-share" title="转发分享">
+                                <svg class="m-action-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="15 14 20 9 15 4"/>
+                                    <path d="M4 20v-7a4 4 0 0 1 4-4h12"/>
                                 </svg>
-                                <span>全屏</span>
+                                <span>轉發</span>
+                            </div>
+                            <div class="m-action-item interactive-elem" id="m-btn-fullscreen" title="退出全屏/缩小">
+                                <svg class="m-action-svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M4 14h6v6m10-10h-6V4m0 6l7-7M3 21l7-7"/>
+                                </svg>
+                                <span>縮小</span>
                             </div>
                         </div>
                     </div>
@@ -256,7 +422,6 @@
                      模式 3: 手机竖屏 (9:16) 抖音 / Laya 双风格 HUD
                      ================================================================= -->
                 <div class="douyin-hud" id="douyin-hud">
-                    <!-- 风格 1：抖音原生顶部栏 -->
                     <div class="dy-top-nav dy-skin-elem" id="dy-wrap-top-nav">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" class="interactive-elem"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                         <div class="dy-nav-tabs">
@@ -269,7 +434,6 @@
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" class="interactive-elem"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                     </div>
 
-                    <!-- 风格 2：Laya 原生顶部栏 -->
                     <div class="laya-top-nav laya-skin-elem" id="laya-wrap-top-nav">
                         <div class="laya-nav-tabs">
                             <span class="interactive-elem">關注</span>
@@ -284,13 +448,11 @@
                         </div>
                     </div>
 
-                    <!-- 全屏观看悬浮胶囊 -->
                     <div class="dy-fullscreen-pill interactive-elem" id="dy-fullscreen-pill">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
                         <span>全屏觀看</span>
                     </div>
 
-                    <!-- 右侧互动栏 -->
                     <div class="dy-right-bar" id="dy-wrap-right-bar">
                         <div class="dy-avatar-wrap interactive-elem" id="dy-avatar-click">
                             <img src="Laya.png" class="dy-avatar-img" id="dy-avatar-img" alt="Laya Avatar">
@@ -332,7 +494,6 @@
                         </div>
                     </div>
 
-                    <!-- 左下角信息流 (无阴影纯净文本) -->
                     <div class="dy-left-info">
                         <div class="dy-author-row">
                             <span class="dy-author-name" id="dy-disp-author">@Laya 视频</span>
@@ -369,7 +530,6 @@
                             </div>
                         </div>
 
-                        <!-- 热点栏 (已去除【】符号，默认隐藏) -->
                         <div class="dy-hotspot-bar interactive-elem" id="dy-wrap-hotspot" style="display: none;">
                             <div class="dy-hotspot-left">
                                 <span class="dy-hot-fire">🔥</span>
@@ -385,13 +545,12 @@
 
                         <div class="dy-tiny-progressbar">
                             <div class="dy-tiny-buffer" id="dy-tiny-buffer" style="width: 68%;"></div>
-                            <div class="dy-tiny-fill" id="dy-tiny-fill" style="width: 42%;">
+                            <div class="dy-tiny-fill" id="dy-tiny-fill" style="width: 5%;">
                                 <div class="dy-tiny-scrubber"></div>
                             </div>
                         </div>
                     </div>
 
-                    <!-- 风格 1：抖音底部导航栏 -->
                     <div class="dy-bottom-wrap dy-skin-elem" id="dy-wrap-bottom-bar">
                         <div class="dy-bottom-tabs">
                             <div class="dy-tab-item active interactive-elem"><span>首頁</span></div>
@@ -414,7 +573,6 @@
                         <div class="dy-home-bar"></div>
                     </div>
 
-                    <!-- 风格 2：Laya 原生底部导航栏 -->
                     <div class="laya-bottom-wrap laya-skin-elem" id="laya-wrap-bottom-bar">
                         <div class="laya-bottom-tabs">
                             <div class="laya-tab-item interactive-elem"><span class="laya-tab-icon">🧭</span><span>發現</span></div>
@@ -433,7 +591,7 @@
             </div>
         </div>
 
-        <!-- 独立取景框浮窗 (右侧悬浮，支持滚轮缩放) -->
+        <!-- 独立取景框浮窗 -->
         <div class="crop-inspector-window" id="crop-inspector-window" style="display: none;">
             <div class="crop-window-header">
                 <span class="crop-window-title">📐 独立取景框 (滚轮缩放小窗/拖框构图)</span>
@@ -515,7 +673,7 @@
             </div>
         </div>
 
-        <!-- ================= 选项卡 1: 电脑 Web 版配置 (全套配件与文案) ================= -->
+        <!-- ================= 选项卡 1: 电脑 Web 版配置 ================= -->
         <div id="panel-web-settings" class="tab-panel active">
             <div class="panel-card">
                 <div class="card-header">
@@ -531,20 +689,20 @@
                 </div>
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>当前时间点 (同步横屏)</label>
+                        <label>当前起始时间 (同步横屏)</label>
                         <input type="text" id="in-start-time" value="00:04:07">
                     </div>
                     <div class="form-row">
-                        <label>视频总片长</label>
-                        <input type="text" id="in-total-time" value="00:18:45">
+                        <label>结尾总时长 (1:20~2:30随机)</label>
+                        <input type="text" id="in-total-time" value="02:06:21">
                     </div>
                 </div>
                 <div class="form-row">
                     <div class="range-box">
                         <label>当前播放进度占比</label>
-                        <span class="range-value" id="txt-progress">22%</span>
+                        <span class="range-value" id="txt-progress">5%</span>
                     </div>
-                    <input type="range" id="in-progress" min="0" max="100" value="22">
+                    <input type="range" id="in-progress" min="0" max="100" value="5">
                 </div>
                 <div class="form-row">
                     <div class="range-box">
@@ -722,8 +880,48 @@
             </div>
         </div>
 
-        <!-- ================= 选项卡 2: 手机横屏影音专属配置 (1:1 复刻) ================= -->
+        <!-- ================= 选项卡 2: 手机横屏影音专属配置 (4张独立卡片垂直上下排列) ================= -->
         <div id="panel-m-cinema-settings" class="tab-panel">
+            <!-- 卡片 1：起始时间与进度条控制 -->
+            <div class="panel-card">
+                <div class="card-header">
+                    <span>⏱️ 起始时间与进度条控制</span>
+                    <button class="btn btn-secondary btn-sm" id="btn-random-time" title="在 1:20:00 ~ 2:30:00 之间重新随机生成总时长">🎲 随机总时长</button>
+                </div>
+                <div class="switch-tile highlight-tile">
+                    <span>播放与录制时秒数、进度条真实走动</span>
+                    <label class="ios-toggle">
+                        <input type="checkbox" id="sw-m-sync-video-time" checked>
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>当前起始时间 (同步电脑端)</label>
+                        <input type="text" id="in-m-start-time" value="00:04:07">
+                    </div>
+                    <div class="form-row">
+                        <label>结尾总时长 (1:20~2:30随机)</label>
+                        <input type="text" id="in-m-total-time" value="02:06:21">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="range-box">
+                        <label>当前播放进度占比</label>
+                        <span class="range-value" id="txt-m-progress">5%</span>
+                    </div>
+                    <input type="range" id="in-m-progress" min="0" max="100" value="5">
+                </div>
+                <div class="form-row">
+                    <div class="range-box">
+                        <label>预加载缓冲条长短</label>
+                        <span class="range-value" id="txt-m-buffer">68%</span>
+                    </div>
+                    <input type="range" id="in-m-buffer" min="0" max="100" value="68">
+                </div>
+            </div>
+
+            <!-- 卡片 2：手机顶部状态栏仿真配置 -->
             <div class="panel-card">
                 <div class="card-header">
                     <span>🔋 手机顶部状态栏仿真配置</span>
@@ -753,13 +951,34 @@
                 </div>
             </div>
 
+            <!-- 卡片 3：左上角画质徽标与标题配置 -->
             <div class="panel-card">
                 <div class="card-header">
-                    <span>🎬 左上角 Logo 与 4K 标题配置</span>
+                    <span>🎬 左上角画质徽标与标题配置</span>
+                    <span class="badge-tip">可切换/可开关</span>
+                </div>
+                <div class="switch-tile highlight-tile">
+                    <span>✨ 显示左上角画质徽标 (4K / 1080P 等)</span>
+                    <label class="ios-toggle">
+                        <input type="checkbox" id="sw-m-res-badge" checked>
+                        <span class="slider-round"></span>
+                    </label>
                 </div>
                 <div class="form-row">
-                    <label>主标题文字 (如 4K-Laya-8669)</label>
-                    <input type="text" id="in-m-main-title" value="4K-Laya-8669">
+                    <label>选择画质徽标样式 (也可直接点击画面上的徽标切换)</label>
+                    <select id="sel-m-res-badge" style="background:#151821; font-weight:700; color:#f39c12;">
+                        <option value="4K|badge-gold" selected>👑 4K (黑金尊享流光标)</option>
+                        <option value="4K HDR|badge-gold">👑 4K HDR (黑金尊享流光标)</option>
+                        <option value="1080P|badge-blue">💎 1080P (蓝光超清标)</option>
+                        <option value="1080P 60幀|badge-blue">💎 1080P 60幀 (高帧率蓝标)</option>
+                        <option value="藍光 4K|badge-purple">🔮 藍光 4K (极光紫钻标)</option>
+                        <option value="8K 原畫|badge-red">🔥 8K 原畫 (赤焰巅峰标)</option>
+                        <option value="VIP 無碼|badge-gold">👑 VIP 無碼 (黑金特权标)</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <label>主标题文字 (默认 Laya-1896)</label>
+                    <input type="text" id="in-m-main-title" value="Laya-1896">
                 </div>
                 <div class="form-row">
                     <label>副标题状态文字</label>
@@ -774,11 +993,19 @@
                 </div>
             </div>
 
+            <!-- 卡片 4：手机横屏组件显隐开关 -->
             <div class="panel-card">
                 <div class="card-header">
                     <span>🎛️ 手机横屏组件显隐开关</span>
                 </div>
                 <div class="switch-grid">
+                    <div class="switch-tile highlight-tile" style="grid-column: span 2;">
+                        <span>▶️ 画面中央大播放/暂停按键</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-m-center-play" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
                     <div class="switch-tile">
                         <span>顶部手机状态栏</span>
                         <label class="ios-toggle">
@@ -801,7 +1028,7 @@
                         </label>
                     </div>
                     <div class="switch-tile">
-                        <span>右下四大功能键</span>
+                        <span>右下功能键组</span>
                         <label class="ios-toggle">
                             <input type="checkbox" id="sw-m-right-actions" checked>
                             <span class="slider-round"></span>
@@ -1054,9 +1281,34 @@
     </div>
 </main>
 
-<script src="logos.js"></script>
 <script src="player.js"></script>
 <script src="danmaku.js"></script>
 <script src="app.js"></script>
+<script>
+    // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
+    window.addEventListener('DOMContentLoaded', () => {
+        setTimeout(() => {
+            const inMain = document.getElementById('in-m-main-title');
+            const dispMain = document.getElementById('m-disp-main-title');
+            const swBadge = document.getElementById('sw-m-res-badge');
+            const dispBadge = document.getElementById('m-disp-res-badge');
+            const selBadge = document.getElementById('sel-m-res-badge');
+
+            if (inMain && (inMain.value === '4K-Laya-8669' || !inMain.value)) {
+                inMain.value = 'Laya-1896';
+                if (dispMain) dispMain.textContent = 'Laya-1896';
+            }
+            if (swBadge && dispBadge) {
+                swBadge.checked = true;
+                dispBadge.style.display = 'inline-flex';
+            }
+            if (selBadge && dispBadge && selBadge.value) {
+                const [txt, cls] = selBadge.value.split('|');
+                dispBadge.textContent = txt || '4K';
+                dispBadge.className = 'm-res-badge ' + (cls || 'badge-gold') + ' interactive-elem';
+            }
+        }, 180);
+    });
+</script>
 </body>
 </html>
