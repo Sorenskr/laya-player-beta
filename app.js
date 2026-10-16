@@ -1129,32 +1129,19 @@ window.switchRightTab = function (mode) {
                     const zoom = (parseFloat(inMediaScale.value) || 100) / 100;
                     const fitMode = document.getElementById('sel-crop-fit')?.value || 'cover';
 
-                    let rw, rh;
-                    if (fitMode === 'cover') {
-                        if (mAspect > cAspect) {
-                            rh = outH * zoom;
-                            rw = rh * mAspect;
-                        } else {
-                            rw = outW * zoom;
-                            rh = rw / mAspect;
-                        }
-                    } else {
-                        if (mAspect > cAspect) {
-                            rw = outW * zoom;
-                            rh = rw / mAspect;
-                        } else {
-                            rh = outH * zoom;
-                            rw = rh * mAspect;
-                        }
-                    }
-
-                    const posX = (parseFloat(inPosX.value) || 50) / 100;
-                    const posY = (parseFloat(inPosY.value) || 50) / 100;
-                    const offX = (outW - rw) * posX;
-                    const offY = (outH - rh) * posY;
+                    // 直接调用取景框统一几何算法，保证导出的视频/截图与取景框绿框 100% 严丝合缝
+                    const cropRect = window.getPlayerCropRect
+                        ? window.getPlayerCropRect(outW, outH)
+                        : { renderW: outW, renderH: outH, offX: 0, offY: 0 };
 
                     if (previewVideo.readyState >= 2) {
-                        ctx.drawImage(previewVideo, offX, offY, rw, rh);
+                        ctx.drawImage(
+                            previewVideo,
+                            cropRect.offX,
+                            cropRect.offY,
+                            cropRect.renderW,
+                            cropRect.renderH
+                        );
                     }
 
                     // 2. 绘制弹幕
