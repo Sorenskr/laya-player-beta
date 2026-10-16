@@ -3,14 +3,12 @@
  * player.js - 媒体播放器核心控制引擎 (三端进度/时间联动、独立取景框与画幅中枢)
  * ==========================================================================
  */
-
 window.PlayerEngine = {
     isVideoMode: false,
     previewVideo: null,
     previewImg: null,
     renderTarget: null,
-    
-    // 将时间字符串转换为总秒数
+
     timeToSec(timeStr) {
         if (!timeStr) return 0;
         const parts = timeStr.trim().split(':').map(Number);
@@ -18,8 +16,6 @@ window.PlayerEngine = {
         if (parts.length === 2) return (parts[0] || 0) * 60 + (parts[1] || 0);
         return parseInt(timeStr, 10) || 0;
     },
-
-    // 标准全格式时间码 (00:04:07)
     secToTime(totalSec) {
         if (isNaN(totalSec) || totalSec < 0) totalSec = 0;
         const h = Math.floor(totalSec / 3600);
@@ -27,8 +23,6 @@ window.PlayerEngine = {
         const s = Math.floor(totalSec % 60);
         return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     },
-
-    // 手机横屏紧凑时间码 (0:04:07)
     secToShortTime(totalSec) {
         if (isNaN(totalSec) || totalSec < 0) totalSec = 0;
         const h = Math.floor(totalSec / 3600);
@@ -36,8 +30,6 @@ window.PlayerEngine = {
         const s = Math.floor(totalSec % 60);
         return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     },
-
-    // 获取当前底层媒体素材的原始物理宽高
     getMediaNaturalDimensions() {
         if (this.isVideoMode && this.previewVideo) {
             return {
@@ -61,7 +53,6 @@ window.PlayerEngine = {
     const mediaUploader = document.getElementById('media-uploader');
     const dyFullscreenPill = document.getElementById('dy-fullscreen-pill');
     const selCropFit = document.getElementById('sel-crop-fit');
-
     // 电脑端播放控件
     const btnTogglePlayback = document.getElementById('btn-toggle-playback');
     const btnBotPlayState = document.getElementById('btn-bot-play-state');
@@ -70,7 +61,6 @@ window.PlayerEngine = {
     const iconBotPlay = document.getElementById('icon-bot-play');
     const iconBotPause = document.getElementById('icon-bot-pause');
     const dispCenterPill = document.getElementById('disp-center-pill');
-
     // 手机横屏影音专属控件
     const mBtnTogglePlay = document.getElementById('m-btn-toggle-play');
     const mIconPlay = document.getElementById('m-icon-play');
@@ -80,16 +70,14 @@ window.PlayerEngine = {
     const mCenterIconPause = document.getElementById('m-center-icon-pause');
     const mDispSubTitle = document.getElementById('m-disp-sub-title');
     const inMSubTitle = document.getElementById('in-m-sub-title');
-    const swMAutoSub = document.getElementById('sw-m-auto-sub');    
+    const swMAutoSub = document.getElementById('sw-m-auto-sub');
     const mDispTime = document.getElementById('m-disp-time');
     const mProgressContainer = document.getElementById('m-progress-container');
     const mDispProgress = document.getElementById('m-disp-progress');
     const mDispBuffer = document.getElementById('m-disp-buffer');
-
     // 手机竖屏底部进度条
     const dyTinyFill = document.getElementById('dy-tiny-fill');
     const dyTinyBuffer = document.getElementById('dy-tiny-buffer');
-
     // 时间与进度控制输入框
     const inStartTime = document.getElementById('in-start-time');
     const inTotalTime = document.getElementById('in-total-time');
@@ -102,7 +90,6 @@ window.PlayerEngine = {
     const txtBuffer = document.getElementById('txt-buffer');
     const dispBufferBar = document.getElementById('disp-buffer-bar');
     const progressClickBar = document.getElementById('progress-click-bar');
-
     // 构图与缩放滑块
     const inPosY = document.getElementById('in-pos-y');
     const txtPosY = document.getElementById('txt-pos-y');
@@ -112,7 +99,6 @@ window.PlayerEngine = {
     const txtMediaScale = document.getElementById('txt-media-scale');
     const btnResetPos = document.getElementById('btn-reset-pos');
     const btnFacePreset = document.getElementById('btn-face-preset');
-
     // 独立取景框浮窗 DOM
     const swCropWindow = document.getElementById('sw-crop-window');
     const cropInspectorWindow = document.getElementById('crop-inspector-window');
@@ -132,19 +118,18 @@ window.PlayerEngine = {
     };
 
     /* ==========================================================================
-       1. 视口画幅切换器 (电脑 16:9 / 手机横屏 19.5:9 / 手机竖屏 9:16)
+       1. 视口画幅切换器
        ========================================================================== */
     const tabButtons = document.querySelectorAll('.tab-btn');
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
             tabButtons.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            
+
             const targetMode = btn.dataset.mode;
             const currentSkin = document.getElementById('sel-mobile-skin')?.value === 'laya' ? 'skin-laya' : 'skin-douyin';
             renderTarget.className = `player-box ${targetMode} ${currentSkin}`;
 
-            // 自动联动右侧控制面板到对应分类
             if (targetMode === 'mode-mobile-land') {
                 if (typeof window.switchRightTab === 'function') window.switchRightTab('m-cinema');
             } else if (targetMode === 'mode-mobile-port') {
@@ -152,7 +137,6 @@ window.PlayerEngine = {
             } else {
                 if (typeof window.switchRightTab === 'function') window.switchRightTab('web');
             }
-
             checkMediaAspect();
             syncCropBoxRatio();
             setTimeout(() => {
@@ -168,14 +152,11 @@ window.PlayerEngine = {
         mediaUploader.addEventListener('click', () => {
             mediaUploader.value = '';
         });
-
         mediaUploader.addEventListener('change', (e) => {
             const file = e.target.files && e.target.files[0];
             if (!file) return;
-
             const fileName = file.name || '';
             const fileType = file.type || '';
-
             const isVideo = fileType.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi)$/i.test(fileName);
             const isImage = fileType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|jfif|bmp|svg)$/i.test(fileName);
 
@@ -183,11 +164,9 @@ window.PlayerEngine = {
                 window.PlayerEngine.isVideoMode = true;
                 previewImg.style.display = 'none';
                 previewVideo.style.display = 'block';
-
                 if (previewVideo.src && previewVideo.src.startsWith('blob:')) {
                     URL.revokeObjectURL(previewVideo.src);
                 }
-
                 const vidUrl = URL.createObjectURL(file);
                 previewVideo.src = vidUrl;
                 previewVideo.play().then(() => {
@@ -196,7 +175,6 @@ window.PlayerEngine = {
                     updatePlayStateUI(false);
                 });
 
-                // 为独立取景框生成第 0.5 秒视频帧缩略图
                 const tempVid = document.createElement('video');
                 tempVid.src = vidUrl;
                 tempVid.muted = true;
@@ -212,25 +190,21 @@ window.PlayerEngine = {
                         console.warn('Thumb capture fallback:', err);
                     }
                 };
-
                 toast('🎬 視頻素材加載成功，點擊「錄屏導出視頻」即可合成帶邊框與動態進度條的視頻！');
             } else if (isImage || !isVideo) {
                 window.PlayerEngine.isVideoMode = false;
                 previewVideo.pause();
                 previewVideo.style.display = 'none';
                 previewImg.style.display = 'block';
-
                 if (previewImg.src && previewImg.src.startsWith('blob:')) {
                     URL.revokeObjectURL(previewImg.src);
                 }
-
                 const imgUrl = URL.createObjectURL(file);
                 previewImg.src = imgUrl;
                 if (cropThumbImg) cropThumbImg.src = imgUrl;
                 previewImg.onload = () => {
                     checkMediaAspect();
                 };
-
                 updatePlayStateUI(false);
                 toast('🖼️ 圖片素材加載成功！');
             }
@@ -243,7 +217,6 @@ window.PlayerEngine = {
             if (dyFullscreenPill) dyFullscreenPill.style.display = 'none';
             return;
         }
-
         const dims = window.PlayerEngine.getMediaNaturalDimensions();
         if (dims.width > dims.height) {
             if (dyFullscreenPill) dyFullscreenPill.style.display = 'flex';
@@ -262,41 +235,33 @@ window.PlayerEngine = {
     }
 
     /* ==========================================================================
-       3. 播放与暂停状态双向联动 (电脑端 + 手机横屏同步)
+       3. 播放与暂停状态双向联动
        ========================================================================== */
     function updatePlayStateUI(isPlaying) {
         if (isPlaying) {
-            // 电脑端控件
             if (iconBotPlay) iconBotPlay.style.display = 'none';
             if (iconBotPause) iconBotPause.style.display = 'block';
             if (iconCenterPlay) iconCenterPlay.style.display = 'none';
             if (iconCenterPause) iconCenterPause.style.display = 'flex';
             if (dispCenterPill) dispCenterPill.textContent = '點擊暫停播放';
-
-            // 手机横屏控件 (左下角 + 中央大按键同步)
             if (mIconPlay) mIconPlay.style.display = 'none';
             if (mIconPause) mIconPause.style.display = 'flex';
             if (mCenterIconPlay) mCenterIconPlay.style.display = 'none';
             if (mCenterIconPause) mCenterIconPause.style.display = 'flex';
-
             if (swMAutoSub && swMAutoSub.checked && mDispSubTitle) {
                 mDispSubTitle.textContent = '正在播放 · 橫屏播放';
                 if (inMSubTitle) inMSubTitle.value = '正在播放 · 橫屏播放';
             }
         } else {
-            // 电脑端控件
             if (iconBotPlay) iconBotPlay.style.display = 'block';
             if (iconBotPause) iconBotPause.style.display = 'none';
             if (iconCenterPlay) iconCenterPlay.style.display = 'block';
             if (iconCenterPause) iconCenterPause.style.display = 'none';
             if (dispCenterPill) dispCenterPill.textContent = '點擊繼續播放';
-
-            // 手机横屏控件 (左下角 + 中央大按键同步)
             if (mIconPlay) mIconPlay.style.display = 'block';
             if (mIconPause) mIconPause.style.display = 'none';
             if (mCenterIconPlay) mCenterIconPlay.style.display = 'block';
             if (mCenterIconPause) mCenterIconPause.style.display = 'none';
-
             if (swMAutoSub && swMAutoSub.checked && mDispSubTitle) {
                 mDispSubTitle.textContent = '正在暫停 · 橫屏播放';
                 if (inMSubTitle) inMSubTitle.value = '正在暫停 · 橫屏播放';
@@ -312,7 +277,6 @@ window.PlayerEngine = {
             toast(currentlyPaused ? '已切換圖標為：播放狀態 (❚❚)' : '已切換圖標為：暫停狀態 (▶)');
             return;
         }
-
         if (previewVideo.paused) {
             previewVideo.play().then(() => updatePlayStateUI(true)).catch(console.warn);
         } else {
@@ -326,14 +290,10 @@ window.PlayerEngine = {
     if (btnBotPlayState) btnBotPlayState.addEventListener('click', togglePlayback);
     if (mBtnTogglePlay) mBtnTogglePlay.addEventListener('click', togglePlayback);
     if (mBtnCenterPlay) mBtnCenterPlay.addEventListener('click', togglePlayback);
-    
+
     /* ==========================================================================
-       4. 三端时间码与进度条同步系统
+       4. 三端时间码、随机总时长与双向同步系统
        ========================================================================== */
-/* ==========================================================================
-       ★ 4. 三端时间码、随机总时长 (1:20:00~2:30:00) 与电脑/手机双向同步系统
-       ========================================================================== */
-    // 获取手机横屏面板新增的同步控件
     const swMSyncVideoTime = document.getElementById('sw-m-sync-video-time');
     const inMStartTime = document.getElementById('in-m-start-time');
     const inMTotalTime = document.getElementById('in-m-total-time');
@@ -347,11 +307,9 @@ window.PlayerEngine = {
         const clamped = Math.min(100, Math.max(0, Number(pct) || 0));
         const widthStr = clamped.toFixed(2) + '%';
         const intVal = Math.round(clamped);
-
         if (dispProgressBar) dispProgressBar.style.width = widthStr;
         if (mDispProgress) mDispProgress.style.width = widthStr;
         if (dyTinyFill) dyTinyFill.style.width = widthStr;
-
         if (inProgress) inProgress.value = intVal;
         if (inMProgress) inMProgress.value = intVal;
         if (txtProgress) txtProgress.textContent = intVal + '%';
@@ -361,18 +319,15 @@ window.PlayerEngine = {
     function syncAllBufferBars(pct) {
         const clamped = Math.min(100, Math.max(0, Number(pct) || 0));
         const widthStr = clamped + '%';
-
         if (dispBufferBar) dispBufferBar.style.width = widthStr;
         if (mDispBuffer) mDispBuffer.style.width = widthStr;
         if (dyTinyBuffer) dyTinyBuffer.style.width = widthStr;
-
         if (inBuffer) inBuffer.value = clamped;
         if (inMBuffer) inMBuffer.value = clamped;
         if (txtBuffer) txtBuffer.textContent = widthStr;
         if (txtMBuffer) txtMBuffer.textContent = widthStr;
     }
 
-    // 刷新画面上的时间显示（手机横屏显示 0:04:07 / 2:06:21，电脑端显示 00:04:07 / 02:06:21）
     function refreshTimeUI() {
         const s = window.PlayerEngine.timeToSec(inStartTime.value);
         const t = window.PlayerEngine.timeToSec(inTotalTime.value) || 1;
@@ -385,7 +340,6 @@ window.PlayerEngine = {
     }
     window.PlayerEngine.refreshTimeUI = refreshTimeUI;
 
-    // 统一更新起始时间与总时间并双向同步输入框
     function applyStartAndTotalTime(startStr, totalStr, save = true) {
         if (startStr !== null && startStr !== undefined) {
             if (inStartTime) inStartTime.value = startStr;
@@ -407,16 +361,13 @@ window.PlayerEngine = {
         }
     }
 
-    // ★ 核心功能：每次打开网页自动在 1:20:00 (4800秒) ~ 2:30:00 (9000秒) 之间随机生成总时长
     function randomizeDuration(showMsg = false) {
-        const minSec = 1 * 3600 + 20 * 60; // 1:20:00 = 4800秒
-        const maxSec = 2 * 3600 + 30 * 60; // 2:30:00 = 9000秒
+        const minSec = 1 * 3600 + 20 * 60;
+        const maxSec = 2 * 3600 + 30 * 60;
         const randomTotalSec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
         const formattedTotal = window.PlayerEngine.secToTime(randomTotalSec);
-
         const curStartStr = inStartTime ? inStartTime.value : '00:04:07';
         applyStartAndTotalTime(curStartStr, formattedTotal, false);
-
         if (showMsg) {
             toast(`🎲 已随机生成新总片长：${window.PlayerEngine.secToShortTime(randomTotalSec)}`);
         }
@@ -427,7 +378,6 @@ window.PlayerEngine = {
         btnRandomTime.addEventListener('click', () => randomizeDuration(true));
     }
 
-    // 电脑端 <-> 手机横屏端：播放秒数走动开关双向同步
     if (swSyncVideoTime && swMSyncVideoTime) {
         swSyncVideoTime.addEventListener('change', (e) => {
             swMSyncVideoTime.checked = e.target.checked;
@@ -439,15 +389,12 @@ window.PlayerEngine = {
         });
     }
 
-    // 电脑端 <-> 手机横屏端：起始时间双向同步
     if (inStartTime) {
         inStartTime.addEventListener('input', (e) => applyStartAndTotalTime(e.target.value, null, true));
     }
     if (inMStartTime) {
         inMStartTime.addEventListener('input', (e) => applyStartAndTotalTime(e.target.value, null, true));
     }
-
-    // 电脑端 <-> 手机横屏端：结尾总时长双向同步
     if (inTotalTime) {
         inTotalTime.addEventListener('input', (e) => applyStartAndTotalTime(null, e.target.value, true));
     }
@@ -455,7 +402,6 @@ window.PlayerEngine = {
         inMTotalTime.addEventListener('input', (e) => applyStartAndTotalTime(null, e.target.value, true));
     }
 
-    // 电脑端 <-> 手机横屏端：进度条滑块双向同步
     function handleProgressSliderInput(val) {
         const numVal = parseFloat(val) || 0;
         syncAllProgressBars(numVal);
@@ -475,7 +421,6 @@ window.PlayerEngine = {
         inMProgress.addEventListener('input', (e) => handleProgressSliderInput(e.target.value));
     }
 
-    // 电脑端 <-> 手机横屏端：缓冲条滑块双向同步
     if (inBuffer) {
         inBuffer.addEventListener('input', (e) => {
             syncAllBufferBars(e.target.value);
@@ -489,7 +434,6 @@ window.PlayerEngine = {
         });
     }
 
-    // 电脑端进度条点击直接跳转
     if (progressClickBar) {
         progressClickBar.addEventListener('click', (e) => {
             const rect = progressClickBar.getBoundingClientRect();
@@ -499,7 +443,6 @@ window.PlayerEngine = {
         });
     }
 
-    // 手机横屏进度条点击直接跳转
     if (mProgressContainer) {
         mProgressContainer.addEventListener('click', (e) => {
             const rect = mProgressContainer.getBoundingClientRect();
@@ -509,134 +452,145 @@ window.PlayerEngine = {
         });
     }
 
-    // 视频播放时真实秒数与进度条走动
     previewVideo.addEventListener('timeupdate', () => {
-        if (!window.PlayerEngine.isVideoMode || !swSyncVideoTime.checked) return;
-
+        if (!window.PlayerEngine.isVideoMode || !swSyncVideoTime || !swSyncVideoTime.checked) return;
         const baseStart = window.PlayerEngine.timeToSec(inStartTime.value);
         const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 7581;
         const elapsed = Math.floor(previewVideo.currentTime);
         const curSec = baseStart + elapsed;
-
         if (dispTime) dispTime.textContent = `${window.PlayerEngine.secToTime(curSec)} / ${window.PlayerEngine.secToTime(totalSec)}`;
         if (mDispTime) mDispTime.textContent = `${window.PlayerEngine.secToShortTime(curSec)} / ${window.PlayerEngine.secToShortTime(totalSec)}`;
-
         const pct = Math.min(100, (curSec / totalSec) * 100);
         syncAllProgressBars(pct);
     });
 
-    // 页面首次初始化时立即执行一次随机总时长 (1:20:00 ~ 2:30:00)
     randomizeDuration(false);
 
     /* ==========================================================================
        5. 独立取景框浮窗：滚轮缩放小窗、红绿选框拖拽与双向联动
        ========================================================================== */
+    window.getPlayerCropRect = function (targetW, targetH) {
+        const isVideo = previewVideo && previewVideo.style.display !== 'none' && previewVideo.videoWidth > 0;
+        const mediaW = isVideo ? previewVideo.videoWidth : (previewImg.naturalWidth || 1280);
+        const mediaH = isVideo ? previewVideo.videoHeight : (previewImg.naturalHeight || 720);
+        const mAspect = mediaW / mediaH;
+        const cAspect = (targetW || 800) / (targetH || 450);
+        const fitMode = selCropFit ? selCropFit.value : 'cover';
+        const rawScale = parseFloat(inMediaScale.value);
+        const scaleVal = Number.isNaN(rawScale) ? 100 : rawScale;
+        const zoom = fitMode === 'cover' ? Math.max(1, scaleVal / 100) : (scaleVal / 100);
+        const rawX = parseFloat(inPosX.value);
+        const rawY = parseFloat(inPosY.value);
+        const xPct = Math.min(100, Math.max(0, Number.isNaN(rawX) ? 50 : rawX));
+        const yPct = Math.min(100, Math.max(0, Number.isNaN(rawY) ? 50 : rawY));
+        const posX = xPct / 100;
+        const posY = yPct / 100;
+        let baseW, baseH;
+        if (fitMode === 'contain') {
+            if (mAspect > cAspect) {
+                baseW = targetW;
+                baseH = baseW / mAspect;
+            } else {
+                baseH = targetH;
+                baseW = baseH * mAspect;
+            }
+        } else {
+            if (mAspect > cAspect) {
+                baseH = targetH;
+                baseW = baseH * mAspect;
+            } else {
+                baseW = targetW;
+                baseH = baseW / mAspect;
+            }
+        }
+        const renderW = baseW * zoom;
+        const renderH = baseH * zoom;
+        const offX = (targetW - renderW) * posX;
+        const offY = (targetH - renderH) * posY;
+        return {
+            mediaW, mediaH, mAspect, cAspect,
+            zoom, scaleVal, posX, posY, xPct, yPct,
+            renderW, renderH, offX, offY
+        };
+    };
+
     function updateTransform() {
-        const yVal = inPosY.value + '%';
-        const xVal = inPosX.value + '%';
-        const scaleVal = inMediaScale.value / 100;
-
-        document.documentElement.style.setProperty('--media-pos-y', yVal);
-        document.documentElement.style.setProperty('--media-pos-x', xVal);
-        document.documentElement.style.setProperty('--media-scale', scaleVal);
-
-        if (txtPosY) txtPosY.textContent = yVal;
-        if (txtPosX) txtPosX.textContent = xVal;
-        if (txtMediaScale) txtMediaScale.textContent = inMediaScale.value + '%';
-
+        const targetW = renderTarget.clientWidth || 800;
+        const targetH = renderTarget.clientHeight || 450;
+        const rect = window.getPlayerCropRect(targetW, targetH);
+        [previewImg, previewVideo].forEach(el => {
+            if (!el) return;
+            el.style.width = rect.renderW + 'px';
+            el.style.height = rect.renderH + 'px';
+            el.style.left = rect.offX + 'px';
+            el.style.top = rect.offY + 'px';
+        });
+        if (txtPosX) txtPosX.textContent = Math.round(rect.xPct) + '%';
+        if (txtPosY) txtPosY.textContent = Math.round(rect.yPct) + '%';
+        if (txtMediaScale) txtMediaScale.textContent = Math.round(rect.scaleVal) + '%';
+        if (txtCropWinSize) txtCropWinSize.textContent = '缩放: ' + Math.round(rect.scaleVal) + '%';
         syncCropBoxPosition();
         if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
     }
 
-    inPosY.addEventListener('input', updateTransform);
-    inPosX.addEventListener('input', updateTransform);
-    inMediaScale.addEventListener('input', updateTransform);
-
-    if (selCropFit) {
-        selCropFit.addEventListener('change', (e) => {
-            const fit = e.target.value;
-            previewImg.style.objectFit = fit;
-            previewVideo.style.objectFit = fit;
-            toast(fit === 'cover' ? '已切換為：等比裁切填充 (無黑邊)' : '已切換為：完整畫面包含 (留黑邊不變形)');
-            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-        });
+    function syncCropBoxPosition() {
+        if (!cropInspectorWindow || cropInspectorWindow.style.display === 'none') return;
+        const bodyW = cropWindowBody.clientWidth;
+        const bodyH = cropWindowBody.clientHeight;
+        if (!bodyW || !bodyH) return;
+        const targetW = renderTarget.clientWidth || 800;
+        const targetH = renderTarget.clientHeight || 450;
+        const rect = window.getPlayerCropRect(targetW, targetH);
+        const visWFrac = Math.min(1, targetW / rect.renderW);
+        const visHFrac = Math.min(1, targetH / rect.renderH);
+        const boxW = Math.max(20, Math.round(bodyW * visWFrac));
+        const boxH = Math.max(20, Math.round(bodyH * visHFrac));
+        cropSelectionBox.style.width = boxW + 'px';
+        cropSelectionBox.style.height = boxH + 'px';
+        const maxLeft = Math.max(0, bodyW - boxW);
+        const maxTop = Math.max(0, bodyH - boxH);
+        cropSelectionBox.style.left = (maxLeft * rect.posX) + 'px';
+        cropSelectionBox.style.top = (maxTop * rect.posY) + 'px';
     }
+
+    if (previewImg) previewImg.addEventListener('load', updateTransform);
+    if (previewVideo) previewVideo.addEventListener('loadedmetadata', updateTransform);
+    if (cropThumbImg) cropThumbImg.addEventListener('load', updateTransform);
+    window.addEventListener('resize', updateTransform);
+    [inPosY, inPosX, inMediaScale].forEach(el => {
+        if (el) el.addEventListener('input', updateTransform);
+    });
+    if (selCropFit) selCropFit.addEventListener('change', updateTransform);
 
     if (swCropWindow && cropInspectorWindow) {
         swCropWindow.addEventListener('change', (e) => {
-            cropInspectorWindow.style.display = e.target.checked ? 'flex' : 'none';
+            cropInspectorWindow.style.display = e.target.checked ? 'block' : 'none';
             if (e.target.checked) {
-                if (!cropThumbImg.src || cropThumbImg.src === window.location.href) {
-                    cropThumbImg.src = previewImg.src;
-                }
-                syncCropBoxRatio();
-                syncCropBoxPosition();
+                cropThumbImg.src = previewImg.src;
+                setTimeout(updateTransform, 30);
             }
         });
     }
-
     if (btnCloseCropWindow) {
         btnCloseCropWindow.addEventListener('click', () => {
-            swCropWindow.checked = false;
             cropInspectorWindow.style.display = 'none';
+            if (swCropWindow) swCropWindow.checked = false;
         });
     }
-
-    let currentWinWidth = 240;
     if (cropInspectorWindow) {
         cropInspectorWindow.addEventListener('wheel', (e) => {
             e.preventDefault();
-            if (e.deltaY < 0) {
-                currentWinWidth = Math.min(420, currentWinWidth + 15);
-            } else {
-                currentWinWidth = Math.max(180, currentWinWidth - 15);
-            }
-            cropInspectorWindow.style.width = currentWinWidth + 'px';
-            if (txtCropWinSize) txtCropWinSize.textContent = `尺寸: ${currentWinWidth}px`;
-            syncCropBoxPosition();
+            const curScale = parseFloat(inMediaScale.value) || 100;
+            const delta = e.deltaY < 0 ? 5 : -5;
+            const nextScale = Math.min(250, Math.max(100, curScale + delta));
+            inMediaScale.value = nextScale;
+            updateTransform();
         }, { passive: false });
-    }
-
-    function syncCropBoxRatio() {
-        if (!cropSelectionBox) return;
-        const isPort = renderTarget.classList.contains('mode-mobile-port');
-        const isLand = renderTarget.classList.contains('mode-mobile-land');
-        
-        if (isPort) {
-            cropSelectionBox.style.width = '42%';
-            cropSelectionBox.style.aspectRatio = '9 / 16';
-        } else if (isLand) {
-            cropSelectionBox.style.width = '80%';
-            cropSelectionBox.style.aspectRatio = '19.5 / 9';
-        } else {
-            cropSelectionBox.style.width = '75%';
-            cropSelectionBox.style.aspectRatio = '16 / 9';
-        }
-    }
-
-    function syncCropBoxPosition() {
-        if (!cropSelectionBox || !cropWindowBody) return;
-        const xPct = parseFloat(inPosX.value) || 50;
-        const yPct = parseFloat(inPosY.value) || 50;
-        
-        const bodyW = cropWindowBody.offsetWidth;
-        const bodyH = cropWindowBody.offsetHeight;
-        const boxW = cropSelectionBox.offsetWidth;
-        const boxH = cropSelectionBox.offsetHeight;
-
-        const maxLeft = bodyW - boxW;
-        const maxTop = bodyH - boxH;
-
-        if (maxLeft > 0 && maxTop > 0) {
-            cropSelectionBox.style.left = (maxLeft * (1 - xPct / 100)) + 'px';
-            cropSelectionBox.style.top = (maxTop * (1 - yPct / 100)) + 'px';
-        }
     }
 
     let isDraggingCrop = false;
     let cropStartX = 0, cropStartY = 0;
     let cropBoxStartLeft = 0, cropBoxStartTop = 0;
-
     if (cropSelectionBox && cropWindowBody) {
         cropSelectionBox.addEventListener('mousedown', (e) => {
             isDraggingCrop = true;
@@ -645,75 +599,56 @@ window.PlayerEngine = {
             cropBoxStartLeft = cropSelectionBox.offsetLeft;
             cropBoxStartTop = cropSelectionBox.offsetTop;
             e.preventDefault();
-            e.stopPropagation();
         });
-
         window.addEventListener('mousemove', (e) => {
             if (!isDraggingCrop) return;
             const deltaX = e.clientX - cropStartX;
             const deltaY = e.clientY - cropStartY;
-
-            const bodyW = cropWindowBody.offsetWidth;
-            const bodyH = cropWindowBody.offsetHeight;
+            const bodyW = cropWindowBody.clientWidth;
+            const bodyH = cropWindowBody.clientHeight;
             const boxW = cropSelectionBox.offsetWidth;
             const boxH = cropSelectionBox.offsetHeight;
-
-            const maxLeft = Math.max(1, bodyW - boxW);
-            const maxTop = Math.max(1, bodyH - boxH);
-
-            let newLeft = Math.min(maxLeft, Math.max(0, cropBoxStartLeft + deltaX));
-            let newTop = Math.min(maxTop, Math.max(0, cropBoxStartTop + deltaY));
-
-            cropSelectionBox.style.left = newLeft + 'px';
-            cropSelectionBox.style.top = newTop + 'px';
-
-            const revXPct = Math.round((1 - newLeft / maxLeft) * 100);
-            const revYPct = Math.round((1 - newTop / maxTop) * 100);
-
-            inPosX.value = revXPct;
-            inPosY.value = revYPct;
-
-            const yVal = revYPct + '%';
-            const xVal = revXPct + '%';
-            document.documentElement.style.setProperty('--media-pos-y', yVal);
-            document.documentElement.style.setProperty('--media-pos-x', xVal);
-            if (txtPosY) txtPosY.textContent = yVal;
-            if (txtPosX) txtPosX.textContent = xVal;
+            const maxLeft = Math.max(0, bodyW - boxW);
+            const maxTop = Math.max(0, bodyH - boxH);
+            const newLeft = Math.min(maxLeft, Math.max(0, cropBoxStartLeft + deltaX));
+            const newTop = Math.min(maxTop, Math.max(0, cropBoxStartTop + deltaY));
+            const curXPct = maxLeft > 0 ? Math.round((newLeft / maxLeft) * 100) : 50;
+            const curYPct = maxTop > 0 ? Math.round((newTop / maxTop) * 100) : 50;
+            inPosX.value = curXPct;
+            inPosY.value = curYPct;
+            updateTransform();
         });
-
         window.addEventListener('mouseup', () => {
-            if (isDraggingCrop) {
-                isDraggingCrop = false;
-                if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-            }
+            isDraggingCrop = false;
         });
     }
 
     if (btnCropReset) {
         btnCropReset.addEventListener('click', () => {
+            inPosX.value = 50;
+            inPosY.value = 50;
+            inMediaScale.value = 100;
+            updateTransform();
+        });
+    }
+    if (btnResetPos) {
+        btnResetPos.addEventListener('click', () => {
             inPosY.value = 50;
             inPosX.value = 50;
             inMediaScale.value = 100;
             updateTransform();
-            toast('小窗取景已居中');
+            toast('畫面位置與縮放已居中重置');
         });
     }
-
-    btnResetPos.addEventListener('click', () => {
-        inPosY.value = 50;
-        inPosX.value = 50;
-        inMediaScale.value = 100;
-        updateTransform();
-        toast('畫面已恢復默認居中');
-    });
-
-    btnFacePreset.addEventListener('click', () => {
-        inPosY.value = 18;
-        inPosX.value = 50;
-        inMediaScale.value = 110;
-        updateTransform();
-        toast('已應用快速露臉構圖預設');
-    });
+    if (btnFacePreset) {
+        btnFacePreset.addEventListener('click', () => {
+            inPosY.value = 18;
+            inPosX.value = 50;
+            inMediaScale.value = 110;
+            updateTransform();
+            toast('已應用快速露臉構圖預設');
+        });
+    }
 
     refreshTimeUI();
     updateTransform();
