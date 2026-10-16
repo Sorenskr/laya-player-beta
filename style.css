@@ -298,10 +298,9 @@ main {
 }
 
 .mode-mobile-land {
-    width: min(1100px, 94%);
-    aspect-ratio: 19.5 / 9;
-    border-radius: 18px;
-    border: 2.5px solid rgba(255, 255, 255, 0.2);
+    width: min(1120px, 94%);
+    aspect-ratio: 16 / 9; /* 改为标准的 16:9 宽屏比例 */
+    border-radius: 16px;
 }
 
 .mode-mobile-port {
