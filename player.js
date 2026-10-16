@@ -75,9 +75,12 @@ window.PlayerEngine = {
     const mBtnTogglePlay = document.getElementById('m-btn-toggle-play');
     const mIconPlay = document.getElementById('m-icon-play');
     const mIconPause = document.getElementById('m-icon-pause');
+    const mBtnCenterPlay = document.getElementById('m-btn-center-play');
+    const mCenterIconPlay = document.getElementById('m-center-icon-play');
+    const mCenterIconPause = document.getElementById('m-center-icon-pause');
     const mDispSubTitle = document.getElementById('m-disp-sub-title');
     const inMSubTitle = document.getElementById('in-m-sub-title');
-    const swMAutoSub = document.getElementById('sw-m-auto-sub');
+    const swMAutoSub = document.getElementById('sw-m-auto-sub');    
     const mDispTime = document.getElementById('m-disp-time');
     const mProgressContainer = document.getElementById('m-progress-container');
     const mDispProgress = document.getElementById('m-disp-progress');
@@ -270,9 +273,12 @@ window.PlayerEngine = {
             if (iconCenterPause) iconCenterPause.style.display = 'flex';
             if (dispCenterPill) dispCenterPill.textContent = '點擊暫停播放';
 
-            // 手机横屏控件
+            // 手机横屏控件 (左下角 + 中央大按键同步)
             if (mIconPlay) mIconPlay.style.display = 'none';
             if (mIconPause) mIconPause.style.display = 'flex';
+            if (mCenterIconPlay) mCenterIconPlay.style.display = 'none';
+            if (mCenterIconPause) mCenterIconPause.style.display = 'flex';
+
             if (swMAutoSub && swMAutoSub.checked && mDispSubTitle) {
                 mDispSubTitle.textContent = '正在播放 · 橫屏播放';
                 if (inMSubTitle) inMSubTitle.value = '正在播放 · 橫屏播放';
@@ -285,9 +291,12 @@ window.PlayerEngine = {
             if (iconCenterPause) iconCenterPause.style.display = 'none';
             if (dispCenterPill) dispCenterPill.textContent = '點擊繼續播放';
 
-            // 手机横屏控件
+            // 手机横屏控件 (左下角 + 中央大按键同步)
             if (mIconPlay) mIconPlay.style.display = 'block';
             if (mIconPause) mIconPause.style.display = 'none';
+            if (mCenterIconPlay) mCenterIconPlay.style.display = 'block';
+            if (mCenterIconPause) mCenterIconPause.style.display = 'none';
+
             if (swMAutoSub && swMAutoSub.checked && mDispSubTitle) {
                 mDispSubTitle.textContent = '正在暫停 · 橫屏播放';
                 if (inMSubTitle) inMSubTitle.value = '正在暫停 · 橫屏播放';
@@ -298,10 +307,9 @@ window.PlayerEngine = {
 
     function togglePlayback() {
         if (!window.PlayerEngine.isVideoMode) {
-            // 静态图模式下也允许切换按钮图标状态，方便用户截图“播放态”或“暂停态”
             const currentlyPaused = mIconPlay ? (mIconPlay.style.display !== 'none') : true;
             updatePlayStateUI(currentlyPaused);
-            toast(currentlyPaused ? '已切換圖標為：播放狀態' : '已切換圖標為：暫停狀態');
+            toast(currentlyPaused ? '已切換圖標為：播放狀態 (❚❚)' : '已切換圖標為：暫停狀態 (▶)');
             return;
         }
 
@@ -317,74 +325,169 @@ window.PlayerEngine = {
     if (btnTogglePlayback) btnTogglePlayback.addEventListener('click', togglePlayback);
     if (btnBotPlayState) btnBotPlayState.addEventListener('click', togglePlayback);
     if (mBtnTogglePlay) mBtnTogglePlay.addEventListener('click', togglePlayback);
-
+    if (mBtnCenterPlay) mBtnCenterPlay.addEventListener('click', togglePlayback);
+    
     /* ==========================================================================
        4. 三端时间码与进度条同步系统
        ========================================================================== */
+/* ==========================================================================
+       ★ 4. 三端时间码、随机总时长 (1:20:00~2:30:00) 与电脑/手机双向同步系统
+       ========================================================================== */
+    // 获取手机横屏面板新增的同步控件
+    const swMSyncVideoTime = document.getElementById('sw-m-sync-video-time');
+    const inMStartTime = document.getElementById('in-m-start-time');
+    const inMTotalTime = document.getElementById('in-m-total-time');
+    const inMProgress = document.getElementById('in-m-progress');
+    const txtMProgress = document.getElementById('txt-m-progress');
+    const inMBuffer = document.getElementById('in-m-buffer');
+    const txtMBuffer = document.getElementById('txt-m-buffer');
+    const btnRandomTime = document.getElementById('btn-random-time');
+
     function syncAllProgressBars(pct) {
         const clamped = Math.min(100, Math.max(0, Number(pct) || 0));
         const widthStr = clamped.toFixed(2) + '%';
+        const intVal = Math.round(clamped);
+
         if (dispProgressBar) dispProgressBar.style.width = widthStr;
         if (mDispProgress) mDispProgress.style.width = widthStr;
         if (dyTinyFill) dyTinyFill.style.width = widthStr;
-        if (txtProgress) txtProgress.textContent = Math.round(clamped) + '%';
+
+        if (inProgress) inProgress.value = intVal;
+        if (inMProgress) inMProgress.value = intVal;
+        if (txtProgress) txtProgress.textContent = intVal + '%';
+        if (txtMProgress) txtMProgress.textContent = intVal + '%';
     }
 
     function syncAllBufferBars(pct) {
         const clamped = Math.min(100, Math.max(0, Number(pct) || 0));
         const widthStr = clamped + '%';
+
         if (dispBufferBar) dispBufferBar.style.width = widthStr;
         if (mDispBuffer) mDispBuffer.style.width = widthStr;
         if (dyTinyBuffer) dyTinyBuffer.style.width = widthStr;
+
+        if (inBuffer) inBuffer.value = clamped;
+        if (inMBuffer) inMBuffer.value = clamped;
         if (txtBuffer) txtBuffer.textContent = widthStr;
+        if (txtMBuffer) txtMBuffer.textContent = widthStr;
     }
 
+    // 刷新画面上的时间显示（手机横屏显示 0:04:07 / 2:06:21，电脑端显示 00:04:07 / 02:06:21）
     function refreshTimeUI() {
         const s = window.PlayerEngine.timeToSec(inStartTime.value);
         const t = window.PlayerEngine.timeToSec(inTotalTime.value) || 1;
-        if (dispTime) dispTime.textContent = `${window.PlayerEngine.secToTime(s)} / ${window.PlayerEngine.secToTime(t)}`;
-        if (mDispTime) mDispTime.textContent = window.PlayerEngine.secToShortTime(s);
+        if (dispTime) {
+            dispTime.textContent = `${window.PlayerEngine.secToTime(s)} / ${window.PlayerEngine.secToTime(t)}`;
+        }
+        if (mDispTime) {
+            mDispTime.textContent = `${window.PlayerEngine.secToShortTime(s)} / ${window.PlayerEngine.secToShortTime(t)}`;
+        }
     }
     window.PlayerEngine.refreshTimeUI = refreshTimeUI;
 
-    inStartTime.addEventListener('input', () => {
+    // 统一更新起始时间与总时间并双向同步输入框
+    function applyStartAndTotalTime(startStr, totalStr, save = true) {
+        if (startStr !== null && startStr !== undefined) {
+            if (inStartTime) inStartTime.value = startStr;
+            if (inMStartTime) inMStartTime.value = startStr;
+        }
+        if (totalStr !== null && totalStr !== undefined) {
+            if (inTotalTime) inTotalTime.value = totalStr;
+            if (inMTotalTime) inMTotalTime.value = totalStr;
+        }
         refreshTimeUI();
         const startSec = window.PlayerEngine.timeToSec(inStartTime.value);
         const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value);
         if (totalSec > 0) {
-            const pct = Math.min(100, Math.max(0, Math.round((startSec / totalSec) * 100)));
-            inProgress.value = pct;
+            const pct = Math.min(100, Math.max(0, (startSec / totalSec) * 100));
             syncAllProgressBars(pct);
         }
-        if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-    });
-
-    inTotalTime.addEventListener('input', () => {
-        refreshTimeUI();
-        const startSec = window.PlayerEngine.timeToSec(inStartTime.value);
-        const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value);
-        if (totalSec > 0) {
-            const pct = Math.min(100, Math.max(0, Math.round((startSec / totalSec) * 100)));
-            inProgress.value = pct;
-            syncAllProgressBars(pct);
+        if (save && typeof window.triggerSaveStorage === 'function') {
+            window.triggerSaveStorage();
         }
-        if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-    });
+    }
 
-    inProgress.addEventListener('input', (e) => {
-        const val = parseFloat(e.target.value) || 0;
-        syncAllProgressBars(val);
-        const total = window.PlayerEngine.timeToSec(inTotalTime.value) || 1125;
-        const newSec = Math.round((val / 100) * total);
-        inStartTime.value = window.PlayerEngine.secToTime(newSec);
+    // ★ 核心功能：每次打开网页自动在 1:20:00 (4800秒) ~ 2:30:00 (9000秒) 之间随机生成总时长
+    function randomizeDuration(showMsg = false) {
+        const minSec = 1 * 3600 + 20 * 60; // 1:20:00 = 4800秒
+        const maxSec = 2 * 3600 + 30 * 60; // 2:30:00 = 9000秒
+        const randomTotalSec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
+        const formattedTotal = window.PlayerEngine.secToTime(randomTotalSec);
+
+        const curStartStr = inStartTime ? inStartTime.value : '00:04:07';
+        applyStartAndTotalTime(curStartStr, formattedTotal, false);
+
+        if (showMsg) {
+            toast(`🎲 已随机生成新总片长：${window.PlayerEngine.secToShortTime(randomTotalSec)}`);
+        }
+    }
+    window.PlayerEngine.randomizeDuration = randomizeDuration;
+
+    if (btnRandomTime) {
+        btnRandomTime.addEventListener('click', () => randomizeDuration(true));
+    }
+
+    // 电脑端 <-> 手机横屏端：播放秒数走动开关双向同步
+    if (swSyncVideoTime && swMSyncVideoTime) {
+        swSyncVideoTime.addEventListener('change', (e) => {
+            swMSyncVideoTime.checked = e.target.checked;
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+        });
+        swMSyncVideoTime.addEventListener('change', (e) => {
+            swSyncVideoTime.checked = e.target.checked;
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+        });
+    }
+
+    // 电脑端 <-> 手机横屏端：起始时间双向同步
+    if (inStartTime) {
+        inStartTime.addEventListener('input', (e) => applyStartAndTotalTime(e.target.value, null, true));
+    }
+    if (inMStartTime) {
+        inMStartTime.addEventListener('input', (e) => applyStartAndTotalTime(e.target.value, null, true));
+    }
+
+    // 电脑端 <-> 手机横屏端：结尾总时长双向同步
+    if (inTotalTime) {
+        inTotalTime.addEventListener('input', (e) => applyStartAndTotalTime(null, e.target.value, true));
+    }
+    if (inMTotalTime) {
+        inMTotalTime.addEventListener('input', (e) => applyStartAndTotalTime(null, e.target.value, true));
+    }
+
+    // 电脑端 <-> 手机横屏端：进度条滑块双向同步
+    function handleProgressSliderInput(val) {
+        const numVal = parseFloat(val) || 0;
+        syncAllProgressBars(numVal);
+        const total = window.PlayerEngine.timeToSec(inTotalTime.value) || 7581;
+        const newSec = Math.round((numVal / 100) * total);
+        const newStartStr = window.PlayerEngine.secToTime(newSec);
+        if (inStartTime) inStartTime.value = newStartStr;
+        if (inMStartTime) inMStartTime.value = newStartStr;
         refreshTimeUI();
         if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-    });
+    }
 
-    inBuffer.addEventListener('input', (e) => {
-        syncAllBufferBars(e.target.value);
-        if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-    });
+    if (inProgress) {
+        inProgress.addEventListener('input', (e) => handleProgressSliderInput(e.target.value));
+    }
+    if (inMProgress) {
+        inMProgress.addEventListener('input', (e) => handleProgressSliderInput(e.target.value));
+    }
+
+    // 电脑端 <-> 手机横屏端：缓冲条滑块双向同步
+    if (inBuffer) {
+        inBuffer.addEventListener('input', (e) => {
+            syncAllBufferBars(e.target.value);
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+        });
+    }
+    if (inMBuffer) {
+        inMBuffer.addEventListener('input', (e) => {
+            syncAllBufferBars(e.target.value);
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+        });
+    }
 
     // 电脑端进度条点击直接跳转
     if (progressClickBar) {
@@ -392,8 +495,7 @@ window.PlayerEngine = {
             const rect = progressClickBar.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const pct = Math.min(100, Math.max(0, Math.round((clickX / rect.width) * 100)));
-            inProgress.value = pct;
-            inProgress.dispatchEvent(new Event('input'));
+            handleProgressSliderInput(pct);
         });
     }
 
@@ -403,8 +505,7 @@ window.PlayerEngine = {
             const rect = mProgressContainer.getBoundingClientRect();
             const clickX = e.clientX - rect.left;
             const pct = Math.min(100, Math.max(0, Math.round((clickX / rect.width) * 100)));
-            inProgress.value = pct;
-            inProgress.dispatchEvent(new Event('input'));
+            handleProgressSliderInput(pct);
         });
     }
 
@@ -413,16 +514,19 @@ window.PlayerEngine = {
         if (!window.PlayerEngine.isVideoMode || !swSyncVideoTime.checked) return;
 
         const baseStart = window.PlayerEngine.timeToSec(inStartTime.value);
-        const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 1125;
+        const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 7581;
         const elapsed = Math.floor(previewVideo.currentTime);
         const curSec = baseStart + elapsed;
 
         if (dispTime) dispTime.textContent = `${window.PlayerEngine.secToTime(curSec)} / ${window.PlayerEngine.secToTime(totalSec)}`;
-        if (mDispTime) mDispTime.textContent = window.PlayerEngine.secToShortTime(curSec);
+        if (mDispTime) mDispTime.textContent = `${window.PlayerEngine.secToShortTime(curSec)} / ${window.PlayerEngine.secToShortTime(totalSec)}`;
 
         const pct = Math.min(100, (curSec / totalSec) * 100);
         syncAllProgressBars(pct);
     });
+
+    // 页面首次初始化时立即执行一次随机总时长 (1:20:00 ~ 2:30:00)
+    randomizeDuration(false);
 
     /* ==========================================================================
        5. 独立取景框浮窗：滚轮缩放小窗、红绿选框拖拽与双向联动
