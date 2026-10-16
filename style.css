@@ -1079,6 +1079,22 @@ main {
     box-shadow: 0 2px 8px rgba(254, 44, 85, 0.5);
 }
 
+/* ★ 新增：单单文字、无任何背景彩色方块的纯文本样式 */
+.m-res-badge.badge-pure-text {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    color: #ffffff !important;
+    font-size: 14.5px !important;
+    font-weight: 800 !important;
+    letter-spacing: 0.4px !important;
+    line-height: 1.2 !important;
+    padding: 0 !important;
+    margin-right: 2px !important;
+}
+
 .m-main-title {
     font-size: 14.5px;
     font-weight: 800;
