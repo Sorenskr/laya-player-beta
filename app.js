@@ -202,6 +202,33 @@ window.switchRightTab = function (mode) {
         });
     }
 
+    // ★ 手机横屏左上角画质徽标 (4K / 1080P / 藍光 / 8K) 切换与点击轮换
+    const selMResBadge = document.getElementById('sel-m-res-badge');
+    const mDispResBadge = document.getElementById('m-disp-res-badge');
+
+    function applyMResBadge(valStr) {
+        if (!mDispResBadge || !valStr) return;
+        const [txt, styleClass] = valStr.split('|');
+        mDispResBadge.textContent = txt || '4K';
+        mDispResBadge.className = `m-res-badge ${styleClass || 'badge-gold'} interactive-elem`;
+    }
+
+    if (selMResBadge && mDispResBadge) {
+        selMResBadge.addEventListener('change', (e) => {
+            applyMResBadge(e.target.value);
+            triggerSaveStorage();
+        });
+
+        // 支持直接点击画面上的 4K 徽标循环切换款式
+        mDispResBadge.addEventListener('click', () => {
+            const nextIdx = (selMResBadge.selectedIndex + 1) % selMResBadge.options.length;
+            selMResBadge.selectedIndex = nextIdx;
+            applyMResBadge(selMResBadge.value);
+            window.showToast(`✨ 已切换画质徽标：${selMResBadge.options[nextIdx].text}`);
+            triggerSaveStorage();
+        });
+    }
+
     const inMMainTitle = document.getElementById('in-m-main-title');
     const mDispMainTitle = document.getElementById('m-disp-main-title');
     const inMSubTitle = document.getElementById('in-m-sub-title');
@@ -225,6 +252,13 @@ window.switchRightTab = function (mode) {
     const mBtnCast = document.getElementById('m-btn-cast');
     const mBtnSetting = document.getElementById('m-btn-setting');
     const mBtnFullscreen = document.getElementById('m-btn-fullscreen');
+    const mBtnShare = document.getElementById('m-btn-share');
+
+    if (mBtnShare) {
+        mBtnShare.addEventListener('click', () => {
+            window.showToast('🔗 已复制视频分享链接，快去转发吧！');
+        });
+    }
 
     if (mBtnVol) {
         mBtnVol.addEventListener('click', () => {
@@ -484,7 +518,9 @@ window.switchRightTab = function (mode) {
     bindToggle('sw-top-right', 'wrap-top-right', 'flex');
     bindToggle('sw-bottom-bar', 'wrap-bottom-bar', 'flex');
     bindToggle('sw-waveform', 'wrap-waveform', 'block');
-
+// 👇 新增：手机横屏画质徽标开关 & 中央大播放键显隐开关
+    bindToggle('sw-m-res-badge', 'm-disp-res-badge', 'inline-flex');
+    bindToggle('sw-m-center-play', 'm-wrap-center-play', 'flex');
     bindToggle('sw-m-status-bar', 'm-status-bar', 'flex');
     bindToggle('sw-m-top-header', 'm-top-header', 'flex');
     bindToggle('sw-m-bottom-bar', 'm-bottom-bar', 'flex');
@@ -766,7 +802,13 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    setTimeout(loadAllFromStorage, 100);
+    setTimeout(() => {
+        loadAllFromStorage();
+        // ★ 每次打开页面读取完配置后，自动重新在 1:20:00 ~ 2:30:00 之间随机生成总片长
+        if (window.PlayerEngine && typeof window.PlayerEngine.randomizeDuration === 'function') {
+            window.PlayerEngine.randomizeDuration(false);
+        }
+    }, 100);
 
     /* ==========================================================================
        9. 全局繁简一键互转
@@ -781,7 +823,7 @@ window.switchRightTab = function (mode) {
         '倍速': '倍速', '精选': '精選', '热点': '熱點', '关注': '關注', '全屏观看': '全屏觀看',
         '首页': '首頁', '朋友': '朋友', '消息': '消息', '我': '我', '发现': '發現', '瞬间': '瞬間', '视讯': '視訊', '娱乐': '娛樂', '我的': '我的',
         '正在暂停 · 横屏播放': '正在暫停 · 橫屏播放', '正在播放 · 横屏播放': '正在播放 · 橫屏播放',
-        '音量': '音量', '投屏': '投屏', '全屏': '全屏'
+        '音量': '音量', '投屏': '投屏', '全屏': '全屏', '转发': '轉發', '缩小': '縮小'
     };
     const t2sDict = Object.fromEntries(Object.entries(s2tDict).map(([k, v]) => [v, k]));
 
@@ -1191,7 +1233,8 @@ window.switchRightTab = function (mode) {
                             ctx.restore();
                         }
                         if ((!swMBot || swMBot.checked) && mTimeBox) {
-                            const shortTime = window.PlayerEngine.secToShortTime(Math.floor(curSec));
+                            // ★ 录屏导出时同步绘制“当前时间 / 结尾总时长” (如 0:04:07 / 2:06:21)
+                            const shortTime = `${window.PlayerEngine.secToShortTime(Math.floor(curSec))} / ${window.PlayerEngine.secToShortTime(totalVideoSec)}`;
                             ctx.font = `600 ${Math.round(12.5 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
                             ctx.fillStyle = '#ffffff';
                             ctx.textBaseline = 'middle';
