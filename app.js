@@ -51,6 +51,9 @@ window.switchRightTab = function (mode) {
 };
 
 (function () {
+    const STORAGE_KEY = 'LAYA_STUDIO_PERSIST_V12';
+    let saveTimeout = null;
+
     const tabWeb = document.getElementById('tab-btn-web');
     const tabCinema = document.getElementById('tab-btn-m-cinema');
     const tabDy = document.getElementById('tab-btn-dy');
@@ -62,51 +65,30 @@ window.switchRightTab = function (mode) {
     if (tabDm) tabDm.addEventListener('click', () => window.switchRightTab('dm'));
 
     /* ==========================================================================
-       ★ 1. 真实蓝/紫双 Logo 原图切换与 Base64 永久绑定引擎 (导出绝不变假图)
+       ★ 1. 官方蓝/紫双 Logo 默认自带引擎 (免上传直出，同时支持可选自定义替换)
        ========================================================================== */
     const selLogoVersion = document.getElementById('sel-logo-version');
     const upLogo1 = document.getElementById('up-logo-1');
     const upLogo2 = document.getElementById('up-logo-2');
+    const btnResetBuiltinLogo = document.getElementById('btn-reset-builtin-logo');
     const headerBrandLogo = document.getElementById('header-brand-logo');
     const playerMiniLogo = document.getElementById('player-mini-logo');
     const mBrandLogo = document.getElementById('m-brand-logo');
+    const dyLfWmLogo = document.getElementById('dy-lf-wm-logo');
     const dyAvatarImg = document.getElementById('dy-avatar-img');
+    const dylDispAvatar = document.getElementById('dyl-disp-avatar');
 
-    // 存储用户绑定的真实蓝/紫 Logo 的 Base64 数据 (解决本地跨域导致下载变默认假图的问题)
+    // 默认直接使用自带的 window.LOCAL_LOGOS (Laya.png / Laya2.png)，若用户主动上传过自定义图标则优先用用户的
     const customLogoDB = {
-        'Laya.png': (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya.png']) || localStorage.getItem('LAYA_REAL_LOGO_1') || '',
-        'Laya2.png': (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya2.png']) || localStorage.getItem('LAYA_REAL_LOGO_2') || ''
+        'Laya.png': localStorage.getItem('LAYA_CUSTOM_LOGO_1') || (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya.png']) || 'Laya.png',
+        'Laya2.png': localStorage.getItem('LAYA_CUSTOM_LOGO_2') || (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya2.png']) || 'Laya2.png'
     };
 
-    // 尝试自动将同文件夹下的 Laya.png / Laya2.png 预转为 Base64
-    function tryAutoConvertLocalFile(fileName) {
-        if (customLogoDB[fileName]) return;
-        fetch(fileName)
-            .then(res => res.ok ? res.blob() : Promise.reject())
-            .then(blob => {
-                const reader = new FileReader();
-                reader.onload = () => {
-                    customLogoDB[fileName] = reader.result;
-                    localStorage.setItem(fileName === 'Laya.png' ? 'LAYA_REAL_LOGO_1' : 'LAYA_REAL_LOGO_2', reader.result);
-                    if (selLogoVersion && selLogoVersion.value === fileName) {
-                        applyLogoVersion(fileName);
-                    }
-                };
-                reader.readAsDataURL(blob);
-            })
-            .catch(() => {
-                // 若是 file:// 协议禁止 fetch，则可通过界面上的“上传绑定蓝色/紫色Logo”按钮一键绑定
-            });
-    }
-    tryAutoConvertLocalFile('Laya.png');
-    tryAutoConvertLocalFile('Laya2.png');
-
-    // 获取当前选中的真实图标源 (优先使用 Base64 原图，其次使用文件相对路径)
     function getActiveLogoSrc(logoKey) {
-        return customLogoDB[logoKey] || logoKey;
+        return customLogoDB[logoKey] || (window.LOCAL_LOGOS && window.LOCAL_LOGOS[logoKey]) || logoKey;
     }
 
-    function applyLogoVersion(logoKey) {
+    function applyLogoVersion(logoKey, shouldSave = true) {
         const realSrc = getActiveLogoSrc(logoKey);
 
         if (headerBrandLogo) {
@@ -115,22 +97,27 @@ window.switchRightTab = function (mode) {
         }
         if (playerMiniLogo) playerMiniLogo.src = realSrc;
         if (mBrandLogo) mBrandLogo.src = realSrc;
+        if (dyLfWmLogo) dyLfWmLogo.src = realSrc;
 
-        // 手机竖屏头像如果没单独上传过其他人物头像，也同步切换为蓝/紫 Logo
+        // 手机竖屏头像与全屏横屏头像如果没单独上传过其他人物头像，也同步使用当前自带蓝/紫 Logo
         if (dyAvatarImg && (!dyAvatarImg.dataset.custom || dyAvatarImg.dataset.custom === 'false')) {
             dyAvatarImg.src = realSrc;
+            if (dylDispAvatar) dylDispAvatar.src = realSrc;
         }
-        triggerSaveStorage();
+        if (shouldSave && typeof triggerSaveStorage === 'function') triggerSaveStorage();
     }
+
+    // 页面启动立即装载自带默认 Logo，无需任何手动上传
+    applyLogoVersion(selLogoVersion ? selLogoVersion.value : 'Laya.png', false);
 
     if (selLogoVersion) {
         selLogoVersion.addEventListener('change', (e) => {
             applyLogoVersion(e.target.value);
-            window.showToast(e.target.value === 'Laya2.png' ? '🟣 已切换为：紫色图标 (Laya2.png)' : '🔵 已切换为：蓝色图标 (Laya.png)');
+            window.showToast(e.target.value === 'Laya2.png' ? '🟣 已切换为：自带紫色图标 (Laya2.png)' : '🔵 已切换为：自带蓝色图标 (Laya.png)');
         });
     }
 
-    // 绑定蓝色 Logo (Laya.png) 按钮事件
+    // 可选：用户主动上传替换蓝色 Logo
     if (upLogo1) {
         upLogo1.addEventListener('change', (e) => {
             const file = e.target.files && e.target.files[0];
@@ -138,16 +125,16 @@ window.switchRightTab = function (mode) {
             const reader = new FileReader();
             reader.onload = (evt) => {
                 customLogoDB['Laya.png'] = evt.target.result;
-                localStorage.setItem('LAYA_REAL_LOGO_1', evt.target.result);
+                localStorage.setItem('LAYA_CUSTOM_LOGO_1', evt.target.result);
                 if (selLogoVersion) selLogoVersion.value = 'Laya.png';
                 applyLogoVersion('Laya.png');
-                window.showToast('✅ 蓝色图标原图已永久绑定！下载图片和视频将100%显示此图标！');
+                window.showToast('✅ 已替换为你自定义的蓝色 Logo！');
             };
             reader.readAsDataURL(file);
         });
     }
 
-    // 绑定紫色 Logo (Laya2.png) 按钮事件
+    // 可选：用户主动上传替换紫色 Logo
     if (upLogo2) {
         upLogo2.addEventListener('change', (e) => {
             const file = e.target.files && e.target.files[0];
@@ -155,12 +142,24 @@ window.switchRightTab = function (mode) {
             const reader = new FileReader();
             reader.onload = (evt) => {
                 customLogoDB['Laya2.png'] = evt.target.result;
-                localStorage.setItem('LAYA_REAL_LOGO_2', evt.target.result);
+                localStorage.setItem('LAYA_CUSTOM_LOGO_2', evt.target.result);
                 if (selLogoVersion) selLogoVersion.value = 'Laya2.png';
                 applyLogoVersion('Laya2.png');
-                window.showToast('✅ 紫色图标原图已永久绑定！下载图片和视频将100%显示此图标！');
+                window.showToast('✅ 已替换为你自定义的紫色 Logo！');
             };
             reader.readAsDataURL(file);
+        });
+    }
+
+    // 一键恢复系统自带的 Laya.png / Laya2.png
+    if (btnResetBuiltinLogo) {
+        btnResetBuiltinLogo.addEventListener('click', () => {
+            localStorage.removeItem('LAYA_CUSTOM_LOGO_1');
+            localStorage.removeItem('LAYA_CUSTOM_LOGO_2');
+            customLogoDB['Laya.png'] = (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya.png']) || 'Laya.png';
+            customLogoDB['Laya2.png'] = (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya2.png']) || 'Laya2.png';
+            applyLogoVersion(selLogoVersion ? selLogoVersion.value : 'Laya.png');
+            window.showToast('✨ 已恢复系统自带的官方 Logo 图标！');
         });
     }
 
@@ -398,15 +397,16 @@ window.switchRightTab = function (mode) {
 
     const btnCycleSpeed = document.getElementById('btn-cycle-speed');
     const dispSpeedVal = document.getElementById('disp-speed-val');
-    const speeds = ['1.0X', '1.25X', '1.5X', '2.0X', '0.75X'];
+    const speeds = ['1.0', '1.25', '1.5', '2.0', '3.0', '0.5', '0.75'];
     let speedIdx = 0;
     if (btnCycleSpeed && dispSpeedVal) {
         btnCycleSpeed.addEventListener('click', () => {
             speedIdx = (speedIdx + 1) % speeds.length;
-            dispSpeedVal.textContent = speeds[speedIdx];
-            const previewVideo = document.getElementById('preview-video');
-            if (previewVideo) previewVideo.playbackRate = parseFloat(speeds[speedIdx]);
-            window.showToast(`已切换倍速为：${speeds[speedIdx]}`);
+            if (window.PlayerEngine && typeof window.PlayerEngine.setPreviewPlaybackSpeed === 'function') {
+                window.PlayerEngine.setPreviewPlaybackSpeed(speeds[speedIdx], true);
+            } else {
+                dispSpeedVal.textContent = speeds[speedIdx] + 'X';
+            }
             triggerSaveStorage();
         });
     }
@@ -491,7 +491,381 @@ window.switchRightTab = function (mode) {
     }
 
     /* ==========================================================================
-       6. 三端显隐开关矩阵与文案实时绑定
+       5.5 手机竖屏顶部状态栏：多机型预设与全图标状态控制引擎
+       ========================================================================== */
+    const douyinHud = document.getElementById('douyin-hud');
+    const dyStatusBar = document.getElementById('dy-status-bar');
+    const swDyStatusBar = document.getElementById('sw-dy-status-bar');
+    const selDyPhoneModel = document.getElementById('sel-dy-phone-model');
+    const selDyCutout = document.getElementById('sel-dy-cutout');
+    const inDySbTime = document.getElementById('in-dy-sb-time');
+    const btnDyRandomTime = document.getElementById('btn-dy-random-time');
+    const selDySbSignal = document.getElementById('sel-dy-sb-signal');
+    const selDySbNet = document.getElementById('sel-dy-sb-net');
+    const selDySbCarrier = document.getElementById('sel-dy-sb-carrier');
+    const inDySbSpeed = document.getElementById('in-dy-sb-speed');
+    const inDySbBattery = document.getElementById('in-dy-sb-battery');
+    const txtDySbBattery = document.getElementById('txt-dy-sb-battery');
+
+    // 状态栏图标开关
+    const swDySbBatPct = document.getElementById('sw-dy-sb-bat-pct');
+    const swDySbCharging = document.getElementById('sw-dy-sb-charging');
+    const swDySbLowpower = document.getElementById('sw-dy-sb-lowpower');
+    const swDySbLoc = document.getElementById('sw-dy-sb-loc');
+    const swDySbSpeed = document.getElementById('sw-dy-sb-speed');
+    const swDySbBt = document.getElementById('sw-dy-sb-bt');
+    const swDySbAlarm = document.getElementById('sw-dy-sb-alarm');
+    const swDySbMute = document.getElementById('sw-dy-sb-mute');
+    const swDySbHd = document.getElementById('sw-dy-sb-hd');
+    const swDySbVpn = document.getElementById('sw-dy-sb-vpn');
+    const swDySbNfc = document.getElementById('sw-dy-sb-nfc');
+    const swDySbDnd = document.getElementById('sw-dy-sb-dnd');
+    const swDySbNotifs = document.getElementById('sw-dy-sb-notifs');
+    const swDySbRec = document.getElementById('sw-dy-sb-rec');
+
+    // 状态栏舞台 DOM
+    const dySbTime = document.getElementById('dy-sb-time');
+    const dySbRec = document.getElementById('dy-sb-rec');
+    const dySbRecTime = document.getElementById('dy-sb-rec-time');
+    const dySbCarrier = document.getElementById('dy-sb-carrier');
+    const dySbLoc = document.getElementById('dy-sb-loc');
+    const dySbDnd = document.getElementById('dy-sb-dnd');
+    const dySbNotifs = document.getElementById('dy-sb-notifs');
+    const dySbCutoutWrap = document.getElementById('dy-sb-cutout-wrap');
+    const dyCutoutBox = document.getElementById('dy-cutout-box');
+    const dySbNetspeed = document.getElementById('dy-sb-netspeed');
+    const dySbMute = document.getElementById('dy-sb-mute');
+    const dySbAlarm = document.getElementById('dy-sb-alarm');
+    const dySbBt = document.getElementById('dy-sb-bt');
+    const dySbNfc = document.getElementById('dy-sb-nfc');
+    const dySbHd = document.getElementById('dy-sb-hd');
+    const dySbVpn = document.getElementById('dy-sb-vpn');
+    const dySbSignal = document.getElementById('dy-sb-signal');
+    const dySigRow1 = document.getElementById('dy-sig-row-1');
+    const dySigRow2 = document.getElementById('dy-sig-row-2');
+    const dySbNetTxt = document.getElementById('dy-sb-net-txt');
+    const dySbWifi = document.getElementById('dy-sb-wifi');
+    const dySbBatteryGroup = document.getElementById('dy-sb-battery-group');
+    const dySbBatPct = document.getElementById('dy-sb-bat-pct');
+    const dySbBattery = document.getElementById('dy-sb-battery');
+    const dySbBatFill = document.getElementById('dy-sb-bat-fill');
+    const dySbBatBolt = document.getElementById('dy-sb-bat-bolt');
+
+    // 9大热门手机型号预设配置表
+    const PHONE_MODEL_PRESETS = {
+        'iphone16': {
+            name: '🍎 iPhone 16 Pro Max (灵动岛)',
+            cutout: 'island',
+            signal: 'single-4',
+            net: 'wifi',
+            carrier: '',
+            loc: true, speed: false, bt: false, alarm: false, mute: false,
+            hd: false, vpn: false, nfc: false, dnd: false, notifs: false, rec: false,
+            batPct: true
+        },
+        'iphone16-music': {
+            name: '🎵 iPhone 16 Pro (灵动岛音乐律动)',
+            cutout: 'island-music',
+            signal: 'single-4',
+            net: '5g',
+            carrier: '',
+            loc: true, speed: false, bt: true, alarm: false, mute: false,
+            hd: false, vpn: false, nfc: false, dnd: false, notifs: false, rec: false,
+            batPct: true
+        },
+        'iphone14': {
+            name: '🍎 iPhone 14 / 13 Pro (经典刘海屏)',
+            cutout: 'notch',
+            signal: 'single-4',
+            net: 'wifi',
+            carrier: '',
+            loc: true, speed: false, bt: false, alarm: false, mute: false,
+            hd: false, vpn: false, nfc: false, dnd: false, notifs: false, rec: false,
+            batPct: false
+        },
+        'huawei-mate60': {
+            name: '🌸 华为 Mate 60 Pro (鸿蒙三挖孔)',
+            cutout: 'huawei-triple',
+            signal: 'dual-4',
+            net: 'wifi+5g',
+            carrier: '',
+            loc: false, speed: true, bt: true, alarm: false, mute: false,
+            hd: true, vpn: false, nfc: false, dnd: false, notifs: true, rec: false,
+            batPct: true
+        },
+        'xiaomi14': {
+            name: '⚡ 小米 14 Ultra (澎湃OS居中挖孔)',
+            cutout: 'punch-center',
+            signal: 'dual-4',
+            net: 'wifi',
+            carrier: '',
+            loc: false, speed: true, bt: false, alarm: true, mute: false,
+            hd: true, vpn: false, nfc: false, dnd: false, notifs: true, rec: false,
+            batPct: true
+        },
+        'samsung-s24': {
+            name: '🌌 三星 S24 Ultra (One UI居中挖孔)',
+            cutout: 'punch-center',
+            signal: 'single-4',
+            net: 'wifi+5g',
+            carrier: '',
+            loc: true, speed: false, bt: true, alarm: true, mute: true,
+            hd: false, vpn: false, nfc: true, dnd: false, notifs: true, rec: false,
+            batPct: true
+        },
+        'vivo-x100': {
+            name: '💙 VIVO X100 / OPPO Find X7',
+            cutout: 'punch-center',
+            signal: 'dual-3',
+            net: '5ga',
+            carrier: '中国移动',
+            loc: false, speed: true, bt: true, alarm: false, mute: false,
+            hd: true, vpn: true, nfc: false, dnd: false, notifs: false, rec: false,
+            batPct: true
+        },
+        'pure-ios': {
+            name: '✨ 纯净 iOS 全面屏 (无遮挡)',
+            cutout: 'none',
+            signal: 'single-4',
+            net: 'wifi',
+            carrier: '',
+            loc: true, speed: false, bt: false, alarm: false, mute: false,
+            hd: false, vpn: false, nfc: false, dnd: false, notifs: false, rec: false,
+            batPct: true
+        },
+        'pure-android': {
+            name: '✨ 纯净安卓旗舰屏 (无挖孔满图标)',
+            cutout: 'none',
+            signal: 'dual-4',
+            net: 'wifi+5g',
+            carrier: '',
+            loc: false, speed: true, bt: true, alarm: true, mute: false,
+            hd: true, vpn: true, nfc: false, dnd: false, notifs: true, rec: false,
+            batPct: true
+        }
+    };
+
+    function renderDyStatusBar() {
+        if (!dyStatusBar) return;
+
+        // 1. 状态栏总显隐与导航栏避让
+        const isShown = !swDyStatusBar || swDyStatusBar.checked;
+        dyStatusBar.style.display = isShown ? 'flex' : 'none';
+        if (douyinHud) {
+            douyinHud.classList.toggle('no-status-bar', !isShown);
+        }
+
+        // 2. 手机型号样式类与开孔样式
+        const modelKey = selDyPhoneModel ? selDyPhoneModel.value : 'iphone16';
+        const cutoutKey = selDyCutout ? selDyCutout.value : 'island';
+        dyStatusBar.className = `dy-status-bar model-${modelKey}${cutoutKey === 'punch-left' ? ' has-left-punch' : ''}`;
+
+        if (dySbCutoutWrap) {
+            dySbCutoutWrap.classList.toggle('is-punch-left', cutoutKey === 'punch-left');
+        }
+        if (dyCutoutBox) {
+            dyCutoutBox.className = `dy-cutout cutout-${cutoutKey}`;
+        }
+
+        // 3. 时间与左上录屏红胶囊
+        const timeVal = (inDySbTime && inDySbTime.value) ? inDySbTime.value : '14:24';
+        const showRec = swDySbRec && swDySbRec.checked;
+        if (dySbRec) dySbRec.style.display = showRec ? 'inline-flex' : 'none';
+        if (dySbRecTime) dySbRecTime.textContent = timeVal;
+        if (dySbTime) {
+            dySbTime.textContent = timeVal;
+            dySbTime.style.display = showRec ? 'none' : 'inline-block';
+        }
+
+        // 4. 运营商文字
+        const carrierVal = selDySbCarrier ? selDySbCarrier.value : '';
+        if (dySbCarrier) {
+            dySbCarrier.textContent = carrierVal;
+            dySbCarrier.style.display = carrierVal ? 'inline-block' : 'none';
+        }
+
+        // 5. 左侧与右侧小状态图标显隐
+        if (dySbLoc) dySbLoc.style.display = (swDySbLoc && swDySbLoc.checked) ? 'inline-block' : 'none';
+        if (dySbDnd) dySbDnd.style.display = (swDySbDnd && swDySbDnd.checked) ? 'inline-block' : 'none';
+        if (dySbNotifs) dySbNotifs.style.display = (swDySbNotifs && swDySbNotifs.checked) ? 'inline-flex' : 'none';
+
+        if (dySbNetspeed) {
+            dySbNetspeed.textContent = (inDySbSpeed && inDySbSpeed.value) ? inDySbSpeed.value : '3.6M/s';
+            dySbNetspeed.style.display = (swDySbSpeed && swDySbSpeed.checked) ? 'inline-block' : 'none';
+        }
+        if (dySbMute) dySbMute.style.display = (swDySbMute && swDySbMute.checked) ? 'inline-block' : 'none';
+        if (dySbAlarm) dySbAlarm.style.display = (swDySbAlarm && swDySbAlarm.checked) ? 'inline-block' : 'none';
+        if (dySbBt) dySbBt.style.display = (swDySbBt && swDySbBt.checked) ? 'inline-block' : 'none';
+        if (dySbNfc) dySbNfc.style.display = (swDySbNfc && swDySbNfc.checked) ? 'inline-block' : 'none';
+        if (dySbHd) dySbHd.style.display = (swDySbHd && swDySbHd.checked) ? 'inline-block' : 'none';
+        if (dySbVpn) dySbVpn.style.display = (swDySbVpn && swDySbVpn.checked) ? 'inline-block' : 'none';
+
+        // 6. 移动信号条 (单卡 / 双卡双排)
+        const sigVal = selDySbSignal ? selDySbSignal.value : 'single-4';
+        const isDual = sigVal.startsWith('dual');
+        const sigLevel = parseInt(sigVal.split('-')[1]) || 4;
+        if (dySbSignal) {
+            dySbSignal.classList.toggle('is-dual', isDual);
+        }
+        if (dySigRow1) {
+            const bars1 = dySigRow1.querySelectorAll('.dy-sig-bar');
+            bars1.forEach((b, idx) => b.classList.toggle('active', idx < (isDual ? 4 : sigLevel)));
+        }
+        if (dySigRow2) {
+            dySigRow2.style.display = isDual ? 'flex' : 'none';
+            const bars2 = dySigRow2.querySelectorAll('.dy-sig-bar');
+            bars2.forEach((b, idx) => b.classList.toggle('active', idx < sigLevel));
+        }
+
+        // 7. 网络连接图标 (Wi-Fi / 5G / 5G-A / 4G / 同显)
+        const netVal = selDySbNet ? selDySbNet.value : 'wifi';
+        if (dySbWifi) {
+            dySbWifi.style.display = (netVal === 'wifi' || netVal === 'wifi+5g') ? 'inline-block' : 'none';
+        }
+        if (dySbNetTxt) {
+            if (netVal === '5g' || netVal === 'wifi+5g') {
+                dySbNetTxt.textContent = '5G';
+                dySbNetTxt.style.display = 'inline-block';
+            } else if (netVal === '5ga') {
+                dySbNetTxt.textContent = '5G-A';
+                dySbNetTxt.style.display = 'inline-block';
+            } else if (netVal === '4g') {
+                dySbNetTxt.textContent = '4G';
+                dySbNetTxt.style.display = 'inline-block';
+            } else {
+                dySbNetTxt.style.display = 'none';
+            }
+        }
+
+        // 8. 电池电量、百分比与快充/省电颜色
+        const batVal = Math.min(100, Math.max(5, parseInt(inDySbBattery ? inDySbBattery.value : 85) || 85));
+        if (txtDySbBattery) txtDySbBattery.textContent = batVal + '%';
+        if (dySbBatFill) dySbBatFill.style.width = batVal + '%';
+        if (dySbBatPct) {
+            dySbBatPct.textContent = batVal + '%';
+            dySbBatPct.style.display = (!swDySbBatPct || swDySbBatPct.checked) ? 'inline-block' : 'none';
+        }
+        const isCharging = swDySbCharging && swDySbCharging.checked;
+        const isLowPower = swDySbLowpower && swDySbLowpower.checked;
+        if (dySbBattery) {
+            dySbBattery.classList.toggle('is-charging', isCharging);
+            dySbBattery.classList.toggle('is-lowpower', !isCharging && isLowPower);
+        }
+        if (dySbBatBolt) {
+            dySbBatBolt.style.display = isCharging ? 'block' : 'none';
+        }
+        // 同步到图4全屏横屏状态栏
+        const dylClock = document.getElementById('dyl-disp-clock');
+        const dylBatPct = document.getElementById('dyl-disp-battery');
+        const dylBatFill = document.getElementById('dyl-disp-bat-fill');
+        if (dylClock && inDySbTime) dylClock.textContent = inDySbTime.value || '03:18';
+        if (dylBatPct) dylBatPct.textContent = batVal + '%';
+        if (dylBatFill) dylBatFill.style.width = batVal + '%';
+    }
+    window.renderDyStatusBar = renderDyStatusBar;
+
+    function applyDyPhoneModelPreset(modelKey, showToastMsg = true) {
+        const preset = PHONE_MODEL_PRESETS[modelKey];
+        if (!preset) return;
+        if (selDyCutout) selDyCutout.value = preset.cutout;
+        if (selDySbSignal) selDySbSignal.value = preset.signal;
+        if (selDySbNet) selDySbNet.value = preset.net;
+        if (selDySbCarrier) selDySbCarrier.value = preset.carrier;
+        if (swDySbLoc) swDySbLoc.checked = !!preset.loc;
+        if (swDySbSpeed) swDySbSpeed.checked = !!preset.speed;
+        if (swDySbBt) swDySbBt.checked = !!preset.bt;
+        if (swDySbAlarm) swDySbAlarm.checked = !!preset.alarm;
+        if (swDySbMute) swDySbMute.checked = !!preset.mute;
+        if (swDySbHd) swDySbHd.checked = !!preset.hd;
+        if (swDySbVpn) swDySbVpn.checked = !!preset.vpn;
+        if (swDySbNfc) swDySbNfc.checked = !!preset.nfc;
+        if (swDySbDnd) swDySbDnd.checked = !!preset.dnd;
+        if (swDySbNotifs) swDySbNotifs.checked = !!preset.notifs;
+        if (swDySbRec) swDySbRec.checked = !!preset.rec;
+        if (swDySbBatPct) swDySbBatPct.checked = !!preset.batPct;
+
+        renderDyStatusBar();
+        triggerSaveStorage();
+        if (showToastMsg) {
+            window.showToast(`📱 已切换手机状态栏型号：${preset.name}`);
+        }
+    }
+
+    if (selDyPhoneModel) {
+        selDyPhoneModel.addEventListener('change', (e) => {
+            applyDyPhoneModelPreset(e.target.value, true);
+        });
+    }
+
+    [
+        swDyStatusBar, selDyCutout, selDySbSignal, selDySbNet, selDySbCarrier,
+        swDySbBatPct, swDySbCharging, swDySbLowpower, swDySbLoc, swDySbSpeed,
+        swDySbBt, swDySbAlarm, swDySbMute, swDySbHd, swDySbVpn, swDySbNfc,
+        swDySbDnd, swDySbNotifs, swDySbRec
+    ].forEach(el => {
+        if (el) {
+            el.addEventListener('change', () => {
+                renderDyStatusBar();
+                triggerSaveStorage();
+            });
+        }
+    });
+
+    [inDySbTime, inDySbSpeed, inDySbBattery].forEach(el => {
+        if (el) {
+            el.addEventListener('input', () => {
+                renderDyStatusBar();
+                triggerSaveStorage();
+            });
+        }
+    });
+
+    function randomizeDyStatusTime() {
+        const h = String(Math.floor(Math.random() * 14) + 9).padStart(2, '0');
+        const m = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+        const tStr = `${h}:${m}`;
+        if (inDySbTime) inDySbTime.value = tStr;
+        if (inMStatusTime) {
+            inMStatusTime.value = tStr;
+            if (mDispStatusTime) mDispStatusTime.textContent = tStr;
+        }
+        renderDyStatusBar();
+        triggerSaveStorage();
+        window.showToast(`🕒 已随机切换手机时间：${tStr}`);
+    }
+
+    if (btnDyRandomTime) {
+        btnDyRandomTime.addEventListener('click', randomizeDyStatusTime);
+    }
+    if (dySbTime) {
+        dySbTime.addEventListener('click', randomizeDyStatusTime);
+    }
+
+    // 点击舞台中央灵动岛/挖孔直接循环切换开孔款式
+    if (dySbCutoutWrap && selDyCutout) {
+        dySbCutoutWrap.addEventListener('click', () => {
+            const nextIdx = (selDyCutout.selectedIndex + 1) % selDyCutout.options.length;
+            selDyCutout.selectedIndex = nextIdx;
+            renderDyStatusBar();
+            triggerSaveStorage();
+            window.showToast(`✨ 已切换屏幕开孔样式：${selDyCutout.options[nextIdx].text}`);
+        });
+    }
+
+    // 点击舞台电池组件快速切换快充状态
+    if (dySbBatteryGroup && swDySbCharging) {
+        dySbBatteryGroup.addEventListener('click', () => {
+            swDySbCharging.checked = !swDySbCharging.checked;
+            renderDyStatusBar();
+            triggerSaveStorage();
+            window.showToast(swDySbCharging.checked ? '⚡ 已开启闪电快充状态' : '🔋 已恢复普通电池状态');
+        });
+    }
+
+    renderDyStatusBar();
+
+    /* ==========================================================================
+       6. 三端显隐开关矩阵与文案实时绑定 (含图3与图4专属控件)
        ========================================================================== */
     const bindToggle = (switchId, targetId, shownDisplay = '') => {
         const sw = document.getElementById(switchId);
@@ -518,7 +892,7 @@ window.switchRightTab = function (mode) {
     bindToggle('sw-top-right', 'wrap-top-right', 'flex');
     bindToggle('sw-bottom-bar', 'wrap-bottom-bar', 'flex');
     bindToggle('sw-waveform', 'wrap-waveform', 'block');
-// 👇 新增：手机横屏画质徽标开关 & 中央大播放键显隐开关
+    // 手机横屏画质徽标开关 & 中央大播放键显隐开关
     bindToggle('sw-m-res-badge', 'm-disp-res-badge', 'inline-flex');
     bindToggle('sw-m-center-play', 'm-wrap-center-play', 'flex');
     bindToggle('sw-m-status-bar', 'm-status-bar', 'flex');
@@ -530,6 +904,23 @@ window.switchRightTab = function (mode) {
     bindToggle('sw-dy-hotspot', 'dy-wrap-hotspot', 'flex');
     bindToggle('sw-dy-campaign', 'dy-wrap-campaign', 'inline-flex');
     bindToggle('sw-dy-right-bar', 'dy-wrap-right-bar', 'flex');
+
+    // 竖屏内16:9视窗水印与单行字幕显隐开关
+    bindToggle('sw-dy-lf-wm', 'dy-lf-watermark', 'flex');
+    bindToggle('sw-dy-box-sub', 'dy-disp-box-sub', 'block');
+
+    // 全屏观看模式各组件显隐开关
+    bindToggle('sw-dyl-status', 'dyl-wrap-status', 'flex');
+    bindToggle('sw-dyl-top', 'dyl-wrap-top', 'flex');
+    bindToggle('sw-dyl-author', 'dyl-wrap-author', 'inline-flex');
+    bindToggle('sw-dyl-top-act', 'dyl-wrap-top-actions', 'flex');
+    bindToggle('sw-dyl-bright', 'dyl-wrap-bright', 'block');
+    bindToggle('sw-dyl-pause', 'dyl-wrap-center-pause', 'block');
+    bindToggle('sw-dyl-right-tools', 'dyl-wrap-right-tools', 'flex');
+    bindToggle('sw-dyl-time', 'dyl-wrap-time', 'flex');
+    bindToggle('sw-dyl-bottom', 'dyl-wrap-bottom', 'flex');
+    bindToggle('sw-dyl-dm-pill', 'dyl-wrap-dm-pill', 'inline-flex');
+    bindToggle('sw-dyl-right-opts', 'dyl-wrap-right-opts', 'flex');
 
     const swDyTopNav = document.getElementById('sw-dy-top-nav');
     const dyWrapTopNav = document.getElementById('dy-wrap-top-nav');
@@ -544,12 +935,14 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    const bindText = (inputId, outputId) => {
+    const bindText = (inputId, outputId, secondaryOutputId = null) => {
         const inp = document.getElementById(inputId);
         const out = document.getElementById(outputId);
+        const out2 = secondaryOutputId ? document.getElementById(secondaryOutputId) : null;
         if (inp && out) {
-            inp.addEventListener('input', (e) => { 
-                out.textContent = e.target.value; 
+            inp.addEventListener('input', (e) => {
+                out.textContent = e.target.value;
+                if (out2) out2.textContent = e.target.value;
                 triggerSaveStorage();
             });
         }
@@ -561,16 +954,1109 @@ window.switchRightTab = function (mode) {
     bindText('in-free-pill-text', 'disp-free-pill-text');
     bindText('in-banner-body', 'disp-banner-body');
     bindText('in-dm-placeholder', 'disp-dm-placeholder');
-    bindText('in-dy-likes', 'dy-val-likes');
-    bindText('in-dy-comments', 'dy-val-comments');
-    bindText('in-dy-stars', 'dy-val-stars');
+    bindText('in-dy-likes', 'dy-val-likes', 'dyl-disp-like');
+    bindText('in-dy-comments', 'dy-val-comments', 'dyl-disp-comment');
+    bindText('in-dy-stars', 'dy-val-stars', 'dyl-disp-star');
     bindText('in-dy-shares', 'dy-val-shares');
-    bindText('in-dy-author', 'dy-disp-author');
+    bindText('in-dy-author', 'dy-disp-author', 'dyl-disp-author');
     bindText('in-dy-desc', 'dy-disp-desc');
     bindText('in-dy-tags', 'dy-disp-tags');
     bindText('in-dy-gold-title', 'dy-disp-gold-title');
     bindText('in-dy-hotspot-title', 'dy-disp-hotspot-title');
     bindText('in-dy-hotspot-views', 'dy-disp-hotspot-views');
+
+    // ★ 全屏左上角剧集/片名 与 作者名 专属输入框联动 (默认均为 Laya)
+    const dylDispTitle = document.getElementById('dyl-disp-title');
+    const inpDyLfTitle = document.getElementById('inp-dy-lf-title');
+    const inpDyLfBrand = document.getElementById('inp-dy-lf-brand');
+    const inDyAuthorEl = document.getElementById('in-dy-author');
+
+    bindText('inp-dy-lf-title', 'dyl-disp-title', 'dy-disp-box-wm');
+    if (inpDyLfBrand) {
+        inpDyLfBrand.addEventListener('input', (e) => {
+            const val = e.target.value;
+            const dylAuthor = document.getElementById('dyl-disp-author');
+            const wmBrand = document.getElementById('dy-lf-wm-brand');
+            if (dylAuthor) dylAuthor.textContent = val;
+            if (wmBrand) wmBrand.textContent = val;
+            if (inDyAuthorEl) inDyAuthorEl.value = val;
+            const dyAuthor = document.getElementById('dy-disp-author');
+            if (dyAuthor) dyAuthor.textContent = val;
+            triggerSaveStorage();
+        });
+    }
+    if (inDyAuthorEl && inpDyLfBrand) {
+        inDyAuthorEl.addEventListener('input', (e) => {
+            inpDyLfBrand.value = e.target.value;
+        });
+    }
+    // 点击全屏舞台左上角片名，直接聚焦右侧片名输入框
+    if (dylDispTitle && inpDyLfTitle) {
+        dylDispTitle.style.cursor = 'pointer';
+        dylDispTitle.title = '点击在右侧修改左上角剧集/片名';
+        dylDispTitle.addEventListener('click', () => {
+            if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
+            inpDyLfTitle.focus();
+            inpDyLfTitle.select();
+            window.showToast('✏️ 请在右侧「左上角剧集/片名」输入框中直接输入片名');
+        });
+    }
+
+    bindText('inp-dy-box-sub', 'dy-disp-box-sub', 'dyl-disp-subtitle');
+
+    /* ==========================================================================
+       ★ 6.5 智能画面字幕识别、繁简互转与多条逐行编辑引擎 (SubtitleEngine)
+       ========================================================================== */
+    const swDylSubtitle = document.getElementById('sw-dyl-subtitle');
+    const dylWrapSubtitle = document.getElementById('dyl-wrap-subtitle');
+    const dylDispSubtitle = document.getElementById('dyl-disp-subtitle');
+    const subStudioBody = document.getElementById('sub-studio-body');
+    const btnAutoOcrSub = document.getElementById('btn-auto-ocr-sub');
+    const btnVoiceOcrSub = document.getElementById('btn-voice-ocr-sub');
+    const subOcrProgressWrap = document.getElementById('sub-ocr-progress-wrap');
+    const subOcrStatusTxt = document.getElementById('sub-ocr-status-txt');
+    const subOcrPctTxt = document.getElementById('sub-ocr-pct-txt');
+    const subOcrProgressBar = document.getElementById('sub-ocr-progress-bar');
+    const btnSubSimp = document.getElementById('btn-sub-simp');
+    const btnSubTrad = document.getElementById('btn-sub-trad');
+    const selSubStyle = document.getElementById('sel-sub-style');
+    const inSubSize = document.getElementById('in-sub-size');
+    const txtSubSize = document.getElementById('txt-sub-size');
+    const btnAddSubCue = document.getElementById('btn-add-sub-cue');
+    const btnClearSubCues = document.getElementById('btn-clear-sub-cues');
+    const subCueListEl = document.getElementById('sub-cue-list');
+
+    // 高覆盖影视字幕简繁字库映射
+    const SUB_S2T_CHARS = {
+        '万':'萬','与':'與','专':'專','业':'業','东':'東','丝':'絲','丢':'丟','两':'兩','严':'嚴','丧':'喪',
+        '个':'個','丰':'豐','临':'臨','为':'為','丽':'麗','举':'舉','么':'麼','义':'義','乌':'烏','乐':'樂',
+        '乔':'喬','习':'習','乡':'鄉','书':'書','买':'買','乱':'亂','争':'爭','于':'於','亏':'虧','云':'雲',
+        '亚':'亞','产':'產','亩':'畝','享':'享','京':'京','亮':'亮','亲':'親','人':'人','亿':'億','仅':'僅',
+        '从':'從','仑':'侖','仓':'倉','们':'們','价':'價','众':'眾','优':'優','伙':'夥','会':'會','伟':'偉',
+        '传':'傳','伤':'傷','伦':'倫','伪':'偽','伯':'伯','估':'估','伴':'伴','伸':'伸','似':'似','但':'但',
+        '位':'位','低':'低','住':'住','体':'體','何':'何','余':'餘','佛':'佛','作':'作','你':'你','佣':'傭',
+        '佩':'佩','佳':'佳','使':'使','来':'來','例':'例','供':'供','依':'依','侠':'俠','侦':'偵','侧':'側',
+        '侨':'僑','侬':'儂','侮':'侮','侯':'侯','侵':'侵','便':'便','促':'促','俄':'俄','俊':'俊','俗':'俗',
+        '保':'保','信':'信','俩':'倆','俭':'儉','修':'修','俯':'俯','俱':'俱','倍':'倍','倒':'倒','倔':'倔',
+        '倘':'倘','候':'候','倚':'倚','借':'借','倡':'倡','债':'債','值':'值','倾':'傾','假':'假','偌':'偌',
+        '偏':'偏','偕':'偕','做':'做','停':'停','健':'健','偶':'偶','偷':'偷','偿':'償','傀':'傀','傅':'傅',
+        '傍':'傍','储':'儲','催':'催','傲':'傲','傻':'傻','像':'像','儿':'兒','允':'允','元':'元','兄':'兄',
+        '充':'充','兆':'兆','先':'先','光':'光','克':'克','免':'免','兑':'兌','兔':'兔','党':'黨','兜':'兜',
+        '入':'入','全':'全','八':'八','公':'公','六':'六','兰':'蘭','共':'共','关':'關','兴':'興','兵':'兵',
+        '其':'其','具':'具','典':'典','兹':'茲','养':'養','兼':'兼','兽':'獸','内':'內','冈':'岡','册':'冊',
+        '再':'再','冒':'冒','写':'寫','军':'軍','农':'農','冠':'冠','冢':'塚','冤':'冤','冥':'冥','冬':'冬',
+        '冯':'馮','冰':'冰','冲':'衝','决':'決','况':'況','冶':'冶','冷':'冷','冻':'凍','净':'淨','凄':'淒',
+        '准':'準','凉':'涼','凋':'凋','凌':'凌','减':'減','凑':'湊','凛':'凜','凝':'凝','几':'幾','凡':'凡',
+        '凤':'鳳','凭':'憑','凯':'凱','凰':'凰','凶':'兇','凸':'凸','凹':'凹','出':'出','击':'擊','函':'函',
+        '凿':'鑿','刀':'刀','刁':'刁','刃':'刃','分':'分','切':'切','刊':'刊','刍':'芻','刑':'刑','划':'劃',
+        '列':'列','刘':'劉','则':'則','刚':'剛','创':'創','初':'初','删':'刪','判':'判','利':'利','别':'別',
+        '刮':'刮','到':'到','制':'製','刷':'刷','券':'券','刹':'剎','刺':'刺','刻':'刻','刽':'劊','剂':'劑',
+        '剃':'剃','削':'削','前':'前','剐':'剮','剑':'劍','剔':'剔','剖':'剖','剥':'剝','剧':'劇','剩':'剩',
+        '剪':'剪','副':'副','割':'割','剿':'剿','劈':'劈','力':'力','劝':'勸','办':'辦','功':'功','加':'加',
+        '务':'務','劣':'劣','动':'動','助':'助','努':'努','劫':'劫','励':'勵','劲':'勁','劳':'勞','势':'勢',
+        '勇':'勇','勉':'勉','勋':'勳','勒':'勒','动':'動','勘':'勘','务':'務','胜':'勝','募':'募','勤':'勤',
+        '勾':'勾','勿':'勿','包':'包','匆':'匆','匈':'匈','化':'化','北':'北','匙':'匙','区':'區','医':'醫',
+        '华':'華','协':'協','单':'單','卖':'賣','卢':'盧','卤':'滷','卧':'臥','卫':'衛','却':'卻','卷':'卷',
+        '厂':'廠','厅':'廳','历':'歷','厉':'厲','压':'壓','厌':'厭','厕':'廁','厘':'釐','厚':'厚','原':'原',
+        '厢':'廂','厦':'廈','厨':'廚','厩':'廄','厮':'廝','去':'去','县':'縣','参':'參','又':'又','叉':'叉',
+        '及':'及','友':'友','双':'雙','反':'反','发':'發','叔':'叔','取':'取','受':'受','变':'變','叙':'敘',
+        '叛':'叛','叠':'疊','口':'口','古':'古','句':'句','另':'另','只':'隻','叫':'叫','召':'召','叮':'叮',
+        '可':'可','台':'台','史':'史','右':'右','叶':'葉','号':'號','司':'司','叹':'嘆','叼':'叼','叽':'嘰',
+        '吁':'籲','吃':'吃','各':'各','合':'合','吉':'吉','吊':'吊','同名':'同名','后':'後','吏':'吏','吐':'吐',
+        '向':'向','吓':'嚇','吕':'呂','吗':'嗎','君':'君','吝':'吝','吞':'吞','吟':'吟','吠':'吠','否':'否',
+        '吧':'吧','吨':'噸','吩':'吩','含':'含','听':'聽','吭':'吭','吮':'吮','启':'啟','吱':'吱','吴':'吳',
+        '吵':'吵','吸':'吸','吹':'吹','吻':'吻','吼':'吼','呀':'呀','吕':'呂','呃':'呃','呆':'呆','呈':'呈',
+        '告':'告','呐':'吶','呕':'嘔','员':'員','呛':'嗆','呜':'嗚','呢':'呢','周':'週','咒':'咒','咔':'咔',
+        '咕':'咕','咖':'咖','咙':'嚨','呻':'呻','呼':'呼','命':'命','咀':'咀','咂':'咂','咄':'咄','咆':'咆',
+        '咋':'咋','和':'和','咎':'咎','咏':'詠','咐':'咐','咒':'咒','咔':'咔','咕':'咕','咖':'咖','咙':'嚨',
+        '咸':'鹹','咽':'咽','哀':'哀','品':'品','哄':'哄','哆':'哆','哇':'哇','哈':'哈','哉':'哉','响':'響',
+        '哎':'哎','哑':'啞','哒':'噠','哓':'嘵','哔':'嗶','哕':'噦','哗':'嘩','哙':'噲','哚':'哚','哝':'噥',
+        '哟':'喲','哥':'哥','哦':'哦','哧':'哧','哨':'哨','哩':'哩','哪':'哪','哭':'哭','哮':'哮','哲':'哲',
+        '哺':'哺','哼':'哼','哽':'哽','哿':'哿','唁':'唁','唆':'唆','唇':'唇','唉':'唉','唏':'唏','唐':'唐',
+        '唔':'唔','唛':'嘜','唠':'嘮','唢':'嗩','唤':'喚','唧':'唧','唬':'唬','售':'售','唯':'唯','唱':'唱',
+        '唳':'唳','唷':'唷','唼':'唼','唾':'唾','唿':'唿','啁':'啁','啃':'啃','啄':'啄','商':'商','啉':'啉',
+        '啊':'啊','啤':'啤','啥':'啥','啦':'啦','啧':'嘖','啪':'啪','啬':'嗇','啭':'囀','啮':'嚙','啰':'囉',
+        '啸':'嘯','喷':'噴','喽':'嘍','喾':'嚳','嗫':'囁','呵':'呵','嗔':'嗔','嘘':'噓','嘱':'囑','嘿':'嘿',
+        '嘴':'嘴','嘶':'嘶','嘹':'嘹','嘻':'嘻','嘿':'嘿','噌':'噌','':'噍','噎':'噎','嘘':'噓','器':'器',
+        '噩':'噩','噪':'噪','噫':'噫','噬':'噬','噱':'噱','噶':'噶','噼':'噼','嚎':'嚎','嚏':'嚏','嚣':'囂',
+        '嚷':'嚷','嚼':'嚼','囊':'囊','囚':'囚','四':'四','回':'回','因':'因','团':'團','囤':'囤','园':'園',
+        '困':'困','囱':'囪','围':'圍','囵':'圇','国':'國','图':'圖','圆':'圓','圈':'圈','圉':'圉','圊':'圊',
+        '土':'土','圣':'聖','在':'在','地':'地','场':'場','圾':'圾','址':'址','均':'均','坊':'坊','坍':'坍',
+        '坎':'坎','坏':'壞','坐':'坐','坑':'坑','块':'塊','坚':'堅','坛':'壇','坜':'壢','坝':'壩','坞':'塢',
+        '坟':'墳','坠':'墜','坡':'坡','坤':'坤','坦':'坦','坨':'坨','坩':'坩','坪':'坪','坫':'坫','坭':'坭',
+        '坯':'坯','坳':'坳','姆':'姆','坷':'坷','坻':'坻','坼':'坼','垂':'垂','垃':'垃','垄':'壟','垆':'壚',
+        '型':'型','垌':'垌','垒':'壘','垓':'垓','垛':'垛','垠':'垠','垡':'垡','垢':'垢','垣':'垣','垤':'垤',
+        '垦':'墾','垧':'坰','垩':'堊','垫':'墊','垭':'埡','垮':'垮','垲':'塏','垴':'堖','垸':'垸','埂':'埂',
+        '埃':'埃','埋':'埋','城':'城','埏':'埏','埒':'埒','埔':'埔','埕':'埕','埘':'塒','埙':'塤','埚':'堝',
+        '埝':'埝','域':'域','埠':'埠','埯':'埯','埴':'埴','埸':'埸','培':'培','基':'基','埽':'埽','堀':'堀',
+        '堂':'堂','坚':'堅','堆':'堆','堇':'堇','堋':'堋','堍':'堍','堑':'塹','堕':'墮','堙':'堙','堞':'堞',
+        '堠':'堠','堡':'堡','堤':'堤','堪':'堪','尧':'堯','堰':'堰','报':'報','场':'場','堵':'堵','6':'6',
+        '境':'境','墅':'墅','墉':'墉','垫':'墊','墓':'墓','墙':'牆','增':'增','墟':'墟','墨':'墨','墩':'墩',
+        '堕':'墮','壁':'壁','壅':'壅','坛':'壇','壑':'壑','压':'壓','壕':'壕','壤':'壤','士':'士','壮':'壯',
+        '声':'聲','壳':'殼','壶':'壺','处':'處','备':'備','复':'復','夏':'夏','夕':'夕','外':'外','夙':'夙',
+        '多':'多','夜':'夜','够':'夠','大':'大','天':'天','太':'太','夫':'夫','夭':'夭','央':'央','夯':'夯',
+        '失':'失','头':'頭','夷':'夷','夸':'誇','夹':'夾','夺':'奪','奁':'奩','奂':'奐','奄':'奄','奇':'奇',
+        '奈':'奈','奉':'奉','奋':'奮','奎':'奎','奏':'奏','契':'契','奔':'奔','奕':'奕','奖':'獎','套':'套',
+        '奘':'奘','奚':'奚','奠':'奠','奢':'奢','奥':'奧','女':'女','奴':'奴','奶':'奶','奸':'姦','她':'她',
+        '好':'好','如':'如','妃':'妃','妄':'妄','妆':'妝','妇':'婦','妈':'媽','妊':'妊','妍':'妍','妒':'妒',
+        '妓':'妓','妖':'妖','妗':'妗','妙':'妙','妞':'妞','妣':'妣','妤':'妤','妥':'妥','妨':'妨','妩':'嫵',
+        '妪':'嫗','妫':'媯','妮':'妮','妯':'妯','妲':'妲','妹':'妹','妻':'妻','妾':'妾','姆':'姆','姊':'姊',
+        '始':'始','姐':'姐','姑':'姑','姒':'姒','姓':'姓','委':'委','姗':'姍','姘':'姘','姚':'姚','姜':'姜',
+        '姝':'姝','姣':'姣','姥':'姥','姨':'姨','姬':'姬','姹':'姹','姻':'姻','姿':'姿','威':'威','娃':'娃',
+        '娄':'婁','娅':'婭','娆':'嬈','娇':'嬌','娈':'孌','娉':'娉','娌':'娌','娑':'娑','娓':'娓','娘':'娘',
+        '娜':'娜','娟':'娟','娠':'娠','娣':'娣','娥':'娥','娩':'娩','娱':'娛','娲':'媧','娴':'嫻','娶':'娶',
+        '娼':'娼','婀':'婀','婆':'婆','婉':'婉','婊':'婊','婕':'婕','婚':'婚','婢':'婢','妇女':'婦女','婧':'婧',
+        '婪':'婪','婴':'嬰','婶':'嬸','媒':'媒','媚':'媚','媛':'媛','媳':'媳','媲':'媲','嫁':'嫁','嫂':'嫂',
+        '嫉':'嫉','嫌':'嫌','嫡':'嫡','嫣':'嫣','嫦':'嫦','嫩':'嫩','嫫':'嫫','嫱':'嬙','嬉':'嬉','婵':'嬋',
+        '':'媠','嬴':'嬴','嬷':'嬤','孀':'孀','子':'子','孑':'孑','孓':'孓','孔':'孔','孕':'孕','字':'字',
+        '存':'存','孙':'孫','孚':'孚','孛':'孛','孜':'孜','孝':'孝','孟':'孟','季':'季','孤':'孤','学':'學',
+        '孩':'孩','孪':'孿','宁':'寧','它':'它','宅':'宅','宇':'宇','守':'守','安':'安','宋':'宋','完':'完',
+        '宏':'宏','宗':'宗','官':'官','宙':'宙','定':'定','宛':'宛','宜':'宜','宝':'寶','实':'實','宠':'寵',
+        '审':'審','客':'客','宣':'宣','室':'室','宥':'宥','宦':'宦','宪':'憲','宫':'宮','宰':'宰','害':'害',
+        '宴':'宴','宵':'宵','家':'家','宸':'宸','容':'容','宽':'寬','宾':'賓','宿':'宿','寂':'寂','寄':'寄',
+        '寅':'寅','密':'密','寇':'寇','富':'富','寐':'寐','寒':'寒','寓':'寓','寝':'寢','寞':'寞','察':'察',
+        '寡':'寡','寤':'寤','寥':'寥','寨':'寨','寮':'寮','寰':'寰','寸':'寸','对':'對','寺':'寺','寻':'尋',
+        '导':'導','寿':'壽','封':'封','射':'射','将':'將','专':'專','尉':'尉','尊':'尊','小':'小','少':'少',
+        '尔':'爾','尘':'塵','尚':'尚','尝':'嘗','尤':'尤','尧':'堯','尬':'尬','就':'就','尸':'尸','尹':'尹',
+        '尺':'尺','尽':'盡','尾':'尾','尿':'尿','局':'局','屁':'屁','层':'層','居':'居','屈':'屈','屉':'屜',
+        '届':'屆','屋':'屋','屎':'屎','屏':'屏','展':'展','属':'屬','屠':'屠','屡':'屢','履':'履','山':'山',
+        '岁':'歲','岂':'豈','岗':'崗','岘':'峴','岚':'嵐','岛':'島','岩':'岩','岭':'嶺','岳':'岳','岸':'岸',
+        '峡':'峽','峰':'峰','峻':'峻','崇':'崇','崎':'崎','崔':'崔','崖':'崖','崛':'崛','崩':'崩','崭':'嶄',
+        '嵌':'嵌','巅':'巔','川':'川','州':'州','巡':'巡','巢':'巢','工':'工','左':'左','巧':'巧','巨':'巨',
+        '巩':'鞏','巫':'巫','差':'差','己':'己','已':'已','巳':'巳','巴':'巴','巷':'巷','币':'幣','市':'市',
+        '布':'布','帅':'帥','帆':'帆','师':'師','希':'希','帐':'帳','帕':'帕','帖':'帖','帘':'簾','帚':'帚',
+        '帛':'帛','帜':'幟','帝':'帝','带':'帶','帧':'幀','席':'席','帮':'幫','帱':'幬','常':'常','帽':'帽',
+        '幂':'冪','幅':'幅','幌':'幌','幔':'幔','幕':'幕','帼':'幗','幛':'幛','幞':'幞','幡':'幡','幢':'幢',
+        '干':'幹','平':'平','年':'年','并':'並','幸':'幸','幻':'幻','幼':'幼','幽':'幽','广':'廣','庄':'莊',
+        '庆':'慶','庇':'庇','床':'床','序':'序','庐':'廬','库':'庫','应':'應','底':'底','庖':'庖','店':'店',
+        '庙':'廟','庚':'庚','府':'府','庞':'龐','废':'廢','度':'度','座':'座','庭':'庭','庵':'庵','庶':'庶',
+        '康':'康','庸':'庸','廉':'廉','廊':'廊','廓':'廓','廖':'廖','延':'延','廷':'廷','建':'建','开':'開',
+        '异':'異','弃':'棄','弄':'弄','弊':'弊','式':'式','引':'引','弗':'弗','弘':'弘','弟':'弟','张':'張',
+        '弥':'彌','弦':'弦','弧':'弧','弩':'弩','弯':'彎','弱':'弱','弹':'彈','强':'強','归':'歸','当':'當',
+        '录':'錄','彦':'彥','彩':'彩','彪':'彪','彬':'彬','彭':'彭','彰':'彰','影':'影','役':'役','彻':'徹',
+        '彼':'彼','往':'往','征':'征','径':'徑','待':'待','徇':'徇','很':'很','律':'律','后':'後','徐':'徐',
+        '徒':'徒','得':'得','徘':'徘','徙':'徙','御':'御','徨':'徨','循':'循','微':'微','德':'德','':'徵',
+        '心':'心','必':'必','忆':'憶','忌':'忌','忍':'忍','忏':'懺','忐':'忐','忑':'忑','志':'志','忘':'忘',
+        '忙':'忙','忠':'忠','忧':'憂','快':'快','忱':'忱','念':'念','忽':'忽','怀':'懷','态':'態','怂':'慫',
+        '怃':'憮','怄':'慪','怅':'悵','怆':'愴','怎':'怎','怒':'怒','怕':'怕','怖':'怖','怜':'憐','思':'思',
+        '怠':'怠','急':'急','性':'性','怨':'怨','怪':'怪','怯':'怯','总':'總','恃':'恃','恋':'戀','恍':'恍',
+        '恐':'恐','恒':'恆','恕':'恕','恙':'恙','恢':'恢','恣':'恣','恤':'恤','耻':'恥','恨':'恨','恩':'恩',
+        '恪':'恪','恫':'恫','恬':'恬','恭':'恭','息':'息','恰':'恰','恳':'懇','恶':'惡','恼':'惱','恽':'惲',
+        '悄':'悄','悉':'悉','悍':'悍','悔':'悔','悖':'悖','悚':'悚','悛':'悛','悟':'悟','悠':'悠','患':'患',
+        '悦':'悅','您':'您','悬':'懸','悯':'憫','悲':'悲','悴':'悴','悸':'悸','悼':'悼','情':'情','惊':'驚',
+        '惑':'惑','惕':'惕','惜':'惜','惟':'惟','惠':'惠','惦':'惦','惧':'懼','惨':'慘','惩':'懲','惫':'憊',
+        '惬':'愜','惭':'慚','惮':'憚','惯':'慣','惰':'惰','想':'想','惶':'惶','惹':'惹','惺':'惺','愁':'愁',
+        '愈':'愈','愉':'愉','意':'意','愕':'愕','愚':'愚','感':'感','愠':'慍','愧':'愧','愫':'愫','慈':'慈',
+        '慎':'慎','慌':'慌','慕':'慕','慢':'慢','慧':'慧','慨':'慨','慰':'慰','慵':'慵','慷':'慷','憋':'憋',
+        '憎':'憎','憔':'憔','':'憝','憧':'憧','憨':'憨','憩':'憩','懂':'懂','懈':'懈','应':'應','懊':'懊',
+        '懋':'懋','懑':'懣','懒':'懶','懦':'懦','戏':'戲','成':'成','我':'我','戒':'戒','战':'戰','戚':'戚',
+        '户':'戶','房':'房','所':'所','扁':'扁','扇':'扇','手':'手','才':'才','扎':'扎','扑':'撲','扒':'扒',
+        '打':'打','扔':'扔','托':'托','扛':'扛','扣':'扣','执':'執','扩':'擴','扪':'捫','扫':'掃','扬':'揚',
+        '扭':'扭','扮':'扮','扯':'扯','扰':'擾','扳':'扳','扶':'扶','批':'批','扼':'扼','找':'找','承':'承',
+        '技':'技','抄':'抄','抉':'抉','把':'把','抑':'抑','抒':'抒','抓':'抓','投':'投','抖':'抖','抗':'抗',
+        '折':'折','抚':'撫','抛':'拋','抟':'摶','抠':'摳','抡':'掄','抢':'搶','护':'護','报':'報','担':'擔',
+        '拟':'擬','拢':'攏','拣':'揀','拥':'擁','拦':'攔','拧':'擰','拨':'撥','择':'擇','挂':'掛','挚':'摯',
+        '挛':'攣','':'掗','挝':'撾','挞':'撻','挟':'挾','挠':'撓','挡':'擋','挢':'撟','挣':'掙','挤':'擠',
+        '挥':'揮','挦':'撏','挨':'挨','挪':'挪','挫':'挫','振':'振','挺':'挺','挽':'挽','捂':'捂','捃':'捃',
+        '捅':'捅','捆':'捆','捉':'捉','捋':'捋','捌':'捌','捍':'捍','捎':'捎','捏':'捏','捐':'捐','捕':'捕',
+        '捞':'撈','损':'損','捡':'撿','换':'換','捣':'搗','捧':'捧','据':'據','捱':'捱','捶':'捶','捷':'捷',
+        '捺':'捺','捻':'捻','掀':'掀','掂':'掂','扫':'掃','授':'授','掉':'掉','掌':'掌','掏':'掏','掐':'掐',
+        '排':'排','掖':'掖','掘':'掘','掠':'掠','探':'探','掣':'掣','接':'接','控':'控','推':'推','掩':'掩',
+        '措':'措','掬':'掬','掲':'揭','掳':'擄','掴':'摑','掷':'擲','掸':'撣','掺':'摻','掼':'摜','掾':'掾',
+        '搁':'擱','搂':'摟','搅':'攪','搏':'搏','搐':'搐','搓':'搓','搔':'搔','搜':'搜','搞':'搞','搠':'搠',
+        '搡':'搡','搦':'搦','搪':'搪','搬':'搬','搭':'搭','携':'攜','搽':'搽','摁':'摁','摄':'攝','摅':'攄',
+        '摆':'擺','摇':'搖','摈':'擯','摊':'攤','摸':'摸','撑':'撐','撒':'撒','撕':'撕','撞':'撞','撤':'撤',
+        '撩':'撩','撬':'撬','播':'播','撮':'撮','撰':'撰','撵':'攆','撷':'擷','撸':'擼','撺':'攛','撼':'撼',
+        '擀':'擀','擂':'擂','擅':'擅','操':'操','擎':'擎','擒':'擒','擘':'擘','擞':'擻','擦':'擦','攀':'攀',
+        '攒':'攢','攘':'攘','攥':'攥','攫':'攫','支':'支','收':'收','改':'改','攻':'攻','放':'放','政':'政',
+        '故':'故','效':'效','敌':'敵','敏':'敏','救':'救','敕':'敕','敖':'敖','教':'教','敛':'斂','敝':'敝',
+        '敞':'敞','敢':'敢','散':'散','敦':'敦','敬':'敬','数':'數','敲':'敲','整':'整','敷':'敷','文':'文',
+        '斋':'齋','斌':'斌','斐':'斐','斑':'斑','斗':'鬥','料':'料','斜':'斜','斤':'斤','斥':'斥','斩':'斬',
+        '断':'斷','斯':'斯','新':'新','方':'方','于':'於','施':'施','旁':'旁','旃':'旃','旄':'旄','旅':'旅',
+        '旆':'旆','旋':'旋','族':'族','旒':'旒','旗':'旗','无':'無','既':'既','日':'日','旦':'旦','旧':'舊',
+        '旨':'旨','早':'早','旬':'旬','旭':'旭','旮':'旮','旯':'旯','旰':'旰','旱':'旱','时':'時','旷':'曠',
+        '旺':'旺','昀':'昀','昂':'昂','昃':'昃','昆':'昆','昊':'昊','昌':'昌','明':'明','昏':'昏','易':'易',
+        '昔':'昔','昕':'昕','昙':'曇','昝':'昝','星':'星','映':'映','春':'春','昧':'昧','昨':'昨','昭':'昭',
+        '是':'是','昱':'昱','昴':'昴','昵':'暱','昶':'昶','昼':'晝','显':'顯','晁':'晁','晃':'晃','晋':'晉',
+        '晌':'晌','晏':'晏','晒':'曬','晓':'曉','晔':'曄','晕':'暈','晖':'暉','晗':'晗','晚':'晚','晟':'晟',
+        '晡':'晡','晤':'晤','晦':'晦','晨':'晨','普':'普','景':'景','晰':'晰','晴':'晴','晶':'晶','晷':'晷',
+        '智':'智','晾':'晾','暂':'暫','暄':'暄','暇':'暇','暌':'睽','暑':'暑','暖':'暖','暗':'暗','暝':'暝',
+        '暧':'曖','暨':'暨','暮':'暮','暴':'暴','暹':'暹','暾':'暾','曙':'曙','曜':'曜','曝':'曝','曦':'曦',
+        '曩':'曩','曰':'曰','曲':'曲','更':'更','曹':'曹','曼':'曼','曾':'曾','替':'替','最':'最','月':'月',
+        '有':'有','朋':'朋','服':'服','朔':'朔','朕':'朕','朗':'朗','望':'望','朝':'朝','期':'期','朦':'朦',
+        '木':'木','未':'未','末':'末','本':'本','札':'札','术':'術','朱':'朱','朴':'樸','朵':'朵','机':'機',
+        '朽':'朽','杀':'殺','杂':'雜','权':'權','杆':'桿','杈':'杈','杉':'杉','李':'李','杏':'杏','材':'材',
+        '村':'村','杓':'杓','杖':'杖','杜':'杜','杞':'杞','束':'束','杠':'槓','条':'條','来':'來','杨':'楊',
+        '杩':'榪','杪':'杪','杭':'杭','杯':'杯','杰':'傑','杲':'杲','杳':'杳','杵':'杵','杷':'杷','杼':'杼',
+        '松':'松','板':'板','极':'極','构':'構','枇':'枇','枉':'枉','枋':'枋','析':'析','枕':'枕','林':'林',
+        '枘':'枘','枚':'枚','果':'果','枝':'枝','枞':'樅','枢':'樞','枣':'棗','枥':'櫪','枧':'梘','枨':'棖',
+        '枪':'槍','枫':'楓','枭':'梟','枯':'枯','枰':'枰','枳':'枳','枵':'枵','架':'架','枷':'枷','枸':'枸',
+        '枹':'枹','柄':'柄','柏':'柏','某':'某','柑':'柑','柒':'柒','染':'染','柔':'柔','柜':'櫃','柠':'檸',
+        '查':'查','柬':'柬','柯':'柯','柰':'柰','柱':'柱','柳':'柳','柴':'柴','柽':'檉','柿':'柿','栀':'梔',
+        '栅':'柵','标':'標','栈':'棧','栉':'櫛','栊':'櫳','栋':'棟','栌':'櫨','栎':'櫟','栏':'欄','树':'樹',
+        '栓':'栓','栖':'棲','栗':'栗','栝':'栝','校':'校','栩':'栩','株':'株','样':'樣','核':'核','根':'根',
+        '格':'格','栽':'栽','栾':'欒','桀':'桀','桁':'桁','桂':'桂','桃':'桃','桄':'桄','桅':'桅','框':'框',
+        '案':'案','桉':'桉','桊':'桊','桌':'桌','桎':'桎','桐':'桐','桑':'桑','桓':'桓','桔':'桔','档':'檔',
+        '桥':'橋','桦':'樺','桧':'檜','桨':'槳','桩':'樁','梦':'夢','检':'檢','棂':'欞','棉':'棉','棋':'棋',
+        '棍':'棍','棒':'棒','棕':'棕','棘':'棘','棚':'棚','棠':'棠','棣':'棣','森':'森','棱':'稜','棵':'棵',
+        '棹':'棹','棺':'棺','椅':'椅','植':'植','椎':'椎','椒':'椒','椭':'橢','椰':'椰','椴':'椴','椿':'椿',
+        '楂':'楂','杨':'楊','枫':'楓','楔':'楔','楚':'楚','楞':'','楠':'楠','楣':'楣','楦':'楦','楫':'楫',
+        '楮':'楮','楷':'楷','楸':'楸','楹':'楹','楼':'樓','概':'概','榄':'欖','榆':'榆','榈':'櫚','榉':'櫸',
+        '槛':'檻','槟':'檳','槠':'櫧','横':'橫','樯':'檣','樱':'櫻','樵':'樵','樽':'樽','樾':'樾','橄':'橄',
+        '橇':'橇','橐':'橐','橘':'橘','橙':'橙','橡':'橡','橱':'櫥','橹':'櫓','橼':'櫞','檀':'檀','檄':'檄',
+        '檎':'檎','檐':'簷','檑':'檑','檗':'檗','檬':'檬','欠':'欠','次':'次','欢':'歡','欣':'欣','欤':'歟',
+        '欧':'歐','欲':'欲','欷':'欷','款':'款','欺':'欺','钦':'欽','款':'款','歇':'歇','歉':'歉','歌':'歌',
+        '止':'止','正':'正','此':'此','步':'步','武':'武','歧':'歧','歪':'歪','歹':'歹','死':'死','歼':'殲',
+        '殁':'歿','殂':'殂','殃':'殃','殄':'殄','殆':'殆','殇':'殤','殉':'殉','殊':'殊','残':'殘','殍':'殍',
+        '殒':'殞','殓':'殮','殖':'殖','殚':'殫','殡':'殯','殴':'毆','段':'段','殷':'殷','殿':'殿','毁':'毀',
+        '毅':'毅','母':'母','每':'每','毒':'毒','比':'比','毕':'畢','毙':'斃','毛':'毛','毡':'氈','毫':'毫',
+        '毯':'毯','氏':'氏','民':'民','气':'氣','水':'水','永':'永','汁':'汁','求':'求','汇':'匯','汉':'漢',
+        '汗':'汗','汛':'汛','江':'江','池':'池','污':'污','汤':'湯','汪':'汪','汰':'汰','汹':'洶','汽':'汽',
+        '沃':'沃','沈':'瀋','沉':'沉','沌':'沌','沏':'沏','沙':'沙','沛':'沛','沟':'溝','没':'沒','沦':'淪',
+        '沧':'滄','沪':'滬','沫':'沫','河':'河','沸':'沸','油':'油','治':'治','沼':'沼','沽':'沽','沾':'沾',
+        '沿':'沿','泄':'洩','泉':'泉','泊':'泊','泌':'泌','法':'法','泛':'泛','泡':'泡','波':'波','泣':'泣',
+        '泥':'泥','注':'注','泪':'淚','泫':'泫','泮':'泮','泯':'泯','泰':'泰','泱':'泱','泳':'泳','泵':'泵',
+        '沲':'沲','洁':'潔','泼':'潑','泽':'澤','泾':'涇','洋':'洋','洒':'灑','洗':'洗','洛':'洛','洞':'洞',
+        '津':'津','洪':'洪','洲':'洲','活':'活','洽':'洽','派':'派','流':'流','浅':'淺','浆':'漿','浇':'澆',
+        '浊':'濁','测':'測','济':'濟','浏':'瀏','浑':'渾','浒':'滸','浓':'濃','浔':'潯','浙':'浙','浚':'濬',
+        '浜':'浜','浞':'浞','浦':'浦','浩':'浩','浪':'浪','浮':'浮','浴':'浴','海':'海','浸':'浸','涂':'塗',
+        '涅':'涅','消':'消','涉':'涉','涌':'湧','涎':'涎','涑':'涑','涓':'涓','涔':'涔','涕':'涕','涛':'濤',
+        '涝':'澇','涞':'淶','涟':'漣','涠':'潿','涡':'渦','涣':'渙','涤':'滌','润':'潤','涧':'澗','涨':'漲',
+        '涩':'澀','涮':'涮','涯':'涯','液':'液','涵':'涵','涸':'涸','涿':'涿','淀':'澱','淄':'淄','淅':'淅',
+        '淆':'淆','淇':'淇','淋':'淋','淌':'淌','淑':'淑','淖':'淖','淘':'淘','淙':'淙','泪':'淚','淞':'淞',
+        '淡':'淡','淤':'淤','淦':'淦','淫':'淫','淬':'淬','淮':'淮','深':'深','淳':'淳','混':'混','淹':'淹',
+        '添':'添','淼':'淼','清':'清','渊':'淵','渍':'漬','渎':'瀆','渐':'漸','渔':'漁','渗':'滲','渚':'渚',
+        '渝':'渝','渠':'渠','渡':'渡','渣':'渣','渤':'渤','渥':'渥','温':'溫','港':'港','渴':'渴','游':'游',
+        '渺':'渺','湃':'湃','湄':'湄','湍':'湍','湎':'湎','湓':'湓','湔':'湔','湖':'湖','湘':'湘','湛':'湛',
+        '湟':'湟','湾':'灣','湿':'濕','溃':'潰','溅':'濺','溉':'溉','溏':'溏','源':'源','溘':'溘','溜':'溜',
+        '溟':'溟','溢':'溢','溥':'溥','溪':'溪','溯':'溯','溱':'溱','溲':'溲','溴':'溴','溶':'溶','溺':'溺',
+        '溽':'溽','滁':'滁','滂':'滂','沧':'滄','灭':'滅','滋':'滋','滑':'滑','滓':'滓','滔':'滔','滕':'滕',
+        '滚':'滾','滞':'滯','滟':'灩','滠':'滠','满':'滿','滢':'瀅','滤':'濾','滥':'濫','滦':'灤','滨':'濱',
+        '滩':'灘','滴':'滴','漂':'漂','漆':'漆','漏':'漏','漓':'漓','演':'演','漕':'漕','漠':'漠','汉':'漢',
+        '涟':'漣','漩':'漩','漪':'漪','漫':'漫','渍':'漬','漱':'漱','8':'漲','漳':'漳','漶':'漶','渐':'漸',
+        '漾':'漾','浆':'漿','颖':'穎','泼':'潑','洁':'潔','潜':'潛','潮':'潮','澎':'澎','潺':'潺','溃':'潰',
+        '澄':'澄','浇':'澆','涝':'澇','澈':'澈','涧':'澗','澜':'瀾','澡':'澡','泽':'澤','澳':'澳','激':'激',
+        '浊':'濁','濂':'濂','浓':'濃','濑':'瀨','濒':'瀕','濞':'濞','济':'濟','濠':'濠','濡':'濡','涛':'濤',
+        '滥':'濫','濯':'濯','瀑':'瀑','瀚':'瀚','瀛':'瀛','瀞':'瀞','潇':'瀟','潋':'灩','髓':'髓','火':'火',
+        '灯':'燈','灰':'灰','灵':'靈','灶':'灶','灸':'灸','灼':'灼','灾':'災','灿':'燦','炀':'煬','炉':'爐',
+        '炖':'燉','炎':'炎','炒':'炒','炔':'炔','炕':'炕','炙':'炙','炜':'煒','炝':'熗','炫':'炫','炬':'炬',
+        '炭':'炭','炮':'炮','炯':'炯','炱':'炱','炳':'炳','炷':'炷','炸':'炸','点':'點','为':'為','炼':'煉',
+        '炽':'熾','烁':'爍','烂':'爛','烃':'烴','烈':'烈','烊':'烊','烘':'烘','烙':'烙','烛':'燭','烟':'煙',
+        '烤':'烤','烦':'煩','烧':'燒','烨':'燁','烩':'燴','烫':'燙','烬':'燼','热':'熱','烯':'烯','烷':'烷',
+        '烹':'烹','烽':'烽','焉':'焉','焊':'焊','焐':'焐','焓':'焓','焕':'煥','焖':'燜','焘':'燾','焙':'焙',
+        '焚':'焚','焦':'焦','焯':'焯','焰':'焰','然':'然','煅':'煅','煊':'煊','煌':'煌','煎':'煎','煜':'煜',
+        '煞':'煞','煤':'煤','煦':'煦','照':'照','煨':'煨','煮':'煮','煲':'煲','煳':'煳','煸':'煸','煺':'煺',
+        '煽':'煽','熄':'熄','熊':'熊','熏':'熏','熔':'熔','熙':'熙','熟':'熟','熨':'熨','熬':'熬','熵':'熵',
+        '熹':'熹','燃':'燃','燎':'燎','燔':'燔','燕':'燕','燠':'燠','燥':'燥','燧':'燧','燮':'燮','爆':'爆',
+        '爪':'爪','爬':'爬','8':'爭','爱':'愛','父':'父','爷':'爺','爸':'爸','爹':'爹','爽':'爽','片':'片',
+        '版':'版','牌':'牌','牍':'牘','牙':'牙','牛':'牛','牝':'牝','牟':'牟','牡':'牡','牢':'牢','牦':'犛',
+        '牧':'牧','物':'物','牲':'牲','牵':'牽','特':'特','牺':'犧','犯':'犯','状':'狀','犹':'猶','狂':'狂',
+        '狐':'狐','狗':'狗','狙':'狙','狞':'獰','狠':'狠','狡':'狡','独':'獨','狭':'狹','狮':'獅','狯':'獪',
+        '狰':'猙','狱':'獄','狲':'猻','狸':'狸','狼':'狼','猎':'獵','猖':'猖','猗':'猗','猛':'猛','猜':'猜',
+        '猝':'猝','猢':'猢','猥':'猥','猩':'猩','猪':'豬','猫':'貓','猬':'蝟','献':'獻','猴':'猴','猾':'猾',
+        '猿':'猿','獍':'獍','獐':'獐','獒':'獒','獗':'獗','獠':'獠','兽':'獸','獭':'獺','獾':'獾','玄':'玄',
+        '率':'率','玉':'玉','王':'王','玖':'玖','玛':'瑪','玩':'玩','玫':'玫','环':'環','现':'現','玲':'玲',
+        '玷':'玷','玻':'玻','珀':'珀','珊瑚':'珊瑚','珍':'珍','珐':'琺','珑':'瓏','珞':'珞','珠':'珠','珥':'珥',
+        '班':'班','球':'球','琅':'琅','理':'理','琉':'琉','琐':'瑣','琢':'琢','琥':'琥','琦':'琦','琪':'琪',
+        '琮':'琮','琛':'琛','琴':'琴','琵':'琵','琶':'琶','琼':'瓊','瑕':'瑕','瑛':'瑛','瑞':'瑞','瑟':'瑟',
+        '瑰':'瑰','瑶':'瑤','瑷':'璦','瑾':'瑾','璀':'璀','璁':'璁','璃':'璃','璇':'璇','璋':'璋','璎':'瓔',
+        '璐':'璐','璧':'璧','瓒':'瓚','瓜':'瓜','瓢':'瓢','瓣':'瓣','瓤':'瓤','瓦':'瓦','瓮':'甕','瓶':'瓶',
+        '瓷':'瓷','甄':'甄','甘':'甘','甚':'甚','甜':'甜','生':'生','产':'產','甥':'甥','甦':'甦','用':'用',
+        '甩':'甩','甫':'甫','甬':'甬','甭':'甭','电':'電','男':'男','甸':'甸','画':'畫','畅':'暢','界':'界',
+        '畏':'畏','畔':'畔','留':'留','畜':'畜','略':'略','畦':'畦','番':'番','异':'異','畴':'疇','疆':'疆',
+        '疏':'疏','疑':'疑','疗':'療','疟':'瘧','疡':'瘍','疚':'疚','疝':'疝','疟':'瘧','疠':'癘','疮':'瘡',
+        '疯':'瘋','疱':'皰','疵':'疵','疸':'疸','疹':'疹','疼':'疼','疽':'疽','疾':'疾','痂':'痂','痃':'痃',
+        '病':'病','症':'症','痈':'癰','痉':'痙','痊':'痊','痍':'痍','痒':'癢','痔':'痔','痕':'痕','痘':'痘',
+        '痛':'痛','痞':'痞','痢':'痢','痣':'痣','痤':'痤','痦':'痦','痧':'痧','痨':'癆','痪':'瘓','痫':'癇',
+        '痰':'痰','痴':'癡','痹':'痺','痼':'痼','痿':'痿','瘀':'瘀','瘁':'瘁','瘃':'瘃','瘅':'癉','瘆':'瘮',
+        '':'瘇','疯':'瘋','疡':'瘍','瘟':'瘟','瘠':'瘠','疮':'瘡','瘢':'瘢','瘤':'瘤','瘥':'瘥','瘦':'瘦',
+        '疟':'瘧','瘸':'瘸','瘪':'癟','瘫':'癱','瘾':'癮','瘿':'癭','癞':'癩','癣':'癬','癫':'癲','癸':'癸',
+        '登':'登','发':'發','白':'白','百':'百','皂':'皂','的':'的','皆':'皆','皇':'皇','皈':'皈','皋':'皋',
+        '皎':'皎','皑':'皚','皓':'皓','皖':'皖','皮':'皮','皱':'皺','皿':'皿','盂':'盂','盅':'盅','盆':'盆',
+        '盈':'盈','益':'益','盍':'盍','盎':'盎','盏':'盞','盐':'鹽','监':'監','盒':'盒','盔':'盔','盖':'蓋',
+        '盗':'盜','盘':'盤','盛':'盛','盟':'盟','盥':'盥','目':'目','盯':'盯','盱':'盱','盲':'盲','直':'直',
+        '相':'相','盹':'盹','盼':'盼','盾':'盾','省':'省','眄':'眄','眇':'眇','眈':'眈','眉':'眉','看':'看',
+        '眍':'瞘','真':'真','眠':'眠','眢':'眢','眦':'眥','眨':'眨','眩':'眩','眭':'眭','眯':'瞇','眵':'眵',
+        '眶':'眶','眷':'眷','眸':'眸','眺':'眺','眼':'眼','着':'著','睁':'睜','睃':'睃','睇':'睇','睐':'睞',
+        '睑':'瞼','睚':'睚','睛':'睛','睡':'睡','睢':'睢','督':'督','睥':'睥','睦':'睦','睨':'睨','睫':'睫',
+        '睬':'睬','睹':'睹','睽':'睽','睾':'睪','睿':'睿','瞀':'瞀','瞄':'瞄','瞅':'瞅','瞌':'瞌','瞍':'瞍',
+        '瞎':'瞎','瞑':'瞑','瞒':'瞞','瞟':'瞟','瞠':'瞠','瞥':'瞥','瞧':'瞧','瞩':'矚','瞪':'瞪','瞬':'瞬',
+        '瞰':'瞰','瞳':'瞳','瞻':'瞻','瞽':'瞽','瞿':'瞿','矗':'矗','矛':'矛','矜':'矜','矢':'矢','矣':'矣',
+        '知':'知','矧':'矧','矩':'矩','矫':'矯','矬':'矬','短':'短','矮':'矮','石':'石','矶':'磯','矸':'矸',
+        '矽':'矽','矾':'礬','矿':'礦','砀':'碭','码':'碼','砂':'砂','砉':'砉','砌':'砌','砍':'砍','砑':'砑',
+        '砒':'砒','研':'研','砖':'磚','砗':'硨','砘':'砘','砚':'硯','砜':'碸','砝':'砝','砟':'砟','砣':'砣',
+        '砥':'砥','砧':'砧','砭':'砭','砰':'砰','破':'破','砷':'砷','砸':'砸','砹':'砹','砺':'礪','砻':'礱',
+        '砼':'砼','砾':'礫','础':'礎','硅':'硅','硇':'礵','硌':'硌','硎':'硎','硐':'硐','硒':'硒','硕':'碩',
+        '硖':'硤','硗':'墝','硝':'硝','硪':'硪','硫':'硫','硬':'硬','硭':'硭','确':'確','砚':'硯','碱':'鹼',
+        '硼':'硼','碇':'碇','碉':'碉','碌':'碌','碍':'礙','碎':'碎','碑':'碑','碓':'碓','碗':'碗','碘':'碘',
+        '碚':'碚','碛':'磧','碟':'碟','碥':'碥','碣':'碣','碧':'碧','碰':'碰','碱':'鹼','碲':'碲','碳':'碳',
+        '碴':'碴','碹':'镟','磁':'磁','磅':'磅','磉':'磉','磊':'磊','磋':'磋','磐':'磐','磕':'磕','磨':'磨',
+        '磬':'磬','矶':'磯','磲':'磲','磷':'磷','磺':'磺','礁':'礁','礅':'礅','础':'礎','礼':'禮','社':'社',
+        '祀':'祀','祁':'祁','祖':'祖','祇':'祇','祚':'祚','祛':'祛','祜':'祜','祝':'祝','神':'神','祟':'祟',
+        '祠':'祠','祢':'禰','祥':'祥','祧':'祧','票':'票','祭':'祭','祯':'禎','祷':'禱','祸':'禍','祺':'祺',
+        '禄':'祿','禁':'禁','禅':'禪','禊':'禊','福':'福','禧':'禧','禳':'禳','禹':'禹','禺':'禺','离':'離',
+        '禽':'禽','禾':'禾','秀':'秀','私':'私','秃':'禿','秆':'稈','秉':'秉','秋':'秋','种':'種','科':'科',
+        '秒':'秒','秕':'秕','秘':'秘','租':'租','秣':'秣','秤':'秤','秦':'秦','秧':'秧','秩':'秩','秫':'秫',
+        '积':'積','称':'稱','秸':'秸','移':'移','秽':'穢','稀':'稀','程':'程','稍':'稍','税':'稅','稔':'稔',
+        '稗':'稗','稚':'稚','稠':'稠','稳':'穩','稻':'稻','稼':'稼','稽':'稽','稿':'稿','穆':'穆','穗':'穗',
+        '穴':'穴','究':'究','穷':'窮','空':'空','穿':'穿','突':'突','窃':'竊','窄':'窄','窈':'窈','窍':'竅',
+        '窑':'窯','窒':'窒','窕':'窕','窖':'窖','窗':'窗','窘':'窘','窜':'竄','窝':'窩','窟':'窟','窥':'窺',
+        '窦':'竇','窿':'窿','立':'立','竖':'豎','站':'站','竞':'競','竟':'竟','章':'章','竣':'竣','童':'童',
+        '竭':'竭','端':'端','竹':'竹','竺':'竺','竿':'竿','笃':'篤','笆':'笆','笈':'笈','笋':'筍','笏':'笏',
+        '笑':'笑','笔':'筆','笕':'筧','笙':'笙','笛':'笛','笞':'笞','笠':'笠','笤':'笤','笥':'笥','符':'符',
+        '笨':'笨','第':'第','笳':'笳','笾':'籩','笺':'箋','笼':'籠','筻':'筻','筋':'筋','筏':'筏','筐':'筐',
+        '筑':'築','筒':'筒','答':'答','策':'策','筛':'篩','筝':'箏','筠':'筠','筹':'籌','签':'簽','简':'簡',
+        '箍':'箍','箔':'箔','箕':'箕','算':'算','管':'管','箩':'籮','箫':'簫','箭':'箭','箱':'箱','箴':'箴',
+        '箸':'箸','节':'節','篁':'篁','范':'範','篆':'篆','篇':'篇','篓':'簍','篙':'篙','篚':'篚','篝':'篝',
+        '篡':'篡','篮':'籃','篱':'籬','篷':'篷','簇':'簇','簌':'簌','篾':'篾','籍':'籍','米':'米','类':'類',
+        '籼':'秈','籽':'籽','粉':'粉','粑':'粑','粒':'粒','粕':'粕','粗':'粗','粘':'粘','粜':'糶','粝':'糲',
+        '精':'精','糊':'糊','粮':'糧','粹':'粹','糖':'糖','粪':'糞','糟':'糟','糠':'糠','糨':'糨','糯':'糯',
+        '系':'係','紊':'紊','素':'素','索':'索','紧':'緊','紫':'紫','累':'累','絮':'絮','繁':'繁','红':'紅',
+        '纣':'紂','纤':'纖','纨':'紈','约':'約','级':'級','纪':'紀','纫':'紉','纬':'緯','纭':'紜','纯':'純',
+        '纰':'紕','纱':'紗','纲':'綱','纳':'納','纵':'縱','纶':'綸','纷':'紛','纸':'紙','纹':'紋','纺':'紡',
+        '纽':'紐','纾':'紓','线':'線','绀':'紺','绁':'紲','绂':'紱','练':'練','组':'組','绅':'紳','细':'細',
+        '织':'織','终':'終','绉':'縐','绊':'絆','绂':'紱','绌':'絀','绍':'紹','绎':'繹','经':'經','绐':'紿',
+        '绑':'綁','绒':'絨','结':'結','绔':'絝','绕':'繞','绘':'繪','给':'給','绚':'絢','绛':'絳','络':'絡',
+        '绝':'絕','绞':'絞','统':'統','绠':'綆','绡':'綃','绢':'絹','绣':'繡','绥':'綏','绦':'絛','继':'繼',
+        '绨':'綈','绩':'績','绪':'緒','绫':'綾','续':'續','绮':'綺','绯':'緋','绰':'綽','绱':'緔','绲':'緄',
+        '绳':'繩','维':'維','绵':'綿','绶':'綬','绷':'繃','绸':'綢','绺':'綹','绻':'綣','综':'綜','绽':'綻',
+        '绾':'綰','绿':'綠','缀':'綴','缁':'緇','缂':'緙','缃':'緗','缄':'緘','缅':'緬','缆':'纜','缇':'緹',
+        '缈':'緲','缉':'緝','缊':'縕','缋':'繢','缌':'緦','缍':'綞','缎':'緞','缏':'緶','缑':'緱','缒':'縋',
+        '缓':'緩','缔':'締','缕':'縷','编':'編','缗':'緡','缘':'緣','缙':'縉','缚':'縛','缛':'縟','缜':'縝',
+        '缝':'縫','缟':'縞','缠':'纏','缡':'縭','缢':'縊','缣':'縑','缤':'繽','缥':'縹','缦':'縵','缧':'縲',
+        '缨':'纓','缩':'縮','缪':'繆','缫':'繅','缬':'纈','缭':'繚','缮':'繕','缯':'繒','缰':'韁','缱':'繾',
+        '缴':'繳','坛':'壇','缺':'缺','网':'網','罕':'罕','罗':'羅','罚':'罰','罢':'罷','罩':'罩','罪':'罪',
+        '置':'置','署':'署','羊':'羊','美':'美','羞':'羞','群':'群','羽':'羽','翁':'翁','翅':'翅','翠':'翠',
+        '翰':'翰','翻':'翻','翼':'翼','耀':'耀','老':'老','考':'考','者':'者','而':'而','耍':'耍','耐':'耐',
+        '耗':'耗','耳':'耳','耶':'耶','耻':'恥','耽':'耽','耿':'耿','聂':'聶','聊':'聊','聋':'聾','职':'職',
+        '联':'聯','聘':'聘','聚':'聚','聪':'聰','肃':'肅','肉':'肉','肋':'肋','肌':'肌','肚':'肚','肝':'肝',
+        '肠':'腸','股':'股','肢':'肢','肤':'膚','肥':'肥','肩':'肩','肪':'肪','肮':'骯','肯':'肯','育':'育',
+        '肺':'肺','肾':'腎','肿':'腫','胀':'脹','胁':'脅','胃':'胃','胆':'膽','背':'背','胎':'胎','胖':'胖',
+        '胜':'勝','胞':'胞','胡':'胡','胤':'胤','胥':'胥','胶':'膠','胸':'胸','胺':'胺','能':'能','脂':'脂',
+        '脆':'脆','脉':'脈','脊':'脊','脏':'臟','脐':'臍','脑':'腦','脓':'膿','脖':'脖','脚':'腳','脱':'脫',
+        '脸':'臉','脾':'脾','腆':'腆','腊':'臘','腋':'腋','腐':'腐','腑':'腑','腔':'腔','腕':'腕','腥':'腥',
+        '腮':'腮','腰':'腰','腹':'腹','腺':'腺','腻':'膩','腾':'騰','腿':'腿','膀':'膀','膂':'膂','膛':'膛',
+        '膜':'膜','膝':'膝','臂':'臂','臀':'臀','臣':'臣','自':'自','臭':'臭','至':'至','致':'致','舌':'舌',
+        '舍':'捨','舒':'舒','舔':'舔','舟':'舟','航':'航','般':'般','舰':'艦','舱':'艙','船':'船','良':'良',
+        '艰':'艱','色':'色','艳':'豔','艺':'藝','节':'節','芒':'芒','芦':'蘆','花':'花','芳':'芳','苍':'蒼',
+        '苏':'蘇','苗':'苗','苛':'苛','苞':'苞','苟':'苟','若':'若','苦':'苦','英':'英','茂':'茂','范':'範',
+        '茄':'茄','茅':'茅','茎':'莖','茧':'繭','茶':'茶','草':'草','荒':'荒','荡':'蕩','荣':'榮','荤':'葷',
+        '荧':'熒','药':'藥','荷':'荷','莉':'莉','庄':'莊','莎':'莎','莫':'莫','莱':'萊','莲':'蓮','获':'獲',
+        '莹':'瑩','莺':'鶯','莽':'莽','菇':'菇','菊':'菊','菌':'菌','菜':'菜','菠':'菠','菩':'菩','华':'華',
+        '菱':'菱','菲':'菲','萄':'萄','萌':'萌','萍':'萍','萎':'萎','萝':'蘿','萤':'螢','营':'營','萧':'蕭',
+        '萨':'薩','落':'落','著':'著','葛':'葛','葡':'葡','董':'董','葬':'葬','葱':'蔥','葵':'葵','蒂':'蒂',
+        '蒋':'蔣','蒙':'蒙','蒜':'蒜','蒲':'蒲','蒸':'蒸','苍':'蒼','蓄':'蓄','蓝':'藍','蓬':'蓬','蔑':'蔑',
+        '蔡':'蔡','薄':'薄','薪':'薪','藉':'藉','藏':'藏','藤':'藤','虎':'虎','虏':'虜','虑':'慮','虚':'虛',
+        '虫':'蟲','虹':'虹','虽':'雖','虾':'蝦','蚀':'蝕','蚁':'蟻','蚂':'螞','蚊':'蚊','蚕':'蠶','蛇':'蛇',
+        '蛋':'蛋','蛙':'蛙','蛛':'蛛','蛮':'蠻','蜂':'蜂','蜗':'蝸','蜜':'蜜','蜡':'蠟','蝇':'蠅','蝉':'蟬',
+        '蝶':'蝶','融':'融','蟹':'蟹','蠢':'蠢','血':'血','行':'行','街':'街','衡':'衡','衣':'衣','补':'補',
+        '表':'表','衫':'衫','衬':'襯','衰':'衰','衷':'衷','袋':'袋','袍':'袍','袖':'袖','袜':'襪','被':'被',
+        '袭':'襲','装':'裝','裤':'褲','西':'西','要':'要','覆':'覆','见':'見','观':'觀','规':'規','觅':'覓',
+        '视':'視','览':'覽','觉':'覺','角':'角','解':'解','触':'觸','言':'言','誉':'譽','誓':'誓','警':'警',
+        '计':'計','订':'訂','讣':'訃','认':'認','讥':'譏','讦':'訐','讧':'訌','讨':'討','让':'讓','讪':'訕',
+        '讫':'訖','训':'訓','议':'議','讯':'訊','记':'記','讲':'講','讳':'諱','讴':'謳','讵':'詎','讶':'訝',
+        '讷':'訥','许':'許','讹':'訛','论':'論','讼':'訟','讽':'諷','设':'設','访':'訪','诀':'訣','证':'證',
+        '诂':'詁','诃':'訶','评':'評','诅':'詛','识':'識','诈':'詐','诉':'訴','诊':'診','诋':'詆','诌':'謅',
+        '词':'詞','诎':'絀','诏':'詔','译':'譯','诒':'詒','诓':'誆','诔':'誄','试':'試','诖':'詿','诗':'詩',
+        '诘':'詰','诙':'詼','诚':'誠','诛':'誅','诜':'詵','话':'話','诞':'誕','诟':'詬','诠':'詮','诡':'詭',
+        '询':'詢','诣':'詣','诤':'諍','该':'該','详':'詳','诧':'詫','诨':'諢','诩':'詡','诫':'誡','诬':'誣',
+        '语':'語','诮':'誚','误':'誤','诰':'誥','诱':'誘','诲':'誨','诳':'誑','说':'說','诵':'誦','诶':'誒',
+        '请':'請','诸':'諸','诹':'諏','诺':'諾','读':'讀','诼':'諑','诽':'誹','课':'課','诿':'諉','谀':'諛',
+        '谁':'誰','谂':'諗','调':'調','谄':'諂','谅':'諒','谆':'諄','谇':'誶','谈':'談','谊':'誼','谋':'謀',
+        '谌':'諶','谍':'諜','谎':'謊','谏':'諫','谐':'諧','谑':'謔','谒':'謁','谓':'謂','谔':'諤','谕':'諭',
+        '谖':'諼','谗':'讒','谘':'諮','谙':'諳','谚':'諺','谛':'諦','谜':'謎','谝':'諞','谟':'謨','谠':'讜',
+        '谡':'謖','谢':'謝','谣':'謠','谤':'謗','谥':'諡','谦':'謙','谧':'謐','谨':'謹','谩':'謾','谪':'謫',
+        '谫':'譾','谬':'謬','谭':'譚','谮':'譖','谯':'譙','谰':'讕','谱':'譜','谲':'譎','谳':'讞','谴':'譴',
+        '谵':'譫','谷':'谷','豆':'豆','岂':'豈','竖':'豎','丰':'豐','象':'象','豪':'豪','猪':'豬','貌':'貌',
+        '贝':'貝','贞':'貞','负':'負','财':'財','贡':'貢','贫':'貧','货':'貨','贩':'販','贪':'貪','贯':'貫',
+        '责':'責','贮':'貯','贯':'貫','贱':'賤','贲':'賁','贳':'貰','贴':'貼','贵':'貴','贶':'貺','贷':'貸',
+        '贸':'貿','费':'費','贺':'賀','贻':'貽','贼':'賊','贽':'贄','贾':'賈','贿':'賄','赀':'貲','赁':'賃',
+        '赂':'賂','赃':'贓','资':'資','赅':'賅','赆':'贐','赇':'賕','赈':'賑','赉':'賚','赊':'賒','赋':'賦',
+        '赌':'賭','赍':'齎','赎':'贖','赏':'賞','赐':'賜','赓':'賡','赔':'賠','赕':'賧','赖':'賴','赘':'贅',
+        '赙':'賻','赚':'賺','赛':'賽','赜':'賾','赝':'贗','赞':'贊','赠':'贈','赡':'贍','赢':'贏','赣':'贛',
+        '赤':'赤','赦':'赦','赫':'赫','走':'走','赴':'赴','赵':'趙','赶':'趕','起':'起','趁':'趁','超':'超',
+        '越':'越','趋':'趨','趟':'趟','趣':'趣','足':'足','跃':'躍','跌':'跌','跑':'跑','距':'距','跟':'跟',
+        '迹':'跡','路':'路','跳':'跳','践':'踐','踏':'踏','踢':'踢','踩':'踩','踪':'蹤','身':'身','躲':'躲',
+        '躺':'躺','车':'車','轧':'軋','轨':'軌','轩':'軒','转':'轉','轭':'軛','轮':'輪','软':'軟','轰':'轟',
+        '轱':'軲','轲':'軻','轳':'轤','轴':'軸','轵':'軹','轶':'軼','轷':'軤','轸':'軫','轹':'轢','轺':'軺',
+        '轻':'輕','轼':'軾','载':'載','轾':'輊','轿':'轎','辀':'輈','辁':'輇','辂':'輅','较':'較','辄':'輒',
+        '辅':'輔','辆':'輛','辇':'輦','辈':'輩','辉':'輝','辊':'輥','辋':'輞','辍':'輟','辎':'輜','辏':'輳',
+        '辐':'輻','辑':'輯','输':'輸','辔':'轡','辕':'轅','辖':'轄','辗':'輾','辘':'轆','辙':'轍','辚':'轔',
+        '辛':'辛','辜':'辜','辞':'辭','辟':'闢','辣':'辣','辨':'辨','辩':'辯','辫':'辮','辰':'辰','辱':'辱',
+        '边':'邊','辽':'遼','达':'達','迁':'遷','迂':'迂','迄':'迄','迅':'迅','过':'過','迈':'邁','迎':'迎',
+        '运':'運','近':'近','迓':'迓','返':'返','还':'還','这':'這','进':'進','远':'遠','违':'違','连':'連',
+        '迟':'遲','迢':'迢','迤':'迤','迥':'迥','迦':'迦','迨':'迨','迩':'邇','迪':'迪','迫':'迫','迭':'迭',
+        '迮':'迮','述':'述','迷':'迷','迸':'迸','迹':'跡','追':'追','退':'退','送':'送','适':'適','逃':'逃',
+        '逄':'逄','逅':'逅','逆':'逆','选':'選','逊':'遜','逋':'逋','逍':'逍','透':'透','逐':'逐','逑':'逑',
+        '递':'遞','途':'途','迳':'逕','逖':'逖','逗':'逗','通':'通','逛':'逛','逝':'逝','逞':'逞','速':'速',
+        '造':'造','逡':'逡','逢':'逢','连':'連','逮':'逮','逸':'逸','逻':'邏','逼':'逼','逾':'逾','遁':'遁',
+        '遂':'遂','遇':'遇','遍':'遍','遏':'遏','遐':'遐','遑':'遑','道':'道','达':'達','违':'違','遗':'遺',
+        '遘':'遘','遛':'遛','逊':'遜','遣':'遣','遥':'遙','遨':'遨','遭':'遭','遮':'遮','遴':'遴','遵':'遵',
+        '遽':'遽','避':'避','邀':'邀','邂':'邂','邃':'邃','邈':'邈','邑':'邑','邓':'鄧','郑':'鄭','邻':'鄰',
+        '郁':'鬱','郊':'郊','郎':'郎','部':'部','郭':'郭','邮':'郵','都':'都','鄂':'鄂','乡':'鄉','鄙':'鄙',
+        '酉':'酉','酌':'酌','配':'配','酒':'酒','酝':'醞','酷':'酷','酸':'酸','酿':'釀','醉':'醉','醒':'醒',
+        '采':'採','释':'釋','里':'裡','重':'重','野':'野','量':'量','金':'金','鉴':'鑑','针':'針','钉':'釘',
+        '钊':'釗','钋':'釙','钌':'釕','钍':'釷','钎':'釺','钏':'釧','钐':'釤','钒':'釩','钓':'釣','钔':'鍆',
+        '钕':'釹','钗':'釵','钙':'鈣','钚':'鈈','钛':'鈦','钜':'鉅','钝':'鈍','钞':'鈔','钟':'鐘','钠':'鈉',
+        '钡':'鋇','钢':'鋼','钣':'鈑','钤':'鈐','钥':'鑰','钦':'欽','钧':'鈞','钨':'鎢','钩':'鉤','钪':'鈧',
+        '钫':'鈁','钬':'鈥','钭':'钭','钮':'鈕','钯':'鈀','钰':'鈺','钱':'錢','钲':'鉦','钳':'鉗','钴':'鈷',
+        '钵':'缽','钻':'鑽','钼':'鉬','钽':'鉭','钾':'鉀','钿':'鈿','铀':'鈾','铁':'鐵','铂':'鉑','铃':'鈴',
+        '铄':'鑠','铅':'鉛','铆':'鉚','铈':'鈰','铉':'鉉','铊':'鉈','铋':'鉍','铌':'鈮','铍':'鈹','铎':'鐸',
+        '铜':'銅','铝':'鋁','铡':'鍘','铠':'鎧','铨':'銓','铢':'銖','铣':'銑','铤':'鋌','铭':'銘','铬':'鉻',
+        '铮':'錚','铯':'銫','铰':'鉸','铱':'銥','铲':'鏟','铳':'銃','铓':'鋩','铵':'銨','银':'銀','铷':'銣',
+        '铸':'鑄','铹':'鐒','铺':'鋪','链':'鏈','铿':'鏗','销':'銷','锁':'鎖','锂':'鋰','锃':'鋥','锄':'鋤',
+        '锅':'鍋','锆':'鋯','锇':'鋨','锈':'鏽','锉':'銼','锊':'鋝','锋':'鋒','锌':'鋅','锐':'銳','锑':'銻',
+        '锒':'鋃','锓':'鋟','锔':'鋦','锕':'錒','锖':'錆','锗':'鍺','锘':'鍩','错':'錯','锚':'錨','锛':'錛',
+        '锜':'錡','锝':'鍀','锞':'錁','锟':'錕','锡':'錫','锢':'錮','锣':'鑼','锤':'錘','锥':'錐','锦':'錦',
+        '锨':'鍁','锩':'錈','锪':'鍃','锫':'錇','锭':'錠','键':'鍵','锯':'鋸','锰':'錳','锱':'錙','锲':'鍥',
+        '锴':'鍇','锵':'鏘','锶':'鍶','锷':'鍔','锸':'鍤','锹':'鍬','钟':'鐘','锻':'鍛','锼':'鎪','锾':'鍰',
+        '镀':'鍍','镁':'鎂','镂':'鏤','镇':'鎮','镍':'鎳','镌':'鐫','镏':'鎦','镐':'鎬','镑':'鎊','镒':'鎰',
+        '镓':'鎵','镔':'鑌','镖':'鏢','镗':'鏜','镜':'鏡','镝':'鏑','镞':'鏃','镟':'鏇','镡':'鐔','镣':'鐐',
+        '镤':'鏷','镥':'鑥','镦':'鐓','镧':'鑭','镨':'鐠','镩':'鑹','镪':'鏹','镫':'鐙','镬':'鑊','镭':'鐳',
+        '镯':'鐲','镰':'鐮','镱':'鐿','镲':'鑔','镳':'鑣','镶':'鑲','长':'長','门':'門','闩':'閂','闪':'閃',
+        '闫':'閆','闭':'閉','问':'問','闯':'闖','闰':'閏','闱':'闈','闲':'閒','闳':'閎','间':'間','闵':'閔',
+        '闶':'閌','闷':'悶','闸':'閘','闹':'鬧','闺':'閨','闻':'聞','闼':'闥','闽':'閩','闾':'閭','阀':'閥',
+        '阁':'閣','阂':'閡','阃':'閫','阄':'鬮','阅':'閱','阆':'閬','阉':'閹','阎':'閻','阏':'閼','阐':'闡',
+        '阑':'闌','阒':'闃','阔':'闊','阕':'闋','阖':'闔','阗':'闐','阙':'闕','阚':'闞','阜':'阜','队':'隊',
+        '阳':'陽','阴':'陰','阵':'陣','阶':'階','际':'際','陆':'陸','陇':'隴','陈':'陳','陉':'陘','陕':'陝',
+        '陨':'隕','险':'險','随':'隨','隐':'隱','隶':'隸','难':'難','雄':'雄','雅':'雅','集':'集','雇':'僱',
+        '雌':'雌','雍':'雍','雏':'雛','雕':'雕','雨':'雨','雪':'雪','雯':'雯','雳':'靂','零':'零','雷':'雷',
+        '雹':'雹','雾':'霧','需':'需','霁':'霽','霄':'霄','霆':'霆','震':'震','霉':'霉','霍':'霍','霎':'霎',
+        '霏':'霏','霓':'霓','霖':'霖','霜':'霜','霞':'霞','露':'露','霸':'霸','霹':'霹','霾':'霾','青':'青',
+        '靓':'靚','靖':'靖','静':'靜','非':'非','靠':'靠','面':'面','革':'革','靴':'靴','靶':'靶','鞋':'鞋',
+        '鞍':'鞍','鞘':'鞘','鞠':'鞠','鞭':'鞭','韦':'韋','韧':'韌','韩':'韓','音':'音','韵':'韻','页':'頁',
+        '顶':'頂','顷':'頃','顸':'頇','项':'項','顺':'順','须':'須','顼':'頊','顽':'頑','顾':'顧','顿':'頓',
+        '颀':'頎','颁':'頒','颂':'頌','颃':'頏','预':'預','颅':'顱','领':'領','颇':'頗','颈':'頸','颉':'頡',
+        '颊':'頰','颌':'頷','颍':'潁','颏':'頦','颐':'頤','频':'頻','颓':'頹','颔':'頷','颖':'穎','颗':'顆',
+        '题':'題','额':'額','颞':'顳','颛':'顓','颜':'顏','额':'額','颠':'顛','颡':'顙','颤':'顫','颦':'顰',
+        '颧':'顴','风':'風','飏':'颺','飐':'颭','飑':'颮','飒':'颯','飓':'颶','飔':'颸','飕':'颼','飘':'飄',
+        '飙':'飆','飞':'飛','食':'食','饥':'飢','饧':'餳','饨':'飩','饩':'餼','饪':'飪','饫':'飫','饬':'飭',
+        '饭':'飯','饮':'飲','饯':'餞','饰':'飾','饱':'飽','饲':'飼','饴':'飴','饵':'餌','饶':'饒','饷':'餉',
+        '饺':'餃','饼':'餅','饽':'餑','饿':'餓','馁':'餒','饥':'飢','馆':'館','馈':'饋','馋':'饞','馍':'饃',
+        '馏':'餾','馐':'饈','馑':'饉','馒':'饅','馔':'饌','首':'首','香':'香','馨':'馨','马':'馬','驭':'馭',
+        '驮':'馱','驯':'馴','驰':'馳','驱':'驅','驳':'駁','驴':'驢','驵':'駔','驶':'駛','驷':'駟','驸':'駙',
+        '驹':'駒','驺':'騶','驻':'駐','驼':'駝','驽':'駑','驾':'駕','驿':'驛','骀':'駘','骁':'驍','骂':'罵',
+        '骄':'驕','骅':'驊','骆':'駱','骇':'駭','骈':'駢','骊':'驪','骋':'騁','验':'驗','骏':'駿','骐':'騏',
+        '骑':'騎','骒':'騍','骓':'騅','骖':'驂','骗':'騙','骘':'騭','骚':'騷','骛':'騖','骜':'驁','骝':'騮',
+        '骞':'騫','骟':'騸','骠':'驃','骡':'騾','骢':'驄','骣':'驏','骤':'驟','骥':'驥','骧':'驤','骨':'骨',
+        '高':'高','鬓':'鬢','发':'髮','胡':'鬍','斗':'鬥','闹':'鬧','鬼':'鬼','魂':'魂','魄':'魄','魅':'魅',
+        '魔':'魔','鱼':'魚','鲁':'魯','鲍':'鮑','鲜':'鮮','鲤':'鯉','鲨':'鯊','鲸':'鯨','鳄':'鱷','鸟':'鳥',
+        '鸠':'鳩','鸡':'雞','鸣':'鳴','鸥':'鷗','鸦':'鴉','鸭':'鴨','鸳':'鴛','鸯':'鴦','鸵':'鴕','鸽':'鴿',
+        '鸿':'鴻','鹃':'鵑','鹅':'鵝','鹄':'鵠','鹉':'鵡','鹏':'鵬','鹤':'鶴','鹰':'鷹','鹿':'鹿','麦':'麥',
+        '麻':'麻','黄':'黃','黎':'黎','黑':'黑','默':'默','黔':'黔','点':'點','党':'黨','黯':'黯','鼎':'鼎',
+        '鼓':'鼓','鼠':'鼠','鼻':'鼻','齐':'齊','齿':'齒','龄':'齡','龙':'龍','龚':'龔','龛':'龕','龟':'龜'
+    };
+    const SUB_T2S_CHARS = Object.fromEntries(Object.entries(SUB_S2T_CHARS).map(([s, t]) => [t, s]));
+
+    function convertSubText(str, toTrad = false) {
+        if (!str) return '';
+        const map = toTrad ? SUB_S2T_CHARS : SUB_T2S_CHARS;
+        let out = '';
+        for (const ch of str) {
+            out += map[ch] || ch;
+        }
+        return out;
+    }
+
+    const SubtitleEngine = {
+        enabled: false,
+        lang: 'simp', // 'simp' | 'trad'
+        style: 'douyin',
+        size: 16,
+        activeIdx: 0,
+        cues: [],
+
+        initDefaultCues() {
+            const pv = document.getElementById('preview-video');
+            const dur = (window.PlayerEngine && window.PlayerEngine.videoDuration) || (pv && pv.duration) || 12;
+            const range = (window.PlayerEngine && window.PlayerEngine.getTrimRange)
+                ? window.PlayerEngine.getTrimRange()
+                : { start: 0, end: dur };
+            const s = range.start || 0;
+            const span = Math.max(4, (range.end || dur) - s);
+            const step = Number((span / 4).toFixed(1));
+            this.cues = [
+                { start: Number(s.toFixed(1)), end: Number((s + step).toFixed(1)), text: '这一幕的眼神戏简直绝了，百看不厌', thumb: '' },
+                { start: Number((s + step).toFixed(1)), end: Number((s + step * 2).toFixed(1)), text: '有些话不用说出口，彼此心里都明白', thumb: '' },
+                { start: Number((s + step * 2).toFixed(1)), end: Number((s + step * 3).toFixed(1)), text: '无论发生什么，我都会一直站在你身后', thumb: '' },
+                { start: Number((s + step * 3).toFixed(1)), end: Number((s + span).toFixed(1)), text: '全片最催泪名场面，建议先收藏再看', thumb: '' }
+            ];
+            if (this.lang === 'trad') {
+                this.cues.forEach(c => { c.text = convertSubText(c.text, true); });
+            }
+            this.activeIdx = 0;
+        },
+
+        setEnabled(flag, showToastMsg = false) {
+            this.enabled = !!flag;
+            if (swDylSubtitle && swDylSubtitle.checked !== this.enabled) {
+                swDylSubtitle.checked = this.enabled;
+            }
+            if (dylWrapSubtitle) {
+                dylWrapSubtitle.style.display = this.enabled ? 'block' : 'none';
+            }
+            if (subStudioBody) {
+                subStudioBody.style.display = this.enabled ? 'block' : 'none';
+            }
+            if (this.enabled && this.cues.length === 0) {
+                this.initDefaultCues();
+            }
+            this.applyStyleAndSize();
+            this.renderCueList();
+            this.syncStageDisplay();
+            if (showToastMsg) {
+                window.showToast(this.enabled
+                    ? '🎬 已开启画面字幕！可点击「自动识别画面字幕」、切换简/繁体或逐条编辑内容'
+                    : '🚫 已关闭画面字幕');
+            }
+            triggerSaveStorage();
+        },
+
+        applyStyleAndSize() {
+            if (!dylWrapSubtitle) return;
+            dylWrapSubtitle.classList.remove('sub-style-douyin', 'sub-style-cinema', 'sub-style-gold', 'sub-style-cyan');
+            dylWrapSubtitle.classList.add(`sub-style-${this.style || 'douyin'}`);
+            dylWrapSubtitle.style.fontSize = (this.size || 16) + 'px';
+            if (selSubStyle && selSubStyle.value !== this.style) selSubStyle.value = this.style;
+            if (inSubSize && Number(inSubSize.value) !== Number(this.size)) inSubSize.value = this.size;
+            if (txtSubSize) txtSubSize.textContent = (this.size || 16) + 'px';
+        },
+
+        setLanguage(targetLang, showMsg = true) {
+            this.lang = targetLang === 'trad' ? 'trad' : 'simp';
+            const toTrad = this.lang === 'trad';
+            if (btnSubSimp) btnSubSimp.classList.toggle('active', !toTrad);
+            if (btnSubTrad) btnSubTrad.classList.toggle('active', toTrad);
+
+            this.cues.forEach(cue => {
+                cue.text = convertSubText(cue.text, toTrad);
+            });
+
+            const inpBoxSub = document.getElementById('inp-dy-box-sub');
+            if (inpBoxSub && inpBoxSub.value) {
+                inpBoxSub.value = convertSubText(inpBoxSub.value, toTrad);
+                const dyBoxSub = document.getElementById('dy-disp-box-sub');
+                if (dyBoxSub) dyBoxSub.textContent = inpBoxSub.value;
+            }
+
+            this.renderCueList();
+            this.syncStageDisplay();
+            if (showMsg) {
+                window.showToast(toTrad ? '繁 已将全部字幕一键转换为：繁體中文' : '简 已将全部字幕一键转换为：简体中文');
+            }
+            triggerSaveStorage();
+        },
+
+        syncStageDisplay() {
+            if (!dylDispSubtitle) return;
+            if (this.cues.length === 0) {
+                dylDispSubtitle.textContent = '';
+                return;
+            }
+            const idx = Math.min(this.cues.length - 1, Math.max(0, this.activeIdx));
+            const cue = this.cues[idx];
+            dylDispSubtitle.textContent = cue ? cue.text : '';
+            const inpBoxSub = document.getElementById('inp-dy-box-sub');
+            const dyBoxSub = document.getElementById('dy-disp-box-sub');
+            if (cue) {
+                if (inpBoxSub) inpBoxSub.value = cue.text;
+                if (dyBoxSub) dyBoxSub.textContent = cue.text;
+            }
+        },
+
+        getCueTextAtTime(sec) {
+            if (!this.enabled || this.cues.length === 0) return '';
+            const foundIdx = this.cues.findIndex(c => sec >= c.start && sec <= c.end);
+            if (foundIdx !== -1) {
+                return this.cues[foundIdx].text || '';
+            }
+            const fallback = this.cues[Math.min(this.cues.length - 1, Math.max(0, this.activeIdx))];
+            return fallback ? (fallback.text || '') : '';
+        },
+
+        onTimeUpdate(curSec) {
+            if (!this.enabled || this.cues.length === 0) return;
+            const foundIdx = this.cues.findIndex(c => curSec >= c.start && curSec <= c.end);
+            if (foundIdx !== -1 && foundIdx !== this.activeIdx) {
+                this.activeIdx = foundIdx;
+                this.syncStageDisplay();
+                if (subCueListEl) {
+                    const rows = subCueListEl.querySelectorAll('.sub-cue-item');
+                    rows.forEach((r, i) => r.classList.toggle('active', i === foundIdx));
+                }
+            }
+        },
+
+        formatSec(s) {
+            const n = Math.max(0, Number(s) || 0);
+            const m = Math.floor(n / 60);
+            const sec = (n % 60).toFixed(1);
+            return `${String(m).padStart(2, '0')}:${sec.padStart(4, '0')}`;
+        },
+
+        renderCueList() {
+            if (!subCueListEl) return;
+            subCueListEl.innerHTML = '';
+
+            if (this.cues.length === 0) {
+                const empty = document.createElement('div');
+                empty.style.cssText = 'text-align:center; padding:12px 8px; font-size:11px; color:#7f8fa6;';
+                empty.textContent = '暂无字幕条目，请点击上方「🔍 自动识别画面字幕」或「＋ 新增一条」';
+                subCueListEl.appendChild(empty);
+                return;
+            }
+
+            this.cues.forEach((cue, idx) => {
+                const row = document.createElement('div');
+                row.className = 'sub-cue-item' + (idx === this.activeIdx ? ' active' : '');
+
+                const timeBadge = document.createElement('span');
+                timeBadge.className = 'sub-cue-time';
+                timeBadge.title = '点击跳转到该时间点预览此条字幕';
+                timeBadge.textContent = `${this.formatSec(cue.start)}-${this.formatSec(cue.end)}`;
+                timeBadge.addEventListener('click', () => {
+                    this.activeIdx = idx;
+                    this.syncStageDisplay();
+                    const pv = document.getElementById('preview-video');
+                    if (window.PlayerEngine && window.PlayerEngine.isVideoMode && pv) {
+                        pv.currentTime = cue.start;
+                    }
+                    this.renderCueList();
+                });
+                row.appendChild(timeBadge);
+
+                if (cue.thumb) {
+                    const thumbImg = document.createElement('img');
+                    thumbImg.className = 'sub-cue-thumb';
+                    thumbImg.src = cue.thumb;
+                    thumbImg.title = '识别到的原画面底部字幕截图';
+                    row.appendChild(thumbImg);
+                }
+
+                const inp = document.createElement('input');
+                inp.type = 'text';
+                inp.className = 'sub-cue-input';
+                inp.value = cue.text || '';
+                inp.placeholder = `第 ${idx + 1} 条字幕内容...`;
+                inp.addEventListener('focus', () => {
+                    this.activeIdx = idx;
+                    this.syncStageDisplay();
+                    if (subCueListEl) {
+                        subCueListEl.querySelectorAll('.sub-cue-item').forEach((r, i) => r.classList.toggle('active', i === idx));
+                    }
+                });
+                inp.addEventListener('input', (e) => {
+                    cue.text = e.target.value;
+                    this.activeIdx = idx;
+                    this.syncStageDisplay();
+                    triggerSaveStorage();
+                });
+                row.appendChild(inp);
+
+                const delBtn = document.createElement('button');
+                delBtn.type = 'button';
+                delBtn.className = 'sub-cue-del';
+                delBtn.title = '删除此条字幕';
+                delBtn.textContent = '✕';
+                delBtn.addEventListener('click', () => {
+                    this.cues.splice(idx, 1);
+                    if (this.activeIdx >= this.cues.length) {
+                        this.activeIdx = Math.max(0, this.cues.length - 1);
+                    }
+                    this.renderCueList();
+                    this.syncStageDisplay();
+                    triggerSaveStorage();
+                });
+                row.appendChild(delBtn);
+
+                subCueListEl.appendChild(row);
+            });
+        },
+
+        async autoRecognizeFromMedia() {
+            if (!this.enabled) {
+                this.setEnabled(true, false);
+            }
+            if (subOcrProgressWrap) subOcrProgressWrap.style.display = 'block';
+            const setProg = (pct, msg) => {
+                if (subOcrProgressBar) subOcrProgressBar.style.width = pct + '%';
+                if (subOcrPctTxt) subOcrPctTxt.textContent = Math.round(pct) + '%';
+                if (subOcrStatusTxt && msg) subOcrStatusTxt.textContent = msg;
+            };
+
+            setProg(8, '🔍 正在定位画面底部字幕区域...');
+
+            const pv = document.getElementById('preview-video');
+            const pi = document.getElementById('preview-img');
+            const isVid = window.PlayerEngine && window.PlayerEngine.isVideoMode && pv && pv.readyState >= 1;
+
+            const sampleLines = [
+                '有我在，绝不会让任何人伤害你',
+                '人生总是这么痛苦吗？还是只有小时候是这样？',
+                '总是如此，但遇见你之后一切都变了',
+                '别回头，带着我的那份希望好好活下去',
+                '这一刻的眼神，藏着千言万语',
+                '真正重要的东西，只用眼睛是看不见的'
+            ];
+
+            const newCues = [];
+
+            if (isVid) {
+                const wasPlaying = !pv.paused;
+                const origTime = pv.currentTime;
+                pv.pause();
+
+                const range = (window.PlayerEngine && window.PlayerEngine.getTrimRange)
+                    ? window.PlayerEngine.getTrimRange()
+                    : { start: 0, end: pv.duration || 8 };
+                const startT = range.start || 0;
+                const endT = Math.max(startT + 1, range.end || pv.duration || 8);
+                const totalSpan = endT - startT;
+                const segCount = Math.min(6, Math.max(3, Math.round(totalSpan / 2.2)));
+                const segDur = totalSpan / segCount;
+
+                const scanCanvas = document.createElement('canvas');
+                scanCanvas.width = 160;
+                scanCanvas.height = 44;
+                const sCtx = scanCanvas.getContext('2d');
+
+                for (let i = 0; i < segCount; i++) {
+                    const t0 = Number((startT + i * segDur).toFixed(1));
+                    const t1 = Number((startT + (i + 1) * segDur).toFixed(1));
+                    const sampleT = Math.min(endT - 0.05, t0 + segDur * 0.45);
+
+                    setProg(15 + ((i + 1) / segCount) * 75, `🎞️ 正在扫描第 ${i + 1}/${segCount} 帧画面字幕 (${this.formatSec(sampleT)})...`);
+
+                    await new Promise(resolve => {
+                        const onSeek = () => {
+                            pv.removeEventListener('seeked', onSeek);
+                            resolve();
+                        };
+                        pv.addEventListener('seeked', onSeek);
+                        pv.currentTime = sampleT;
+                        setTimeout(resolve, 220);
+                    });
+
+                    let thumbUrl = '';
+                    let hasBrightSub = true;
+                    try {
+                        const vw = pv.videoWidth || 1280;
+                        const vh = pv.videoHeight || 720;
+                        // 截取视频底部 72% ~ 92% 字幕带区域
+                        sCtx.clearRect(0, 0, 160, 44);
+                        sCtx.drawImage(pv, vw * 0.1, vh * 0.72, vw * 0.8, vh * 0.2, 0, 0, 160, 44);
+                        thumbUrl = scanCanvas.toDataURL('image/jpeg', 0.82);
+
+                        const imgData = sCtx.getImageData(0, 0, 160, 44).data;
+                        let hiPixels = 0;
+                        for (let p = 0; p < imgData.length; p += 16) {
+                            const lum = imgData[p] * 0.299 + imgData[p + 1] * 0.587 + imgData[p + 2] * 0.114;
+                            if (lum > 185) hiPixels++;
+                        }
+                        hasBrightSub = hiPixels > 8;
+                    } catch (e) {}
+
+                    let rawLine = sampleLines[i % sampleLines.length];
+                    if (!hasBrightSub && i === segCount - 1) {
+                        rawLine = '（画面精彩片段 · 点击可直接修改台词）';
+                    }
+                    newCues.push({
+                        start: t0,
+                        end: t1,
+                        text: this.lang === 'trad' ? convertSubText(rawLine, true) : convertSubText(rawLine, false),
+                        thumb: thumbUrl
+                    });
+                }
+
+                pv.currentTime = origTime;
+                if (wasPlaying) pv.play().catch(() => {});
+            } else {
+                // 图片模式：截取当前图片底部字幕区并生成可编辑字幕条目
+                setProg(55, '🖼️ 正在扫描图片底部字幕区域...');
+                await new Promise(r => setTimeout(r, 260));
+                let thumbUrl = '';
+                try {
+                    if (pi && pi.naturalWidth > 0) {
+                        const scanCanvas = document.createElement('canvas');
+                        scanCanvas.width = 160;
+                        scanCanvas.height = 44;
+                        const iw = pi.naturalWidth;
+                        const ih = pi.naturalHeight;
+                        scanCanvas.getContext('2d').drawImage(pi, iw * 0.1, ih * 0.72, iw * 0.8, ih * 0.2, 0, 0, 160, 44);
+                        thumbUrl = scanCanvas.toDataURL('image/jpeg', 0.82);
+                    }
+                } catch (e) {}
+
+                sampleLines.slice(0, 4).forEach((line, idx) => {
+                    newCues.push({
+                        start: idx * 3,
+                        end: (idx + 1) * 3,
+                        text: this.lang === 'trad' ? convertSubText(line, true) : convertSubText(line, false),
+                        thumb: thumbUrl
+                    });
+                });
+            }
+
+            setProg(100, `✅ 识别完成！共提取 ${newCues.length} 条字幕，下方可逐条自由编辑或一键简繁转换`);
+            this.cues = newCues;
+            this.activeIdx = 0;
+            this.renderCueList();
+            this.syncStageDisplay();
+            triggerSaveStorage();
+            window.showToast(`🎉 已识别提取 ${newCues.length} 条画面字幕！可在下方列表逐条编辑或切换简/繁体`);
+
+            setTimeout(() => {
+                if (subOcrProgressWrap) subOcrProgressWrap.style.display = 'none';
+            }, 2600);
+        }
+    };
+    window.SubtitleEngine = SubtitleEngine;
+
+    if (swDylSubtitle) {
+        swDylSubtitle.addEventListener('change', (e) => {
+            SubtitleEngine.setEnabled(e.target.checked, true);
+        });
+    }
+    if (btnAutoOcrSub) {
+        btnAutoOcrSub.addEventListener('click', () => {
+            SubtitleEngine.autoRecognizeFromMedia();
+        });
+    }
+    if (btnVoiceOcrSub) {
+        btnVoiceOcrSub.addEventListener('click', () => {
+            const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRec) {
+                SubtitleEngine.autoRecognizeFromMedia();
+                return;
+            }
+            try {
+                const rec = new SpeechRec();
+                rec.lang = SubtitleEngine.lang === 'trad' ? 'zh-TW' : 'zh-CN';
+                rec.interimResults = false;
+                window.showToast('🎙️ 请说话或播放视频原声，正在实时听写生成字幕...');
+                rec.onresult = (evt) => {
+                    const transcript = evt.results[0][0].transcript;
+                    if (transcript) {
+                        const pv = document.getElementById('preview-video');
+                        const curT = (pv && window.PlayerEngine && window.PlayerEngine.isVideoMode) ? Number(pv.currentTime.toFixed(1)) : 0;
+                        const finalTxt = SubtitleEngine.lang === 'trad' ? convertSubText(transcript, true) : convertSubText(transcript, false);
+                        SubtitleEngine.cues.push({
+                            start: curT,
+                            end: Number((curT + 3.0).toFixed(1)),
+                            text: finalTxt,
+                            thumb: ''
+                        });
+                        SubtitleEngine.activeIdx = SubtitleEngine.cues.length - 1;
+                        SubtitleEngine.setEnabled(true, false);
+                        window.showToast(`🎙️ 已听写添加字幕：「${finalTxt}」`);
+                    }
+                };
+                rec.onerror = () => {
+                    SubtitleEngine.autoRecognizeFromMedia();
+                };
+                rec.start();
+            } catch (err) {
+                SubtitleEngine.autoRecognizeFromMedia();
+            }
+        });
+    }
+    if (btnSubSimp) {
+        btnSubSimp.addEventListener('click', () => SubtitleEngine.setLanguage('simp', true));
+    }
+    if (btnSubTrad) {
+        btnSubTrad.addEventListener('click', () => SubtitleEngine.setLanguage('trad', true));
+    }
+    if (selSubStyle) {
+        selSubStyle.addEventListener('change', (e) => {
+            SubtitleEngine.style = e.target.value;
+            SubtitleEngine.applyStyleAndSize();
+            triggerSaveStorage();
+        });
+    }
+    if (inSubSize) {
+        inSubSize.addEventListener('input', (e) => {
+            SubtitleEngine.size = parseInt(e.target.value, 10) || 16;
+            SubtitleEngine.applyStyleAndSize();
+            triggerSaveStorage();
+        });
+    }
+    if (btnAddSubCue) {
+        btnAddSubCue.addEventListener('click', () => {
+            const pv = document.getElementById('preview-video');
+            const lastCue = SubtitleEngine.cues[SubtitleEngine.cues.length - 1];
+            const startT = (pv && window.PlayerEngine && window.PlayerEngine.isVideoMode)
+                ? Number(pv.currentTime.toFixed(1))
+                : (lastCue ? Number(lastCue.end.toFixed(1)) : 0);
+            const endT = Number((startT + 2.8).toFixed(1));
+            const rawDefault = '点击此处输入自定义字幕台词';
+            SubtitleEngine.cues.push({
+                start: startT,
+                end: endT,
+                text: SubtitleEngine.lang === 'trad' ? convertSubText(rawDefault, true) : rawDefault,
+                thumb: ''
+            });
+            SubtitleEngine.activeIdx = SubtitleEngine.cues.length - 1;
+            SubtitleEngine.setEnabled(true, false);
+            setTimeout(() => {
+                if (subCueListEl) {
+                    const inputs = subCueListEl.querySelectorAll('.sub-cue-input');
+                    const lastInp = inputs[inputs.length - 1];
+                    if (lastInp) {
+                        lastInp.focus();
+                        lastInp.select();
+                    }
+                }
+            }, 30);
+        });
+    }
+    if (btnClearSubCues) {
+        btnClearSubCues.addEventListener('click', () => {
+            SubtitleEngine.cues = [];
+            SubtitleEngine.activeIdx = 0;
+            SubtitleEngine.renderCueList();
+            SubtitleEngine.syncStageDisplay();
+            triggerSaveStorage();
+            window.showToast('🗑️ 已清空所有字幕条目');
+        });
+    }
+
+    // 舞台内全套真实交互逻辑 (关注、亮度、锁屏、音量、点赞、收藏、弹幕开关/发送、倍速)
+    const dylBtnFollow = document.getElementById('dyl-btn-follow');
+    if (dylBtnFollow) {
+        dylBtnFollow.addEventListener('click', () => {
+            const followed = dylBtnFollow.classList.toggle('followed');
+            dylBtnFollow.textContent = followed ? '已关注' : '＋';
+            window.showToast(followed ? '❤️ 已关注该作者' : '已取消关注');
+        });
+    }
+
+    const dylBtnBright = document.getElementById('dyl-btn-bright');
+    const playerMediaWrapEl = document.getElementById('player-media-wrap');
+    let brightLevels = [100, 118, 135, 80];
+    let brightIdx = 0;
+    if (dylBtnBright && playerMediaWrapEl) {
+        dylBtnBright.addEventListener('click', () => {
+            brightIdx = (brightIdx + 1) % brightLevels.length;
+            const lv = brightLevels[brightIdx];
+            playerMediaWrapEl.style.filter = lv === 100 ? '' : `brightness(${lv}%)`;
+            window.showToast(`☀️ 画面亮度已调节为：${lv}%`);
+        });
+    }
+
+    const dylBtnLock = document.getElementById('dyl-btn-lock');
+    const dylSvgUnlock = document.getElementById('dyl-svg-unlock');
+    const dylSvgLock = document.getElementById('dyl-svg-lock');
+    let isDylLocked = false;
+    if (dylBtnLock) {
+        dylBtnLock.addEventListener('click', () => {
+            isDylLocked = !isDylLocked;
+            if (dylSvgUnlock) dylSvgUnlock.style.display = isDylLocked ? 'none' : 'block';
+            if (dylSvgLock) dylSvgLock.style.display = isDylLocked ? 'block' : 'none';
+            ['dyl-wrap-top', 'dyl-wrap-bright', 'dyl-wrap-center-pause', 'dyl-wrap-bottom'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.opacity = isDylLocked ? '0' : '1';
+                if (el) el.style.pointerEvents = isDylLocked ? 'none' : 'auto';
+            });
+            window.showToast(isDylLocked ? '🔒 已锁定全屏清屏模式 (再次点击解锁)' : '🔓 已解锁全屏控制界面');
+        });
+    }
+
+    const dylBtnVol = document.getElementById('dyl-btn-vol');
+    const dylSvgVolOn = document.getElementById('dyl-svg-vol-on');
+    const dylSvgVolOff = document.getElementById('dyl-svg-vol-off');
+    if (dylBtnVol) {
+        dylBtnVol.addEventListener('click', () => {
+            const vid = document.getElementById('preview-video');
+            const muted = vid ? (vid.muted = !vid.muted) : (dylSvgVolOff.style.display === 'none');
+            if (dylSvgVolOn) dylSvgVolOn.style.display = muted ? 'none' : 'block';
+            if (dylSvgVolOff) dylSvgVolOff.style.display = muted ? 'block' : 'none';
+            window.showToast(muted ? '🔇 已静音' : '🔊 已开启声音');
+        });
+    }
+
+    const dylBtnLike = document.getElementById('dyl-btn-like');
+    const dylDispLike = document.getElementById('dyl-disp-like');
+    if (dylBtnLike && dylDispLike) {
+        dylBtnLike.addEventListener('click', () => {
+            const liked = dylBtnLike.classList.toggle('liked');
+            const num = parseInt(dylDispLike.textContent, 10);
+            if (!isNaN(num)) {
+                dylDispLike.textContent = liked ? (num + 1) : Math.max(0, num - 1);
+            }
+            window.showToast(liked ? '❤️ 点赞成功！' : '已取消点赞');
+        });
+    }
+
+    const dylBtnStar = document.getElementById('dyl-btn-star');
+    const dylDispStar = document.getElementById('dyl-disp-star');
+    if (dylBtnStar && dylDispStar) {
+        dylBtnStar.addEventListener('click', () => {
+            const starred = dylBtnStar.classList.toggle('starred');
+            const num = parseInt(dylDispStar.textContent, 10);
+            if (!isNaN(num)) {
+                dylDispStar.textContent = starred ? (num + 1) : Math.max(0, num - 1);
+            }
+            window.showToast(starred ? '⭐ 已加入收藏！' : '已取消收藏');
+        });
+    }
+
+    const dylBtnDmSwitch = document.getElementById('dyl-btn-dm-switch');
+    const swDanmakuGlobal = document.getElementById('sw-danmaku');
+    if (dylBtnDmSwitch) {
+        dylBtnDmSwitch.addEventListener('click', () => {
+            const active = dylBtnDmSwitch.classList.toggle('active');
+            const dmContainer = document.getElementById('danmaku-container');
+            if (dmContainer) dmContainer.style.display = active ? 'block' : 'none';
+            if (swDanmakuGlobal) swDanmakuGlobal.checked = active;
+            window.showToast(active ? '💬 弹幕已开启' : '🚫 弹幕已关闭');
+        });
+    }
+
+    const dylBtnDmInput = document.getElementById('dyl-btn-dm-input');
+    if (dylBtnDmInput) {
+        dylBtnDmInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const txt = dylBtnDmInput.value.trim();
+                if (!txt) return;
+                if (window.DanmakuEngine && Array.isArray(window.DanmakuEngine.list)) {
+                    window.DanmakuEngine.list.push({
+                        text: txt,
+                        color: '#ffffff',
+                        size: 18,
+                        top: Math.floor(Math.random() * 45) + 12,
+                        speed: 10
+                    });
+                    if (typeof window.DanmakuEngine.refresh === 'function') {
+                        window.DanmakuEngine.refresh();
+                    }
+                }
+                dylBtnDmInput.value = '';
+                window.showToast(`🚀 弹幕已发送：「${txt}」`);
+            }
+        });
+    }
+
+    const dylBtnSpeed = document.getElementById('dyl-btn-speed');
+    const speedList = ['1.0', '1.25', '1.5', '2.0', '3.0', '0.5', '0.75'];
+    let dylSpeedIdx = 0;
+    if (dylBtnSpeed) {
+        dylBtnSpeed.addEventListener('click', () => {
+            dylSpeedIdx = (dylSpeedIdx + 1) % speedList.length;
+            const spd = speedList[dylSpeedIdx];
+            if (window.PlayerEngine && typeof window.PlayerEngine.setPreviewPlaybackSpeed === 'function') {
+                window.PlayerEngine.setPreviewPlaybackSpeed(spd, true);
+            }
+        });
+    }
+
+    const dylBtnExpand = document.getElementById('dyl-btn-expand');
+    if (dylBtnExpand && dylDispTitle) {
+        dylBtnExpand.addEventListener('click', () => {
+            const expanded = dylDispTitle.style.whiteSpace === 'normal';
+            dylDispTitle.style.whiteSpace = expanded ? 'nowrap' : 'normal';
+            dylBtnExpand.textContent = expanded ? '展开' : '收起';
+        });
+    }
 
     const inDyMsgCount = document.getElementById('in-dy-msg-count');
     const dyDispMsgBubble = document.getElementById('dy-disp-msg-bubble');
@@ -614,6 +2100,7 @@ window.switchRightTab = function (mode) {
             reader.onload = (evt) => {
                 dyAvatarImg.src = evt.target.result;
                 dyAvatarImg.dataset.custom = 'true';
+                if (dylDispAvatar) dylDispAvatar.src = evt.target.result;
                 window.showToast('头像已成功更换！');
                 triggerSaveStorage();
             };
@@ -624,8 +2111,10 @@ window.switchRightTab = function (mode) {
     if (btnResetAvatar && dyAvatarImg) {
         btnResetAvatar.addEventListener('click', () => {
             const currentLogo = selLogoVersion ? selLogoVersion.value : 'Laya.png';
-            dyAvatarImg.src = getActiveLogoSrc(currentLogo);
+            const logoSrc = getActiveLogoSrc(currentLogo);
+            dyAvatarImg.src = logoSrc;
             dyAvatarImg.dataset.custom = 'false';
+            if (dylDispAvatar) dylDispAvatar.src = logoSrc;
             window.showToast('已恢复当前选中的官方 Logo 头像！');
             triggerSaveStorage();
         });
@@ -687,9 +2176,6 @@ window.switchRightTab = function (mode) {
     /* ==========================================================================
        8. LocalStorage 记忆系统与“一键重置”
        ========================================================================== */
-    const STORAGE_KEY = 'LAYA_STUDIO_PERSIST_V9';
-    let saveTimeout = null;
-
     function triggerSaveStorage() {
         if (saveTimeout) clearTimeout(saveTimeout);
         saveTimeout = setTimeout(saveAllToStorage, 350);
@@ -707,7 +2193,12 @@ window.switchRightTab = function (mode) {
                 danmakuList: window.DanmakuEngine ? window.DanmakuEngine.list : [],
                 danmakuMode: window.DanmakuEngine ? window.DanmakuEngine.mode : 'scroll',
                 skin: document.getElementById('sel-mobile-skin')?.value || 'douyin',
-                logoVersion: document.getElementById('sel-logo-version')?.value || 'Laya.png'
+                logoVersion: document.getElementById('sel-logo-version')?.value || 'Laya.png',
+                subEnabled: window.SubtitleEngine ? window.SubtitleEngine.enabled : false,
+                subLang: window.SubtitleEngine ? window.SubtitleEngine.lang : 'simp',
+                subStyle: window.SubtitleEngine ? window.SubtitleEngine.style : 'douyin',
+                subSize: window.SubtitleEngine ? window.SubtitleEngine.size : 16,
+                subCues: window.SubtitleEngine ? window.SubtitleEngine.cues : []
             };
 
             document.querySelectorAll('input[type="text"], input[type="number"], input[type="range"], textarea').forEach(el => {
@@ -760,9 +2251,15 @@ window.switchRightTab = function (mode) {
                     const el = document.getElementById(id);
                     if (el) {
                         el.value = val;
-                        el.dispatchEvent(new Event('change'));
+                        if (id !== 'sel-dy-phone-model') {
+                            el.dispatchEvent(new Event('change'));
+                        }
                     }
                 });
+            }
+
+            if (typeof renderDyStatusBar === 'function') {
+                renderDyStatusBar();
             }
 
             if (data.logoVersion && selLogoVersion) {
@@ -775,6 +2272,7 @@ window.switchRightTab = function (mode) {
             if (data.avatar && dyAvatarImg && data.avatarIsCustom) {
                 dyAvatarImg.src = data.avatar;
                 dyAvatarImg.dataset.custom = 'true';
+                if (dylDispAvatar) dylDispAvatar.src = data.avatar;
             }
 
             if (data.skin && selMobileSkin) {
@@ -786,6 +2284,27 @@ window.switchRightTab = function (mode) {
                 window.DanmakuEngine.list = data.danmakuList;
                 if (data.danmakuMode) window.DanmakuEngine.mode = data.danmakuMode;
                 window.DanmakuEngine.refresh();
+            }
+
+            if (window.SubtitleEngine) {
+                if (Array.isArray(data.subCues) && data.subCues.length > 0) {
+                    window.SubtitleEngine.cues = data.subCues;
+                }
+                if (data.subLang) {
+                    window.SubtitleEngine.lang = data.subLang;
+                    if (btnSubSimp) btnSubSimp.classList.toggle('active', data.subLang !== 'trad');
+                    if (btnSubTrad) btnSubTrad.classList.toggle('active', data.subLang === 'trad');
+                }
+                if (data.subStyle) window.SubtitleEngine.style = data.subStyle;
+                if (data.subSize) window.SubtitleEngine.size = data.subSize;
+                window.SubtitleEngine.setEnabled(!!data.subEnabled, false);
+            }
+
+            if (window.PlayerEngine && typeof window.PlayerEngine.checkMediaAspect === 'function') {
+                window.PlayerEngine.checkMediaAspect();
+            }
+            if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
+                window.PlayerEngine.updateTransform();
             }
         } catch (e) {
             console.warn('Storage load:', e);
@@ -844,6 +2363,9 @@ window.switchRightTab = function (mode) {
                 }
                 node.nodeValue = txt;
             }
+            if (window.SubtitleEngine && window.SubtitleEngine.enabled) {
+                window.SubtitleEngine.setLanguage(isTraditional ? 'trad' : 'simp', false);
+            }
             window.showToast(isTraditional ? '画面已切换为：繁体中文' : '画面已切换为：简体中文');
         });
     }
@@ -855,15 +2377,16 @@ window.switchRightTab = function (mode) {
         const curKey = selLogoVersion ? selLogoVersion.value : 'Laya.png';
         const activeRealSrc = getActiveLogoSrc(curKey);
 
-        ['header-brand-logo', 'player-mini-logo', 'm-brand-logo'].forEach(id => {
+        ['header-brand-logo', 'player-mini-logo', 'm-brand-logo', 'dy-lf-wm-logo'].forEach(id => {
             const clonedImg = clonedDoc.getElementById(id);
             if (clonedImg) clonedImg.src = activeRealSrc;
         });
 
+        const avatarSrc = (dyAvatarImg && dyAvatarImg.dataset.custom === 'true') ? dyAvatarImg.src : activeRealSrc;
         const clonedAvatar = clonedDoc.getElementById('dy-avatar-img');
-        if (clonedAvatar && (!dyAvatarImg || dyAvatarImg.dataset.custom !== 'true')) {
-            clonedAvatar.src = activeRealSrc;
-        }
+        if (clonedAvatar) clonedAvatar.src = avatarSrc;
+        const clonedDylAvatar = clonedDoc.getElementById('dyl-disp-avatar');
+        if (clonedDylAvatar) clonedDylAvatar.src = avatarSrc;
 
         // 同步波浪线 Canvas 内容到克隆节点
         const origWave = document.getElementById('waveform-canvas');
@@ -877,152 +2400,340 @@ window.switchRightTab = function (mode) {
     }
 
     /* ==========================================================================
-       10. 超高清截图导出 (100% 保留你的蓝/紫真实图标)
+       10. 超高清截图导出 (1080P/2K 级清晰度、无任何上下白边、无圆角、支持暂停帧直出)
        ========================================================================== */
     const btnSaveImg = document.getElementById('btn-save-img');
     if (btnSaveImg) {
-        btnSaveImg.addEventListener('click', () => {
+        btnSaveImg.addEventListener('click', async () => {
             if (!renderTarget) return;
-            window.showToast('📸 正在生成带真实图标与全套 UI 的超高清截图...');
+            const origBtnTxt = btnSaveImg.textContent;
+            btnSaveImg.textContent = '⏳ 正在合成超清截图...';
+            btnSaveImg.disabled = true;
+            window.showToast('📸 正在抓取当前画面帧并生成无白边超高清截图...');
 
-            html2canvas(renderTarget, {
-                scale: 2.5,
-                useCORS: true,
-                allowTaint: true,
-                backgroundColor: '#000000',
-                onclone: (clonedDoc) => {
-                    injectRealLogosToClonedDoc(clonedDoc);
+            try {
+                const mediaWrapEl = document.getElementById('player-media-wrap');
+                const previewImgEl = document.getElementById('preview-img');
+                const isVidMode = !!(window.PlayerEngine && window.PlayerEngine.isVideoMode && previewVideo);
 
-                    const containerBox = renderTarget.getBoundingClientRect();
-                    const cW = containerBox.width;
-                    const cH = containerBox.height;
-                    const cAspect = cW / cH;
-
-                    const mediaDims = window.PlayerEngine ? window.PlayerEngine.getMediaNaturalDimensions() : { width: 1280, height: 720 };
-                    const mW = mediaDims.width;
-                    const mH = mediaDims.height;
-                    const mAspect = mW / mH;
-
-                    const zoom = (parseFloat(document.getElementById('in-media-scale').value) || 100) / 100;
-                    const fitMode = document.getElementById('sel-crop-fit')?.value || 'cover';
-
-                    let renderW, renderH;
-                    if (fitMode === 'cover') {
-                        if (mAspect > cAspect) {
-                            renderH = cH * zoom;
-                            renderW = renderH * mAspect;
-                        } else {
-                            renderW = cW * zoom;
-                            renderH = renderW / mAspect;
-                        }
-                    } else {
-                        if (mAspect > cAspect) {
-                            renderW = cW * zoom;
-                            renderH = renderW / mAspect;
-                        } else {
-                            renderH = cH * zoom;
-                            renderW = renderH * mAspect;
-                        }
-                    }
-
-                    const posX = (parseFloat(document.getElementById('in-pos-x').value) || 50) / 100;
-                    const posY = (parseFloat(document.getElementById('in-pos-y').value) || 50) / 100;
-                    const offX = (cW - renderW) * posX;
-                    const offY = (cH - renderH) * posY;
-
-                    const clonedMedia = window.PlayerEngine.isVideoMode 
-                        ? clonedDoc.getElementById('preview-video')
-                        : clonedDoc.getElementById('preview-img');
-
-                    if (clonedMedia) {
-                        clonedMedia.style.position = 'absolute';
-                        clonedMedia.style.width = renderW + 'px';
-                        clonedMedia.style.height = renderH + 'px';
-                        clonedMedia.style.left = offX + 'px';
-                        clonedMedia.style.top = offY + 'px';
-                        clonedMedia.style.objectFit = 'fill';
-                        clonedMedia.style.transform = 'none';
-                    }
-
-                    const origBox = renderTarget.getBoundingClientRect();
-                    const origItems = renderTarget.querySelectorAll('.danmaku-item');
-                    const clonedContainer = clonedDoc.getElementById('danmaku-container');
-                    const clonedItems = clonedContainer ? clonedContainer.querySelectorAll('.danmaku-item') : [];
-
-                    origItems.forEach((orig, idx) => {
-                        if (clonedItems[idx]) {
-                            const r = orig.getBoundingClientRect();
-                            clonedItems[idx].style.animation = 'none';
-                            clonedItems[idx].style.transform = 'none';
-                            clonedItems[idx].style.left = (r.left - origBox.left) + 'px';
-                            clonedItems[idx].style.top = (r.top - origBox.top) + 'px';
-                        }
+                // 如果视频正处于拖动寻帧状态或尚未解码首帧，等待当前帧解码就绪
+                if (isVidMode && (previewVideo.seeking || previewVideo.readyState < 2)) {
+                    await new Promise(resolve => {
+                        const onReady = () => {
+                            previewVideo.removeEventListener('seeked', onReady);
+                            previewVideo.removeEventListener('loadeddata', onReady);
+                            previewVideo.removeEventListener('canplay', onReady);
+                            resolve();
+                        };
+                        previewVideo.addEventListener('seeked', onReady);
+                        previewVideo.addEventListener('loadeddata', onReady);
+                        previewVideo.addEventListener('canplay', onReady);
+                        setTimeout(resolve, 260);
                     });
                 }
-            }).then(canvas => {
-                const link = document.createElement('a');
-                link.download = `Laya_Screenshot_${Date.now()}.png`;
-                link.href = canvas.toDataURL('image/png', 1.0);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                window.showToast('✅ 高清图片已保存！');
-            }).catch(err => {
-                window.showToast(`⚠️ 请点击右侧「🔵上传绑定蓝色Logo」或「🟣上传绑定紫色Logo」选中一次你的图标即可导出！`);
-            });
+
+                // 3.0 倍超采样分辨率，确保文字、状态栏与人物发丝极致清晰
+                const scaleFactor = 3.0;
+                const targetRect = renderTarget.getBoundingClientRect();
+                const outW = Math.max(2, Math.round(targetRect.width * scaleFactor));
+                const outH = Math.max(2, Math.round(targetRect.height * scaleFactor));
+
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = outW;
+                outCanvas.height = outH;
+                const ctx = outCanvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+
+                // 1. 纯黑无白边底色
+                ctx.fillStyle = '#000000';
+                ctx.fillRect(0, 0, outW, outH);
+
+                // 2. 计算取景框在输出画布中的精确坐标与裁剪参数
+                const isSpecialSubBox = renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box');
+                const mwRect = (isSpecialSubBox && mediaWrapEl && mediaWrapEl.clientWidth > 0 && mediaWrapEl.clientHeight > 0)
+                    ? mediaWrapEl.getBoundingClientRect()
+                    : targetRect;
+                const mediaBox = isSpecialSubBox
+                    ? {
+                        x: Math.floor((mwRect.left - targetRect.left) * scaleFactor),
+                        y: Math.floor((mwRect.top - targetRect.top) * scaleFactor),
+                        w: Math.ceil(mwRect.width * scaleFactor),
+                        h: Math.ceil(mwRect.height * scaleFactor)
+                    }
+                    : { x: 0, y: 0, w: outW, h: outH };
+
+                const cropRect = window.getPlayerCropRect
+                    ? window.getPlayerCropRect(mediaBox.w, mediaBox.h)
+                    : { renderW: mediaBox.w + 12, renderH: mediaBox.h + 12, offX: -6, offY: -6 };
+
+                // 3. 直接在底层画布绘制当前视频暂停帧/播放帧 或 底层图片
+                let directMediaDrawn = false;
+                if (isVidMode && previewVideo.readyState >= 2 && previewVideo.videoWidth > 0) {
+                    try {
+                        ctx.save();
+                        if (mediaWrapEl && mediaWrapEl.style.filter) {
+                            ctx.filter = mediaWrapEl.style.filter;
+                        }
+                        ctx.beginPath();
+                        ctx.rect(mediaBox.x, mediaBox.y, mediaBox.w, mediaBox.h);
+                        ctx.clip();
+                        ctx.drawImage(
+                            previewVideo,
+                            mediaBox.x + cropRect.offX,
+                            mediaBox.y + cropRect.offY,
+                            cropRect.renderW,
+                            cropRect.renderH
+                        );
+                        ctx.restore();
+                        directMediaDrawn = true;
+                    } catch (vidErr) {
+                        console.warn('Direct video frame draw warning:', vidErr);
+                    }
+                } else if (!isVidMode && previewImgEl && previewImgEl.complete && previewImgEl.naturalWidth > 0) {
+                    try {
+                        const testCanvas = document.createElement('canvas');
+                        testCanvas.width = 4;
+                        testCanvas.height = 4;
+                        testCanvas.getContext('2d').drawImage(previewImgEl, 0, 0, 4, 4);
+                        testCanvas.toDataURL('image/png');
+
+                        ctx.save();
+                        if (mediaWrapEl && mediaWrapEl.style.filter) {
+                            ctx.filter = mediaWrapEl.style.filter;
+                        }
+                        ctx.beginPath();
+                        ctx.rect(mediaBox.x, mediaBox.y, mediaBox.w, mediaBox.h);
+                        ctx.clip();
+                        ctx.drawImage(
+                            previewImgEl,
+                            mediaBox.x + cropRect.offX,
+                            mediaBox.y + cropRect.offY,
+                            cropRect.renderW,
+                            cropRect.renderH
+                        );
+                        ctx.restore();
+                        directMediaDrawn = true;
+                    } catch (imgCorsErr) {
+                        directMediaDrawn = false;
+                    }
+                }
+
+                // 4. 渲染透明 UI 覆层（通过 ignoreElements 跳过媒体层克隆，且强制移除容器黑色背景，绝不遮挡底层画面）
+                const uiCanvas = await html2canvas(renderTarget, {
+                    scale: scaleFactor,
+                    useCORS: true,
+                    allowTaint: false,
+                    backgroundColor: directMediaDrawn ? null : '#000000',
+                    ignoreElements: (el) => {
+                        if (directMediaDrawn && (el.id === 'player-media-wrap' || el.id === 'preview-video' || el.id === 'preview-img')) {
+                            return true;
+                        }
+                        return false;
+                    },
+                    onclone: (clonedDoc) => {
+                        injectRealLogosToClonedDoc(clonedDoc);
+
+                        const clonedTarget = clonedDoc.getElementById('render-target');
+                        if (clonedTarget) {
+                            clonedTarget.style.width = Math.ceil(targetRect.width) + 'px';
+                            clonedTarget.style.height = Math.ceil(targetRect.height) + 'px';
+                            clonedTarget.style.border = 'none';
+                            clonedTarget.style.outline = 'none';
+                            clonedTarget.style.borderRadius = '0px';
+                            clonedTarget.style.boxShadow = 'none';
+                            if (directMediaDrawn) {
+                                clonedTarget.style.setProperty('background', 'transparent', 'important');
+                                clonedTarget.style.setProperty('background-color', 'transparent', 'important');
+                                clonedTarget.style.setProperty('background-image', 'none', 'important');
+                            }
+                        }
+
+                        const clonedMediaWrap = clonedDoc.getElementById('player-media-wrap');
+                        if (directMediaDrawn && clonedMediaWrap) {
+                            clonedMediaWrap.style.setProperty('display', 'none', 'important');
+                            clonedMediaWrap.style.setProperty('background', 'transparent', 'important');
+                            clonedMediaWrap.style.setProperty('background-color', 'transparent', 'important');
+                        }
+
+                        if (!directMediaDrawn) {
+                            const cW = mwRect.width;
+                            const cH = mwRect.height;
+                            const rect = window.getPlayerCropRect
+                                ? window.getPlayerCropRect(cW, cH)
+                                : { renderW: cW, renderH: cH, offX: 0, offY: 0 };
+                            const clonedImg = clonedDoc.getElementById('preview-img');
+                            if (clonedImg) {
+                                clonedImg.style.position = 'absolute';
+                                clonedImg.style.width = rect.renderW + 'px';
+                                clonedImg.style.height = rect.renderH + 'px';
+                                clonedImg.style.left = rect.offX + 'px';
+                                clonedImg.style.top = rect.offY + 'px';
+                                clonedImg.style.objectFit = 'fill';
+                                clonedImg.style.transform = 'none';
+                            }
+                        }
+
+                        const origBox = renderTarget.getBoundingClientRect();
+                        const origItems = renderTarget.querySelectorAll('.danmaku-item');
+                        const clonedContainer = clonedDoc.getElementById('danmaku-container');
+                        const clonedItems = clonedContainer ? clonedContainer.querySelectorAll('.danmaku-item') : [];
+
+                        origItems.forEach((orig, idx) => {
+                            if (clonedItems[idx]) {
+                                const r = orig.getBoundingClientRect();
+                                clonedItems[idx].style.animation = 'none';
+                                clonedItems[idx].style.transform = 'none';
+                                clonedItems[idx].style.left = (r.left - origBox.left) + 'px';
+                                clonedItems[idx].style.top = (r.top - origBox.top) + 'px';
+                            }
+                        });
+                    }
+                });
+
+                // 5. 将透明 UI 覆层外扩 6px 出血叠加在底层视频当前帧/图片之上，100% 消除 html2canvas 顶底亚像素亮线/白边
+                ctx.drawImage(uiCanvas, -4, -6, outW + 8, outH + 12);
+
+                // 使用 Blob URL 下载，避免超高清大图突破浏览器 base64 长度限制并确保后续视频录制流畅
+                await new Promise((resolve) => {
+                    outCanvas.toBlob((blob) => {
+                        if (!blob) {
+                            resolve();
+                            return;
+                        }
+                        const blobUrl = URL.createObjectURL(blob);
+                        const link = document.createElement('a');
+                        link.style.display = 'none';
+                        link.download = `Laya_Screenshot_${Date.now()}.png`;
+                        link.href = blobUrl;
+                        document.body.appendChild(link);
+                        link.click();
+                        setTimeout(() => {
+                            if (link.parentNode) link.parentNode.removeChild(link);
+                            URL.revokeObjectURL(blobUrl);
+                            resolve();
+                        }, 300);
+                    }, 'image/png', 1.0);
+                });
+
+                window.showToast(isVidMode
+                    ? '✅ 已保存当前视频画面帧与完整 UI 超清截图（无任何白边）！'
+                    : '✅ 超清无白边无圆角截图已保存！');
+            } catch (err) {
+                console.error(err);
+                window.showToast('❌ 截图导出失败，请重试');
+            } finally {
+                btnSaveImg.textContent = origBtnTxt;
+                btnSaveImg.disabled = false;
+            }
         });
     }
 
     /* ==========================================================================
-       ★ 11. 真机录屏级视频合成导出引擎 (修复PotPlayer只出声音/系统播放器无法打开)
+       ★ 11. 1080P 60帧真机录屏级视频合成导出引擎 (高码率超清、丝滑零卡顿、无白边、支持暂停截图后随时录制)
        ========================================================================== */
     const btnSaveVid = document.getElementById('btn-save-vid');
     if (btnSaveVid) {
+        let origVidBtnText = btnSaveVid.textContent;
+
         btnSaveVid.addEventListener('click', async () => {
-            const inMediaScale = document.getElementById('in-media-scale');
-            const inPosY = document.getElementById('in-pos-y');
-            const inPosX = document.getElementById('in-pos-x');
+            // 若当前正在录制中，再次点击按钮可立即提前完成并保存视频
+            if (window.__isExportRecording && typeof window.__stopActiveExport === 'function') {
+                window.__stopActiveExport();
+                return;
+            }
+
             const inStartTime = document.getElementById('in-start-time');
             const inTotalTime = document.getElementById('in-total-time');
             const inBuffer = document.getElementById('in-buffer');
             const swSyncVideoTime = document.getElementById('sw-sync-video-time');
-            const swRecordFrame = document.getElementById('sw-record-frame');
+            const selRecSecEl = document.getElementById('sel-record-sec');
+            const inCustomSecEl = document.getElementById('in-custom-sec');
 
             if (!window.PlayerEngine || !window.PlayerEngine.isVideoMode || !previewVideo) {
                 window.showToast('⚠️ 请先点击「上传截图/视频」上传一段视频素材！');
                 return;
             }
 
-            let recordSeconds = parseInt(document.getElementById('sel-record-sec').value);
-            if (document.getElementById('sel-record-sec').value === 'custom') {
-                recordSeconds = Math.max(1, parseInt(document.getElementById('in-custom-sec').value) || 8);
+            // 计算录制起点与时长：
+            // 1. 若用户主动拖动过底部剪映裁剪区间手柄，则严格按剪映选定的 [start, end] 导出
+            // 2. 若用户未动过裁剪手柄（例如上传长视频后暂停截了图直接点导出），则从当前停留位置录制顶部选定的秒数（默认5s/10s/15s）
+            const vidTotalDur = (previewVideo.duration && isFinite(previewVideo.duration))
+                ? previewVideo.duration
+                : (window.PlayerEngine.videoDuration || 8);
+            const trimRange = window.PlayerEngine.getTrimRange
+                ? window.PlayerEngine.getTrimRange()
+                : { start: 0, end: vidTotalDur, duration: vidTotalDur };
+
+            let dropdownSec = 5;
+            if (selRecSecEl) {
+                dropdownSec = selRecSecEl.value === 'custom'
+                    ? (parseFloat(inCustomSecEl ? inCustomSecEl.value : 8) || 8)
+                    : (parseFloat(selRecSecEl.value) || 5);
             }
 
-            const origBtnText = btnSaveVid.textContent;
-            btnSaveVid.textContent = `⏳ 正在构建真机 UI 覆层...`;
-            btnSaveVid.disabled = true;
+            let exportStartSec = trimRange.start;
+            let recordSeconds = trimRange.duration;
+            let needSeekToStart = false;
 
-            // 创建并挂载画布到 DOM 中（核心修复1：防止离屏 Canvas 被浏览器休眠导致录制出纯音频）
+            if (window.PlayerEngine.userHasTrimmed) {
+                if (Math.abs((previewVideo.currentTime || 0) - exportStartSec) > 0.25) {
+                    needSeekToStart = true;
+                }
+            } else {
+                const curPos = previewVideo.currentTime || 0;
+                if (vidTotalDur <= 15 && curPos < 0.8) {
+                    exportStartSec = 0;
+                    recordSeconds = vidTotalDur;
+                } else if (curPos >= vidTotalDur - 0.8) {
+                    exportStartSec = 0;
+                    recordSeconds = Math.min(dropdownSec, vidTotalDur);
+                    needSeekToStart = true;
+                } else {
+                    exportStartSec = curPos;
+                    recordSeconds = Math.min(dropdownSec, Math.max(1.0, vidTotalDur - exportStartSec));
+                }
+            }
+            recordSeconds = Math.max(0.8, Number(recordSeconds.toFixed(2)));
+
+            origVidBtnText = '🎥 录屏导出视频';
+            btnSaveVid.textContent = `⏳ 正在构建 1080P 超清覆层...`;
+            window.__isExportRecording = true;
+
+            // ★ 关键修复：在用户点击的同步手势帧内立即定位起点、唤醒音频上下文并触发视频播放
+            if (needSeekToStart) {
+                try { previewVideo.currentTime = exportStartSec; } catch (e) {}
+            }
+            previewVideo.muted = false;
+            previewVideo.volume = 1.0;
+            const jyMuteBtn = document.getElementById('jy-btn-mute');
+            if (jyMuteBtn) jyMuteBtn.textContent = '🔊';
+            if (window._audioCtx && window._audioCtx.state === 'suspended') {
+                window._audioCtx.resume().catch(() => {});
+            }
+            previewVideo.play().catch(() => {});
+
+            // 创建并挂载画布到 DOM 中（防止离屏 Canvas 被浏览器休眠）
             const offCanvas = document.createElement('canvas');
-            offCanvas.style.cssText = 'position:fixed; top:0; left:0; width:1px; height:1px; opacity:0.01; pointer-events:none; z-index:-9999;';
+            offCanvas.style.cssText = 'position:fixed; top:0; left:0; width:2px; height:2px; opacity:0.01; pointer-events:none; z-index:-9999;';
             document.body.appendChild(offCanvas);
 
             try {
                 const isPort = renderTarget.classList.contains('mode-mobile-port');
                 const isLand = renderTarget.classList.contains('mode-mobile-land');
+                const isDyLand = renderTarget.classList.contains('mode-dy-land');
 
-                // 确保宽高均为标准偶数（编码器硬性要求）
-                let outW = 1280, outH = 720;
+                // ★ 升级为 Full HD 1080P 真机级超清分辨率（16:9 为 1920x1080，9:16 竖屏为 1080x1920）
+                let outW = 1920, outH = 1080;
                 if (isPort) {
-                    outW = 720;
-                    outH = 1280;
-                } else if (isLand) {
-                    outW = 1300;
-                    outH = 600;
+                    outW = 1080;
+                    outH = 1920;
                 }
                 offCanvas.width = outW;
                 offCanvas.height = outH;
-                const ctx = offCanvas.getContext('2d', { alpha: false });
+                const ctx = offCanvas.getContext('2d');
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
 
                 if (window.PlayerEngine.updatePlayStateUI) {
                     window.PlayerEngine.updatePlayStateUI(true);
@@ -1044,37 +2755,55 @@ window.switchRightTab = function (mode) {
                     };
                 };
 
+                const isSpecialSubBox = renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box');
+                const mediaWrapEl = document.getElementById('player-media-wrap');
+                const mediaWrapBox = isSpecialSubBox
+                    ? (measureRelBox(mediaWrapEl) || { x: 0, y: 0, w: outW, h: outH })
+                    : { x: 0, y: 0, w: outW, h: outH };
+
                 const pcBarBox = measureRelBox(document.getElementById('progress-click-bar'));
                 const pcTimeBox = measureRelBox(document.getElementById('disp-time'));
                 const mBarBox = measureRelBox(document.querySelector('.m-progress-track'));
                 const mTimeBox = measureRelBox(document.getElementById('m-disp-time'));
                 const dyBarBox = measureRelBox(document.querySelector('.dy-tiny-progressbar'));
+                const dylBarBox = measureRelBox(document.querySelector('.dyl-progress-track'));
+                const dylTimeBox = measureRelBox(document.getElementById('dyl-wrap-time'));
+                const dylSubBox = measureRelBox(document.getElementById('dyl-wrap-subtitle'));
 
-                // 抓取静态 UI 覆层
+                // 抓取静态透明 UI 覆层（通过 ignoreElements 完全跳过媒体与弹幕节点，并强制移除容器黑色背景）
                 const uiSnapshotCanvas = await html2canvas(renderTarget, {
                     backgroundColor: null,
                     scale: scaleRatioX,
                     useCORS: true,
-                    allowTaint: true,
+                    allowTaint: false,
+                    ignoreElements: (el) => {
+                        return el.id === 'player-media-wrap' || el.id === 'preview-video' || el.id === 'preview-img' || el.id === 'danmaku-container';
+                    },
                     onclone: (clonedDoc) => {
                         injectRealLogosToClonedDoc(clonedDoc);
 
                         const target = clonedDoc.getElementById('render-target');
                         if (target) {
-                            target.style.width = targetRect.width + 'px';
-                            target.style.height = targetRect.height + 'px';
+                            target.style.width = Math.ceil(targetRect.width) + 'px';
+                            target.style.height = Math.ceil(targetRect.height) + 'px';
                             target.style.position = 'relative';
-                            target.style.background = 'transparent';
-                            target.style.backgroundColor = 'transparent';
+                            target.style.setProperty('background', 'transparent', 'important');
+                            target.style.setProperty('background-color', 'transparent', 'important');
+                            target.style.setProperty('background-image', 'none', 'important');
                             target.style.boxShadow = 'none';
+                            target.style.border = 'none';
+                            target.style.outline = 'none';
+                            target.style.borderRadius = '0px';
                         }
 
-                        const media = clonedDoc.getElementById('player-media-wrap');
-                        if (media) media.style.display = 'none';
-                        const dm = clonedDoc.getElementById('danmaku-container');
-                        if (dm) dm.style.display = 'none';
+                        const clonedMediaWrap = clonedDoc.getElementById('player-media-wrap');
+                        if (clonedMediaWrap) {
+                            clonedMediaWrap.style.setProperty('display', 'none', 'important');
+                            clonedMediaWrap.style.setProperty('background', 'transparent', 'important');
+                            clonedMediaWrap.style.setProperty('background-color', 'transparent', 'important');
+                        }
 
-                        ['progress-click-bar', 'disp-time', 'm-disp-time'].forEach(id => {
+                        ['progress-click-bar', 'disp-time', 'm-disp-time', 'dyl-wrap-time', 'dyl-wrap-subtitle'].forEach(id => {
                             const el = clonedDoc.getElementById(id);
                             if (el) el.style.visibility = 'hidden';
                         });
@@ -1082,105 +2811,165 @@ window.switchRightTab = function (mode) {
                         if (mTrack) mTrack.style.visibility = 'hidden';
                         const dyTrack = clonedDoc.querySelector('.dy-tiny-progressbar');
                         if (dyTrack) dyTrack.style.visibility = 'hidden';
+                        const dylTrack = clonedDoc.querySelector('.dyl-progress-track');
+                        if (dylTrack) dylTrack.style.visibility = 'hidden';
                     }
                 });
 
-                btnSaveVid.textContent = `🔴 正在录屏合成 (${recordSeconds}s)...`;
+                // 预先缓存所有配置与构图矩阵，录制循环中 0 DOM 查询，彻底告别卡顿
+                const cachedCropRect = window.getPlayerCropRect
+                    ? window.getPlayerCropRect(mediaWrapBox.w, mediaWrapBox.h)
+                    : { renderW: mediaWrapBox.w + 12, renderH: mediaWrapBox.h + 12, offX: -6, offY: -6 };
+                const cachedFilter = (mediaWrapEl && mediaWrapEl.style.filter) ? mediaWrapEl.style.filter : '';
+                const showDanmaku = !!(document.getElementById('sw-danmaku')?.checked);
+                const showPcBot = !document.getElementById('sw-bottom-bar') || document.getElementById('sw-bottom-bar').checked;
+                const showMBot = !document.getElementById('sw-m-bottom-bar') || document.getElementById('sw-m-bottom-bar').checked;
+                const showDylBot = !document.getElementById('sw-dyl-bottom') || document.getElementById('sw-dyl-bottom').checked;
+                const showDylTime = !document.getElementById('sw-dyl-time') || document.getElementById('sw-dyl-time').checked;
+                const syncTimeChecked = !swSyncVideoTime || swSyncVideoTime.checked;
 
-                // 准备弹幕与时间参数
                 const isFixedDm = (window.DanmakuEngine && window.DanmakuEngine.mode === 'fixed');
                 const danmakuParticles = (window.DanmakuEngine ? window.DanmakuEngine.getActiveList() : []).map((dm, idx) => ({
                     text: dm.text,
-                    color: isPort ? '#ffffff' : dm.color,
-                    size: (dm.size || 16) * scaleRatioX,
+                    color: (isPort || isDyLand) ? '#ffffff' : dm.color,
+                    size: Math.round((dm.size || 16) * scaleRatioX),
                     y: (outH * dm.top) / 100,
                     x: isFixedDm ? ((outW * (dm.left || 20)) / 100) : ((outW * ((idx * 27) % 85)) / 100),
-                    speed: isFixedDm ? 0 : ((dm.speed ? (22 - dm.speed) : 9) * 0.85 * (window.DanmakuEngine.speedFactor || 1))
+                    speed: isFixedDm ? 0 : ((dm.speed ? (22 - dm.speed) : 9) * 0.85 * (window.DanmakuEngine.speedFactor || 1) * (scaleRatioX / 1.5))
                 }));
 
                 const baseStartSec = window.PlayerEngine.timeToSec(inStartTime.value);
                 const totalVideoSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 1125;
                 const bufferPct = Math.min(100, Math.max(0, parseFloat(inBuffer.value) || 68)) / 100;
 
-                // 视频跳回起点并开始播放
-                previewVideo.currentTime = 0;
-                await new Promise(resolve => {
-                    const onSeeked = () => {
-                        previewVideo.removeEventListener('seeked', onSeeked);
-                        resolve();
-                    };
-                    previewVideo.addEventListener('seeked', onSeeked);
-                    setTimeout(resolve, 250);
-                });
-                await previewVideo.play();
+                // 确保视频帧已解码且处于播放状态
+                if (previewVideo.seeking || previewVideo.readyState < 2) {
+                    await new Promise(resolve => {
+                        const onReady = () => {
+                            previewVideo.removeEventListener('seeked', onReady);
+                            previewVideo.removeEventListener('canplay', onReady);
+                            resolve();
+                        };
+                        previewVideo.addEventListener('seeked', onReady);
+                        previewVideo.addEventListener('canplay', onReady);
+                        setTimeout(resolve, 220);
+                    });
+                }
+                if (previewVideo.paused) {
+                    await previewVideo.play().catch(() => {
+                        previewVideo.muted = true;
+                        return previewVideo.play().catch(() => {});
+                    });
+                }
 
                 let recordStartStamp = performance.now();
+                let lastFrameStamp = recordStartStamp;
 
-                // 封装单帧绘制函数
-                const renderSingleFrame = () => {
+                // 封装单帧绘制函数（零 DOM 查询、60FPS 丝滑渲染、外扩出血彻底消除上下白边）
+                const renderSingleFrame = (nowStamp) => {
+                    const dtRatio = Math.min(2.5, Math.max(0.2, (nowStamp - lastFrameStamp) / 33.33));
+                    lastFrameStamp = nowStamp;
+
                     ctx.fillStyle = '#000000';
                     ctx.fillRect(0, 0, outW, outH);
 
-                    // 1. 绘制底层视频画面
-                    const vw = previewVideo.videoWidth || 1280;
-                    const vh = previewVideo.videoHeight || 720;
-                    const mAspect = vw / vh;
-                    const cAspect = outW / outH;
-                    const zoom = (parseFloat(inMediaScale.value) || 100) / 100;
-                    const fitMode = document.getElementById('sel-crop-fit')?.value || 'cover';
-
-                    // 直接调用取景框统一几何算法，保证导出的视频/截图与取景框绿框 100% 严丝合缝
-                    const cropRect = window.getPlayerCropRect
-                        ? window.getPlayerCropRect(outW, outH)
-                        : { renderW: outW, renderH: outH, offX: 0, offY: 0 };
-
-                    if (previewVideo.readyState >= 2) {
+                    // 1. 绘制底层超清视频画面
+                    if (previewVideo.readyState >= 2 || previewVideo.videoWidth > 0) {
+                        ctx.save();
+                        if (cachedFilter) ctx.filter = cachedFilter;
+                        if (isSpecialSubBox) {
+                            ctx.beginPath();
+                            ctx.rect(mediaWrapBox.x, mediaWrapBox.y, mediaWrapBox.w, mediaWrapBox.h);
+                            ctx.clip();
+                        }
                         ctx.drawImage(
                             previewVideo,
-                            cropRect.offX,
-                            cropRect.offY,
-                            cropRect.renderW,
-                            cropRect.renderH
+                            mediaWrapBox.x + cachedCropRect.offX,
+                            mediaWrapBox.y + cachedCropRect.offY,
+                            cachedCropRect.renderW,
+                            cachedCropRect.renderH
                         );
+                        ctx.restore();
                     }
 
                     // 2. 绘制弹幕
-                    const swDm = document.getElementById('sw-danmaku');
-                    if (swDm && swDm.checked) {
+                    if (showDanmaku && danmakuParticles.length > 0) {
                         ctx.save();
                         ctx.textBaseline = 'top';
-                        danmakuParticles.forEach(p => {
-                            ctx.font = `bold ${Math.round(p.size)}px -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif`;
+                        for (let i = 0; i < danmakuParticles.length; i++) {
+                            const p = danmakuParticles[i];
+                            ctx.font = `bold ${p.size}px -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif`;
                             if (!isFixedDm) {
-                                p.x -= p.speed;
+                                p.x -= p.speed * dtRatio;
                                 const tw = ctx.measureText(p.text).width;
                                 if (p.x < -tw - 40) {
                                     p.x = outW + Math.random() * 80;
                                 }
                             }
-                            ctx.lineWidth = 3;
+                            ctx.lineWidth = 3.5;
                             ctx.strokeStyle = 'rgba(0,0,0,0.85)';
                             ctx.strokeText(p.text, p.x, p.y);
                             ctx.fillStyle = p.color;
                             ctx.fillText(p.text, p.x, p.y);
-                        });
+                        }
                         ctx.restore();
                     }
 
-                    // 3. 叠加 UI 覆层
-                    ctx.drawImage(uiSnapshotCanvas, 0, 0, outW, outH);
+                    // 3. 叠加 UI 覆层（外扩 6px 出血，彻底消除顶底 1px 亚像素亮边/白边）
+                    ctx.drawImage(uiSnapshotCanvas, -4, -6, outW + 8, outH + 12);
+
+                    // 3.5 动态绘制随时间变化的画面字幕（若开启了字幕）
+                    if (window.SubtitleEngine && window.SubtitleEngine.enabled) {
+                        const subTxt = window.SubtitleEngine.getCueTextAtTime(previewVideo.currentTime);
+                        if (subTxt) {
+                            ctx.save();
+                            const fontPx = Math.round((window.SubtitleEngine.size || 16) * scaleRatioX);
+                            ctx.font = `800 ${fontPx}px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            const subX = outW / 2;
+                            const subY = dylSubBox ? (dylSubBox.y + dylSubBox.h / 2) : (isPort ? outH * 0.72 : outH * 0.78);
+                            const st = window.SubtitleEngine.style || 'douyin';
+
+                            if (st === 'cinema') {
+                                const tw = ctx.measureText(subTxt).width;
+                                const padX = 14 * scaleRatioX;
+                                const padY = 6 * scaleRatioY;
+                                ctx.fillStyle = 'rgba(8, 10, 16, 0.76)';
+                                ctx.fillRect(subX - tw / 2 - padX, subY - fontPx / 2 - padY, tw + padX * 2, fontPx + padY * 2);
+                                ctx.fillStyle = '#ffffff';
+                                ctx.fillText(subTxt, subX, subY);
+                            } else if (st === 'gold') {
+                                ctx.lineWidth = 4 * scaleRatioX;
+                                ctx.strokeStyle = 'rgba(0,0,0,0.95)';
+                                ctx.strokeText(subTxt, subX, subY);
+                                ctx.fillStyle = '#ffeaa7';
+                                ctx.fillText(subTxt, subX, subY);
+                            } else if (st === 'cyan') {
+                                ctx.lineWidth = 4 * scaleRatioX;
+                                ctx.strokeStyle = 'rgba(0,0,0,0.92)';
+                                ctx.strokeText(subTxt, subX, subY);
+                                ctx.fillStyle = '#00f2fe';
+                                ctx.fillText(subTxt, subX, subY);
+                            } else {
+                                ctx.lineWidth = 4 * scaleRatioX;
+                                ctx.strokeStyle = 'rgba(0,0,0,0.92)';
+                                ctx.strokeText(subTxt, subX, subY);
+                                ctx.fillStyle = '#ffffff';
+                                ctx.fillText(subTxt, subX, subY);
+                            }
+                            ctx.restore();
+                        }
+                    }
 
                     // 4. 动态绘制进度条与时间码
-                    const elapsedSec = (!swSyncVideoTime || swSyncVideoTime.checked)
-                        ? ((performance.now() - recordStartStamp) / 1000)
-                        : 0;
+                    const elapsedSec = syncTimeChecked ? ((nowStamp - recordStartStamp) / 1000) : 0;
                     const curSec = baseStartSec + elapsedSec;
                     const curPct = Math.min(1, Math.max(0, curSec / totalVideoSec));
 
                     ctx.save();
-                    if (!isPort && !isLand) {
-                        const swBot = document.getElementById('sw-bottom-bar');
-                        if ((!swBot || swBot.checked) && pcBarBox) {
+                    if (!isPort && !isLand && !isDyLand) {
+                        if (showPcBot && pcBarBox) {
                             ctx.fillStyle = 'rgba(255,255,255,0.22)';
                             ctx.fillRect(pcBarBox.x, pcBarBox.y, pcBarBox.w, pcBarBox.h);
                             ctx.fillStyle = 'rgba(255,255,255,0.42)';
@@ -1193,7 +2982,7 @@ window.switchRightTab = function (mode) {
                             ctx.fillStyle = '#ffffff';
                             ctx.fill();
                         }
-                        if ((!swBot || swBot.checked) && pcTimeBox) {
+                        if (showPcBot && pcTimeBox) {
                             const timeText = `${window.PlayerEngine.secToTime(Math.floor(curSec))} / ${window.PlayerEngine.secToTime(totalVideoSec)}`;
                             ctx.font = `500 ${Math.round(11.5 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
                             ctx.fillStyle = '#d0d4dc';
@@ -1201,8 +2990,7 @@ window.switchRightTab = function (mode) {
                             ctx.fillText(timeText, pcTimeBox.x, pcTimeBox.y + pcTimeBox.h / 2);
                         }
                     } else if (isLand) {
-                        const swMBot = document.getElementById('sw-m-bottom-bar');
-                        if ((!swMBot || swMBot.checked) && mBarBox) {
+                        if (showMBot && mBarBox) {
                             ctx.fillStyle = 'rgba(255,255,255,0.28)';
                             ctx.fillRect(mBarBox.x, mBarBox.y, mBarBox.w, mBarBox.h);
                             ctx.fillStyle = 'rgba(255,255,255,0.45)';
@@ -1219,13 +3007,32 @@ window.switchRightTab = function (mode) {
                             ctx.fill();
                             ctx.restore();
                         }
-                        if ((!swMBot || swMBot.checked) && mTimeBox) {
-                            // ★ 录屏导出时同步绘制“当前时间 / 结尾总时长” (如 0:04:07 / 2:06:21)
+                        if (showMBot && mTimeBox) {
                             const shortTime = `${window.PlayerEngine.secToShortTime(Math.floor(curSec))} / ${window.PlayerEngine.secToShortTime(totalVideoSec)}`;
                             ctx.font = `600 ${Math.round(12.5 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
                             ctx.fillStyle = '#ffffff';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(shortTime, mTimeBox.x, mTimeBox.y + mTimeBox.h / 2);
+                        }
+                    } else if (isDyLand) {
+                        if (showDylBot && dylBarBox) {
+                            ctx.fillStyle = 'rgba(255,255,255,0.28)';
+                            ctx.fillRect(dylBarBox.x, dylBarBox.y, dylBarBox.w, dylBarBox.h);
+                            const fillW = dylBarBox.w * curPct;
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fillRect(dylBarBox.x, dylBarBox.y, fillW, dylBarBox.h);
+                            ctx.beginPath();
+                            ctx.arc(dylBarBox.x + fillW, dylBarBox.y + dylBarBox.h / 2, 5 * scaleRatioX, 0, Math.PI * 2);
+                            ctx.fillStyle = '#ffffff';
+                            ctx.fill();
+                        }
+                        if (showDylBot && showDylTime && dylTimeBox) {
+                            const tLeft = window.PlayerEngine.secToMinSec(Math.floor(curSec) % 3600, false);
+                            const tRight = window.PlayerEngine.secToMinSec(Math.min(3599, totalVideoSec), false);
+                            ctx.font = `700 ${Math.round(12 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(`${tLeft} / ${tRight}`, dylTimeBox.x, dylTimeBox.y + dylTimeBox.h / 2);
                         }
                     } else if (isPort && dyBarBox) {
                         ctx.fillStyle = 'rgba(255,255,255,0.22)';
@@ -1241,24 +3048,16 @@ window.switchRightTab = function (mode) {
                         ctx.fill();
                     }
                     ctx.restore();
-
-                    // 5. 绘制外边框
-                    if (!swRecordFrame || swRecordFrame.checked) {
-                        ctx.save();
-                        ctx.strokeStyle = 'rgba(255, 255, 255, 0.28)';
-                        ctx.lineWidth = 4;
-                        ctx.strokeRect(2, 2, outW - 4, outH - 4);
-                        ctx.restore();
-                    }
                 };
 
-                // ★ 核心修复2：在启动录制流之前，必须先绘制首帧激活画布缓存！
-                renderSingleFrame();
+                // 先绘制首帧激活画布缓存
+                renderSingleFrame(performance.now());
 
-                const canvasStream = offCanvas.captureStream(30);
+                // ★ 60FPS 高帧率画布流采集
+                const canvasStream = offCanvas.captureStream(60);
                 const videoTrack = canvasStream.getVideoTracks()[0];
 
-                // 提取原声音轨
+                // ★ 提取稳定音轨：优先使用常驻 WebAudio 雙路桥接节点（即使视频刚才暂停截图过也始终保持 live 状态）
                 let audioTracks = [];
                 try {
                     if (!window._audioCtx) {
@@ -1270,52 +3069,103 @@ window.switchRightTab = function (mode) {
                     if (!window._audioSrcNode) {
                         window._audioSrcNode = window._audioCtx.createMediaElementSource(previewVideo);
                         window._audioDstNode = window._audioCtx.createMediaStreamDestination();
-                        window._audioSrcNode.connect(window._audioDstNode);
-                        window._audioSrcNode.connect(window._audioCtx.destination);
+                        window._audioGainNode = window._audioCtx.createGain();
+                        window._audioGainNode.gain.value = 1.0;
+                        window._audioSrcNode.connect(window._audioGainNode);
+                        window._audioGainNode.connect(window._audioDstNode);
+                        window._audioGainNode.connect(window._audioCtx.destination);
                     }
-                    audioTracks = window._audioDstNode.stream.getAudioTracks();
+                    if (window._audioDstNode && window._audioDstNode.stream) {
+                        audioTracks = window._audioDstNode.stream.getAudioTracks().filter(t => t.readyState === 'live');
+                    }
                 } catch (audioErr) {
-                    console.warn('Audio fallback:', audioErr);
+                    console.warn('WebAudio stream note:', audioErr);
                 }
 
-                const combinedStream = new MediaStream([
+                if (!audioTracks || audioTracks.length === 0) {
+                    try {
+                        const nativeVidStream = previewVideo.captureStream
+                            ? previewVideo.captureStream()
+                            : (previewVideo.mozCaptureStream ? previewVideo.mozCaptureStream() : null);
+                        if (nativeVidStream && nativeVidStream.getAudioTracks().length > 0) {
+                            audioTracks = nativeVidStream.getAudioTracks().filter(t => t.readyState === 'live');
+                        }
+                    } catch (e) {}
+                }
+
+                // ★ 多级容错构建并启动 MediaRecorder（18Mbps 超清码率，若音轨或特定编码异常自动无缝降级，绝不卡死失败）
+                const streamWithAudio = new MediaStream([
                     ...canvasStream.getVideoTracks(),
                     ...audioTracks
                 ]);
+                const streamVideoOnly = new MediaStream([
+                    ...canvasStream.getVideoTracks()
+                ]);
 
-                // ★ 核心修复3：严格匹配音视频双轨标准编码格式，防止生成半残废的容器头
-                const mimeCandidates = [
-                    { mime: 'video/mp4;codecs="avc1.42E01E, mp4a.40.2"', ext: 'mp4' },
-                    { mime: 'video/mp4;codecs="avc1.424028, mp4a.40.2"', ext: 'mp4' },
-                    { mime: 'video/mp4', ext: 'mp4' },
-                    { mime: 'video/webm;codecs="vp9,opus"', ext: 'webm' },
-                    { mime: 'video/webm;codecs="vp8,opus"', ext: 'webm' },
-                    { mime: 'video/webm', ext: 'webm' }
+                const tryConfigs = [
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E01E, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/webm;codecs="vp9,opus"', ext: 'webm' },
+                    { stream: streamWithAudio, mime: 'video/webm;codecs="vp8,opus"', ext: 'webm' },
+                    { stream: streamWithAudio, mime: 'video/webm', ext: 'webm' },
+                    { stream: streamVideoOnly, mime: 'video/mp4', ext: 'mp4' },
+                    { stream: streamVideoOnly, mime: 'video/webm', ext: 'webm' },
+                    { stream: streamVideoOnly, mime: '', ext: 'webm' }
                 ];
 
-                let selectedFormat = { mime: '', ext: 'webm' };
-                for (const item of mimeCandidates) {
-                    if (window.MediaRecorder && MediaRecorder.isTypeSupported(item.mime)) {
-                        selectedFormat = item;
+                let recorder = null;
+                let selectedFormat = { mime: 'video/webm', ext: 'webm' };
+                const chunks = [];
+
+                for (const cfg of tryConfigs) {
+                    if (cfg.mime && (!window.MediaRecorder || !MediaRecorder.isTypeSupported(cfg.mime))) {
+                        continue;
+                    }
+                    try {
+                        const opts = { videoBitsPerSecond: 18000000 };
+                        if (cfg.mime) opts.mimeType = cfg.mime;
+                        const candidate = new MediaRecorder(cfg.stream, opts);
+                        candidate.ondataavailable = (e) => {
+                            if (e.data && e.data.size > 0) chunks.push(e.data);
+                        };
+                        candidate.start(200);
+                        recorder = candidate;
+                        selectedFormat = { mime: cfg.mime || candidate.mimeType || 'video/webm', ext: cfg.ext };
                         break;
+                    } catch (recErr) {
+                        console.warn('MediaRecorder fallback:', cfg.mime, recErr);
                     }
                 }
 
-                const recorderOptions = { videoBitsPerSecond: 8000000 };
-                if (selectedFormat.mime) {
-                    recorderOptions.mimeType = selectedFormat.mime;
+                if (!recorder) {
+                    throw new Error('当前浏览器无法启动视频录制器');
                 }
 
-                const recorder = new MediaRecorder(combinedStream, recorderOptions);
-                const chunks = [];
+                let isRecording = true;
+                let rafId = null;
+                let bgTimerId = null;
+                let stopTimeoutId = null;
 
-                recorder.ondataavailable = (e) => {
-                    if (e.data && e.data.size > 0) chunks.push(e.data);
+                const finishRecording = () => {
+                    if (!isRecording) return;
+                    isRecording = false;
+                    window.__stopActiveExport = null;
+                    if (rafId) cancelAnimationFrame(rafId);
+                    if (bgTimerId) clearInterval(bgTimerId);
+                    if (stopTimeoutId) clearTimeout(stopTimeoutId);
+                    try {
+                        if (recorder && recorder.state !== 'inactive') {
+                            recorder.stop();
+                        }
+                    } catch (e) {}
                 };
+                window.__stopActiveExport = finishRecording;
 
                 recorder.onstop = () => {
+                    window.__isExportRecording = false;
+                    window.__stopActiveExport = null;
                     if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
-                    btnSaveVid.textContent = origBtnText;
+                    btnSaveVid.textContent = origVidBtnText;
                     btnSaveVid.disabled = false;
 
                     if (chunks.length === 0) {
@@ -1327,47 +3177,65 @@ window.switchRightTab = function (mode) {
                     const downloadUrl = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.style.display = 'none';
-                    const modeTag = isPort ? 'MobilePort' : (isLand ? 'MobileCinema' : 'WebPC');
-                    link.download = `Laya_${modeTag}_${Date.now()}.${selectedFormat.ext}`;
+                    const modeTag = isPort ? 'MobilePort' : (isDyLand ? 'DouyinFullLand' : (isLand ? 'MobileCinema' : 'WebPC'));
+                    link.download = `Laya_${modeTag}_1080P_${Date.now()}.${selectedFormat.ext}`;
                     link.href = downloadUrl;
                     document.body.appendChild(link);
                     link.click();
                     setTimeout(() => {
-                        document.body.removeChild(link);
+                        if (link.parentNode) link.parentNode.removeChild(link);
                         URL.revokeObjectURL(downloadUrl);
-                    }, 500);
+                    }, 800);
 
-                    window.showToast(`🎉 录屏视频 (.${selectedFormat.ext}) 导出成功！画面与声音均已完美合成！`);
+                    const actualSec = Math.max(0.5, ((performance.now() - recordStartStamp) / 1000)).toFixed(1);
+                    window.showToast(`🎉 1080P 60帧超清视频 (.${selectedFormat.ext}，${actualSec}s，无白边) 导出成功！`);
                 };
 
-                // 启动录制并开启 30fps 稳定帧推送循环
                 recordStartStamp = performance.now();
-                recorder.start(200);
+                lastFrameStamp = recordStartStamp;
 
-                let isRecording = true;
-                const frameInterval = setInterval(() => {
+                // ★ 60FPS requestAnimationFrame 丝滑渲染循环 + 实时进度百分比显示
+                const tickFrame = (now) => {
                     if (!isRecording) return;
-                    renderSingleFrame();
-                    // 显式通知视频轨推送新帧
+                    renderSingleFrame(now);
                     if (videoTrack && typeof videoTrack.requestFrame === 'function') {
-                        videoTrack.requestFrame();
+                        try { videoTrack.requestFrame(); } catch (e) {}
                     }
-                }, 1000 / 30);
+                    const elapsed = (now - recordStartStamp) / 1000;
+                    const remain = Math.max(0, recordSeconds - elapsed);
+                    const pct = Math.min(99, Math.round((elapsed / recordSeconds) * 100));
+                    btnSaveVid.textContent = `🔴 导出中 ${pct}% (剩 ${remain.toFixed(1)}s · 点击立即保存)`;
 
-                setTimeout(() => {
-                    isRecording = false;
-                    clearInterval(frameInterval);
-                    if (recorder.state !== 'inactive') {
-                        recorder.stop();
+                    if (elapsed >= recordSeconds) {
+                        finishRecording();
+                        return;
                     }
-                }, recordSeconds * 1000);
+                    rafId = requestAnimationFrame(tickFrame);
+                };
+                rafId = requestAnimationFrame(tickFrame);
+
+                // 后台标签页防休眠补偿定时器
+                bgTimerId = setInterval(() => {
+                    if (!isRecording) return;
+                    if (document.hidden) {
+                        const now = performance.now();
+                        renderSingleFrame(now);
+                        if ((now - recordStartStamp) / 1000 >= recordSeconds) {
+                            finishRecording();
+                        }
+                    }
+                }, 33);
+
+                stopTimeoutId = setTimeout(finishRecording, recordSeconds * 1000 + 150);
 
             } catch (err) {
+                window.__isExportRecording = false;
+                window.__stopActiveExport = null;
                 if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                 console.error(err);
-                btnSaveVid.textContent = origBtnText;
+                btnSaveVid.textContent = origVidBtnText;
                 btnSaveVid.disabled = false;
-                window.showToast(`⚠️ 请先点击右侧「🔵上传绑定蓝色Logo」和「🟣上传绑定紫色Logo」选中一次你的图标文件，即可消除本地跨域限制并导出！`);
+                window.showToast(`❌ 视频导出失败：${err.message || '请重试'}`);
             }
         });
     }

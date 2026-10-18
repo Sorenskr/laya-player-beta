@@ -8,6 +8,28 @@ window.PlayerEngine = {
     previewVideo: null,
     previewImg: null,
     renderTarget: null,
+    trimStart: 0,
+    trimEnd: 0,
+    videoDuration: 0,
+
+    getTrimRange() {
+        const dur = (this.previewVideo && this.previewVideo.duration && isFinite(this.previewVideo.duration))
+            ? this.previewVideo.duration
+            : (this.videoDuration || 5);
+        const start = Math.max(0, Math.min(this.trimStart || 0, dur - 0.2));
+        const end = (this.trimEnd && this.trimEnd > start + 0.2) ? Math.min(this.trimEnd, dur) : dur;
+        return { start, end, duration: Math.max(0.2, end - start), total: dur };
+    },
+
+    secToMinSec(sec, showTenths = false) {
+        if (!isFinite(sec) || sec < 0) sec = 0;
+        const m = Math.floor(sec / 60);
+        const s = Math.floor(sec % 60);
+        const base = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        if (!showTenths) return base;
+        const tenth = Math.floor((sec - Math.floor(sec)) * 10);
+        return `${base}.${tenth}`;
+    },
 
     timeToSec(timeStr) {
         if (!timeStr) return 0;
@@ -48,10 +70,12 @@ window.PlayerEngine = {
 
 (function () {
     const renderTarget = document.getElementById('render-target');
+    const playerMediaWrap = document.getElementById('player-media-wrap');
     const previewImg = document.getElementById('preview-img');
     const previewVideo = document.getElementById('preview-video');
     const mediaUploader = document.getElementById('media-uploader');
     const dyFullscreenPill = document.getElementById('dy-fullscreen-pill');
+    const swDyLandBox = document.getElementById('sw-dy-land-box');
     const selCropFit = document.getElementById('sel-crop-fit');
     // 电脑端播放控件
     const btnTogglePlayback = document.getElementById('btn-toggle-playback');
@@ -78,6 +102,17 @@ window.PlayerEngine = {
     // 手机竖屏底部进度条
     const dyTinyFill = document.getElementById('dy-tiny-fill');
     const dyTinyBuffer = document.getElementById('dy-tiny-buffer');
+    // 图4 (mode-dy-land) 专属控件
+    const dylBtnBack = document.getElementById('dyl-btn-back');
+    const dylBtnCenterPlay = document.getElementById('dyl-btn-center-play');
+    const dylSvgPause = document.getElementById('dyl-svg-pause');
+    const dylSvgPlay = document.getElementById('dyl-svg-play');
+    const dylDispCur = document.getElementById('dyl-disp-cur');
+    const dylDispDur = document.getElementById('dyl-disp-dur');
+    const dylProgressWrap = document.getElementById('dyl-progress-wrap');
+    const dylProgressFill = document.getElementById('dyl-progress-fill');
+    const btnEnterDyFullscreen = document.getElementById('btn-enter-dy-fullscreen');
+    const btnExitDyFullscreen = document.getElementById('btn-exit-dy-fullscreen');
     // 时间与进度控制输入框
     const inStartTime = document.getElementById('in-start-time');
     const inTotalTime = document.getElementById('in-total-time');
@@ -102,51 +137,166 @@ window.PlayerEngine = {
     // 独立取景框浮窗 DOM
     const swCropWindow = document.getElementById('sw-crop-window');
     const cropInspectorWindow = document.getElementById('crop-inspector-window');
+    const cropWindowHeader = document.getElementById('crop-window-header');
     const btnCloseCropWindow = document.getElementById('btn-close-crop-window');
+    const btnCropOrientPort = document.getElementById('btn-crop-orient-port');
+    const btnCropOrientLand = document.getElementById('btn-crop-orient-land');
+    const selCropOrient = document.getElementById('sel-crop-orient');
     const cropThumbImg = document.getElementById('crop-thumb-img');
     const cropSelectionBox = document.getElementById('crop-selection-box');
     const cropWindowBody = document.getElementById('crop-window-body');
+    const btnCropBoxShrink = document.getElementById('btn-crop-box-shrink');
+    const btnCropBoxGrow = document.getElementById('btn-crop-box-grow');
     const btnCropReset = document.getElementById('btn-crop-reset');
     const txtCropWinSize = document.getElementById('txt-crop-win-size');
+    // 顶部与剪映栏原声开关 & 预览倍速选择器
+    const btnHeaderSound = document.getElementById('btn-header-sound');
+    const selPreviewSpeed = document.getElementById('sel-preview-speed');
+    const jySelSpeed = document.getElementById('jy-sel-speed');
+    // 剪映风格时间轴裁剪面板 DOM
+    const jyTrimmerPanel = document.getElementById('jy-trimmer-panel');
+    const jyBtnPlay = document.getElementById('jy-btn-play');
+    const jyDispCur = document.getElementById('jy-disp-cur');
+    const jyDispTotal = document.getElementById('jy-disp-total');
+    const jyDispStart = document.getElementById('jy-disp-start');
+    const jyDispEnd = document.getElementById('jy-disp-end');
+    const jyDispDur = document.getElementById('jy-disp-dur');
+    const jyBtnSetIn = document.getElementById('jy-btn-set-in');
+    const jyBtnSetOut = document.getElementById('jy-btn-set-out');
+    const jyBtnReset = document.getElementById('jy-btn-reset');
+    const jyRuler = document.getElementById('jy-ruler');
+    const jyBtnMute = document.getElementById('jy-btn-mute');
+    const jyTrackMain = document.getElementById('jy-track-main');
+    const jyFilmstrip = document.getElementById('jy-filmstrip');
+    const jyWaveCanvas = document.getElementById('jy-wave-canvas');
+    const jyMaskLeft = document.getElementById('jy-mask-left');
+    const jyMaskRight = document.getElementById('jy-mask-right');
+    const jySelectionBox = document.getElementById('jy-selection-box');
+    const jyHandleLeft = document.getElementById('jy-handle-left');
+    const jyHandleRight = document.getElementById('jy-handle-right');
+    const jyTipLeft = document.getElementById('jy-tip-left');
+    const jyTipRight = document.getElementById('jy-tip-right');
+    const jyPlayhead = document.getElementById('jy-playhead');
 
     window.PlayerEngine.renderTarget = renderTarget;
     window.PlayerEngine.previewImg = previewImg;
     window.PlayerEngine.previewVideo = previewVideo;
+    window.PlayerEngine.cropOrient = 'land';
 
     const toast = (msg) => {
         if (typeof window.showToast === 'function') window.showToast(msg);
     };
 
     /* ==========================================================================
-       1. 视口画幅切换器
+       0. 页面预览原声控制 & 预览倍速同步中枢
+       ========================================================================== */
+    function syncSoundUI(isMuted) {
+        if (jyBtnMute) jyBtnMute.textContent = isMuted ? '🔇' : '🔊';
+        if (btnHeaderSound) {
+            btnHeaderSound.textContent = isMuted ? '🔇 已静音' : '🔊 原声开启';
+            btnHeaderSound.style.borderColor = isMuted ? 'rgba(148, 163, 184, 0.4)' : 'rgba(56, 189, 248, 0.5)';
+            btnHeaderSound.style.color = isMuted ? '#94a3b8' : '#38bdf8';
+        }
+    }
+
+    function setVideoSoundMuted(isMuted, showMsg = false) {
+        if (previewVideo) {
+            previewVideo.muted = !!isMuted;
+            previewVideo.volume = 1.0;
+        }
+        if (!isMuted && window._audioCtx && window._audioCtx.state === 'suspended') {
+            window._audioCtx.resume().catch(() => {});
+        }
+        syncSoundUI(!!isMuted);
+        if (showMsg) {
+            toast(isMuted ? '🔇 已静音页面预览' : '🔊 已开启页面视频原声播放');
+        }
+    }
+    window.PlayerEngine.setVideoSoundMuted = setVideoSoundMuted;
+
+    function setPreviewPlaybackSpeed(rateVal, showMsg = false) {
+        const rate = parseFloat(rateVal) || 1.0;
+        if (previewVideo) {
+            previewVideo.playbackRate = rate;
+            previewVideo.defaultPlaybackRate = rate;
+        }
+        const rateStr = String(rateVal);
+        if (selPreviewSpeed && selPreviewSpeed.value !== rateStr) selPreviewSpeed.value = rateStr;
+        if (jySelSpeed && jySelSpeed.value !== rateStr) jySelSpeed.value = rateStr;
+        const dispSpeedVal = document.getElementById('disp-speed-val');
+        if (dispSpeedVal) dispSpeedVal.textContent = rate + 'X';
+        const dylBtnSpeed = document.getElementById('dyl-btn-speed');
+        if (dylBtnSpeed) dylBtnSpeed.textContent = '倍速 ' + rate + 'X';
+        if (showMsg) {
+            toast(`⚡ 预览播放倍速已切换为：${rate}x`);
+        }
+    }
+    window.PlayerEngine.setPreviewPlaybackSpeed = setPreviewPlaybackSpeed;
+
+    if (btnHeaderSound) {
+        btnHeaderSound.addEventListener('click', () => {
+            setVideoSoundMuted(!previewVideo.muted, true);
+        });
+    }
+    if (selPreviewSpeed) {
+        selPreviewSpeed.addEventListener('change', (e) => {
+            setPreviewPlaybackSpeed(e.target.value, true);
+        });
+    }
+    if (jySelSpeed) {
+        jySelSpeed.addEventListener('change', (e) => {
+            setPreviewPlaybackSpeed(e.target.value, true);
+        });
+    }
+    if (previewVideo) {
+        previewVideo.addEventListener('play', () => {
+            if (window._audioCtx && window._audioCtx.state === 'suspended') {
+                window._audioCtx.resume().catch(() => {});
+            }
+        });
+    }
+
+    /* ==========================================================================
+       1. 视口画幅切换器 (支持 mode-pc / mode-mobile-land / mode-mobile-port / mode-dy-land)
        ========================================================================== */
     const tabButtons = document.querySelectorAll('.tab-btn');
+    function activateViewportMode(targetMode) {
+        tabButtons.forEach(b => {
+            b.classList.toggle('active', b.dataset.mode === targetMode);
+        });
+        const currentSkin = document.getElementById('sel-mobile-skin')?.value === 'laya' ? 'skin-laya' : 'skin-douyin';
+        renderTarget.className = `player-box ${targetMode} ${currentSkin}`;
+
+        if (targetMode === 'mode-mobile-land') {
+            if (typeof window.switchRightTab === 'function') window.switchRightTab('m-cinema');
+            window.PlayerEngine.cropOrient = 'land';
+        } else if (targetMode === 'mode-mobile-port') {
+            if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
+            window.PlayerEngine.cropOrient = (swDyLandBox && swDyLandBox.checked) ? 'land' : 'port';
+        } else if (targetMode === 'mode-dy-land') {
+            if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
+            window.PlayerEngine.cropOrient = 'land';
+        } else {
+            if (typeof window.switchRightTab === 'function') window.switchRightTab('web');
+            window.PlayerEngine.cropOrient = 'land';
+        }
+        checkMediaAspect();
+        updateTransform();
+        setTimeout(() => {
+            updateTransform();
+            if (typeof window.drawWaveform === 'function') window.drawWaveform();
+        }, 60);
+    }
+    window.PlayerEngine.activateViewportMode = activateViewportMode;
+
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            tabButtons.forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
-
-            const targetMode = btn.dataset.mode;
-            const currentSkin = document.getElementById('sel-mobile-skin')?.value === 'laya' ? 'skin-laya' : 'skin-douyin';
-            renderTarget.className = `player-box ${targetMode} ${currentSkin}`;
-
-            if (targetMode === 'mode-mobile-land') {
-                if (typeof window.switchRightTab === 'function') window.switchRightTab('m-cinema');
-            } else if (targetMode === 'mode-mobile-port') {
-                if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
-            } else {
-                if (typeof window.switchRightTab === 'function') window.switchRightTab('web');
-            }
-            checkMediaAspect();
-            syncCropBoxRatio();
-            setTimeout(() => {
-                if (typeof window.drawWaveform === 'function') window.drawWaveform();
-            }, 60);
+            activateViewportMode(btn.dataset.mode);
         });
     });
 
     /* ==========================================================================
-       2. 媒体上传、格式嗅探与小窗缩略图提取
+       2. 媒体上传、格式嗅探、小窗缩略图与剪映时间轴初始化
        ========================================================================== */
     if (mediaUploader) {
         mediaUploader.addEventListener('click', () => {
@@ -157,45 +307,37 @@ window.PlayerEngine = {
             if (!file) return;
             const fileName = file.name || '';
             const fileType = file.type || '';
-            const isVideo = fileType.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi)$/i.test(fileName);
+            const isVideo = fileType.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi|mkv)$/i.test(fileName);
             const isImage = fileType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|jfif|bmp|svg)$/i.test(fileName);
 
             if (isVideo) {
                 window.PlayerEngine.isVideoMode = true;
                 previewImg.style.display = 'none';
                 previewVideo.style.display = 'block';
+                setVideoSoundMuted(false, false);
+                const curSpeed = selPreviewSpeed ? (parseFloat(selPreviewSpeed.value) || 1.0) : 1.0;
                 if (previewVideo.src && previewVideo.src.startsWith('blob:')) {
                     URL.revokeObjectURL(previewVideo.src);
                 }
                 const vidUrl = URL.createObjectURL(file);
                 previewVideo.src = vidUrl;
+                previewVideo.playbackRate = curSpeed;
+                previewVideo.defaultPlaybackRate = curSpeed;
                 previewVideo.play().then(() => {
                     updatePlayStateUI(true);
                 }).catch(() => {
                     updatePlayStateUI(false);
                 });
 
-                const tempVid = document.createElement('video');
-                tempVid.src = vidUrl;
-                tempVid.muted = true;
-                tempVid.currentTime = 0.5;
-                tempVid.onloadeddata = () => {
-                    try {
-                        const c = document.createElement('canvas');
-                        c.width = tempVid.videoWidth || 640;
-                        c.height = tempVid.videoHeight || 360;
-                        c.getContext('2d').drawImage(tempVid, 0, 0, c.width, c.height);
-                        if (cropThumbImg) cropThumbImg.src = c.toDataURL();
-                    } catch (err) {
-                        console.warn('Thumb capture fallback:', err);
-                    }
-                };
-                toast('🎬 視頻素材加載成功，點擊「錄屏導出視頻」即可合成帶邊框與動態進度條的視頻！');
+                if (jyTrimmerPanel) jyTrimmerPanel.style.display = 'flex';
+                buildJianyingTimeline(vidUrl);
+                toast('🎬 视频加载成功！页面原声已开启，右上取景框可自由切换竖框/横框并拖动！');
             } else if (isImage || !isVideo) {
                 window.PlayerEngine.isVideoMode = false;
                 previewVideo.pause();
                 previewVideo.style.display = 'none';
                 previewImg.style.display = 'block';
+                if (jyTrimmerPanel) jyTrimmerPanel.style.display = 'none';
                 if (previewImg.src && previewImg.src.startsWith('blob:')) {
                     URL.revokeObjectURL(previewImg.src);
                 }
@@ -204,33 +346,392 @@ window.PlayerEngine = {
                 if (cropThumbImg) cropThumbImg.src = imgUrl;
                 previewImg.onload = () => {
                     checkMediaAspect();
+                    updateTransform();
                 };
                 updatePlayStateUI(false);
-                toast('🖼️ 圖片素材加載成功！');
+                toast('🖼️ 图片素材加载成功！');
             }
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
         });
     }
 
-    function checkMediaAspect() {
-        if (!renderTarget.classList.contains('mode-mobile-port')) {
-            if (dyFullscreenPill) dyFullscreenPill.style.display = 'none';
-            return;
-        }
-        const dims = window.PlayerEngine.getMediaNaturalDimensions();
-        if (dims.width > dims.height) {
-            if (dyFullscreenPill) dyFullscreenPill.style.display = 'flex';
-        } else {
-            if (dyFullscreenPill) dyFullscreenPill.style.display = 'none';
+    /* ==========================================================================
+       2.5 剪映风格视频时间轴裁剪器 (图2：刻度尺、胶片缩略图、青色音频波形、区间手柄)
+       ========================================================================== */
+    function renderJianyingRuler(dur) {
+        if (!jyRuler) return;
+        jyRuler.innerHTML = '';
+        const steps = 6;
+        for (let i = 0; i <= steps; i++) {
+            const t = (dur / steps) * i;
+            const span = document.createElement('span');
+            span.className = 'jy-ruler-tick';
+            span.textContent = window.PlayerEngine.secToMinSec(t, false);
+            jyRuler.appendChild(span);
+            if (i < steps) {
+                const dot = document.createElement('span');
+                dot.className = 'jy-ruler-dot';
+                jyRuler.appendChild(dot);
+            }
         }
     }
-    previewVideo.addEventListener('loadedmetadata', checkMediaAspect);
 
+    function renderJianyingWaveform() {
+        if (!jyWaveCanvas) return;
+        const w = jyWaveCanvas.clientWidth || 720;
+        const h = jyWaveCanvas.clientHeight || 22;
+        jyWaveCanvas.width = w;
+        jyWaveCanvas.height = h;
+        const ctx = jyWaveCanvas.getContext('2d');
+        ctx.clearRect(0, 0, w, h);
+        ctx.fillStyle = 'rgba(130, 245, 255, 0.55)';
+        const barW = 2;
+        const gap = 2;
+        const midY = h / 2;
+        let seed = 42;
+        for (let x = 0; x < w; x += barW + gap) {
+            seed = (seed * 1664525 + 1013904223) % 4294967296;
+            const norm = (seed / 4294967296);
+            const env = 0.35 + 0.65 * Math.abs(Math.sin(x * 0.035));
+            const amp = Math.max(2, Math.round(norm * env * (h * 0.85)));
+            ctx.fillRect(x, midY - amp / 2, barW, amp);
+        }
+    }
+
+    function updateJianyingTrimUI() {
+        const dur = window.PlayerEngine.videoDuration || 1;
+        const start = window.PlayerEngine.trimStart || 0;
+        const end = window.PlayerEngine.trimEnd || dur;
+        const leftPct = Math.max(0, Math.min(100, (start / dur) * 100));
+        const rightPct = Math.max(0, Math.min(100, 100 - (end / dur) * 100));
+
+        if (jySelectionBox) {
+            jySelectionBox.style.left = leftPct + '%';
+            jySelectionBox.style.right = rightPct + '%';
+        }
+        if (jyMaskLeft) jyMaskLeft.style.width = leftPct + '%';
+        if (jyMaskRight) jyMaskRight.style.width = rightPct + '%';
+
+        const startStr = window.PlayerEngine.secToMinSec(start, true);
+        const endStr = window.PlayerEngine.secToMinSec(end, true);
+        const clipDur = Math.max(0.1, end - start);
+
+        if (jyDispStart) jyDispStart.textContent = startStr;
+        if (jyDispEnd) jyDispEnd.textContent = endStr;
+        if (jyDispDur) jyDispDur.textContent = clipDur.toFixed(1) + 's';
+        if (jyTipLeft) jyTipLeft.textContent = startStr;
+        if (jyTipRight) jyTipRight.textContent = endStr;
+        if (jyDispTotal) jyDispTotal.textContent = window.PlayerEngine.secToMinSec(dur, true);
+    }
+
+    function updateJianyingPlayheadUI() {
+        if (!window.PlayerEngine.isVideoMode || !previewVideo) return;
+        const dur = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
+        const cur = previewVideo.currentTime || 0;
+        const pct = Math.max(0, Math.min(100, (cur / dur) * 100));
+        if (jyPlayhead) jyPlayhead.style.left = pct + '%';
+        if (jyDispCur) jyDispCur.textContent = window.PlayerEngine.secToMinSec(cur, true);
+    }
+
+    function buildJianyingTimeline(vidUrl) {
+        const tempVid = document.createElement('video');
+        tempVid.src = vidUrl;
+        tempVid.muted = true;
+        tempVid.playsInline = true;
+
+        tempVid.addEventListener('loadedmetadata', async () => {
+            const dur = (tempVid.duration && isFinite(tempVid.duration)) ? tempVid.duration : 10;
+            window.PlayerEngine.videoDuration = dur;
+            window.PlayerEngine.trimStart = 0;
+            window.PlayerEngine.trimEnd = dur;
+            window.PlayerEngine.userHasTrimmed = false;
+
+            renderJianyingRuler(dur);
+            renderJianyingWaveform();
+            updateJianyingTrimUI();
+            updateJianyingPlayheadUI();
+
+            // 提取 8 张轻量帧缩略图铺满胶片轨道，完成后立即释放临时解码器防止主视频卡顿
+            const thumbCount = 8;
+            if (jyFilmstrip) jyFilmstrip.innerHTML = '';
+            const thumbDivs = [];
+            for (let i = 0; i < thumbCount; i++) {
+                const d = document.createElement('div');
+                d.className = 'jy-film-thumb';
+                if (jyFilmstrip) jyFilmstrip.appendChild(d);
+                thumbDivs.push(d);
+            }
+
+            const c = document.createElement('canvas');
+            const vw = tempVid.videoWidth || 640;
+            const vh = tempVid.videoHeight || 360;
+            c.width = 128;
+            c.height = Math.round(128 * (vh / vw)) || 72;
+            const ctx = c.getContext('2d');
+
+            for (let i = 0; i < thumbCount; i++) {
+                if (window.__isExportRecording) break;
+                const seekTime = Math.min(dur - 0.05, Math.max(0.05, ((i + 0.5) / thumbCount) * dur));
+                await new Promise((resolve) => {
+                    const timer = setTimeout(resolve, 180);
+                    const onSeeked = () => {
+                        clearTimeout(timer);
+                        tempVid.removeEventListener('seeked', onSeeked);
+                        try {
+                            ctx.drawImage(tempVid, 0, 0, c.width, c.height);
+                            const dataUrl = c.toDataURL('image/jpeg', 0.6);
+                            if (thumbDivs[i]) thumbDivs[i].style.backgroundImage = `url(${dataUrl})`;
+                            if (i === 0 && cropThumbImg) {
+                                const bigC = document.createElement('canvas');
+                                bigC.width = Math.min(480, vw);
+                                bigC.height = Math.round(bigC.width * (vh / vw)) || 270;
+                                bigC.getContext('2d').drawImage(tempVid, 0, 0, bigC.width, bigC.height);
+                                cropThumbImg.src = bigC.toDataURL('image/jpeg', 0.8);
+                            }
+                        } catch (e) {}
+                        resolve();
+                    };
+                    tempVid.addEventListener('seeked', onSeeked);
+                    tempVid.currentTime = seekTime;
+                });
+            }
+
+            // 彻底释放临时视频解码器，避免与主预览视频争抢硬件加速管线导致卡顿
+            try {
+                tempVid.pause();
+                tempVid.removeAttribute('src');
+                tempVid.load();
+            } catch (e) {}
+        }, { once: true });
+    }
+
+    // 剪映手柄与播放指针拖拽交互
+    let jyDragMode = null; // 'left' | 'right' | 'playhead'
+    function getTrackTimeFromClientX(clientX) {
+        if (!jyTrackMain) return 0;
+        const rect = jyTrackMain.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / (rect.width || 1)));
+        const dur = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
+        return ratio * dur;
+    }
+
+    if (jyHandleLeft) {
+        jyHandleLeft.addEventListener('mousedown', (e) => {
+            jyDragMode = 'left';
+            window.PlayerEngine.userHasTrimmed = true;
+            jyHandleLeft.classList.add('dragging');
+            e.stopPropagation();
+            e.preventDefault();
+        });
+    }
+    if (jyHandleRight) {
+        jyHandleRight.addEventListener('mousedown', (e) => {
+            jyDragMode = 'right';
+            window.PlayerEngine.userHasTrimmed = true;
+            jyHandleRight.classList.add('dragging');
+            e.stopPropagation();
+            e.preventDefault();
+        });
+    }
+    if (jyPlayhead) {
+        jyPlayhead.addEventListener('mousedown', (e) => {
+            jyDragMode = 'playhead';
+            e.stopPropagation();
+            e.preventDefault();
+        });
+    }
+    if (jyTrackMain) {
+        jyTrackMain.addEventListener('mousedown', (e) => {
+            if (e.target === jyHandleLeft || e.target === jyHandleRight) return;
+            jyDragMode = 'playhead';
+            const t = getTrackTimeFromClientX(e.clientX);
+            if (previewVideo && window.PlayerEngine.isVideoMode) {
+                previewVideo.currentTime = t;
+                updateJianyingPlayheadUI();
+            }
+        });
+    }
+
+    window.addEventListener('mousemove', (e) => {
+        if (!jyDragMode || !window.PlayerEngine.isVideoMode) return;
+        const t = getTrackTimeFromClientX(e.clientX);
+        const dur = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
+        if (jyDragMode === 'left') {
+            window.PlayerEngine.trimStart = Math.max(0, Math.min(t, (window.PlayerEngine.trimEnd || dur) - 0.3));
+            previewVideo.currentTime = window.PlayerEngine.trimStart;
+            updateJianyingTrimUI();
+            updateJianyingPlayheadUI();
+        } else if (jyDragMode === 'right') {
+            window.PlayerEngine.trimEnd = Math.min(dur, Math.max(t, (window.PlayerEngine.trimStart || 0) + 0.3));
+            previewVideo.currentTime = window.PlayerEngine.trimEnd;
+            updateJianyingTrimUI();
+            updateJianyingPlayheadUI();
+        } else if (jyDragMode === 'playhead') {
+            previewVideo.currentTime = Math.max(0, Math.min(dur, t));
+            updateJianyingPlayheadUI();
+        }
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (!jyDragMode) return;
+        jyDragMode = null;
+        if (jyHandleLeft) jyHandleLeft.classList.remove('dragging');
+        if (jyHandleRight) jyHandleRight.classList.remove('dragging');
+    });
+
+    if (jyBtnPlay) {
+        jyBtnPlay.addEventListener('click', () => togglePlayback());
+    }
+    if (jyBtnSetIn) {
+        jyBtnSetIn.addEventListener('click', () => {
+            if (!window.PlayerEngine.isVideoMode) return;
+            const cur = previewVideo.currentTime || 0;
+            const end = window.PlayerEngine.trimEnd || window.PlayerEngine.videoDuration || 1;
+            window.PlayerEngine.trimStart = Math.min(cur, Math.max(0, end - 0.3));
+            window.PlayerEngine.userHasTrimmed = true;
+            updateJianyingTrimUI();
+            toast(`✂️ 已将导出起点设为 ${window.PlayerEngine.secToMinSec(window.PlayerEngine.trimStart, true)}`);
+        });
+    }
+    if (jyBtnSetOut) {
+        jyBtnSetOut.addEventListener('click', () => {
+            if (!window.PlayerEngine.isVideoMode) return;
+            const cur = previewVideo.currentTime || 0;
+            const start = window.PlayerEngine.trimStart || 0;
+            const dur = window.PlayerEngine.videoDuration || 1;
+            window.PlayerEngine.trimEnd = Math.max(cur, Math.min(dur, start + 0.3));
+            window.PlayerEngine.userHasTrimmed = true;
+            updateJianyingTrimUI();
+            toast(`✂️ 已将导出终点设为 ${window.PlayerEngine.secToMinSec(window.PlayerEngine.trimEnd, true)}`);
+        });
+    }
+    if (jyBtnReset) {
+        jyBtnReset.addEventListener('click', () => {
+            if (!window.PlayerEngine.isVideoMode) return;
+            window.PlayerEngine.trimStart = 0;
+            window.PlayerEngine.trimEnd = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
+            window.PlayerEngine.userHasTrimmed = false;
+            updateJianyingTrimUI();
+            toast('✂️ 已恢复完整视频导出区间');
+        });
+    }
+    if (jyBtnMute) {
+        jyBtnMute.addEventListener('click', () => {
+            setVideoSoundMuted(!previewVideo.muted, true);
+        });
+    }
+
+    /* ==========================================================================
+       2.8 取景边框横竖自由切换 (竖着框 9:16 / 横着框 16:9) & 全屏观看联动
+       ========================================================================== */
+    function checkMediaAspect() {
+        const orient = window.PlayerEngine.cropOrient || 'land';
+        const isPortMode = renderTarget.classList.contains('mode-mobile-port');
+        const dims = window.PlayerEngine.getMediaNaturalDimensions();
+        const isLandscapeMedia = dims.width >= dims.height;
+
+        if (btnCropOrientPort) btnCropOrientPort.classList.toggle('active', orient === 'port');
+        if (btnCropOrientLand) btnCropOrientLand.classList.toggle('active', orient === 'land');
+        if (selCropOrient && selCropOrient.value !== orient) selCropOrient.value = orient;
+        if (swDyLandBox) swDyLandBox.checked = (orient === 'land');
+
+        if (isPortMode) {
+            renderTarget.classList.remove('land-port-box');
+            if (orient === 'land') {
+                renderTarget.classList.add('port-land-box');
+                if (dyFullscreenPill) dyFullscreenPill.style.display = 'inline-flex';
+            } else {
+                renderTarget.classList.remove('port-land-box');
+                if (dyFullscreenPill) dyFullscreenPill.style.display = isLandscapeMedia ? 'inline-flex' : 'none';
+            }
+        } else {
+            renderTarget.classList.remove('port-land-box');
+            if (dyFullscreenPill) dyFullscreenPill.style.display = 'none';
+            if (orient === 'port') {
+                renderTarget.classList.add('land-port-box');
+            } else {
+                renderTarget.classList.remove('land-port-box');
+            }
+        }
+    }
+    window.PlayerEngine.checkMediaAspect = checkMediaAspect;
+
+    function ensureGreenBoxMovable() {
+        const dims = window.PlayerEngine.getMediaNaturalDimensions();
+        const isLandMedia = dims.width >= dims.height;
+        const orient = window.PlayerEngine.cropOrient || 'land';
+        const sameOrient = (isLandMedia && orient === 'land') || (!isLandMedia && orient === 'port');
+        const curScale = parseFloat(inMediaScale.value) || 100;
+        if (sameOrient && curScale <= 105) {
+            inMediaScale.value = 120;
+        }
+    }
+
+    function setCropOrientation(orient, showMsg = false) {
+        window.PlayerEngine.cropOrient = (orient === 'port') ? 'port' : 'land';
+        checkMediaAspect();
+        ensureGreenBoxMovable();
+        updateTransform();
+        setTimeout(updateTransform, 50);
+        if (showMsg) {
+            toast(orient === 'port'
+                ? '📱 已切换为：竖着取景框 (9:16)，可直接拖动绿框调整构图！'
+                : '🖼️ 已切换为：横着取景框 (16:9)，可直接拖动绿框调整构图！');
+        }
+        if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+    }
+    window.PlayerEngine.setCropOrientation = setCropOrientation;
+
+    if (btnCropOrientPort) {
+        btnCropOrientPort.addEventListener('click', () => setCropOrientation('port', true));
+    }
+    if (btnCropOrientLand) {
+        btnCropOrientLand.addEventListener('click', () => setCropOrientation('land', true));
+    }
+    if (selCropOrient) {
+        selCropOrient.addEventListener('change', (e) => setCropOrientation(e.target.value, true));
+    }
+
+    previewVideo.addEventListener('loadedmetadata', () => {
+        const isPortMode = renderTarget.classList.contains('mode-mobile-port');
+        if (isPortMode) {
+            window.PlayerEngine.cropOrient = (swDyLandBox && swDyLandBox.checked) ? 'land' : 'port';
+        }
+        checkMediaAspect();
+        ensureGreenBoxMovable();
+        updateTransform();
+    });
+
+    if (swDyLandBox) {
+        swDyLandBox.addEventListener('change', () => {
+            setCropOrientation(swDyLandBox.checked ? 'land' : 'port', true);
+        });
+    }
+
+    // 点击竖屏中央的「全屏观看」胶囊 -> 画面直接变成横屏全屏预览 (mode-dy-land)
     if (dyFullscreenPill) {
         dyFullscreenPill.addEventListener('click', () => {
-            const landBtn = document.querySelector('.tab-btn[data-mode="mode-mobile-land"]');
-            if (landBtn) landBtn.click();
-            toast('已切換為手機橫屏全屏視野');
+            activateViewportMode('mode-dy-land');
+            toast('🔄 已进入全屏观看模式 (16:9横屏)，右侧面板可自由输入片名并开关所有控件！');
+        });
+    }
+    if (btnEnterDyFullscreen) {
+        btnEnterDyFullscreen.addEventListener('click', () => {
+            activateViewportMode('mode-dy-land');
+            toast('🔄 已切换为全屏观看横屏模式');
+        });
+    }
+    // 点击左上角返回箭头 < 或右侧返回按钮 -> 回到手机竖屏社区
+    if (dylBtnBack) {
+        dylBtnBack.addEventListener('click', () => {
+            activateViewportMode('mode-mobile-port');
+            toast('📱 已退出全屏，返回手机竖屏社区');
+        });
+    }
+    if (btnExitDyFullscreen) {
+        btnExitDyFullscreen.addEventListener('click', () => {
+            activateViewportMode('mode-mobile-port');
+            toast('📱 已返回手机竖屏社区');
         });
     }
 
@@ -238,6 +739,9 @@ window.PlayerEngine = {
        3. 播放与暂停状态双向联动
        ========================================================================== */
     function updatePlayStateUI(isPlaying) {
+        if (jyBtnPlay) jyBtnPlay.textContent = isPlaying ? '❚❚' : '▶';
+        if (dylSvgPause) dylSvgPause.style.display = isPlaying ? 'block' : 'none';
+        if (dylSvgPlay) dylSvgPlay.style.display = isPlaying ? 'none' : 'block';
         if (isPlaying) {
             if (iconBotPlay) iconBotPlay.style.display = 'none';
             if (iconBotPause) iconBotPause.style.display = 'block';
@@ -278,6 +782,10 @@ window.PlayerEngine = {
             return;
         }
         if (previewVideo.paused) {
+            const range = window.PlayerEngine.getTrimRange();
+            if (previewVideo.currentTime < range.start || previewVideo.currentTime >= range.end - 0.05) {
+                previewVideo.currentTime = range.start;
+            }
             previewVideo.play().then(() => updatePlayStateUI(true)).catch(console.warn);
         } else {
             previewVideo.pause();
@@ -290,6 +798,7 @@ window.PlayerEngine = {
     if (btnBotPlayState) btnBotPlayState.addEventListener('click', togglePlayback);
     if (mBtnTogglePlay) mBtnTogglePlay.addEventListener('click', togglePlayback);
     if (mBtnCenterPlay) mBtnCenterPlay.addEventListener('click', togglePlayback);
+    if (dylBtnCenterPlay) dylBtnCenterPlay.addEventListener('click', togglePlayback);
 
     /* ==========================================================================
        4. 三端时间码、随机总时长与双向同步系统
@@ -310,6 +819,7 @@ window.PlayerEngine = {
         if (dispProgressBar) dispProgressBar.style.width = widthStr;
         if (mDispProgress) mDispProgress.style.width = widthStr;
         if (dyTinyFill) dyTinyFill.style.width = widthStr;
+        if (dylProgressFill) dylProgressFill.style.width = widthStr;
         if (inProgress) inProgress.value = intVal;
         if (inMProgress) inMProgress.value = intVal;
         if (txtProgress) txtProgress.textContent = intVal + '%';
@@ -336,6 +846,12 @@ window.PlayerEngine = {
         }
         if (mDispTime) {
             mDispTime.textContent = `${window.PlayerEngine.secToShortTime(s)} / ${window.PlayerEngine.secToShortTime(t)}`;
+        }
+        if (dylDispCur) {
+            dylDispCur.textContent = window.PlayerEngine.secToMinSec(s % 3600, false);
+        }
+        if (dylDispDur) {
+            dylDispDur.textContent = window.PlayerEngine.secToMinSec(Math.min(3599, t), false);
         }
     }
     window.PlayerEngine.refreshTimeUI = refreshTimeUI;
@@ -452,19 +968,48 @@ window.PlayerEngine = {
         });
     }
 
+    if (dylProgressWrap) {
+        dylProgressWrap.addEventListener('click', (e) => {
+            const rect = dylProgressWrap.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const pct = Math.min(100, Math.max(0, Math.round((clickX / rect.width) * 100)));
+            handleProgressSliderInput(pct);
+        });
+    }
+
     previewVideo.addEventListener('timeupdate', () => {
-        if (!window.PlayerEngine.isVideoMode || !swSyncVideoTime || !swSyncVideoTime.checked) return;
+        if (!window.PlayerEngine.isVideoMode) return;
+        // 录制导出期间跳过高频 DOM 重排，保证 60fps 零卡顿丝滑录制
+        if (window.__isExportRecording) return;
+
+        updateJianyingPlayheadUI();
+
+        if (window.SubtitleEngine && typeof window.SubtitleEngine.onTimeUpdate === 'function') {
+            window.SubtitleEngine.onTimeUpdate(previewVideo.currentTime);
+        }
+
+        // 在非导出录制状态下，到达剪映裁剪终点时自动循环回裁剪起点
+        if (!jyDragMode) {
+            const range = window.PlayerEngine.getTrimRange();
+            if (previewVideo.currentTime >= range.end) {
+                previewVideo.currentTime = range.start;
+            }
+        }
+
+        if (!swSyncVideoTime || !swSyncVideoTime.checked) return;
         const baseStart = window.PlayerEngine.timeToSec(inStartTime.value);
         const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 7581;
         const elapsed = Math.floor(previewVideo.currentTime);
         const curSec = baseStart + elapsed;
         if (dispTime) dispTime.textContent = `${window.PlayerEngine.secToTime(curSec)} / ${window.PlayerEngine.secToTime(totalSec)}`;
         if (mDispTime) mDispTime.textContent = `${window.PlayerEngine.secToShortTime(curSec)} / ${window.PlayerEngine.secToShortTime(totalSec)}`;
+        if (dylDispCur) dylDispCur.textContent = window.PlayerEngine.secToMinSec(curSec % 3600, false);
         const pct = Math.min(100, (curSec / totalSec) * 100);
         syncAllProgressBars(pct);
     });
 
     randomizeDuration(false);
+    checkMediaAspect();
 
     /* ==========================================================================
        5. 独立取景框浮窗：滚轮缩放小窗、红绿选框拖拽与双向联动
@@ -478,7 +1023,7 @@ window.PlayerEngine = {
         const fitMode = selCropFit ? selCropFit.value : 'cover';
         const rawScale = parseFloat(inMediaScale.value);
         const scaleVal = Number.isNaN(rawScale) ? 100 : rawScale;
-        const zoom = fitMode === 'cover' ? Math.max(1, scaleVal / 100) : (scaleVal / 100);
+        const zoom = fitMode === 'cover' ? Math.max(1.02, scaleVal / 100) : (scaleVal / 100);
         const rawX = parseFloat(inPosX.value);
         const rawY = parseFloat(inPosY.value);
         const xPct = Math.min(100, Math.max(0, Number.isNaN(rawX) ? 50 : rawX));
@@ -503,10 +1048,14 @@ window.PlayerEngine = {
                 baseH = baseW / mAspect;
             }
         }
-        const renderW = baseW * zoom;
-        const renderH = baseH * zoom;
-        const offX = (targetW - renderW) * posX;
-        const offY = (targetH - renderH) * posY;
+        // ★ 边缘防白边出血量 (bleed=6px)：彻底消除亚像素取整缝隙及原视频自带边缘白线
+        const bleed = fitMode === 'cover' ? 6 : 0;
+        const coreW = baseW * zoom;
+        const coreH = baseH * zoom;
+        const renderW = Math.ceil(coreW + bleed * 2);
+        const renderH = Math.ceil(coreH + bleed * 2);
+        const offX = Math.floor(-bleed + (targetW - coreW) * posX);
+        const offY = Math.floor(-bleed + (targetH - coreH) * posY);
         return {
             mediaW, mediaH, mAspect, cAspect,
             zoom, scaleVal, posX, posY, xPct, yPct,
@@ -514,9 +1063,23 @@ window.PlayerEngine = {
         };
     };
 
+    function getActiveMediaViewportSize() {
+        if (playerMediaWrap && playerMediaWrap.clientWidth > 0 && playerMediaWrap.clientHeight > 0) {
+            return {
+                w: playerMediaWrap.clientWidth,
+                h: playerMediaWrap.clientHeight
+            };
+        }
+        return {
+            w: renderTarget.clientWidth || 800,
+            h: renderTarget.clientHeight || 450
+        };
+    }
+
     function updateTransform() {
-        const targetW = renderTarget.clientWidth || 800;
-        const targetH = renderTarget.clientHeight || 450;
+        const vp = getActiveMediaViewportSize();
+        const targetW = vp.w;
+        const targetH = vp.h;
         const rect = window.getPlayerCropRect(targetW, targetH);
         [previewImg, previewVideo].forEach(el => {
             if (!el) return;
@@ -532,19 +1095,34 @@ window.PlayerEngine = {
         syncCropBoxPosition();
         if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
     }
+    window.PlayerEngine.updateTransform = updateTransform;
 
     function syncCropBoxPosition() {
         if (!cropInspectorWindow || cropInspectorWindow.style.display === 'none') return;
-        const bodyW = cropWindowBody.clientWidth;
-        const bodyH = cropWindowBody.clientHeight;
-        if (!bodyW || !bodyH) return;
-        const targetW = renderTarget.clientWidth || 800;
-        const targetH = renderTarget.clientHeight || 450;
+        const vp = getActiveMediaViewportSize();
+        const targetW = vp.w;
+        const targetH = vp.h;
         const rect = window.getPlayerCropRect(targetW, targetH);
+
+        // 让独立取景框画布严格贴合上传视频/图片的真实宽高比 (横屏或竖屏)
+        const mAspect = rect.mAspect || (16 / 9);
+        const maxW = 240;
+        const maxH = 260;
+        let bodyW, bodyH;
+        if (mAspect >= maxW / maxH) {
+            bodyW = maxW;
+            bodyH = Math.max(80, Math.round(maxW / mAspect));
+        } else {
+            bodyH = maxH;
+            bodyW = Math.max(80, Math.round(maxH * mAspect));
+        }
+        cropWindowBody.style.width = bodyW + 'px';
+        cropWindowBody.style.height = bodyH + 'px';
+
         const visWFrac = Math.min(1, targetW / rect.renderW);
         const visHFrac = Math.min(1, targetH / rect.renderH);
-        const boxW = Math.max(20, Math.round(bodyW * visWFrac));
-        const boxH = Math.max(20, Math.round(bodyH * visHFrac));
+        const boxW = Math.max(24, Math.round(bodyW * visWFrac));
+        const boxH = Math.max(24, Math.round(bodyH * visHFrac));
         cropSelectionBox.style.width = boxW + 'px';
         cropSelectionBox.style.height = boxH + 'px';
         const maxLeft = Math.max(0, bodyW - boxW);
@@ -564,9 +1142,11 @@ window.PlayerEngine = {
 
     if (swCropWindow && cropInspectorWindow) {
         swCropWindow.addEventListener('change', (e) => {
-            cropInspectorWindow.style.display = e.target.checked ? 'block' : 'none';
+            cropInspectorWindow.style.display = e.target.checked ? 'flex' : 'none';
             if (e.target.checked) {
-                cropThumbImg.src = previewImg.src;
+                if (!window.PlayerEngine.isVideoMode && previewImg.src) {
+                    cropThumbImg.src = previewImg.src;
+                }
                 setTimeout(updateTransform, 30);
             }
         });
@@ -588,40 +1168,189 @@ window.PlayerEngine = {
         }, { passive: false });
     }
 
+    // ★ 1. 独立取景框浮窗任意位置自由拖拽 (通过顶部标题栏 #crop-window-header)
+    let isDraggingCropWin = false;
+    let winDragStartX = 0, winDragStartY = 0;
+    let winStartLeft = 0, winStartTop = 0;
+
+    if (cropWindowHeader && cropInspectorWindow) {
+        cropWindowHeader.addEventListener('mousedown', (e) => {
+            if (e.target && e.target.closest('#btn-close-crop-window')) return;
+            isDraggingCropWin = true;
+            winDragStartX = e.clientX;
+            winDragStartY = e.clientY;
+            winStartLeft = cropInspectorWindow.offsetLeft;
+            winStartTop = cropInspectorWindow.offsetTop;
+            cropInspectorWindow.style.right = 'auto';
+            cropInspectorWindow.style.bottom = 'auto';
+            cropInspectorWindow.style.left = winStartLeft + 'px';
+            cropInspectorWindow.style.top = winStartTop + 'px';
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    }
+
+    // ★ 2. 绿色取景框四角缩放手柄拖拽 & 变小/变大按钮
+    let isResizingCropBox = false;
+    let resizeCornerDir = '';
+    let resizeStartX = 0, resizeStartY = 0;
+    let resizeStartScale = 100;
+
+    if (cropSelectionBox) {
+        const corners = cropSelectionBox.querySelectorAll('.crop-corner');
+        corners.forEach(corner => {
+            corner.addEventListener('mousedown', (e) => {
+                isResizingCropBox = true;
+                resizeCornerDir = corner.dataset.dir || corner.dataset.corner || 'se';
+                resizeStartX = e.clientX;
+                resizeStartY = e.clientY;
+                resizeStartScale = parseFloat(inMediaScale.value) || 100;
+                e.preventDefault();
+                e.stopPropagation();
+            });
+        });
+    }
+
+    if (btnCropBoxShrink) {
+        btnCropBoxShrink.addEventListener('click', () => {
+            const cur = parseFloat(inMediaScale.value) || 100;
+            inMediaScale.value = Math.min(250, cur + 15);
+            updateTransform();
+        });
+    }
+    if (btnCropBoxGrow) {
+        btnCropBoxGrow.addEventListener('click', () => {
+            const cur = parseFloat(inMediaScale.value) || 100;
+            inMediaScale.value = Math.max(100, cur - 15);
+            updateTransform();
+        });
+    }
+
+    // ★ 3. 绿色取景框上下左右自由拖拽 (若处于100%满框状态则自动解锁缩放以便全方位挪动)
     let isDraggingCrop = false;
     let cropStartX = 0, cropStartY = 0;
     let cropBoxStartLeft = 0, cropBoxStartTop = 0;
+
+    function startGreenBoxDrag(clientX, clientY) {
+        let bodyW = cropWindowBody.clientWidth;
+        let bodyH = cropWindowBody.clientHeight;
+        let boxW = cropSelectionBox.offsetWidth;
+        let boxH = cropSelectionBox.offsetHeight;
+        let maxLeft = Math.max(0, bodyW - boxW);
+        let maxTop = Math.max(0, bodyH - boxH);
+
+        // 若当前绿框撑满整个缩略图无法移动，自动将缩放提升至 125% 解锁全方位拖动
+        if (maxLeft < 6 && maxTop < 6) {
+            inMediaScale.value = 125;
+            updateTransform();
+        }
+
+        isDraggingCrop = true;
+        cropStartX = clientX;
+        cropStartY = clientY;
+        cropBoxStartLeft = cropSelectionBox.offsetLeft;
+        cropBoxStartTop = cropSelectionBox.offsetTop;
+    }
+
     if (cropSelectionBox && cropWindowBody) {
         cropSelectionBox.addEventListener('mousedown', (e) => {
-            isDraggingCrop = true;
-            cropStartX = e.clientX;
-            cropStartY = e.clientY;
-            cropBoxStartLeft = cropSelectionBox.offsetLeft;
-            cropBoxStartTop = cropSelectionBox.offsetTop;
+            if (e.target && e.target.classList.contains('crop-corner')) return;
+            startGreenBoxDrag(e.clientX, e.clientY);
             e.preventDefault();
+            e.stopPropagation();
         });
-        window.addEventListener('mousemove', (e) => {
-            if (!isDraggingCrop) return;
-            const deltaX = e.clientX - cropStartX;
-            const deltaY = e.clientY - cropStartY;
-            const bodyW = cropWindowBody.clientWidth;
-            const bodyH = cropWindowBody.clientHeight;
-            const boxW = cropSelectionBox.offsetWidth;
-            const boxH = cropSelectionBox.offsetHeight;
+
+        // 点击黑色缩略图背景区域也可直接将绿框中心移过来并开始拖动
+        cropWindowBody.addEventListener('mousedown', (e) => {
+            if (e.target === cropSelectionBox || cropSelectionBox.contains(e.target)) return;
+            const rect = cropWindowBody.getBoundingClientRect();
+            const clickX = e.clientX - rect.left;
+            const clickY = e.clientY - rect.top;
+            let bodyW = cropWindowBody.clientWidth;
+            let bodyH = cropWindowBody.clientHeight;
+            let boxW = cropSelectionBox.offsetWidth;
+            let boxH = cropSelectionBox.offsetHeight;
+            if (bodyW - boxW < 6 && bodyH - boxH < 6) {
+                inMediaScale.value = 125;
+                updateTransform();
+                boxW = cropSelectionBox.offsetWidth;
+                boxH = cropSelectionBox.offsetHeight;
+            }
             const maxLeft = Math.max(0, bodyW - boxW);
             const maxTop = Math.max(0, bodyH - boxH);
-            const newLeft = Math.min(maxLeft, Math.max(0, cropBoxStartLeft + deltaX));
-            const newTop = Math.min(maxTop, Math.max(0, cropBoxStartTop + deltaY));
-            const curXPct = maxLeft > 0 ? Math.round((newLeft / maxLeft) * 100) : 50;
-            const curYPct = maxTop > 0 ? Math.round((newTop / maxTop) * 100) : 50;
-            inPosX.value = curXPct;
-            inPosY.value = curYPct;
+            const targetLeft = Math.min(maxLeft, Math.max(0, clickX - boxW / 2));
+            const targetTop = Math.min(maxTop, Math.max(0, clickY - boxH / 2));
+            if (maxLeft > 0) inPosX.value = Math.round((targetLeft / maxLeft) * 100);
+            if (maxTop > 0) inPosY.value = Math.round((targetTop / maxTop) * 100);
             updateTransform();
-        });
-        window.addEventListener('mouseup', () => {
-            isDraggingCrop = false;
+            startGreenBoxDrag(e.clientX, e.clientY);
+            e.preventDefault();
         });
     }
+
+    window.addEventListener('mousemove', (e) => {
+        if (isDraggingCropWin && cropInspectorWindow) {
+            const parent = cropInspectorWindow.offsetParent || document.body;
+            const maxWinLeft = Math.max(0, parent.clientWidth - cropInspectorWindow.offsetWidth - 4);
+            const maxWinTop = Math.max(0, parent.clientHeight - cropInspectorWindow.offsetHeight - 4);
+            const nextLeft = Math.min(maxWinLeft, Math.max(4, winStartLeft + (e.clientX - winDragStartX)));
+            const nextTop = Math.min(maxWinTop, Math.max(4, winStartTop + (e.clientY - winDragStartY)));
+            cropInspectorWindow.style.left = nextLeft + 'px';
+            cropInspectorWindow.style.top = nextTop + 'px';
+            return;
+        }
+
+        if (isResizingCropBox) {
+            const dx = e.clientX - resizeStartX;
+            const dy = e.clientY - resizeStartY;
+            const signX = (resizeCornerDir === 'nw' || resizeCornerDir === 'sw') ? 1 : -1;
+            const signY = (resizeCornerDir === 'nw' || resizeCornerDir === 'ne') ? 1 : -1;
+            const dragDelta = (dx * signX + dy * signY) * 0.65;
+            const nextScale = Math.min(250, Math.max(100, Math.round(resizeStartScale + dragDelta)));
+            inMediaScale.value = nextScale;
+            updateTransform();
+            return;
+        }
+
+        if (!isDraggingCrop) return;
+        const deltaX = e.clientX - cropStartX;
+        const deltaY = e.clientY - cropStartY;
+        const bodyW = cropWindowBody.clientWidth;
+        const bodyH = cropWindowBody.clientHeight;
+        let boxW = cropSelectionBox.offsetWidth;
+        let boxH = cropSelectionBox.offsetHeight;
+        let maxLeft = Math.max(0, bodyW - boxW);
+        let maxTop = Math.max(0, bodyH - boxH);
+
+        // 如果用户在单轴贴边状态下往受限方向拖动，自动稍微缩小绿框以允许全方向自由移动
+        if ((maxLeft < 4 && Math.abs(deltaX) > 10) || (maxTop < 4 && Math.abs(deltaY) > 10)) {
+            const curS = parseFloat(inMediaScale.value) || 100;
+            if (curS <= 105) {
+                inMediaScale.value = 120;
+                syncCropBoxPosition();
+                boxW = cropSelectionBox.offsetWidth;
+                boxH = cropSelectionBox.offsetHeight;
+                maxLeft = Math.max(0, bodyW - boxW);
+                maxTop = Math.max(0, bodyH - boxH);
+                cropBoxStartLeft = cropSelectionBox.offsetLeft;
+                cropBoxStartTop = cropSelectionBox.offsetTop;
+            }
+        }
+
+        const newLeft = Math.min(maxLeft, Math.max(0, cropBoxStartLeft + deltaX));
+        const newTop = Math.min(maxTop, Math.max(0, cropBoxStartTop + deltaY));
+        const curXPct = maxLeft > 0 ? Math.round((newLeft / maxLeft) * 100) : 50;
+        const curYPct = maxTop > 0 ? Math.round((newTop / maxTop) * 100) : 50;
+        inPosX.value = curXPct;
+        inPosY.value = curYPct;
+        updateTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+        isDraggingCropWin = false;
+        isResizingCropBox = false;
+        isDraggingCrop = false;
+    });
 
     if (btnCropReset) {
         btnCropReset.addEventListener('click', () => {
@@ -629,6 +1358,7 @@ window.PlayerEngine = {
             inPosY.value = 50;
             inMediaScale.value = 100;
             updateTransform();
+            toast('🎯 绿框构图已居中重置');
         });
     }
     if (btnResetPos) {
@@ -644,7 +1374,7 @@ window.PlayerEngine = {
         btnFacePreset.addEventListener('click', () => {
             inPosY.value = 18;
             inPosX.value = 50;
-            inMediaScale.value = 110;
+            inMediaScale.value = 120;
             updateTransform();
             toast('已應用快速露臉構圖預設');
         });

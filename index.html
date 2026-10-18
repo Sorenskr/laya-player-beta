@@ -169,6 +169,18 @@
         <button class="btn btn-lang" id="btn-toggle-lang">繁 / 简 转换</button>
         <input type="file" id="media-uploader" accept="image/*,video/mp4,video/webm,video/quicktime" style="display: none;">
         <button class="btn btn-upload" onclick="document.getElementById('media-uploader').click()">📁 上传截图/视频</button>
+        <div class="record-group" title="预览视频声音与播放倍速">
+            <button class="btn btn-secondary btn-sm" id="btn-header-sound" style="padding: 5px 8px;">🔊 原声开启</button>
+            <select id="sel-preview-speed" title="选择页面预览播放倍速">
+                <option value="0.5">⏩ 0.5x 倍速</option>
+                <option value="0.75">⏩ 0.75x 倍速</option>
+                <option value="1" selected>⏩ 1.0x 原速</option>
+                <option value="1.25">⏩ 1.25x 倍速</option>
+                <option value="1.5">⏩ 1.5x 倍速</option>
+                <option value="2">⏩ 2.0x 倍速</option>
+                <option value="3">⏩ 3.0x 倍速</option>
+            </select>
+        </div>
         <button class="btn btn-save-img" id="btn-save-img">📸 保存高清截图</button>
         
         <div class="record-group">
@@ -180,7 +192,7 @@
             </select>
             <input type="number" id="in-custom-sec" value="8" min="1" max="120" style="display: none;" title="输入自定义秒数">
         </div>
-        <button class="btn btn-save-vid" id="btn-save-vid">🎥 录屏导出视频 (带边框/进度条/UI)</button>
+        <button class="btn btn-save-vid" id="btn-save-vid">🎥 录屏导出视频</button>
     </div>
 </header>
 
@@ -189,8 +201,9 @@
     <div class="workspace" id="left-workspace">
         <div class="viewport-tabs">
             <button class="tab-btn active" data-mode="mode-pc">💻 电脑网页端 (16:9)</button>
-            <button class="tab-btn" data-mode="mode-mobile-land">📱 手机横屏影音 (19.5:9)</button>
+            <button class="tab-btn" data-mode="mode-mobile-land">📱 手机横屏影音 (16:9)</button>
             <button class="tab-btn" data-mode="mode-mobile-port">📲 手机竖屏社区 (9:16)</button>
+            <button class="tab-btn" data-mode="mode-dy-land" id="tab-btn-dy-land">🔄 竖屏全屏观看 (16:9)</button>
         </div>
 
         <div class="player-stage">
@@ -199,7 +212,7 @@
                 <!-- 媒体底层容器 -->
                 <div class="media-container" id="player-media-wrap">
                     <img src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=95" class="player-bg-media" id="preview-img" crossorigin="anonymous">
-                    <video id="preview-video" class="player-bg-media" loop playsinline crossorigin="anonymous" style="display: none;"></video>
+                    <video id="preview-video" class="player-bg-media" loop playsinline style="display: none;"></video>
                 </div>
 
                 <!-- 动态跑马灯弹幕层 -->
@@ -422,6 +435,112 @@
                      模式 3: 手机竖屏 (9:16) 抖音 / Laya 双风格 HUD
                      ================================================================= -->
                 <div class="douyin-hud" id="douyin-hud">
+                    <!-- 竖屏顶部多机型仿真状态栏 -->
+                    <div class="dy-status-bar model-iphone16" id="dy-status-bar">
+                        <!-- 左侧区域：录屏胶囊 / 时间 / 运营商 / 定位 / 勿扰 / 应用通知图标组 -->
+                        <div class="dy-sb-left">
+                            <span class="dy-sb-rec-pill" id="dy-sb-rec" style="display: none;" title="屏幕录制中">
+                                <span class="dy-sb-rec-dot"></span>
+                                <span id="dy-sb-rec-time">14:24</span>
+                            </span>
+                            <span class="dy-sb-time interactive-elem" id="dy-sb-time" title="点击可随机切换时间">14:24</span>
+                            <span class="dy-sb-carrier" id="dy-sb-carrier" style="display: none;">中国移动</span>
+                            <!-- 定位小箭头 -->
+                            <svg class="dy-sb-icon" id="dy-sb-loc" viewBox="0 0 24 24" fill="currentColor" title="定位服务">
+                                <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+                            </svg>
+                            <!-- 勿扰月亮 -->
+                            <svg class="dy-sb-icon" id="dy-sb-dnd" style="display: none;" viewBox="0 0 24 24" fill="currentColor" title="勿扰模式">
+                                <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/>
+                            </svg>
+                            <!-- 安卓/鸿蒙左侧应用通知小图标组 -->
+                            <div class="dy-sb-notifs" id="dy-sb-notifs" style="display: none;">
+                                <!-- 微信图标 -->
+                                <svg class="dy-sb-notif-svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8.5 4C4.91 4 2 6.46 2 9.5c0 1.7.92 3.22 2.36 4.23L3.8 15.8l2.14-1.07c.8.22 1.66.35 2.56.35.34 0 .68-.02 1.01-.06-.2-.58-.31-1.2-.31-1.85 0-3.31 3.13-6 7-6 .35 0 .69.03 1.03.07C16.54 5.29 12.89 4 8.5 4zm-2.25 3.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4.5 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM16.2 8.5c-3.2 0-5.8 2.15-5.8 4.8s2.6 4.8 5.8 4.8c.75 0 1.47-.12 2.13-.33l1.77.89-.46-1.72c1.2-.84 1.96-2.1 1.96-3.64 0-2.65-2.6-4.8-5.4-4.8zm-1.9 2.8a.85.85 0 1 1 0 1.7.85.85 0 0 1 0-1.7zm3.8 0a.85.85 0 1 1 0 1.7.85.85 0 0 1 0-1.7z"/></svg>
+                                <!-- 消息/社交小图标 -->
+                                <svg class="dy-sb-notif-svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
+                            </div>
+                        </div>
+
+                        <!-- 居中硬件开孔区：灵动岛 / 灵动岛音乐态 / 经典刘海 / 居中单挖孔 / 华为三挖孔 -->
+                        <div class="dy-sb-center interactive-elem" id="dy-sb-cutout-wrap" title="点击可循环切换灵动岛/挖孔/刘海样式">
+                            <!-- 1. iPhone 灵动岛 (标准态 + 音乐波形律动态) -->
+                            <div class="dy-cutout cutout-island" id="dy-cutout-box">
+                                <div class="island-music-cover"></div>
+                                <div class="island-camera-lens"></div>
+                                <div class="island-music-waves">
+                                    <span></span><span></span><span></span><span></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 右侧区域：网速 / 闹钟 / 静音 / 蓝牙 / NFC / VPN / HD / 信号(单双卡) / 网络(Wi-Fi/5G) / 电池 -->
+                        <div class="dy-sb-right">
+                            <!-- 实时网速 -->
+                            <span class="dy-sb-netspeed" id="dy-sb-netspeed" style="display: none;">3.6M/s</span>
+                            <!-- 静音/振动 -->
+                            <svg class="dy-sb-icon" id="dy-sb-mute" style="display: none;" viewBox="0 0 24 24" fill="currentColor" title="静音模式">
+                                <path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/>
+                            </svg>
+                            <!-- 闹钟 -->
+                            <svg class="dy-sb-icon" id="dy-sb-alarm" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" title="闹钟">
+                                <circle cx="12" cy="13" r="8"/><polyline points="12 9 12 13 14.5 14.5"/><path d="M5 3L2 6m20 0l-3-3"/>
+                            </svg>
+                            <!-- 蓝牙耳机 -->
+                            <svg class="dy-sb-icon" id="dy-sb-bt" style="display: none;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" title="蓝牙已连接">
+                                <polyline points="6.5 6.5 17.5 17.5 12 23 12 1 17.5 6.5 6.5 17.5"/>
+                            </svg>
+                            <!-- NFC 标识 -->
+                            <span class="dy-sb-badge-txt" id="dy-sb-nfc" style="display: none;">NFC</span>
+                            <!-- HD 高清通话标识 -->
+                            <span class="dy-sb-badge-txt" id="dy-sb-hd" style="display: none;">HD</span>
+                            <!-- VPN 标识 -->
+                            <span class="dy-sb-badge-box" id="dy-sb-vpn" style="display: none;">VPN</span>
+
+                            <!-- 蜂窝信号条 (支持单卡4格 / 双卡双排信号格) -->
+                            <div class="dy-sb-signal" id="dy-sb-signal" title="移动网络信号">
+                                <div class="dy-sig-row primary-sim" id="dy-sig-row-1">
+                                    <span class="dy-sig-bar b1 active"></span>
+                                    <span class="dy-sig-bar b2 active"></span>
+                                    <span class="dy-sig-bar b3 active"></span>
+                                    <span class="dy-sig-bar b4 active"></span>
+                                </div>
+                                <div class="dy-sig-row secondary-sim" id="dy-sig-row-2" style="display: none;">
+                                    <span class="dy-sig-bar b1 active"></span>
+                                    <span class="dy-sig-bar b2 active"></span>
+                                    <span class="dy-sig-bar b3 active"></span>
+                                    <span class="dy-sig-bar b4"></span>
+                                </div>
+                            </div>
+
+                            <!-- 网络类型文字 (5G / 5G-A / 4G / LTE) -->
+                            <span class="dy-sb-net-txt" id="dy-sb-net-txt" style="display: none;">5G</span>
+
+                            <!-- Wi-Fi 扇形信号图标 -->
+                            <svg class="dy-sb-wifi" id="dy-sb-wifi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" title="Wi-Fi">
+                                <path d="M5 12.55a11 11 0 0 1 14.08 0"/>
+                                <path d="M1.42 9a16 16 0 0 1 21.16 0"/>
+                                <path d="M8.53 16.11a6 6 0 0 1 6.95 0"/>
+                                <circle cx="12" cy="20" r="1" fill="currentColor" stroke="none"/>
+                            </svg>
+
+                            <!-- 电池与百分比组件 -->
+                            <div class="dy-sb-battery-group interactive-elem" id="dy-sb-battery-group" title="点击可切换充电状态">
+                                <span class="dy-sb-bat-pct" id="dy-sb-bat-pct">85%</span>
+                                <div class="dy-sb-battery" id="dy-sb-battery">
+                                    <div class="dy-sb-bat-body">
+                                        <div class="dy-sb-bat-fill" id="dy-sb-bat-fill" style="width: 85%;"></div>
+                                        <span class="dy-sb-bat-in-num" id="dy-sb-bat-in-num" style="display: none;">85</span>
+                                        <svg class="dy-sb-bat-bolt" id="dy-sb-bat-bolt" style="display: none;" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M11 21h-1l1-7H7.5c-.58 0-.57-.32-.38-.66l.1-.16L12.5 3h1l-1 7h3.5c.49 0 .56.33.47.51l-.07.15L11 21z"/>
+                                        </svg>
+                                    </div>
+                                    <div class="dy-sb-bat-cap"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="dy-top-nav dy-skin-elem" id="dy-wrap-top-nav">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" class="interactive-elem"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
                         <div class="dy-nav-tabs">
@@ -448,8 +567,21 @@
                         </div>
                     </div>
 
-                    <div class="dy-fullscreen-pill interactive-elem" id="dy-fullscreen-pill">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+                    <!-- 竖屏内嵌横屏视频取景框水印与内嵌字幕覆层 (默认隐藏) -->
+                    <div class="dy-land-frame-overlay" id="dy-land-frame-overlay" style="display: none;">
+                        <div class="dy-lf-watermark" id="dy-lf-watermark" style="display: none;">
+                            <img src="Laya.png" class="dy-lf-wm-logo" id="dy-lf-wm-logo" alt="Logo">
+                            <span class="dy-lf-wm-text" id="dy-disp-box-wm">Laya</span>
+                        </div>
+                        <div class="dy-lf-subtitle" id="dy-disp-box-sub" style="display: none;"></div>
+                    </div>
+
+                    <div class="dy-fullscreen-pill interactive-elem" id="dy-fullscreen-pill" title="点击切换为横屏全屏观看模式">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="4" y="2" width="12" height="20" rx="2" ry="2"/>
+                            <path d="M21 12a5 5 0 0 0-5-5"/>
+                            <polyline points="19 10 21 12 17 12"/>
+                        </svg>
                         <span>全屏觀看</span>
                     </div>
 
@@ -588,25 +720,241 @@
                         <div class="dy-home-bar"></div>
                     </div>
                 </div>
+
+                <!-- 专属：竖屏点击全屏观看后的横屏界面 (mode-dy-land) -->
+                <div class="dy-land-hud" id="dy-land-hud">
+                    <!-- 顶部状态栏 (无黑框背景，时间居中、左侧Wi-Fi、右侧电量) -->
+                    <div class="dyl-status-bar" id="dyl-wrap-status">
+                        <div class="dyl-sb-left">
+                            <svg width="15" height="11" viewBox="0 0 16 12" fill="#fff">
+                                <path d="M8 9.6a1.4 1.4 0 100 2.8 1.4 1.4 0 000-2.8zm-3.6-1.9a5.2 5.2 0 017.2 0l1.2-1.3a7 7 0 00-9.6 0l1.2 1.3zm-2.7-2.7a9 9 0 0112.6 0l1.3-1.3a10.8 10.8 0 00-15.2 0l1.3 1.3z"/>
+                            </svg>
+                        </div>
+                        <div class="dyl-sb-center" id="dyl-disp-clock">04:23</div>
+                        <div class="dyl-sb-right">
+                            <span class="dyl-sb-pct" id="dyl-disp-battery">79%</span>
+                            <span class="dyl-sb-bat">
+                                <span class="dyl-sb-bat-body"><span class="dyl-sb-bat-fill" id="dyl-disp-bat-fill" style="width:79%"></span></span>
+                                <span class="dyl-sb-bat-cap"></span>
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- 顶部导航与标题栏 (无顶部黑边，默认标题 Laya) -->
+                    <div class="dyl-top-bar" id="dyl-wrap-top">
+                        <div class="dyl-top-main">
+                            <button class="dyl-back-btn interactive-elem" id="dyl-btn-back" title="退出全屏返回竖屏">
+                                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                            </button>
+                            <div class="dyl-title-scroll">
+                                <span class="dyl-title-text" id="dyl-disp-title">Laya</span>
+                                <span class="dyl-title-expand interactive-elem" id="dyl-btn-expand">展开</span>
+                            </div>
+                            <div class="dyl-top-actions" id="dyl-wrap-top-actions">
+                                <div class="dyl-icon-btn interactive-elem" id="dyl-btn-tv" title="投屏">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><text x="7" y="13.5" fill="#fff" stroke="none" font-size="7.5" font-weight="800">TV</text></svg>
+                                </div>
+                                <div class="dyl-icon-btn interactive-elem" id="dyl-btn-share" title="分享">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5l7 7-7 7"/><path d="M21 12H10a7 7 0 00-7 7v1"/></svg>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 左上角作者信息条 -->
+                        <div class="dyl-author-pill" id="dyl-wrap-author">
+                            <img src="Laya.png" class="dyl-author-avatar" id="dyl-disp-avatar" alt="Avatar">
+                            <span class="dyl-author-name" id="dyl-disp-author">Laya</span>
+                            <button class="dyl-follow-btn interactive-elem" id="dyl-btn-follow">＋</button>
+                        </div>
+                    </div>
+
+                    <!-- 中部交互控件：左侧亮度、中间暂停/播放(无黑底圆框)、右侧锁屏与静音 -->
+                    <div class="dyl-mid-left" id="dyl-wrap-bright">
+                        <div class="dyl-round-btn interactive-elem" id="dyl-btn-bright" title="点击切换画面亮度">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32l1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41m11.32-11.32l1.41-1.41"/></svg>
+                        </div>
+                    </div>
+
+                    <div class="dyl-mid-center" id="dyl-wrap-center-pause">
+                        <div class="dyl-center-pause-btn interactive-elem" id="dyl-btn-center-play" title="点击播放/暂停">
+                            <svg id="dyl-svg-pause" width="54" height="54" viewBox="0 0 24 24" fill="rgba(255,255,255,0.78)"><rect x="5.5" y="3.5" width="4.8" height="17" rx="2.2"/><rect x="13.7" y="3.5" width="4.8" height="17" rx="2.2"/></svg>
+                            <svg id="dyl-svg-play" width="54" height="54" viewBox="0 0 24 24" fill="rgba(255,255,255,0.78)" style="display:none;"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+                        </div>
+                    </div>
+
+                    <div class="dyl-mid-right" id="dyl-wrap-right-tools">
+                        <div class="dyl-round-btn interactive-elem" id="dyl-btn-lock" title="点击锁定/解锁界面">
+                            <svg id="dyl-svg-unlock" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 017.8-1"/></svg>
+                            <svg id="dyl-svg-lock" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#00d2ff" stroke-width="2" style="display:none;"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 018 0v4"/></svg>
+                        </div>
+                        <div class="dyl-round-btn interactive-elem" id="dyl-btn-vol" title="点击切换静音">
+                            <svg id="dyl-svg-vol-on" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 010 7.07"/><path d="M19.07 4.93a10 10 0 010 14.14"/></svg>
+                            <svg id="dyl-svg-vol-off" width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#00d2ff" stroke-width="2" style="display:none;"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>
+                        </div>
+                    </div>
+
+                    <!-- 底部进度条与社交弹幕栏 -->
+                    <div class="dyl-bottom-bar" id="dyl-wrap-bottom">
+                        <div class="dyl-time-row" id="dyl-wrap-time">
+                            <span id="dyl-disp-cur">00:14</span>
+                            <span class="dyl-time-sep">/</span>
+                            <span id="dyl-disp-dur">02:37</span>
+                        </div>
+                        <div class="dyl-progress-wrap interactive-elem" id="dyl-progress-wrap">
+                            <div class="dyl-progress-track">
+                                <div class="dyl-progress-fill" id="dyl-progress-fill" style="width: 12%;">
+                                    <div class="dyl-progress-thumb"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="dyl-bottom-controls">
+                            <div class="dyl-social-left" id="dyl-wrap-social">
+                                <div class="dyl-social-item interactive-elem" id="dyl-btn-like" title="点赞">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="1.8"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+                                    <span id="dyl-disp-like">434</span>
+                                </div>
+                                <div class="dyl-social-item interactive-elem" id="dyl-btn-comment" title="评论">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="1.8"><path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/></svg>
+                                    <span id="dyl-disp-comment">46</span>
+                                </div>
+                                <div class="dyl-social-item interactive-elem" id="dyl-btn-star" title="收藏">
+                                    <svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" stroke="#fff" stroke-width="1.8"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                                    <span id="dyl-disp-star">45</span>
+                                </div>
+                                <!-- 弹幕胶囊 -->
+                                <div class="dyl-dm-pill" id="dyl-wrap-dm-pill">
+                                    <div class="dyl-dm-switch interactive-elem active" id="dyl-btn-dm-switch" title="点击开关弹幕">
+                                        <span class="dyl-dm-char">弹</span>
+                                        <span class="dyl-dm-check" id="dyl-dm-check-mark">✓</span>
+                                    </div>
+                                    <div class="dyl-dm-divider"></div>
+                                    <input type="text" class="dyl-dm-input interactive-elem" id="dyl-btn-dm-input" placeholder="发一条友好的弹幕吧" title="输入回车发送弹幕">
+                                </div>
+                            </div>
+
+                            <div class="dyl-right-options" id="dyl-wrap-right-opts">
+                                <span class="dyl-opt-btn interactive-elem" id="dyl-btn-speed" title="点击切换倍速">倍速</span>
+                                <span class="dyl-opt-btn interactive-elem" id="dyl-btn-more" title="更多设置">•••</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 全局智能画面字幕层 (默认隐藏，开启后自动跟随时间轴显示多条字幕) -->
+                <div class="dyl-subtitle-overlay sub-style-douyin" id="dyl-wrap-subtitle" style="display: none;">
+                    <span id="dyl-disp-subtitle"></span>
+                </div>
             </div>
         </div>
 
-        <!-- 独立取景框浮窗 -->
+        <!-- 剪映风格底部视频区间裁剪轴 (只要上传视频，全模式显示在画面外下方) -->
+        <div class="jy-trimmer-panel" id="jy-trimmer-panel" style="display: none;">
+            <div class="jy-toolbar">
+                <div class="jy-toolbar-left">
+                    <button class="jy-play-btn" id="jy-btn-play" title="播放/暂停预览选中片段">▶</button>
+                    <div class="jy-time-readout">
+                        <span class="jy-cur-time" id="jy-disp-cur">00:00.0</span>
+                        <span class="jy-time-sep">/</span>
+                        <span class="jy-total-time" id="jy-disp-total">00:00.0</span>
+                    </div>
+                </div>
+                <div class="jy-toolbar-center">
+                    <span class="jy-range-badge">
+                        ✂️ 导出区间: <strong id="jy-disp-start">00:00.0</strong> ~ <strong id="jy-disp-end">00:00.0</strong>
+                        (共 <strong id="jy-disp-dur">0.0s</strong>)
+                    </span>
+                </div>
+                <div class="jy-toolbar-right">
+                    <select class="jy-speed-select" id="jy-sel-speed" title="切换预览播放倍速">
+                        <option value="0.5">0.5x 倍速</option>
+                        <option value="0.75">0.75x 倍速</option>
+                        <option value="1" selected>1.0x 原速</option>
+                        <option value="1.25">1.25x 倍速</option>
+                        <option value="1.5">1.5x 倍速</option>
+                        <option value="2">2.0x 倍速</option>
+                        <option value="3">3.0x 倍速</option>
+                    </select>
+                    <button class="jy-mini-btn" id="jy-btn-set-in" title="将当前播放位置设为起点">[ 设为起点</button>
+                    <button class="jy-mini-btn" id="jy-btn-set-out" title="将当前播放位置设为终点">设为终点 ]</button>
+                    <button class="jy-mini-btn" id="jy-btn-reset" title="重置为完整视频时长">完整区间</button>
+                </div>
+            </div>
+
+            <div class="jy-timeline-wrap" id="jy-timeline-wrap">
+                <!-- 顶部真实时间刻度尺 (00:00  .  00:03  .  00:06 ...) -->
+                <div class="jy-ruler" id="jy-ruler"></div>
+
+                <!-- 轨道主体区 -->
+                <div class="jy-tracks-area" id="jy-tracks-area">
+                    <!-- 左侧轨道静音小喇叭图标 -->
+                    <div class="jy-track-side">
+                        <button class="jy-mute-btn" id="jy-btn-mute" title="视频原声开关">🔊</button>
+                    </div>
+
+                    <!-- 视频帧缩略图 + 音频波形 + 裁剪手柄 -->
+                    <div class="jy-track-main" id="jy-track-main">
+                        <!-- 缩略图胶片条 -->
+                        <div class="jy-filmstrip" id="jy-filmstrip"></div>
+                        <!-- 底部青色音频波形条 (图2风格) -->
+                        <div class="jy-audio-bar">
+                            <canvas id="jy-wave-canvas"></canvas>
+                            <div class="jy-audio-label" id="jy-audio-label">🎵 视频原声轨道 (含导出音频)</div>
+                        </div>
+
+                        <!-- 左右未选中区域暗角遮罩 -->
+                        <div class="jy-mask jy-mask-left" id="jy-mask-left" style="width: 0%;"></div>
+                        <div class="jy-mask jy-mask-right" id="jy-mask-right" style="width: 0%;"></div>
+
+                        <!-- 剪映风格选中框及左右拖拽把柄 -->
+                        <div class="jy-selection-box" id="jy-selection-box" style="left: 0%; right: 0%;">
+                            <div class="jy-handle jy-handle-left" id="jy-handle-left" title="拖动调整导出开始时间">
+                                <span class="jy-handle-grip"></span>
+                                <span class="jy-handle-tip" id="jy-tip-left">00:00.0</span>
+                            </div>
+                            <div class="jy-handle jy-handle-right" id="jy-handle-right" title="拖动调整导出结束时间">
+                                <span class="jy-handle-grip"></span>
+                                <span class="jy-handle-tip" id="jy-tip-right">00:00.0</span>
+                            </div>
+                        </div>
+
+                        <!-- 白色垂直时间游标 (Playhead) -->
+                        <div class="jy-playhead" id="jy-playhead" style="left: 0%;">
+                            <div class="jy-playhead-head"></div>
+                            <div class="jy-playhead-line"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 独立取景框浮窗 (按住顶部标题栏可任意拖拽移动位置，支持竖框/横框自由切换与四角缩放) -->
         <div class="crop-inspector-window" id="crop-inspector-window" style="display: none;">
-            <div class="crop-window-header">
-                <span class="crop-window-title">📐 独立取景框 (滚轮缩放小窗/拖框构图)</span>
+            <div class="crop-window-header" id="crop-window-header" title="按住此处可任意拖动独立取景框的位置">
+                <span class="crop-window-title">✥ 📐 独立取景框 (可任意拖动窗口)</span>
                 <button class="crop-window-close" id="btn-close-crop-window" title="关闭小窗">✕</button>
+            </div>
+            <div class="crop-orient-bar">
+                <button class="crop-orient-btn" id="btn-crop-orient-port" title="将取景区域绿框切换为竖着 (9:16)">📱 竖着框 (9:16)</button>
+                <button class="crop-orient-btn active" id="btn-crop-orient-land" title="将取景区域绿框切换为横着 (16:9)">🖼️ 横着框 (16:9)</button>
             </div>
             <div class="crop-window-body" id="crop-window-body">
                 <img src="" class="crop-thumb-img" id="crop-thumb-img" alt="Thumbnail">
                 <div class="crop-selection-box" id="crop-selection-box">
                     <div class="crop-box-border"></div>
-                    <div class="crop-box-tag">取景区域</div>
+                    <div class="crop-box-tag" id="crop-box-tag">取景区域 (可拖动)</div>
+                    <span class="crop-corner crop-corner-nw" data-dir="nw"></span>
+                    <span class="crop-corner crop-corner-ne" data-dir="ne"></span>
+                    <span class="crop-corner crop-corner-sw" data-dir="sw"></span>
+                    <span class="crop-corner crop-corner-se" data-dir="se"></span>
                 </div>
             </div>
             <div class="crop-window-footer">
-                <span id="txt-crop-win-size">尺寸: 240px</span>
-                <button class="btn btn-secondary btn-sm" id="btn-crop-reset">居中</button>
+                <span id="txt-crop-win-size">缩放: 100%</span>
+                <div style="display:flex; gap:4px;">
+                    <button class="btn btn-secondary btn-sm" id="btn-crop-box-shrink" title="缩小绿框 (扩大可移动范围)">绿框变小</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-crop-box-grow" title="放大绿框">绿框变大</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-crop-reset">居中</button>
+                </div>
             </div>
         </div>
     </div>
@@ -641,27 +989,29 @@
             <button class="c-tab-btn" id="tab-btn-dm">💬 弹幕</button>
         </div>
 
-        <!-- 全局通用卡片：官方双 Logo (蓝/紫) 真实原图切换与绑定 -->
+        <!-- 全局通用卡片：官方双 Logo (蓝/紫) 自带默认 + 可选自定义上传 -->
         <div class="panel-card">
             <div class="card-header">
-                <span>🎨 官方 Logo 切换 (蓝/紫原图)</span>
-                <span class="badge-tip">导出100%原图</span>
+                <span>🎨 官方 Logo 切换 (默认自带蓝/紫图标)</span>
+                <span class="badge-tip">免上传直出</span>
             </div>
             <div class="form-row">
-                <label>快速切换当前使用的 Logo 图标：</label>
+                <label>快速切换当前使用的自带 Logo 图标：</label>
                 <select id="sel-logo-version" style="background:#151821; font-weight:700; color:#5dade2;">
-                    <option value="Laya.png">🔵 蓝色图标 (Laya.png)</option>
-                    <option value="Laya2.png">🟣 紫色图标 (Laya2.png)</option>
+                    <option value="Laya.png">🔵 自带蓝色图标 (Laya.png)</option>
+                    <option value="Laya2.png">🟣 自带紫色图标 (Laya2.png)</option>
                 </select>
             </div>
             <div class="form-row">
-                <label>📌 绑定你自己的真实图标文件 (防导出变假图，绑一次永久有效)：</label>
+                <label style="color:#8b9bb4;">可选：如需替换成其他图标可自由上传 (不上传则默认用自带图标)：</label>
                 <div style="display: flex; gap: 6px; margin-top: 2px;">
                     <input type="file" id="up-logo-1" accept="image/*" style="display: none;">
-                    <button class="btn btn-secondary btn-sm" style="flex: 1; border: 1px solid #1877F2; color: #5dade2;" onclick="document.getElementById('up-logo-1').click()">🔵 上传绑定蓝色Logo</button>
+                    <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="document.getElementById('up-logo-1').click()">🔵 自定义蓝标</button>
                     
                     <input type="file" id="up-logo-2" accept="image/*" style="display: none;">
-                    <button class="btn btn-secondary btn-sm" style="flex: 1; border: 1px solid #9b59b6; color: #d2b4de;" onclick="document.getElementById('up-logo-2').click()">🟣 上传绑定紫色Logo</button>
+                    <button class="btn btn-secondary btn-sm" style="flex: 1;" onclick="document.getElementById('up-logo-2').click()">🟣 自定义紫标</button>
+
+                    <button class="btn btn-secondary btn-sm" id="btn-reset-builtin-logo" title="恢复系统自带的 Laya.png / Laya2.png">恢复自带</button>
                 </div>
             </div>
             <div class="switch-tile highlight-tile" style="margin-top: 4px;">
@@ -1053,6 +1403,409 @@
                 </div>
             </div>
 
+            <!-- 新增：竖屏顶部多机型状态栏与全套状态图标工作台 -->
+            <div class="panel-card">
+                <div class="card-header">
+                    <span>📱 顶部手机状态栏与机型仿真</span>
+                    <span class="badge-tip">多机型/全图标</span>
+                </div>
+
+                <div class="switch-tile highlight-tile">
+                    <span>🔋 显示手机顶部状态栏</span>
+                    <label class="ios-toggle">
+                        <input type="checkbox" id="sw-dy-status-bar" checked>
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <label>📱 选择手机型号预设 (自动匹配专属布局/开孔/图标风格)：</label>
+                    <select id="sel-dy-phone-model" style="background:#151821; font-weight:700; color:#f39c12;">
+                        <option value="iphone16" selected>🍎 iPhone 16 Pro Max (iOS 18 灵动岛标准)</option>
+                        <option value="iphone16-music">🎵 iPhone 16 Pro (灵动岛·音乐律动胶囊)</option>
+                        <option value="iphone14">🍎 iPhone 14 / 13 Pro (经典刘海屏)</option>
+                        <option value="huawei-mate60">🌸 华为 Mate 60 Pro (鸿蒙三挖孔 + 5G HD)</option>
+                        <option value="xiaomi14">⚡ 小米 14 Ultra (澎湃OS 居中挖孔 + 实时网速)</option>
+                        <option value="samsung-s24">🌌 三星 S24 Ultra (One UI 极微居中挖孔 + NFC)</option>
+                        <option value="vivo-x100">💙 VIVO X100 / OPPO Find X7 (双卡5G + 运营商)</option>
+                        <option value="pure-ios">✨ 纯净 iOS 全面屏 (无灵动岛/无刘海遮挡)</option>
+                        <option value="pure-android">✨ 纯净安卓旗舰屏 (无挖孔 + 满配状态图标)</option>
+                    </select>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>屏幕顶部开孔/灵动岛</label>
+                        <select id="sel-dy-cutout">
+                            <option value="island" selected>💊 iPhone 灵动岛</option>
+                            <option value="island-music">🎵 灵动岛 (音乐律动)</option>
+                            <option value="notch">📲 iPhone 经典刘海</option>
+                            <option value="punch-center">⚫ 安卓居中单挖孔</option>
+                            <option value="huawei-triple">🌸 华为鸿蒙三挖孔</option>
+                            <option value="punch-left">↖️ 左上角单挖孔</option>
+                            <option value="none">✨ 无开孔纯净全面屏</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>状态栏时间 <a href="javascript:void(0)" id="btn-dy-random-time" style="color:#5dade2; text-decoration:none; margin-left:4px;">🎲随机</a></label>
+                        <input type="text" id="in-dy-sb-time" value="14:24">
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>移动信号与单双卡</label>
+                        <select id="sel-dy-sb-signal">
+                            <option value="single-4" selected>📶 单卡 4格满信号</option>
+                            <option value="single-3">📶 单卡 3格信号</option>
+                            <option value="single-2">📶 单卡 2格信号</option>
+                            <option value="single-1">📶 单卡 1格弱信号</option>
+                            <option value="dual-4">📶 双卡双待 (双排满格)</option>
+                            <option value="dual-3">📶 双卡双待 (主满副3格)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>网络连接图标</label>
+                        <select id="sel-dy-sb-net">
+                            <option value="wifi" selected>🛜 Wi-Fi 满格图标</option>
+                            <option value="5g">5G 移动网络</option>
+                            <option value="5ga">5G-A 极速网络</option>
+                            <option value="4g">4G / LTE 网络</option>
+                            <option value="wifi+5g">5G + Wi-Fi 同显</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>左上运营商文字</label>
+                        <select id="sel-dy-sb-carrier">
+                            <option value="" selected>不显示运营商</option>
+                            <option value="中国移动">中国移动</option>
+                            <option value="中国联通">中国联通</option>
+                            <option value="中国电信">中国电信</option>
+                            <option value="中国广电">中国广电</option>
+                            <option value="中華電信">中華電信</option>
+                            <option value="遠傳電信">遠傳電信</option>
+                            <option value="台灣大哥大">台灣大哥大</option>
+                            <option value="CMHK">CMHK</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>实时网速数值</label>
+                        <input type="text" id="in-dy-sb-speed" value="3.6M/s">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="range-box">
+                        <label>🔋 手机电池电量与样式</label>
+                        <span class="range-value" id="txt-dy-sb-battery">85%</span>
+                    </div>
+                    <input type="range" id="in-dy-sb-battery" min="5" max="100" value="85">
+                </div>
+
+                <div class="form-row">
+                    <label>✨ 状态栏丰富图标与状态自由组合：</label>
+                    <div class="switch-grid">
+                        <div class="switch-tile">
+                            <span>🔢 电量百分比</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-bat-pct" checked>
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>⚡ 闪电快充中</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-charging">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>🟡 省电黄电池</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-lowpower">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>📍 定位小箭头</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-loc" checked>
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>🚀 实时网速</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-speed">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>🎧 蓝牙已连接</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-bt">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>⏰ 闹钟图标</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-alarm">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>🔕 静音图标</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-mute">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>📶 HD高清通话</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-hd">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>🔑 VPN 图标</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-vpn">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>📡 NFC 图标</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-nfc">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>🌙 勿扰月亮标</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-dnd">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>💬 微信/通知标</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-notifs">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                        <div class="switch-tile">
+                            <span>🔴 录屏红胶囊</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-sb-rec">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 竖屏内横屏取景与全屏观看设置 -->
+            <div class="panel-card" style="border: 1px solid rgba(56, 189, 248, 0.35);">
+                <div class="card-header">
+                    <span>📺 全屏观看与横竖取景设置</span>
+                    <span class="badge-tip">默认 Laya</span>
+                </div>
+                <div style="display:flex; gap:8px; margin-bottom:4px;">
+                    <button class="btn btn-primary btn-sm" id="btn-enter-dy-fullscreen" style="flex:1;">🔄 进入全屏观看模式</button>
+                    <button class="btn btn-secondary btn-sm" id="btn-exit-dy-fullscreen" style="flex:1;">📱 返回竖屏社区模式</button>
+                </div>
+                <div class="form-row">
+                    <label style="color:#38bdf8; font-weight:700;">✏️ 全屏观看 · 左上角剧集/片名标题 (直接在此输入)</label>
+                    <input type="text" id="inp-dy-lf-title" class="text-input" value="Laya" placeholder="输入左上角剧集/片名，默认 Laya">
+                </div>
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>左上角作者昵称</label>
+                        <input type="text" id="inp-dy-lf-brand" class="text-input" value="Laya" placeholder="默认 Laya">
+                    </div>
+                    <div class="form-row">
+                        <label>竖屏取景方式</label>
+                        <div class="switch-tile" style="padding:4px 8px;">
+                            <span>横屏居中框</span>
+                            <label class="ios-toggle">
+                                <input type="checkbox" id="sw-dy-land-box">
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="switch-grid" style="display:none;">
+                    <input type="checkbox" id="sw-dy-lf-wm">
+                    <input type="checkbox" id="sw-dy-box-sub">
+                    <input type="text" id="inp-dy-box-sub" value="">
+                </div>
+            </div>
+
+            <!-- 🎬 智能画面字幕识别与多条编辑工作台 (默认关闭，开启后可自动识别/简繁切换/逐条编辑) -->
+            <div class="panel-card sub-studio-card" style="border: 1px solid rgba(0, 230, 118, 0.4);">
+                <div class="card-header">
+                    <span>🎬 智能画面字幕识别与多条编辑</span>
+                    <span class="badge-tip" style="background:rgba(16,185,129,0.2); color:#34d399;">AI 字幕台</span>
+                </div>
+
+                <div class="switch-tile highlight-tile" style="border-color:rgba(16,185,129,0.45); background:rgba(16,185,129,0.12);">
+                    <span>✨ 开启画面底部字幕 (默认关闭)</span>
+                    <label class="ios-toggle">
+                        <input type="checkbox" id="sw-dyl-subtitle">
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+
+                <div id="sub-studio-body" class="sub-studio-body" style="display: none;">
+                    <!-- 自动识别与语音听写操作栏 -->
+                    <div class="sub-action-bar">
+                        <button type="button" class="btn-sub-ocr" id="btn-auto-ocr-sub" title="智能扫描视频/图片画面并按时间轴自动生成字幕列表">
+                            <span>🔍 自动识别画面字幕</span>
+                        </button>
+                        <button type="button" class="btn-sub-voice" id="btn-voice-ocr-sub" title="边播边听写识别语音台词">
+                            <span>🎙️ 语音听写</span>
+                        </button>
+                    </div>
+
+                    <!-- 识别进度条提示 -->
+                    <div id="sub-ocr-progress-wrap" class="sub-ocr-progress-wrap" style="display: none;">
+                        <div class="sub-ocr-status-row">
+                            <span id="sub-ocr-status-txt">⏳ 正在扫描视频关键帧识别字幕...</span>
+                            <span id="sub-ocr-pct-txt">0%</span>
+                        </div>
+                        <div class="sub-ocr-track">
+                            <div id="sub-ocr-progress-bar" class="sub-ocr-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+
+                    <!-- 简繁一键转换与样式设置 -->
+                    <div class="sub-lang-style-row">
+                        <div class="sub-lang-seg">
+                            <button type="button" class="sub-lang-btn active" id="btn-sub-simp">简体中文</button>
+                            <button type="button" class="sub-lang-btn" id="btn-sub-trad">繁體中文</button>
+                        </div>
+                        <select id="sel-sub-style" class="sub-style-select" title="切换字幕视觉外观">
+                            <option value="douyin" selected>✨ 原生立体黑边白字</option>
+                            <option value="cinema">🎞️ 院线黑丝绒底衬</option>
+                            <option value="gold">👑 质感暖金描边字</option>
+                            <option value="cyan">💎 极光青蓝发光字</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="range-box">
+                            <label>字幕字号大小</label>
+                            <span class="range-value" id="txt-sub-size">18px</span>
+                        </div>
+                        <input type="range" id="in-sub-size" min="13" max="30" value="18">
+                    </div>
+
+                    <!-- 多条字幕列表头部 -->
+                    <div class="sub-list-header">
+                        <span>📝 字幕列表 (点击时间可跳转画面，支持逐条编辑)</span>
+                        <div style="display:flex; gap:4px;">
+                            <button type="button" class="sub-mini-act" id="btn-add-sub-cue">＋ 新增一条</button>
+                            <button type="button" class="sub-mini-act danger" id="btn-clear-sub-cues">清空</button>
+                        </div>
+                    </div>
+
+                    <!-- 多条可编辑字幕容器 -->
+                    <div id="sub-cue-list" class="sub-cue-list"></div>
+                </div>
+            </div>
+
+            <!-- 全屏观看横屏模式专属控件开关 -->
+            <div class="panel-card" style="border: 1px solid rgba(56, 189, 248, 0.35);">
+                <div class="card-header">
+                    <span>🔄 全屏观看(横屏) 控件显隐与交互</span>
+                </div>
+                <div class="switch-grid">
+                    <div class="switch-tile">
+                        <span>顶部手机状态栏</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-status" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>顶部标题与返回栏</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-top" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>左上角作者与关注</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-author" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>右上角TV投屏/分享</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-top-act" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>左侧亮度调节钮</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-bright" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>中央大暂停/播放钮</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-pause" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>右侧锁屏与音量钮</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-right-tools" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>进度时间 (00:14/02:37)</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-time" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>底部社交与弹幕栏</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-bottom" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>弹幕发送框胶囊</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-dm-pill" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile" style="grid-column: span 2;">
+                        <span>右下角倍速与更多</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dyl-right-opts" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
             <div class="panel-card">
                 <div class="card-header">
                     <span>🎛️ 竖屏专属组件显隐开关</span>
@@ -1242,6 +1995,15 @@
             </div>
 
             <div class="form-row">
+                <label>取景区域绿框方向 (竖着/横着自由切换)</label>
+                <select id="sel-crop-orient" style="background:#151821; font-weight:700; color:#10b981;">
+                    <option value="auto">🔄 跟随当前视窗方向</option>
+                    <option value="port">📱 竖着取景框 (9:16 竖屏取景)</option>
+                    <option value="land">🖼️ 横着取景框 (16:9 横屏·上下黑边)</option>
+                </select>
+            </div>
+
+            <div class="form-row">
                 <label>画面自适应模式</label>
                 <select id="sel-crop-fit" style="background:#151821; font-weight:700; color:#5dade2;">
                     <option value="cover">✂️ 等比裁切填充 (Cover - 无黑边)</option>
@@ -1281,6 +2043,7 @@
     </div>
 </main>
 
+<script src="logos.js"></script>
 <script src="player.js"></script>
 <script src="danmaku.js"></script>
 <script src="app.js"></script>
