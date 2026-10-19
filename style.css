@@ -4255,15 +4255,22 @@ input[type="range"] {
     border-radius: 0 5px 5px 0;
 }
 
-/* 选中高亮框与左右拖拽把柄 (科技青蓝色调，告别粉红) */
+/* 选中高亮框与左右拖拽把柄 (科技青蓝色调，告别粉红，支持按住选框整体左右平移) */
 .jy-selection-box {
     position: absolute;
     top: -1px;
     bottom: -1px;
     border-top: 2.5px solid #00d2ff;
     border-bottom: 2.5px solid #00d2ff;
-    pointer-events: none;
+    background: rgba(0, 210, 255, 0.08);
+    pointer-events: auto;
+    cursor: grab;
     z-index: 6;
+}
+
+.jy-selection-box.dragging {
+    cursor: grabbing;
+    background: rgba(0, 210, 255, 0.16);
 }
 
 .jy-handle {

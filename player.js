@@ -398,6 +398,39 @@ window.PlayerEngine = {
         }
     }
 
+    function getDesiredClipDuration() {
+        const selRecSecEl = document.getElementById('sel-record-sec');
+        const inCustomSecEl = document.getElementById('in-custom-sec');
+        if (selRecSecEl) {
+            const val = selRecSecEl.value === 'custom'
+                ? (parseFloat(inCustomSecEl ? inCustomSecEl.value : 10) || 10)
+                : (parseFloat(selRecSecEl.value) || 10);
+            if (val > 0) return val;
+        }
+        return 10;
+    }
+
+    function syncTopDurationControl(clipDur) {
+        const selRecSecEl = document.getElementById('sel-record-sec');
+        const inCustomSecEl = document.getElementById('in-custom-sec');
+        if (!selRecSecEl || !inCustomSecEl) return;
+        const rounded = Math.round(clipDur * 10) / 10;
+        if (Math.abs(rounded - 5) < 0.15) {
+            selRecSecEl.value = '5';
+            inCustomSecEl.style.display = 'none';
+        } else if (Math.abs(rounded - 10) < 0.15) {
+            selRecSecEl.value = '10';
+            inCustomSecEl.style.display = 'none';
+        } else if (Math.abs(rounded - 15) < 0.15) {
+            selRecSecEl.value = '15';
+            inCustomSecEl.style.display = 'none';
+        } else {
+            selRecSecEl.value = 'custom';
+            inCustomSecEl.style.display = 'inline-block';
+            inCustomSecEl.value = String(Math.max(1, Math.round(rounded)));
+        }
+    }
+
     function updateJianyingTrimUI() {
         const dur = window.PlayerEngine.videoDuration || 1;
         const start = window.PlayerEngine.trimStart || 0;
@@ -422,7 +455,33 @@ window.PlayerEngine = {
         if (jyTipLeft) jyTipLeft.textContent = startStr;
         if (jyTipRight) jyTipRight.textContent = endStr;
         if (jyDispTotal) jyDispTotal.textContent = window.PlayerEngine.secToMinSec(dur, true);
+
+        if (window.PlayerEngine.userHasTrimmed) {
+            syncTopDurationControl(clipDur);
+        }
     }
+
+    window.PlayerEngine.applyDropdownDuration = function (sec) {
+        const targetSec = Math.max(1, parseFloat(sec) || 10);
+        if (!window.PlayerEngine.isVideoMode || !previewVideo) return;
+        const dur = (previewVideo.duration && isFinite(previewVideo.duration))
+            ? previewVideo.duration
+            : (window.PlayerEngine.videoDuration || targetSec);
+        const clipLen = Math.min(targetSec, dur);
+        let anchorStart = window.PlayerEngine.userHasTrimmed
+            ? (window.PlayerEngine.trimStart || 0)
+            : (previewVideo.currentTime || 0);
+        if (anchorStart + clipLen > dur) {
+            anchorStart = Math.max(0, dur - clipLen);
+        }
+        window.PlayerEngine.trimStart = anchorStart;
+        window.PlayerEngine.trimEnd = Math.min(dur, anchorStart + clipLen);
+        window.PlayerEngine.userHasTrimmed = true;
+        window.PlayerEngine._allowPlayOutsideTrim = false;
+        previewVideo.currentTime = window.PlayerEngine.trimStart;
+        updateJianyingTrimUI();
+        updateJianyingPlayheadUI();
+    };
 
     function updateJianyingPlayheadUI() {
         if (!window.PlayerEngine.isVideoMode || !previewVideo) return;
@@ -445,6 +504,7 @@ window.PlayerEngine = {
             window.PlayerEngine.trimStart = 0;
             window.PlayerEngine.trimEnd = dur;
             window.PlayerEngine.userHasTrimmed = false;
+            window.PlayerEngine._allowPlayOutsideTrim = false;
 
             renderJianyingRuler(dur);
             renderJianyingWaveform();
@@ -506,7 +566,13 @@ window.PlayerEngine = {
     }
 
     // 剪映手柄与播放指针拖拽交互
-    let jyDragMode = null; // 'left' | 'right' | 'playhead'
+    let jyDragMode = null; // 'left' | 'right' | 'range' | 'playhead'
+    let jyRangeDragStartX = 0;
+    let jyRangeDragStartTime = 0;
+    let jyRangeInitialStart = 0;
+    let jyRangeInitialEnd = 0;
+    let jyRangeHasMoved = false;
+
     function getTrackTimeFromClientX(clientX) {
         if (!jyTrackMain) return 0;
         const rect = jyTrackMain.getBoundingClientRect();
@@ -518,7 +584,10 @@ window.PlayerEngine = {
     if (jyHandleLeft) {
         jyHandleLeft.addEventListener('mousedown', (e) => {
             jyDragMode = 'left';
+            jyRangeInitialStart = window.PlayerEngine.trimStart || 0;
+            jyRangeInitialEnd = window.PlayerEngine.trimEnd || window.PlayerEngine.videoDuration || 1;
             window.PlayerEngine.userHasTrimmed = true;
+            window.PlayerEngine._allowPlayOutsideTrim = false;
             jyHandleLeft.classList.add('dragging');
             e.stopPropagation();
             e.preventDefault();
@@ -527,15 +596,41 @@ window.PlayerEngine = {
     if (jyHandleRight) {
         jyHandleRight.addEventListener('mousedown', (e) => {
             jyDragMode = 'right';
+            jyRangeInitialStart = window.PlayerEngine.trimStart || 0;
+            jyRangeInitialEnd = window.PlayerEngine.trimEnd || window.PlayerEngine.videoDuration || 1;
             window.PlayerEngine.userHasTrimmed = true;
+            window.PlayerEngine._allowPlayOutsideTrim = true;
             jyHandleRight.classList.add('dragging');
             e.stopPropagation();
             e.preventDefault();
         });
     }
+    if (jySelectionBox) {
+        jySelectionBox.addEventListener('mousedown', (e) => {
+            if (e.target === jyHandleLeft || e.target === jyHandleRight || (jyHandleLeft && jyHandleLeft.contains(e.target)) || (jyHandleRight && jyHandleRight.contains(e.target))) {
+                return;
+            }
+            const dur = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
+            const curStart = window.PlayerEngine.trimStart || 0;
+            const curEnd = window.PlayerEngine.trimEnd || dur;
+            // 若当前已裁剪出子区间，支持直接按住选框整体左右平移（保持选定秒数如 10s 不变）
+            if (curEnd - curStart < dur - 0.2) {
+                jyDragMode = 'range';
+                jyRangeDragStartX = e.clientX;
+                jyRangeDragStartTime = getTrackTimeFromClientX(e.clientX);
+                jyRangeInitialStart = curStart;
+                jyRangeInitialEnd = curEnd;
+                jyRangeHasMoved = false;
+                jySelectionBox.classList.add('dragging');
+                e.stopPropagation();
+                e.preventDefault();
+            }
+        });
+    }
     if (jyPlayhead) {
         jyPlayhead.addEventListener('mousedown', (e) => {
             jyDragMode = 'playhead';
+            window.PlayerEngine._allowPlayOutsideTrim = true;
             e.stopPropagation();
             e.preventDefault();
         });
@@ -545,6 +640,8 @@ window.PlayerEngine = {
             if (e.target === jyHandleLeft || e.target === jyHandleRight) return;
             jyDragMode = 'playhead';
             const t = getTrackTimeFromClientX(e.clientX);
+            const range = window.PlayerEngine.getTrimRange();
+            window.PlayerEngine._allowPlayOutsideTrim = (t < range.start || t >= range.end - 0.1);
             if (previewVideo && window.PlayerEngine.isVideoMode) {
                 previewVideo.currentTime = t;
                 updateJianyingPlayheadUI();
@@ -556,27 +653,83 @@ window.PlayerEngine = {
         if (!jyDragMode || !window.PlayerEngine.isVideoMode) return;
         const t = getTrackTimeFromClientX(e.clientX);
         const dur = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
+        const minClip = Math.min(1.0, dur);
+
         if (jyDragMode === 'left') {
-            window.PlayerEngine.trimStart = Math.max(0, Math.min(t, (window.PlayerEngine.trimEnd || dur) - 0.3));
+            const newStart = Math.max(0, Math.min(t, dur - minClip));
+            let curEnd = window.PlayerEngine.trimEnd || dur;
+            if (newStart >= curEnd - minClip) {
+                const prevSpan = Math.max(minClip, (jyRangeInitialEnd - jyRangeInitialStart) || getDesiredClipDuration());
+                curEnd = Math.min(dur, newStart + prevSpan);
+                window.PlayerEngine.trimEnd = curEnd;
+            }
+            window.PlayerEngine.trimStart = Math.min(newStart, curEnd - minClip);
             previewVideo.currentTime = window.PlayerEngine.trimStart;
             updateJianyingTrimUI();
             updateJianyingPlayheadUI();
         } else if (jyDragMode === 'right') {
-            window.PlayerEngine.trimEnd = Math.min(dur, Math.max(t, (window.PlayerEngine.trimStart || 0) + 0.3));
+            const newEnd = Math.min(dur, Math.max(t, minClip));
+            let curStart = window.PlayerEngine.trimStart || 0;
+            if (newEnd <= curStart + minClip) {
+                const prevSpan = Math.max(minClip, (jyRangeInitialEnd - jyRangeInitialStart) || getDesiredClipDuration());
+                curStart = Math.max(0, newEnd - prevSpan);
+                window.PlayerEngine.trimStart = curStart;
+            }
+            window.PlayerEngine.trimEnd = Math.max(newEnd, curStart + minClip);
             previewVideo.currentTime = window.PlayerEngine.trimEnd;
             updateJianyingTrimUI();
             updateJianyingPlayheadUI();
+        } else if (jyDragMode === 'range') {
+            if (Math.abs(e.clientX - jyRangeDragStartX) > 3) {
+                jyRangeHasMoved = true;
+            }
+            if (jyRangeHasMoved) {
+                const span = Math.max(minClip, jyRangeInitialEnd - jyRangeInitialStart);
+                const delta = t - jyRangeDragStartTime;
+                let newStart = jyRangeInitialStart + delta;
+                if (newStart < 0) newStart = 0;
+                if (newStart + span > dur) newStart = Math.max(0, dur - span);
+                window.PlayerEngine.trimStart = newStart;
+                window.PlayerEngine.trimEnd = Math.min(dur, newStart + span);
+                window.PlayerEngine.userHasTrimmed = true;
+                window.PlayerEngine._allowPlayOutsideTrim = false;
+                previewVideo.currentTime = newStart;
+                updateJianyingTrimUI();
+                updateJianyingPlayheadUI();
+            }
         } else if (jyDragMode === 'playhead') {
-            previewVideo.currentTime = Math.max(0, Math.min(dur, t));
+            const clampedT = Math.max(0, Math.min(dur, t));
+            const range = window.PlayerEngine.getTrimRange();
+            window.PlayerEngine._allowPlayOutsideTrim = (clampedT < range.start || clampedT >= range.end - 0.1);
+            previewVideo.currentTime = clampedT;
             updateJianyingPlayheadUI();
         }
     });
 
-    window.addEventListener('mouseup', () => {
+    window.addEventListener('mouseup', (e) => {
         if (!jyDragMode) return;
+        const finishedMode = jyDragMode;
         jyDragMode = null;
         if (jyHandleLeft) jyHandleLeft.classList.remove('dragging');
         if (jyHandleRight) jyHandleRight.classList.remove('dragging');
+        if (jySelectionBox) jySelectionBox.classList.remove('dragging');
+
+        if (finishedMode === 'right') {
+            // 拖动右把手松开后，将播放指针回到裁剪起点，避免停留在终点导致下一帧自动跳回或误触设为起点变成0.3s
+            window.PlayerEngine._allowPlayOutsideTrim = false;
+            if (previewVideo && window.PlayerEngine.isVideoMode) {
+                previewVideo.currentTime = window.PlayerEngine.trimStart || 0;
+                updateJianyingPlayheadUI();
+            }
+        } else if (finishedMode === 'range' && !jyRangeHasMoved) {
+            // 若在选框内部仅点击未拖拽，则将播放指针定位到点击处
+            const clickT = getTrackTimeFromClientX(e.clientX);
+            if (previewVideo && window.PlayerEngine.isVideoMode) {
+                window.PlayerEngine._allowPlayOutsideTrim = false;
+                previewVideo.currentTime = clickT;
+                updateJianyingPlayheadUI();
+            }
+        }
     });
 
     if (jyBtnPlay) {
@@ -585,24 +738,59 @@ window.PlayerEngine = {
     if (jyBtnSetIn) {
         jyBtnSetIn.addEventListener('click', () => {
             if (!window.PlayerEngine.isVideoMode) return;
-            const cur = previewVideo.currentTime || 0;
-            const end = window.PlayerEngine.trimEnd || window.PlayerEngine.videoDuration || 1;
-            window.PlayerEngine.trimStart = Math.min(cur, Math.max(0, end - 0.3));
+            const dur = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
+            const cur = Math.max(0, Math.min(dur - 0.5, previewVideo.currentTime || 0));
+            const prevEnd = window.PlayerEngine.trimEnd || dur;
+            const prevSpan = prevEnd - (window.PlayerEngine.trimStart || 0);
+            const desiredSpan = (window.PlayerEngine.userHasTrimmed && prevSpan >= 1.0 && prevSpan < dur - 0.5)
+                ? prevSpan
+                : getDesiredClipDuration();
+
+            window.PlayerEngine.trimStart = cur;
+            // 若新起点大于等于原终点（或距离过近），自动将终点向后顺延选定秒数（如 10s），绝不压缩成 0.3s
+            if (cur >= prevEnd - 0.8) {
+                window.PlayerEngine.trimEnd = Math.min(dur, cur + desiredSpan);
+                if (window.PlayerEngine.trimEnd - window.PlayerEngine.trimStart < 1.0) {
+                    window.PlayerEngine.trimStart = Math.max(0, window.PlayerEngine.trimEnd - Math.min(desiredSpan, dur));
+                }
+            }
             window.PlayerEngine.userHasTrimmed = true;
+            window.PlayerEngine._allowPlayOutsideTrim = false;
             updateJianyingTrimUI();
-            toast(`✂️ 已将导出起点设为 ${window.PlayerEngine.secToMinSec(window.PlayerEngine.trimStart, true)}`);
+            const clipDur = (window.PlayerEngine.trimEnd - window.PlayerEngine.trimStart).toFixed(1);
+            toast(`✂️ 已设起点 ${window.PlayerEngine.secToMinSec(window.PlayerEngine.trimStart, true)}（当前区间 ${clipDur}s）`);
         });
     }
     if (jyBtnSetOut) {
         jyBtnSetOut.addEventListener('click', () => {
             if (!window.PlayerEngine.isVideoMode) return;
-            const cur = previewVideo.currentTime || 0;
-            const start = window.PlayerEngine.trimStart || 0;
-            const dur = window.PlayerEngine.videoDuration || 1;
-            window.PlayerEngine.trimEnd = Math.max(cur, Math.min(dur, start + 0.3));
+            const dur = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
+            const cur = Math.max(0, Math.min(dur, previewVideo.currentTime || 0));
+            const prevStart = window.PlayerEngine.trimStart || 0;
+            const prevSpan = (window.PlayerEngine.trimEnd || dur) - prevStart;
+            const desiredSpan = (window.PlayerEngine.userHasTrimmed && prevSpan >= 1.0 && prevSpan < dur - 0.5)
+                ? prevSpan
+                : getDesiredClipDuration();
+
+            if (cur <= prevStart + 0.8) {
+                // 若游标在起点之前或重合，自动按期望时长（如10s）向前推导起点或向后顺延终点，绝不缩成 0.3s
+                if (cur >= 1.5) {
+                    window.PlayerEngine.trimEnd = cur;
+                    window.PlayerEngine.trimStart = Math.max(0, cur - desiredSpan);
+                } else {
+                    window.PlayerEngine.trimStart = cur;
+                    window.PlayerEngine.trimEnd = Math.min(dur, cur + desiredSpan);
+                }
+            } else {
+                window.PlayerEngine.trimEnd = cur;
+            }
             window.PlayerEngine.userHasTrimmed = true;
+            window.PlayerEngine._allowPlayOutsideTrim = false;
+            previewVideo.currentTime = window.PlayerEngine.trimStart;
             updateJianyingTrimUI();
-            toast(`✂️ 已将导出终点设为 ${window.PlayerEngine.secToMinSec(window.PlayerEngine.trimEnd, true)}`);
+            updateJianyingPlayheadUI();
+            const clipDur = (window.PlayerEngine.trimEnd - window.PlayerEngine.trimStart).toFixed(1);
+            toast(`✂️ 已设终点 ${window.PlayerEngine.secToMinSec(window.PlayerEngine.trimEnd, true)}（共截取 ${clipDur}s）`);
         });
     }
     if (jyBtnReset) {
@@ -611,6 +799,7 @@ window.PlayerEngine = {
             window.PlayerEngine.trimStart = 0;
             window.PlayerEngine.trimEnd = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
             window.PlayerEngine.userHasTrimmed = false;
+            window.PlayerEngine._allowPlayOutsideTrim = false;
             updateJianyingTrimUI();
             toast('✂️ 已恢复完整视频导出区间');
         });
@@ -988,8 +1177,8 @@ window.PlayerEngine = {
             window.SubtitleEngine.onTimeUpdate(previewVideo.currentTime);
         }
 
-        // 在非导出录制状态下，到达剪映裁剪终点时自动循环回裁剪起点
-        if (!jyDragMode) {
+        // 在非导出录制状态下，仅当视频处于播放态且用户未手动将游标拖出区间外定位时，到达裁剪终点才自动循环回起点
+        if (!jyDragMode && !previewVideo.paused && !window.PlayerEngine._allowPlayOutsideTrim) {
             const range = window.PlayerEngine.getTrimRange();
             if (previewVideo.currentTime >= range.end) {
                 previewVideo.currentTime = range.start;

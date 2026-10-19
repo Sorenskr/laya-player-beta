@@ -391,7 +391,18 @@ window.switchRightTab = function (mode) {
     const inCustomSec = document.getElementById('in-custom-sec');
     if (selRecordSec && inCustomSec) {
         selRecordSec.addEventListener('change', (e) => {
-            inCustomSec.style.display = (e.target.value === 'custom') ? 'inline-block' : 'none';
+            const isCustom = (e.target.value === 'custom');
+            inCustomSec.style.display = isCustom ? 'inline-block' : 'none';
+            const sec = isCustom ? (parseFloat(inCustomSec.value) || 10) : (parseFloat(e.target.value) || 10);
+            if (window.PlayerEngine && typeof window.PlayerEngine.applyDropdownDuration === 'function') {
+                window.PlayerEngine.applyDropdownDuration(sec);
+            }
+        });
+        inCustomSec.addEventListener('input', () => {
+            const sec = parseFloat(inCustomSec.value);
+            if (sec >= 1 && window.PlayerEngine && typeof window.PlayerEngine.applyDropdownDuration === 'function') {
+                window.PlayerEngine.applyDropdownDuration(sec);
+            }
         });
     }
 
@@ -2248,6 +2259,8 @@ window.switchRightTab = function (mode) {
 
             if (data.selects) {
                 Object.entries(data.selects).forEach(([id, val]) => {
+                    // 每次打开页面始终默认 1.0x 原速，防止历史缓存 3.0x 导致视频播放和录制被加速成 1/3 时长
+                    if (id === 'sel-preview-speed' || id === 'jy-sel-speed') return;
                     const el = document.getElementById(id);
                     if (el) {
                         el.value = val;
@@ -2656,11 +2669,11 @@ window.switchRightTab = function (mode) {
             }
 
             // 计算录制起点与时长：
-            // 1. 若用户主动拖动过底部剪映裁剪区间手柄，则严格按剪映选定的 [start, end] 导出
-            // 2. 若用户未动过裁剪手柄（例如上传长视频后暂停截了图直接点导出），则从当前停留位置录制顶部选定的秒数（默认5s/10s/15s）
+            // 1. 若用户主动拖动过底部剪映裁剪区间手柄（或切换过顶部录制秒数），则严格按选定的 [start, end] 导出
+            // 2. 若用户未动过裁剪手柄，则从当前位置录制顶部选定的秒数（若剩余不足则自动前移起点保证录满秒数）
             const vidTotalDur = (previewVideo.duration && isFinite(previewVideo.duration))
                 ? previewVideo.duration
-                : (window.PlayerEngine.videoDuration || 8);
+                : (window.PlayerEngine.videoDuration || 10);
             const trimRange = window.PlayerEngine.getTrimRange
                 ? window.PlayerEngine.getTrimRange()
                 : { start: 0, end: vidTotalDur, duration: vidTotalDur };
@@ -2668,42 +2681,42 @@ window.switchRightTab = function (mode) {
             let dropdownSec = 5;
             if (selRecSecEl) {
                 dropdownSec = selRecSecEl.value === 'custom'
-                    ? (parseFloat(inCustomSecEl ? inCustomSecEl.value : 8) || 8)
+                    ? (parseFloat(inCustomSecEl ? inCustomSecEl.value : 10) || 10)
                     : (parseFloat(selRecSecEl.value) || 5);
             }
 
             let exportStartSec = trimRange.start;
             let recordSeconds = trimRange.duration;
-            let needSeekToStart = false;
 
             if (window.PlayerEngine.userHasTrimmed) {
-                if (Math.abs((previewVideo.currentTime || 0) - exportStartSec) > 0.25) {
-                    needSeekToStart = true;
-                }
+                exportStartSec = trimRange.start;
+                recordSeconds = Math.max(1.0, trimRange.duration);
             } else {
                 const curPos = previewVideo.currentTime || 0;
                 if (vidTotalDur <= 15 && curPos < 0.8) {
                     exportStartSec = 0;
                     recordSeconds = vidTotalDur;
-                } else if (curPos >= vidTotalDur - 0.8) {
-                    exportStartSec = 0;
-                    recordSeconds = Math.min(dropdownSec, vidTotalDur);
-                    needSeekToStart = true;
                 } else {
-                    exportStartSec = curPos;
-                    recordSeconds = Math.min(dropdownSec, Math.max(1.0, vidTotalDur - exportStartSec));
+                    recordSeconds = Math.min(dropdownSec, vidTotalDur);
+                    if (curPos >= vidTotalDur - 0.8) {
+                        exportStartSec = 0;
+                    } else if (curPos + recordSeconds > vidTotalDur) {
+                        exportStartSec = Math.max(0, vidTotalDur - recordSeconds);
+                    } else {
+                        exportStartSec = curPos;
+                    }
                 }
             }
-            recordSeconds = Math.max(0.8, Number(recordSeconds.toFixed(2)));
+            recordSeconds = Math.max(1.0, Number(recordSeconds.toFixed(2)));
+
+            const origPlaybackRate = previewVideo.playbackRate || 1.0;
 
             origVidBtnText = '🎥 录屏导出视频';
             btnSaveVid.textContent = `⏳ 正在构建 1080P 超清覆层...`;
             window.__isExportRecording = true;
 
-            // ★ 关键修复：在用户点击的同步手势帧内立即定位起点、唤醒音频上下文并触发视频播放
-            if (needSeekToStart) {
-                try { previewVideo.currentTime = exportStartSec; } catch (e) {}
-            }
+            // ★ 关键修复：在 html2canvas 构建超清 UI 覆层期间（耗时约 2~6 秒），先暂停视频并锁定在裁剪起点，
+            // 绝不能让视频在 html2canvas 等待期间提前偷跑（否则 10 秒片段被消耗掉 7 秒，真正开始录制时只剩 3 秒！）
             previewVideo.muted = false;
             previewVideo.volume = 1.0;
             const jyMuteBtn = document.getElementById('jy-btn-mute');
@@ -2711,7 +2724,10 @@ window.switchRightTab = function (mode) {
             if (window._audioCtx && window._audioCtx.state === 'suspended') {
                 window._audioCtx.resume().catch(() => {});
             }
-            previewVideo.play().catch(() => {});
+            try {
+                previewVideo.pause();
+                previewVideo.currentTime = exportStartSec;
+            } catch (e) {}
 
             // 创建并挂载画布到 DOM 中（防止离屏 Canvas 被浏览器休眠）
             const offCanvas = document.createElement('canvas');
@@ -2816,6 +2832,15 @@ window.switchRightTab = function (mode) {
                     }
                 });
 
+                // 预合成 1:1 尺寸的 UI 覆层画布，避免录制循环每帧重复缩放巨幅画布
+                const uiOverlayCanvas = document.createElement('canvas');
+                uiOverlayCanvas.width = outW;
+                uiOverlayCanvas.height = outH;
+                const uiOverlayCtx = uiOverlayCanvas.getContext('2d');
+                uiOverlayCtx.imageSmoothingEnabled = true;
+                uiOverlayCtx.imageSmoothingQuality = 'high';
+                uiOverlayCtx.drawImage(uiSnapshotCanvas, -4, -6, outW + 8, outH + 12);
+
                 // 预先缓存所有配置与构图矩阵，录制循环中 0 DOM 查询，彻底告别卡顿
                 const cachedCropRect = window.getPlayerCropRect
                     ? window.getPlayerCropRect(mediaWrapBox.w, mediaWrapBox.h)
@@ -2842,7 +2867,14 @@ window.switchRightTab = function (mode) {
                 const totalVideoSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 1125;
                 const bufferPct = Math.min(100, Math.max(0, parseFloat(inBuffer.value) || 68)) / 100;
 
-                // 确保视频帧已解码且处于播放状态
+                // ★ 录制期间强制使用 1.0x 标准原速，确保选定 10 秒片段精确录制 10 秒内容（录制结束后恢复原倍速）
+                previewVideo.playbackRate = 1.0;
+                previewVideo.defaultPlaybackRate = 1.0;
+
+                // ★ 在 html2canvas 完成后、真正启动 MediaRecorder 前，精确校验并锁定视频起点到 exportStartSec
+                if (Math.abs((previewVideo.currentTime || 0) - exportStartSec) > 0.08) {
+                    try { previewVideo.currentTime = exportStartSec; } catch (e) {}
+                }
                 if (previewVideo.seeking || previewVideo.readyState < 2) {
                     await new Promise(resolve => {
                         const onReady = () => {
@@ -2852,13 +2884,7 @@ window.switchRightTab = function (mode) {
                         };
                         previewVideo.addEventListener('seeked', onReady);
                         previewVideo.addEventListener('canplay', onReady);
-                        setTimeout(resolve, 220);
-                    });
-                }
-                if (previewVideo.paused) {
-                    await previewVideo.play().catch(() => {
-                        previewVideo.muted = true;
-                        return previewVideo.play().catch(() => {});
+                        setTimeout(resolve, 350);
                     });
                 }
 
@@ -2915,8 +2941,8 @@ window.switchRightTab = function (mode) {
                         ctx.restore();
                     }
 
-                    // 3. 叠加 UI 覆层（外扩 6px 出血，彻底消除顶底 1px 亚像素亮边/白边）
-                    ctx.drawImage(uiSnapshotCanvas, -4, -6, outW + 8, outH + 12);
+                    // 3. 叠加预合成的 1080P UI 覆层（1:1 极速贴图）
+                    ctx.drawImage(uiOverlayCanvas, 0, 0);
 
                     // 3.5 动态绘制随时间变化的画面字幕（若开启了字幕）
                     if (window.SubtitleEngine && window.SubtitleEngine.enabled) {
@@ -3057,7 +3083,7 @@ window.switchRightTab = function (mode) {
                 const canvasStream = offCanvas.captureStream(60);
                 const videoTrack = canvasStream.getVideoTracks()[0];
 
-                // ★ 提取稳定音轨：优先使用常驻 WebAudio 雙路桥接节点（即使视频刚才暂停截图过也始终保持 live 状态）
+                // ★ 提取稳定音轨：优先使用常驻 WebAudio 双路桥接节点（即使视频刚才暂停截图过也始终保持 live 状态）
                 let audioTracks = [];
                 try {
                     if (!window._audioCtx) {
@@ -3093,7 +3119,13 @@ window.switchRightTab = function (mode) {
                     } catch (e) {}
                 }
 
-                // ★ 多级容错构建并启动 MediaRecorder（18Mbps 超清码率，若音轨或特定编码异常自动无缝降级，绝不卡死失败）
+                // ★ 在启动录制器前一刻开始播放视频，确保录制的每一秒都完整对应所选区间 [exportStartSec, exportStartSec + recordSeconds]
+                await previewVideo.play().catch(() => {
+                    previewVideo.muted = true;
+                    return previewVideo.play().catch(() => {});
+                });
+
+                // ★ 多级容错构建并启动 MediaRecorder（18Mbps 超清码率，优先采用支持 1080P@60fps 的 H.264 High/Baseline Level 4.2 编码）
                 const streamWithAudio = new MediaStream([
                     ...canvasStream.getVideoTracks(),
                     ...audioTracks
@@ -3103,7 +3135,8 @@ window.switchRightTab = function (mode) {
                 ]);
 
                 const tryConfigs = [
-                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E01E, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.64002A, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E02A, mp4a.40.2"', ext: 'mp4' },
                     { stream: streamWithAudio, mime: 'video/mp4', ext: 'mp4' },
                     { stream: streamWithAudio, mime: 'video/webm;codecs="vp9,opus"', ext: 'webm' },
                     { stream: streamWithAudio, mime: 'video/webm;codecs="vp8,opus"', ext: 'webm' },
@@ -3164,6 +3197,8 @@ window.switchRightTab = function (mode) {
                 recorder.onstop = () => {
                     window.__isExportRecording = false;
                     window.__stopActiveExport = null;
+                    previewVideo.playbackRate = origPlaybackRate;
+                    previewVideo.defaultPlaybackRate = origPlaybackRate;
                     if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                     btnSaveVid.textContent = origVidBtnText;
                     btnSaveVid.disabled = false;
@@ -3197,11 +3232,14 @@ window.switchRightTab = function (mode) {
                 // ★ 60FPS requestAnimationFrame 丝滑渲染循环 + 实时进度百分比显示
                 const tickFrame = (now) => {
                     if (!isRecording) return;
+                    const elapsed = (now - recordStartStamp) / 1000;
+                    if (previewVideo.paused && !previewVideo.ended && elapsed < recordSeconds - 0.1) {
+                        previewVideo.play().catch(() => {});
+                    }
                     renderSingleFrame(now);
                     if (videoTrack && typeof videoTrack.requestFrame === 'function') {
                         try { videoTrack.requestFrame(); } catch (e) {}
                     }
-                    const elapsed = (now - recordStartStamp) / 1000;
                     const remain = Math.max(0, recordSeconds - elapsed);
                     const pct = Math.min(99, Math.round((elapsed / recordSeconds) * 100));
                     btnSaveVid.textContent = `🔴 导出中 ${pct}% (剩 ${remain.toFixed(1)}s · 点击立即保存)`;
@@ -3231,6 +3269,8 @@ window.switchRightTab = function (mode) {
             } catch (err) {
                 window.__isExportRecording = false;
                 window.__stopActiveExport = null;
+                previewVideo.playbackRate = origPlaybackRate;
+                previewVideo.defaultPlaybackRate = origPlaybackRate;
                 if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                 console.error(err);
                 btnSaveVid.textContent = origVidBtnText;
