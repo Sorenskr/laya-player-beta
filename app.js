@@ -2410,6 +2410,57 @@ window.switchRightTab = function (mode) {
             clonedWave.height = origWave.height;
             cCtx.drawImage(origWave, 0, 0);
         }
+
+        // ★ 关键修复：移除克隆节点中顶/底栏的 CSS linear-gradient 背景，改由下方 drawSeamlessHudGradients 使用原生 Canvas 2D 渐变绘制，
+        // 彻底消除 html2canvas 内部 createPattern('repeat') 在渐变 100% 透明边界处回卷采样 0% 纯黑像素所产生的两条 1px 水平黑线！
+        ['web-player-top', 'wrap-bottom-bar', 'm-bottom-bar', 'dyl-wrap-bottom'].forEach(barId => {
+            const barEl = clonedDoc.getElementById(barId);
+            if (barEl) {
+                barEl.style.setProperty('background', 'transparent', 'important');
+                barEl.style.setProperty('background-color', 'transparent', 'important');
+                barEl.style.setProperty('background-image', 'none', 'important');
+            }
+        });
+    }
+
+    // 使用原生 Canvas 2D 线性渐变绘制顶/底部暗角蒙层，过渡丝滑自然，100% 杜绝 html2canvas 渐变分界黑线
+    function drawSeamlessHudGradients(targetCtx, outW, outH) {
+        if (!renderTarget || !targetCtx) return;
+        const targetRect = renderTarget.getBoundingClientRect();
+        if (!targetRect.height) return;
+
+        const topBar = document.getElementById('web-player-top');
+        if (topBar && topBar.offsetWidth > 0 && topBar.offsetHeight > 0) {
+            const topH = Math.round((topBar.offsetHeight / targetRect.height) * outH * 1.15);
+            const gTop = targetCtx.createLinearGradient(0, 0, 0, topH);
+            gTop.addColorStop(0, 'rgba(0, 0, 0, 0.86)');
+            gTop.addColorStop(0.5, 'rgba(0, 0, 0, 0.42)');
+            gTop.addColorStop(0.82, 'rgba(0, 0, 0, 0.08)');
+            gTop.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            targetCtx.save();
+            targetCtx.fillStyle = gTop;
+            targetCtx.fillRect(0, 0, outW, topH);
+            targetCtx.restore();
+        }
+
+        const botIds = ['wrap-bottom-bar', 'm-bottom-bar', 'dyl-wrap-bottom'];
+        for (const id of botIds) {
+            const botBar = document.getElementById(id);
+            if (botBar && botBar.offsetWidth > 0 && botBar.offsetHeight > 0) {
+                const isDyl = (id === 'dyl-wrap-bottom');
+                const botH = Math.round((botBar.offsetHeight / targetRect.height) * outH * 1.2);
+                const gBot = targetCtx.createLinearGradient(0, outH, 0, outH - botH);
+                gBot.addColorStop(0, isDyl ? 'rgba(0, 0, 0, 0.72)' : 'rgba(0, 0, 0, 0.90)');
+                gBot.addColorStop(0.5, isDyl ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.44)');
+                gBot.addColorStop(0.82, 'rgba(0, 0, 0, 0.08)');
+                gBot.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                targetCtx.save();
+                targetCtx.fillStyle = gBot;
+                targetCtx.fillRect(0, outH - botH, outW, botH);
+                targetCtx.restore();
+                break;
+            }
+        }
     }
 
     /* ==========================================================================
@@ -2604,7 +2655,8 @@ window.switchRightTab = function (mode) {
                     }
                 });
 
-                // 5. 将透明 UI 覆层外扩 6px 出血叠加在底层视频当前帧/图片之上，100% 消除 html2canvas 顶底亚像素亮线/白边
+                // 5. 先用原生 Canvas 2D 绘制无缝顶/底渐变蒙层，再叠加透明 UI 覆层（100% 消除 html2canvas 渐变边界黑线与白边）
+                drawSeamlessHudGradients(ctx, outW, outH);
                 ctx.drawImage(uiCanvas, -4, -6, outW + 8, outH + 12);
 
                 // 使用 Blob URL 下载，避免超高清大图突破浏览器 base64 长度限制并确保后续视频录制流畅
@@ -2832,13 +2884,14 @@ window.switchRightTab = function (mode) {
                     }
                 });
 
-                // 预合成 1:1 尺寸的 UI 覆层画布，避免录制循环每帧重复缩放巨幅画布
+                // 预合成 1:1 尺寸的 UI 覆层画布（先用原生 Canvas 2D 绘制无缝顶/底渐变蒙层，再叠加 UI 快照，彻底消除分界黑线）
                 const uiOverlayCanvas = document.createElement('canvas');
                 uiOverlayCanvas.width = outW;
                 uiOverlayCanvas.height = outH;
                 const uiOverlayCtx = uiOverlayCanvas.getContext('2d');
                 uiOverlayCtx.imageSmoothingEnabled = true;
                 uiOverlayCtx.imageSmoothingQuality = 'high';
+                drawSeamlessHudGradients(uiOverlayCtx, outW, outH);
                 uiOverlayCtx.drawImage(uiSnapshotCanvas, -4, -6, outW + 8, outH + 12);
 
                 // 预先缓存所有配置与构图矩阵，录制循环中 0 DOM 查询，彻底告别卡顿
