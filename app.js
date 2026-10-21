@@ -84,9 +84,35 @@ window.switchRightTab = function (mode) {
     /* ==========================================================================
        ★ 0.5 中间长条「⚡ 快速访问」快捷键导航栏：选中放大高亮、未选文字缩小、双向联动
        ========================================================================== */
+    const qaRailEl = document.getElementById('quick-access-rail');
+    const btnQaToggle = document.getElementById('btn-qa-toggle');
+    const btnQaCloseTop = document.getElementById('btn-qa-close-top');
+    const qaHandleText = document.getElementById('qa-handle-text');
     const qaRailList = document.getElementById('qa-rail-list');
     const qaModeBadge = document.getElementById('qa-rail-mode-badge');
     const rightSidebarEl = document.getElementById('right-sidebar');
+
+    function setQuickAccessCollapsed(collapsed) {
+        if (!qaRailEl) return;
+        qaRailEl.classList.toggle('is-collapsed', collapsed);
+        if (qaHandleText) {
+            qaHandleText.textContent = collapsed ? '快速访问' : '收起';
+        }
+    }
+
+    if (btnQaToggle && qaRailEl) {
+        btnQaToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const isNowCollapsed = !qaRailEl.classList.contains('is-collapsed');
+            setQuickAccessCollapsed(isNowCollapsed);
+        });
+    }
+    if (btnQaCloseTop) {
+        btnQaCloseTop.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setQuickAccessCollapsed(true);
+        });
+    }
 
     function ensureRightPanelCardIds() {
         if (!rightSidebarEl) return;

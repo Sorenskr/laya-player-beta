@@ -1157,13 +1157,20 @@
     </div>
 
     <!-- 右侧高级控制面板 -->
-    <!-- 中间长条快速访问快捷键导航栏 (左侧预览舞台 与 右侧编辑控制栏 之间，选中自动放大高亮、未选自动缩小) -->
-    <aside class="quick-access-rail" id="quick-access-rail" aria-label="快速访问快捷键">
-        <div class="qa-rail-header">
-            <span class="qa-rail-bolt">⚡</span>
-            <span class="qa-rail-title">快速访问</span>
-            <span class="qa-rail-badge" id="qa-rail-mode-badge">全板块</span>
-        </div>
+    <!-- 中间长条快速访问快捷键导航栏 (默认缩进在右侧配置栏左边缘，点击展开/收起按钮可自由展开或缩回) -->
+    <aside class="quick-access-rail is-collapsed" id="quick-access-rail" aria-label="快速访问快捷键">
+        <!-- 贴在右侧配置栏左边缘的展开/收起拉手 -->
+        <button type="button" class="qa-collapse-handle" id="btn-qa-toggle" title="点击展开 / 收起快速访问栏">
+            <span class="qa-handle-arrow" id="qa-handle-arrow">‹</span>
+            <span class="qa-handle-text" id="qa-handle-text">快速访问</span>
+        </button>
+
+        <div class="qa-rail-inner">
+            <div class="qa-rail-header">
+                <span class="qa-rail-title">快速访问</span>
+                <span class="qa-rail-badge" id="qa-rail-mode-badge">全板块</span>
+                <button type="button" class="qa-rail-close-btn" id="btn-qa-close-top" title="缩回隐藏">›</button>
+            </div>
 
         <div class="qa-rail-list" id="qa-rail-list">
             <!-- 全局通用常驻快捷项 -->
@@ -1275,6 +1282,7 @@
                 <span class="qa-item-text">獨立取景框</span>
                 <span class="qa-item-dot"></span>
             </button>
+        </div>
         </div>
     </aside>
 
