@@ -264,8 +264,12 @@ window.PlayerEngine = {
         tabButtons.forEach(b => {
             b.classList.toggle('active', b.dataset.mode === targetMode);
         });
-        const currentSkin = document.getElementById('sel-mobile-skin')?.value === 'laya' ? 'skin-laya' : 'skin-douyin';
-        renderTarget.className = `player-box ${targetMode} ${currentSkin}`;
+        window.PlayerEngine.currentMode = targetMode;
+        const skinVal = document.getElementById('sel-mobile-skin')?.value || 'laya-app';
+        const currentSkin = skinVal === 'laya-app' ? 'skin-laya-app' : (skinVal === 'laya' ? 'skin-laya' : 'skin-douyin');
+        const isCmtOpen = !!(document.getElementById('sw-dy-comment-drawer')?.checked);
+        const cmtClass = (targetMode === 'mode-mobile-port' && isCmtOpen) ? ' dy-comment-open' : '';
+        renderTarget.className = `player-box ${targetMode} ${currentSkin}${cmtClass}`;
 
         if (targetMode === 'mode-mobile-land') {
             if (typeof window.switchRightTab === 'function') window.switchRightTab('m-cinema');

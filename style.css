@@ -1395,11 +1395,17 @@ main {
     pointer-events: none;
 }
 
-.skin-douyin .laya-skin-elem { display: none !important; }
+.skin-douyin .laya-skin-elem,
+.skin-douyin .laya-app-skin-elem { display: none !important; }
 .skin-douyin .dy-skin-elem { display: flex !important; }
 
-.skin-laya .dy-skin-elem { display: none !important; }
+.skin-laya .dy-skin-elem,
+.skin-laya .laya-app-skin-elem { display: none !important; }
 .skin-laya .laya-skin-elem { display: flex !important; }
+
+.skin-laya-app .dy-skin-elem,
+.skin-laya-app .laya-skin-elem { display: none !important; }
+.skin-laya-app .laya-app-skin-elem { display: flex !important; }
 
 /* 竖屏顶部多机型状态栏容器 */
 .dy-status-bar {
@@ -1953,6 +1959,97 @@ main {
     cursor: pointer;
 }
 
+/* 风格 3：Laya app 端顶部导航栏 (繁体 + 点哪里亮哪里 + 粉黄极光发光底衬) */
+.laya-app-top-nav {
+    position: absolute;
+    top: 32px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 12px 0 14px;
+    pointer-events: auto;
+    z-index: 12;
+    transition: top 0.2s ease;
+}
+
+.douyin-hud.no-status-bar .laya-app-top-nav {
+    top: 12px;
+}
+
+.laya-app-nav-tabs {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.laya-app-nav-item {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.72);
+    line-height: 1.2;
+    user-select: none;
+    transition: color 0.15s ease, transform 0.15s ease;
+}
+
+.laya-app-nav-txt {
+    position: relative;
+    z-index: 2;
+    white-space: nowrap;
+}
+
+.laya-app-nav-glow {
+    display: none;
+    position: absolute;
+    left: 50%;
+    top: 56%;
+    transform: translate(-36%, -42%);
+    width: 48px;
+    height: 30px;
+    object-fit: fill;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.laya-app-nav-item.active {
+    color: #ffffff;
+    font-size: 15.5px;
+    font-weight: 800;
+}
+
+.laya-app-nav-item.active .laya-app-nav-glow {
+    display: block;
+}
+
+.laya-app-top-actions {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    flex-shrink: 0;
+}
+
+.laya-app-trophy-img {
+    width: 22px;
+    height: 20px;
+    object-fit: contain;
+    cursor: pointer;
+    display: block;
+}
+
+.laya-app-search-img {
+    width: 17px;
+    height: 17px;
+    object-fit: contain;
+    cursor: pointer;
+    display: block;
+}
+
 .dy-fullscreen-pill {
     position: absolute;
     top: 58%;
@@ -2297,6 +2394,163 @@ main {
     background: #ffffff;
 }
 
+/* 左下角顶部：弹幕圆钮 + Laya 精选内容 > 胶囊徽章 (复刻抖音内容结构 + Laya 专属高定视觉) */
+.dy-left-top-badges {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+    margin-bottom: 6px;
+}
+
+.dy-dm-round-btn {
+    position: relative;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.14);
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    user-select: none;
+    transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.dy-dm-round-btn:hover {
+    transform: scale(1.06);
+    background: rgba(255, 255, 255, 0.22);
+}
+
+.dy-dm-round-char {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #ffffff;
+    line-height: 1;
+    margin-right: 1px;
+}
+
+.dy-dm-round-slash {
+    position: absolute;
+    right: 3px;
+    bottom: 3px;
+    font-size: 7.5px;
+    font-weight: 900;
+    color: #25F4EE;
+    line-height: 1;
+}
+
+.dy-featured-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4.5px;
+    background: rgba(255, 255, 255, 0.96);
+    border-radius: 5px;
+    padding: 2.5px 7px 2.5px 4px;
+    height: 21px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.28);
+    cursor: pointer;
+    user-select: none;
+    width: fit-content;
+    transition: transform 0.15s ease;
+}
+
+.dy-featured-pill:hover {
+    transform: scale(1.03);
+}
+
+.dy-featured-icon-box {
+    position: relative;
+    width: 14px;
+    height: 14px;
+    border-radius: 3.5px;
+    background: linear-gradient(135deg, #25F4EE 0%, #ff2a9d 100%);
+    padding: 1px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    box-shadow: -1px -0.5px 0 rgba(37, 244, 238, 0.55), 1px 0.5px 0 rgba(254, 44, 85, 0.55);
+}
+
+.dy-featured-laya-logo {
+    width: 100%;
+    height: 100%;
+    border-radius: 2.8px;
+    object-fit: cover;
+    display: block;
+    background: #0f111a;
+}
+
+.dy-featured-text {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #161823;
+    letter-spacing: 0.2px;
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.dy-featured-arrow {
+    font-size: 10px;
+    font-weight: 800;
+    color: #4a4d5e;
+    line-height: 1;
+    margin-left: -1px;
+}
+
+/* 升级版上升热点栏：全宽贴底 + 抖音同款暖金黄高光字色 */
+.dy-hotspot-bar {
+    width: calc(100% + 64px);
+    background: rgba(16, 16, 22, 0.68);
+    border: 1px solid rgba(246, 198, 69, 0.14);
+    border-radius: 5px;
+    padding: 0 9px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    margin-bottom: 6px;
+    box-sizing: border-box;
+}
+
+.dy-hot-tag {
+    color: #f6c645;
+    font-weight: 700;
+    font-size: 11px;
+}
+
+.dy-hot-dot {
+    color: #f6c645;
+    font-weight: 700;
+    margin: 0 3px;
+}
+
+.dy-hot-title {
+    color: #f6c645;
+    font-size: 11px;
+    font-weight: 600;
+    max-width: 155px;
+}
+
+.dy-hot-views {
+    color: #f6c645;
+    font-size: 10.5px;
+    font-weight: 600;
+}
+
+.dy-hot-arrow {
+    color: #f6c645;
+    font-size: 10.5px;
+    font-weight: 700;
+}
+
+.dy-tiny-progressbar {
+    width: calc(100% + 64px);
+}
+
 /* 风格 1：抖音底部导航栏 */
 .dy-bottom-wrap {
     position: absolute;
@@ -2455,6 +2709,87 @@ main {
     align-items: center;
     justify-content: center;
     padding: 0 3px;
+}
+
+/* 风格 3：Laya app 端底部导航栏 (6宫格繁体 + 粉白渐变点亮图标 + 中间插入视频) */
+.laya-app-bottom-wrap {
+    position: absolute;
+    bottom: -3px;
+    left: -3px;
+    right: -3px;
+    height: 56px;
+    z-index: 12;
+    background: #000000;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 2px 10px 4px 10px;
+    pointer-events: auto;
+}
+
+.laya-app-bottom-tabs {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    padding: 0 4px;
+}
+
+.laya-app-tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    gap: 2px;
+    min-width: 38px;
+    user-select: none;
+}
+
+.laya-app-tab-icon-wrap {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+.laya-app-tab-icon {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    pointer-events: none;
+}
+
+.laya-app-tab-item .icon-active {
+    display: none;
+}
+
+.laya-app-tab-item .icon-inactive {
+    display: block;
+}
+
+.laya-app-tab-item.active .icon-active {
+    display: block;
+}
+
+.laya-app-tab-item.active .icon-inactive {
+    display: none;
+}
+
+.laya-app-tab-label {
+    font-size: 10px;
+    font-weight: 500;
+    line-height: 1.1;
+    color: rgba(255, 255, 255, 0.42);
+    letter-spacing: 0.2px;
+}
+
+.laya-app-tab-item.active .laya-app-tab-label {
+    color: #ffffff;
+    font-weight: 700;
 }
 
 .dy-home-bar {
@@ -4347,6 +4682,609 @@ input[type="range"] {
     border-radius: 2px 2px 5px 5px;
     margin-left: -4px;
     box-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* ==========================================================================
+   ★ 12. 竖屏红色关注 + 号点击打勾后自动消失动画 & 竖屏评论区弹窗抽屉 (上图视频+下图评论)
+   ========================================================================== */
+.dy-follow-plus {
+    transition: transform 0.28s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease, background 0.2s ease;
+    cursor: pointer;
+}
+
+.dy-follow-plus.followed {
+    background: #fe2c55 !important;
+    color: #ffffff !important;
+    font-size: 11px !important;
+    transform: translateX(-50%) scale(1.15);
+}
+
+.dy-follow-plus.follow-hidden {
+    transform: translateX(-50%) scale(0) !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+}
+
+/* 默认隐藏评论区抽屉与顶部暗黑搜索栏 */
+.dy-cmt-top-search-bar,
+.dy-cmt-vid-tip,
+.dy-comment-drawer {
+    display: none;
+}
+
+/* 当手机竖屏开启评论区 (dy-comment-open) 时：上方显示视频，下方弹出白底评论区 */
+.mode-mobile-port.dy-comment-open .media-container {
+    top: 8.2% !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 26.6% !important;
+    aspect-ratio: auto !important;
+}
+
+.mode-mobile-port.dy-comment-open. dy-comment-expanded .media-container,
+.mode-mobile-port.dy-comment-open.dy-comment-expanded .media-container {
+    height: 20.5% !important;
+}
+
+/* 评论区展开时隐藏原有的竖屏导航栏、右侧栏、左下文案与底栏，仅保留顶部手机状态栏 */
+.mode-mobile-port.dy-comment-open .dy-top-nav,
+.mode-mobile-port.dy-comment-open .laya-top-nav,
+.mode-mobile-port.dy-comment-open .laya-app-top-nav,
+.mode-mobile-port.dy-comment-open .dy-right-bar,
+.mode-mobile-port.dy-comment-open .dy-left-info,
+.mode-mobile-port.dy-comment-open .dy-bottom-wrap,
+.mode-mobile-port.dy-comment-open .laya-bottom-wrap,
+.mode-mobile-port.dy-comment-open .laya-app-bottom-wrap,
+.mode-mobile-port.dy-comment-open .dy-fullscreen-pill,
+.mode-mobile-port.dy-comment-open .dy-land-frame-overlay {
+    display: none !important;
+}
+
+/* 评论区展开时，字幕自动上移到顶部视频框底部中央 (如图2的“对”) */
+.mode-mobile-port.dy-comment-open .dyl-subtitle-overlay {
+    top: 30.8% !important;
+    bottom: auto !important;
+    font-size: 13.5px !important;
+    z-index: 36 !important;
+}
+
+/* 顶部状态栏下方暗黑搜索条 (图2右上角放大镜) */
+.mode-mobile-port.dy-comment-open .dy-cmt-top-search-bar {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    position: absolute;
+    top: 25px;
+    left: 0;
+    right: 0;
+    height: 28px;
+    padding: 0 14px;
+    background: #110f10;
+    z-index: 32;
+    pointer-events: auto;
+}
+
+.dy-cmt-top-search-icon {
+    cursor: pointer;
+    opacity: 0.92;
+}
+
+/* 视频右下角微字声明 (图2：视频由AI生成/剧情纯属虚构/无不良引导) */
+.mode-mobile-port.dy-comment-open .dy-cmt-vid-tip {
+    display: block;
+    position: absolute;
+    top: 32.8%;
+    right: 6px;
+    font-size: 7.5px;
+    color: rgba(255, 255, 255, 0.72);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.85);
+    z-index: 33;
+    pointer-events: auto;
+    cursor: text;
+    max-width: 75%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 底部白底圆角评论区主抽屉 */
+.mode-mobile-port.dy-comment-open .dy-comment-drawer {
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 34.6%;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #ffffff;
+    border-radius: 12px 12px 0 0;
+    z-index: 35;
+    overflow: hidden;
+    pointer-events: auto;
+    box-shadow: 0 -4px 18px rgba(0, 0, 0, 0.35);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+    transition: top 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.mode-mobile-port.dy-comment-open.dy-comment-expanded .dy-comment-drawer {
+    top: 28.5%;
+}
+
+/* 1. 顶部合集栏：观看完整合集：人情与世故 + 放大/关闭圆钮 */
+.dy-cmt-collection-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 9px 12px 6px 13px;
+    flex-shrink: 0;
+}
+
+.dy-cmt-col-left {
+    display: flex;
+    align-items: center;
+    font-size: 12.5px;
+    font-weight: 600;
+    line-height: 1.2;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.dy-cmt-col-prefix {
+    color: #161823;
+    outline: none;
+}
+
+.dy-cmt-col-title {
+    color: #0d47a1;
+    outline: none;
+    cursor: text;
+}
+
+.dy-cmt-col-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.dy-cmt-circle-btn {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #f2f3f5;
+    border: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    transition: background 0.15s;
+}
+
+.dy-cmt-circle-btn:hover {
+    background: #e5e6eb;
+}
+
+/* 2. 评论 138 | AI 解析 导航栏 */
+.dy-cmt-tabs-bar {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 4px 13px 0 13px;
+    border-bottom: 1px solid #f0f0f2;
+    flex-shrink: 0;
+}
+
+.dy-cmt-tab-item {
+    position: relative;
+    padding-bottom: 7px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: #8a8b91;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    line-height: 1.2;
+}
+
+.dy-cmt-tab-item.active {
+    color: #161823;
+    font-weight: 700;
+}
+
+.dy-cmt-tab-item.active::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 2px;
+    background: #161823;
+    border-radius: 1px;
+}
+
+.dy-cmt-tab-count {
+    outline: none;
+    cursor: text;
+}
+
+/* 3. 可上下滑动的评论列表 */
+.dy-cmt-list {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 8px 13px 6px 13px;
+    scroll-behavior: smooth;
+    user-select: text;
+}
+
+.dy-cmt-list::-webkit-scrollbar {
+    width: 3px;
+}
+
+.dy-cmt-list::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 2px;
+}
+
+.dy-cmt-list-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+}
+
+/* 单条评论项 (精准还原图2布局) */
+.dy-cmt-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 9px;
+    position: relative;
+}
+
+.dy-cmt-avatar-wrap {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    cursor: pointer;
+    overflow: hidden;
+    background: #f0f2f5;
+}
+
+.dy-cmt-avatar {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+}
+
+.dy-cmt-avatar-wrap::after {
+    content: "换";
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.48);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.dy-cmt-avatar-wrap:hover::after {
+    opacity: 1;
+}
+
+.dy-cmt-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.dy-cmt-user-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 2px;
+}
+
+.dy-cmt-user {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #8a8b91;
+    line-height: 1.25;
+    outline: none;
+    cursor: text;
+    max-width: 85%;
+    word-break: break-all;
+}
+
+.dy-cmt-user:focus,
+.dy-cmt-text:focus,
+.dy-cmt-date-loc:focus,
+.dy-cmt-like-num:focus {
+    background: rgba(24, 119, 242, 0.08);
+    border-radius: 3px;
+}
+
+/* 悬停在画面评论上时的快捷小工具 (导出截图/视频时自动忽略) */
+.dy-cmt-stage-QuickTools {
+    display: none;
+    align-items: center;
+    gap: 4px;
+}
+
+.dy-cmt-item:hover .dy-cmt-stage-QuickTools {
+    display: inline-flex;
+}
+
+.dy-cmt-qbtn {
+    background: #f2f3f5;
+    border: 1px solid #e0e2e8;
+    color: #555;
+    border-radius: 4px;
+    font-size: 9.5px;
+    padding: 1px 4px;
+    cursor: pointer;
+    line-height: 1.2;
+}
+
+.dy-cmt-qbtn:hover {
+    background: #e5e7ef;
+    color: #161823;
+}
+
+.dy-cmt-text {
+    font-size: 13px;
+    font-weight: 400;
+    color: #161823;
+    line-height: 1.4;
+    margin-bottom: 4px;
+    word-break: break-word;
+    outline: none;
+    cursor: text;
+}
+
+/* 评论区照片 / 表情包容器 (如图2第5条大步扭的图片评论) */
+.dy-cmt-photo-box {
+    position: relative;
+    width: fit-content;
+    max-width: 135px;
+    margin: 2px 0 5px 0;
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.dy-cmt-photo-img {
+    display: block;
+    max-width: 135px;
+    max-height: 135px;
+    width: auto;
+    height: auto;
+    object-fit: cover;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.dy-cmt-photo-del {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.6);
+    color: #fff;
+    border: none;
+    font-size: 10px;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+.dy-cmt-photo-box:hover .dy-cmt-photo-del {
+    display: inline-flex;
+}
+
+/* 底部时间地区、回复 与 右侧爱心点赞、心碎踩 */
+.dy-cmt-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1px;
+}
+
+.dy-cmt-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 11px;
+    color: #999aa0;
+}
+
+.dy-cmt-date-loc {
+    outline: none;
+    cursor: text;
+}
+
+.dy-cmt-reply-btn {
+    color: #66676e;
+    font-weight: 500;
+    cursor: pointer;
+}
+
+.dy-cmt-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: #8a8b91;
+}
+
+.dy-cmt-like-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    cursor: pointer;
+    font-size: 11.5px;
+    color: #8a8b91;
+    user-select: none;
+}
+
+.dy-cmt-like-btn.liked {
+    color: #fe2c55;
+}
+
+.dy-cmt-like-btn.liked svg {
+    fill: #fe2c55;
+    stroke: #fe2c55;
+}
+
+.dy-cmt-like-num {
+    outline: none;
+    cursor: text;
+    min-width: 8px;
+}
+
+.dy-cmt-dislike-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    color: #8a8b91;
+    opacity: 0.85;
+}
+
+/* 4. 底部期待你的评论输入栏 (含图片上传、@、表情图标) */
+.dy-cmt-bottom-bar {
+    padding: 7px 12px 10px 12px;
+    background: #ffffff;
+    border-top: 1px solid #f0f0f2;
+    flex-shrink: 0;
+}
+
+.dy-cmt-input-pill {
+    height: 35px;
+    background: #f2f3f5;
+    border-radius: 18px;
+    padding: 0 10px 0 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.dy-cmt-stage-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    background: transparent;
+    font-size: 12.5px;
+    color: #161823;
+    outline: none;
+}
+
+.dy-cmt-stage-input::placeholder {
+    color: #999aa0;
+}
+
+.dy-cmt-input-icons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.dy-cmt-icon-btn {
+    background: transparent;
+    border: none;
+    padding: 2px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 50%;
+    transition: background 0.15s;
+}
+
+.dy-cmt-icon-btn:hover {
+    background: rgba(0, 0, 0, 0.06);
+}
+
+/* 右侧控制面板：评论列表编辑器样式 */
+.dy-cmt-editor-list {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    max-height: 290px;
+    overflow-y: auto;
+    padding-right: 2px;
+}
+
+.dy-cmt-ed-card {
+    background: #10131b;
+    border: 1px solid #242b3d;
+    border-radius: 7px;
+    padding: 7px 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.dy-cmt-ed-top {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.dy-cmt-ed-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+    border: 1px solid #38bdf8;
+    flex-shrink: 0;
+}
+
+.dy-cmt-ed-inp {
+    background: #171b26;
+    border: 1px solid #2d364d;
+    color: #ffffff;
+    border-radius: 4px;
+    padding: 4px 6px;
+    font-size: 11px;
+    outline: none;
+    min-width: 0;
+}
+
+.dy-cmt-ed-inp:focus {
+    border-color: #38bdf8;
+}
+
+.dy-cmt-ed-btn {
+    background: #1e2536;
+    border: 1px solid #333d54;
+    color: #cbd5e1;
+    border-radius: 4px;
+    padding: 3px 6px;
+    font-size: 10.5px;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.dy-cmt-ed-btn:hover {
+    background: #2b354d;
+    color: #fff;
 }
 
 .jy-playhead-line {

@@ -208,7 +208,7 @@
 
         <div class="player-stage">
             <!-- 播放器核心容器 -->
-            <div class="player-box mode-pc skin-douyin" id="render-target">
+            <div class="player-box mode-pc skin-laya-app" id="render-target">
                 <!-- 媒体底层容器 -->
                 <div class="media-container" id="player-media-wrap">
                     <img src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=95" class="player-bg-media" id="preview-img" crossorigin="anonymous">
@@ -328,7 +328,7 @@
                 <div class="mobile-cinema-hud" id="mobile-cinema-hud">
                     <!-- 1. 顶部手机原生状态栏 -->
                     <div class="m-status-bar" id="m-status-bar">
-                        <span class="m-status-time" id="m-disp-status-time">14:24</span>
+                        <span class="m-status-time interactive-elem" id="m-disp-status-time" title="点击可随机切换时间" style="cursor:pointer;">14:24</span>
                         <div class="m-status-icons">
                             <div class="m-signal-group" id="m-signal-group" title="蜂窝网络信号">
                                 <span class="m-sig-bar s1 active"></span>
@@ -465,7 +465,7 @@
                         <!-- 居中硬件开孔区：灵动岛 / 灵动岛音乐态 / 经典刘海 / 居中单挖孔 / 华为三挖孔 -->
                         <div class="dy-sb-center interactive-elem" id="dy-sb-cutout-wrap" title="点击可循环切换灵动岛/挖孔/刘海样式">
                             <!-- 1. iPhone 灵动岛 (标准态 + 音乐波形律动态) -->
-                            <div class="dy-cutout cutout-island" id="dy-cutout-box">
+                            <div class="dy-cutout cutout-none" id="dy-cutout-box">
                                 <div class="island-music-cover"></div>
                                 <div class="island-camera-lens"></div>
                                 <div class="island-music-waves">
@@ -567,6 +567,35 @@
                         </div>
                     </div>
 
+                    <div class="laya-app-top-nav laya-app-skin-elem" id="laya-app-wrap-top-nav">
+                        <div class="laya-app-nav-tabs" id="laya-app-nav-tabs">
+                            <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：關注">
+                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
+                                <span class="laya-app-nav-txt">關注</span>
+                            </span>
+                            <span class="laya-app-nav-item active interactive-elem" title="點擊切換亮起：推薦">
+                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
+                                <span class="laya-app-nav-txt">推薦</span>
+                            </span>
+                            <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：虛擬戀人">
+                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
+                                <span class="laya-app-nav-txt">虛擬戀人</span>
+                            </span>
+                            <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：交友">
+                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
+                                <span class="laya-app-nav-txt">交友</span>
+                            </span>
+                            <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：小遊戲">
+                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
+                                <span class="laya-app-nav-txt">小遊戲</span>
+                            </span>
+                        </div>
+                        <div class="laya-app-top-actions">
+                            <img class="laya-app-trophy-img interactive-elem" data-laya-asset="trophy" alt="排行榜" title="排行榜">
+                            <img class="laya-app-search-img interactive-elem" data-laya-asset="search" alt="搜尋" title="搜尋">
+                        </div>
+                    </div>
+
                     <!-- 竖屏内嵌横屏视频取景框水印与内嵌字幕覆层 (默认隐藏) -->
                     <div class="dy-land-frame-overlay" id="dy-land-frame-overlay" style="display: none;">
                         <div class="dy-lf-watermark" id="dy-lf-watermark" style="display: none;">
@@ -627,6 +656,20 @@
                     </div>
 
                     <div class="dy-left-info">
+                        <div class="dy-left-top-badges">
+                            <div class="dy-dm-round-btn interactive-elem" id="dy-btn-dm-round" title="開關彈幕">
+                                <span class="dy-dm-round-char">彈</span>
+                                <span class="dy-dm-round-slash" id="dy-dm-round-mark">✓</span>
+                            </div>
+                            <div class="dy-featured-pill interactive-elem" id="dy-wrap-featured" title="點擊在右側自定義 Laya 精選內容文字">
+                                <span class="dy-featured-icon-box">
+                                    <img src="Laya.png" class="dy-featured-laya-logo" id="dy-featured-logo-img" alt="Laya">
+                                </span>
+                                <span class="dy-featured-text" id="dy-disp-featured-title">Laya 精選內容</span>
+                                <span class="dy-featured-arrow">&gt;</span>
+                            </div>
+                        </div>
+
                         <div class="dy-author-row">
                             <span class="dy-author-name" id="dy-disp-author">@Laya 视频</span>
                         </div>
@@ -662,10 +705,10 @@
                             </div>
                         </div>
 
-                        <div class="dy-hotspot-bar interactive-elem" id="dy-wrap-hotspot" style="display: none;">
+                        <div class="dy-hotspot-bar interactive-elem" id="dy-wrap-hotspot">
                             <div class="dy-hotspot-left">
                                 <span class="dy-hot-fire">🔥</span>
-                                <span class="dy-hot-tag">熱點</span>
+                                <span class="dy-hot-tag" id="dy-disp-hotspot-tag">上升熱點</span>
                                 <span class="dy-hot-dot">·</span>
                                 <span class="dy-hot-title" id="dy-disp-hotspot-title">下班去炫頂配螺螄粉</span>
                             </div>
@@ -719,6 +762,139 @@
                         </div>
                         <div class="dy-home-bar"></div>
                     </div>
+
+                    <div class="laya-app-bottom-wrap laya-app-skin-elem" id="laya-app-wrap-bottom-bar">
+                        <div class="laya-app-bottom-tabs" id="laya-app-bottom-tabs">
+                            <div class="laya-app-tab-item interactive-elem" title="點擊切換亮起：首頁">
+                                <div class="laya-app-tab-icon-wrap">
+                                    <img class="laya-app-tab-icon icon-active" data-laya-asset="tab_1" alt="首頁">
+                                    <img class="laya-app-tab-icon icon-inactive" data-laya-asset="tab_1-1" alt="首頁">
+                                </div>
+                                <span class="laya-app-tab-label">首頁</span>
+                            </div>
+                            <div class="laya-app-tab-item interactive-elem" title="點擊切換亮起：瞬間">
+                                <div class="laya-app-tab-icon-wrap">
+                                    <img class="laya-app-tab-icon icon-active" data-laya-asset="tab_2" alt="瞬間">
+                                    <img class="laya-app-tab-icon icon-inactive" data-laya-asset="tab_2-2" alt="瞬間">
+                                </div>
+                                <span class="laya-app-tab-label">瞬間</span>
+                            </div>
+                            <div class="laya-app-tab-item active interactive-elem" title="點擊切換亮起：視頻">
+                                <div class="laya-app-tab-icon-wrap">
+                                    <img class="laya-app-tab-icon icon-active" data-laya-asset="tab_6" alt="視頻">
+                                    <img class="laya-app-tab-icon icon-inactive" data-laya-asset="tab_6-6" alt="視頻">
+                                </div>
+                                <span class="laya-app-tab-label">視頻</span>
+                            </div>
+                            <div class="laya-app-tab-item interactive-elem" title="點擊切換亮起：派對">
+                                <div class="laya-app-tab-icon-wrap">
+                                    <img class="laya-app-tab-icon icon-active" data-laya-asset="tab_3" alt="派對">
+                                    <img class="laya-app-tab-icon icon-inactive" data-laya-asset="tab_3-3" alt="派對">
+                                </div>
+                                <span class="laya-app-tab-label">派對</span>
+                            </div>
+                            <div class="laya-app-tab-item interactive-elem" title="點擊切換亮起：消息" style="position: relative;">
+                                <div class="laya-app-tab-icon-wrap">
+                                    <img class="laya-app-tab-icon icon-active" data-laya-asset="tab_4" alt="消息">
+                                    <img class="laya-app-tab-icon icon-inactive" data-laya-asset="tab_4-4" alt="消息">
+                                </div>
+                                <span class="laya-app-tab-label">消息</span>
+                            </div>
+                            <div class="laya-app-tab-item interactive-elem" title="點擊切換亮起：我的">
+                                <div class="laya-app-tab-icon-wrap">
+                                    <img class="laya-app-tab-icon icon-active" data-laya-asset="tab_5" alt="我的">
+                                    <img class="laya-app-tab-icon icon-inactive" data-laya-asset="tab_5-5" alt="我的">
+                                </div>
+                                <span class="laya-app-tab-label">我的</span>
+                            </div>
+                        </div>
+                        <div class="dy-home-bar"></div>
+                    </div>
+                </div>
+
+                <!-- 竖屏评论区开启时顶部暗黑搜索栏与底部白底评论抽屉 (图2同款：上方视频 + 下方评论区) -->
+                <div class="dy-cmt-top-search-bar" id="dy-cmt-top-search-bar">
+                    <svg class="dy-cmt-top-search-icon interactive-elem" id="dy-cmt-top-search-btn" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" title="搜索">
+                        <circle cx="11" cy="11" r="7.5"></circle>
+                        <line x1="20" y1="20" x2="16.2" y2="16.2"></line>
+                    </svg>
+                </div>
+
+                <!-- 竖屏评论区开启时视频右下角微字提示 (可点击修改或隐藏) -->
+                <div class="dy-cmt-vid-tip interactive-elem" id="dy-cmt-vid-tip" contenteditable="true" spellcheck="false" title="点击直接编辑视频右下角小字提示">视频由AI生成/剧情纯属虚构/无不良引导</div>
+
+                <div class="dy-comment-drawer" id="dy-comment-drawer">
+                    <!-- 顶部合集栏 -->
+                    <div class="dy-cmt-collection-bar" id="dy-cmt-collection-bar">
+                        <div class="dy-cmt-col-left">
+                            <span class="dy-cmt-col-prefix" id="dy-cmt-col-prefix" contenteditable="true" spellcheck="false" title="点击直接修改前缀">观看完整合集：</span>
+                            <span class="dy-cmt-col-title" id="dy-cmt-col-title" contenteditable="true" spellcheck="false" title="点击直接修改合集名称">人情与世故</span>
+                        </div>
+                        <div class="dy-cmt-col-actions">
+                            <button type="button" class="dy-cmt-circle-btn interactive-elem" id="dy-cmt-btn-expand" title="切换评论区高度">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#161823" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="15 3 21 3 21 9"></polyline>
+                                    <polyline points="9 21 3 21 3 15"></polyline>
+                                </svg>
+                            </button>
+                            <button type="button" class="dy-cmt-circle-btn interactive-elem" id="dy-cmt-btn-close" title="关闭评论区返回视频">
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#161823" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- 评论数与 AI 解析标签栏 -->
+                    <div class="dy-cmt-tabs-bar">
+                        <div class="dy-cmt-tab-item active">
+                            <span id="dy-cmt-tab-label" contenteditable="true" spellcheck="false">评论</span>
+                            <span class="dy-cmt-tab-count" id="dy-cmt-head-count" contenteditable="true" spellcheck="false" title="点击直接修改评论总数">138</span>
+                        </div>
+                        <div class="dy-cmt-tab-item">
+                            <span id="dy-cmt-tab-ai" contenteditable="true" spellcheck="false" title="点击直接修改副标签文字">AI 解析</span>
+                        </div>
+                    </div>
+
+                    <!-- 可上下滑动的评论列表 -->
+                    <div class="dy-cmt-list" id="dy-comment-list">
+                        <div class="dy-cmt-list-inner" id="dy-cmt-list-inner"></div>
+                    </div>
+
+                    <!-- 底部固定评论发送栏 (支持直接输入文字回车发送、点击图片图标上传照片/表情包) -->
+                    <div class="dy-cmt-bottom-bar">
+                        <div class="dy-cmt-input-pill">
+                            <input type="text" class="dy-cmt-stage-input interactive-elem" id="dy-cmt-stage-input" placeholder="期待你的评论" title="输入内容按回车直接发布新评论">
+                            <div class="dy-cmt-input-icons">
+                                <button type="button" class="dy-cmt-icon-btn interactive-elem" id="dy-cmt-btn-send-img" title="点击上传照片/表情包发到评论区">
+                                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                                        <rect x="3" y="3" width="18" height="18" rx="3" ry="3"></rect>
+                                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                        <polyline points="21 15 16 10 5 21"></polyline>
+                                    </svg>
+                                </button>
+                                <button type="button" class="dy-cmt-icon-btn interactive-elem" id="dy-cmt-btn-at" title="点击插入 @ 提及">
+                                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="4"></circle>
+                                        <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path>
+                                    </svg>
+                                </button>
+                                <button type="button" class="dy-cmt-icon-btn interactive-elem" id="dy-cmt-btn-emoji" title="点击随机插入热门表情">
+                                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="9.5"></circle>
+                                        <path d="M8.5 14.5s1.5 2 3.5 2 3.5-2 3.5-2"></path>
+                                        <line x1="9" y1="9.5" x2="9.01" y2="9.5" stroke-width="2.5"></line>
+                                        <line x1="15" y1="9.5" x2="15.01" y2="9.5" stroke-width="2.5"></line>
+                                    </svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 隐藏文件选择器：供点击画面评论头像更换头像、或点击上传评论照片/表情包 -->
+                    <input type="file" id="dy-cmt-avatar-file" accept="image/*" style="display:none;">
+                    <input type="file" id="dy-cmt-photo-file" accept="image/*" style="display:none;">
                 </div>
 
                 <!-- 专属：竖屏点击全屏观看后的横屏界面 (mode-dy-land) -->
@@ -730,7 +906,7 @@
                                 <path d="M8 9.6a1.4 1.4 0 100 2.8 1.4 1.4 0 000-2.8zm-3.6-1.9a5.2 5.2 0 017.2 0l1.2-1.3a7 7 0 00-9.6 0l1.2 1.3zm-2.7-2.7a9 9 0 0112.6 0l1.3-1.3a10.8 10.8 0 00-15.2 0l1.3 1.3z"/>
                             </svg>
                         </div>
-                        <div class="dyl-sb-center" id="dyl-disp-clock">04:23</div>
+                        <div class="dyl-sb-center interactive-elem" id="dyl-disp-clock" title="点击可随机切换时间" style="cursor:pointer;">04:23</div>
                         <div class="dyl-sb-right">
                             <span class="dyl-sb-pct" id="dyl-disp-battery">79%</span>
                             <span class="dyl-sb-bat">
@@ -1279,7 +1455,7 @@
                 </div>
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>手机顶部时间</label>
+                        <label>手机顶部时间 <a href="javascript:void(0)" id="btn-m-random-clock" style="color:#5dade2; text-decoration:none; margin-left:4px;">🎲随机</a></label>
                         <input type="text" id="in-m-status-time" value="14:24">
                     </div>
                     <div class="form-row">
@@ -1399,6 +1575,7 @@
                     <select id="sel-mobile-skin" style="background:#151821; font-weight:700; color:#5dade2;">
                         <option value="douyin">📱 抖音原生短视频风格</option>
                         <option value="laya">💎 Laya 官方原生交友社区风格</option>
+                        <option value="laya-app" selected>🌸 Laya app 端风格</option>
                     </select>
                 </div>
             </div>
@@ -1437,13 +1614,13 @@
                     <div class="form-row">
                         <label>屏幕顶部开孔/灵动岛</label>
                         <select id="sel-dy-cutout">
-                            <option value="island" selected>💊 iPhone 灵动岛</option>
+                            <option value="island">💊 iPhone 灵动岛</option>
                             <option value="island-music">🎵 灵动岛 (音乐律动)</option>
                             <option value="notch">📲 iPhone 经典刘海</option>
                             <option value="punch-center">⚫ 安卓居中单挖孔</option>
                             <option value="huawei-triple">🌸 华为鸿蒙三挖孔</option>
                             <option value="punch-left">↖️ 左上角单挖孔</option>
-                            <option value="none">✨ 无开孔纯净全面屏</option>
+                            <option value="none" selected>✨ 无开孔纯净全面屏</option>
                         </select>
                     </div>
                     <div class="form-row">
@@ -1725,6 +1902,12 @@
                 <div class="card-header">
                     <span>🔄 全屏观看(横屏) 控件显隐与交互</span>
                 </div>
+                <div class="form-row" style="margin-bottom: 6px;">
+                    <label>全屏顶部状态栏时间 <a href="javascript:void(0)" id="btn-dyl-random-time" style="color:#5dade2; text-decoration:none; margin-left:4px;">🎲随机</a></label>
+                    <input type="text" id="in-dyl-clock-time" value="14:24">
+                </div>
+                <div style="display:none;">
+                </div>
                 <div class="switch-grid">
                     <div class="switch-tile">
                         <span>顶部手机状态栏</span>
@@ -1819,9 +2002,16 @@
                         </label>
                     </div>
                     <div class="switch-tile highlight-tile">
-                        <span>🔥 热点栏 (默认关)</span>
+                        <span>✨ Laya 精选内容标</span>
                         <label class="ios-toggle">
-                            <input type="checkbox" id="sw-dy-hotspot">
+                            <input type="checkbox" id="sw-dy-featured" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile highlight-tile">
+                        <span>🔥 上升热点栏</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-hotspot" checked>
                             <span class="slider-round"></span>
                         </label>
                     </div>
@@ -1836,6 +2026,20 @@
                         <span>右侧互动操作栏</span>
                         <label class="ios-toggle">
                             <input type="checkbox" id="sw-dy-right-bar" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>❤️ 头像红＋号</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-follow-plus" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile highlight-tile">
+                        <span>💬 弹出评论区</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-comment-drawer">
                             <span class="slider-round"></span>
                         </label>
                     </div>
@@ -1901,7 +2105,11 @@
                     <span>🔥 热点与热搜词配置</span>
                 </div>
                 <div class="form-row">
-                    <label>热点标题词</label>
+                    <label>✨ Laya 精选内容徽章文字</label>
+                    <input type="text" id="in-dy-featured-title" value="Laya 精選內容">
+                </div>
+                <div class="form-row">
+                    <label>🔥 上升热点标题词</label>
                     <input type="text" id="in-dy-hotspot-title" value="下班去炫頂配螺螄粉">
                 </div>
                 <div class="form-row">
@@ -1912,6 +2120,57 @@
                     <label>猜你想搜热词</label>
                     <input type="text" id="in-dy-gold-title" value="猜你想搜 · Laya 獨家完整版合集">
                 </div>
+            </div>
+            <!-- 💬 竖屏评论区弹窗与随机头像/图文表情包编辑工坊 -->
+            <div class="panel-card" id="card-dy-comment-studio" style="border: 1px solid rgba(254, 44, 85, 0.4);">
+                <div class="card-header">
+                    <span>💬 评论区弹窗与图文/表情包工坊</span>
+                    <span class="badge-tip" style="background:rgba(254,44,85,0.2); color:#ff7675;">点击画面可直接改</span>
+                </div>
+
+                <div class="switch-tile highlight-tile" style="border-color:rgba(254,44,85,0.45); background:rgba(254,44,85,0.12);">
+                    <span>💬 展开评论区抽屉 (点击画面气泡同效)</span>
+                    <label class="ios-toggle">
+                        <input type="checkbox" id="sw-dy-cmt-open-card">
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+
+                <div class="form-row">
+                    <label>🌐 在线随机头像生成接口 (支持一键随机/点击头像上传)</label>
+                    <select id="sel-cmt-avatar-api">
+                        <option value="mixed" selected>🎲 全网混合随机头像接口 (写实+插画+潮玩)</option>
+                        <option value="picsum">📸 写实风景/真人摄影头像接口 (Picsum API)</option>
+                        <option value="adventurer">🎭 潮流插画人物头像接口 (DiceBear Adventurer)</option>
+                        <option value="lorelei">🌸 二次元质感漫画头像接口 (DiceBear Lorelei)</option>
+                        <option value="notionists">😎 极简酷潮涂鸦头像接口 (DiceBear Notionists)</option>
+                        <option value="fun-emoji">🐱 趣味萌系表情头像接口 (DiceBear FunEmoji)</option>
+                    </select>
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-cmt-random-all" title="随机更换所有评论的头像、昵称、时间地区与评论内容">🎲 随机全部评论与头像</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-random-avatars" title="调用在线头像接口重新随机所有未手动上传的头像">👤 仅随机全部头像</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-add-text">＋ 新增一条文字评论</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-add-photo" style="border-color:rgba(56,189,248,0.5); color:#38bdf8;">🖼️ 上传图片/表情包评论</button>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>顶部合集名称 (可留空隐藏)</label>
+                        <input type="text" id="in-cmt-col-title" value="人情与世故">
+                    </div>
+                    <div class="form-row">
+                        <label>评论区顶部总数</label>
+                        <input type="text" id="in-cmt-head-count" value="138">
+                    </div>
+                </div>
+
+                <div class="sub-list-header" style="margin-top:2px;">
+                    <span>📝 评论列表 (画面与右侧双向实时同步，点头像可上传)</span>
+                </div>
+
+                <div id="dy-cmt-editor-list" class="dy-cmt-editor-list"></div>
             </div>
         </div>
 

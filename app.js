@@ -98,6 +98,8 @@ window.switchRightTab = function (mode) {
         if (playerMiniLogo) playerMiniLogo.src = realSrc;
         if (mBrandLogo) mBrandLogo.src = realSrc;
         if (dyLfWmLogo) dyLfWmLogo.src = realSrc;
+        const dyFeaturedLogoImg = document.getElementById('dy-featured-logo-img');
+        if (dyFeaturedLogoImg) dyFeaturedLogoImg.src = realSrc;
 
         // 手机竖屏头像与全屏横屏头像如果没单独上传过其他人物头像，也同步使用当前自带蓝/紫 Logo
         if (dyAvatarImg && (!dyAvatarImg.dataset.custom || dyAvatarImg.dataset.custom === 'false')) {
@@ -467,7 +469,14 @@ window.switchRightTab = function (mode) {
             if (dyBtnFollow.textContent === '+') {
                 dyBtnFollow.textContent = '✓';
                 dyBtnFollow.classList.add('followed');
-                window.showToast('已关注作者');
+                window.showToast('❤️ 已关注作者');
+                if (dyBtnFollow._hideTimer) clearTimeout(dyBtnFollow._hideTimer);
+                dyBtnFollow._hideTimer = setTimeout(() => {
+                    dyBtnFollow.classList.add('follow-hidden');
+                    const swFollowPlus = document.getElementById('sw-dy-follow-plus');
+                    if (swFollowPlus) swFollowPlus.checked = false;
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                }, 650);
             } else {
                 dyBtnFollow.textContent = '+';
                 dyBtnFollow.classList.remove('followed');
@@ -479,16 +488,1019 @@ window.switchRightTab = function (mode) {
     /* ==========================================================================
        5. 手机竖屏双皮肤切换引擎
        ========================================================================== */
+    const swDyFollowPlus = document.getElementById('sw-dy-follow-plus');
+    const dyAvatarClickWrap = document.getElementById('dy-avatar-click');
+    function setFollowPlusVisible(visible, save = true) {
+        if (!dyBtnFollow) return;
+        if (dyBtnFollow._hideTimer) clearTimeout(dyBtnFollow._hideTimer);
+        if (visible) {
+            dyBtnFollow.textContent = '+';
+            dyBtnFollow.classList.remove('followed', 'follow-hidden');
+        } else {
+            dyBtnFollow.classList.add('follow-hidden');
+        }
+        if (swDyFollowPlus) swDyFollowPlus.checked = !!visible;
+        if (save && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+    }
+    if (swDyFollowPlus) {
+        swDyFollowPlus.addEventListener('change', (e) => {
+            setFollowPlusVisible(e.target.checked, true);
+            window.showToast(e.target.checked ? '❤️ 已恢复显示头像下方红色 + 号' : '已隐藏头像下方红色 + 号');
+        });
+    }
+    if (dyAvatarClickWrap && dyBtnFollow) {
+        dyAvatarClickWrap.addEventListener('click', (e) => {
+            if (e.target === dyBtnFollow) return;
+            if (dyBtnFollow.classList.contains('follow-hidden')) {
+                setFollowPlusVisible(true, true);
+                window.showToast('❤️ 已恢复头像下方红色 + 号');
+            }
+        });
+    }
+
+    /* ==========================================================================
+       ★ 4.8 手机竖屏评论区弹窗抽屉与在线随机头像/图文表情包互动引擎 (CommentEngine)
+       ========================================================================== */
+    const NICKNAME_POOL = [
+        'GKD', '熟悉的陌生人³⁵⁸', '知夏', '树小森.', '🦄大步扭™',
+        '晚风吹过夏', '可乐加冰🧊', '熬夜冠军🏆', '芝士雪豹', '人间清醒✨',
+        'momo', '电子榨菜爱好者', '半夏微凉', '不吃香菜', '暴富小锦鲤🎏',
+        '江湖夜雨', '星河滚烫', '柠檬不酸🍋', '一只小团子', '清风徐来',
+        '卡布奇诺', '北辰', '夏目友人', '纯爱战神', '摸鱼达人🐟',
+        '山野万里', '橘子汽水🍊', '月亮不睡我不睡', '风吹半夏', '云朵偷喝我酒'
+    ];
+    const COMMENT_TEXT_POOL = [
+        '牛总还是有点大智慧的',
+        '这剧情太牛了👍😁',
+        '好一招釜底抽薪',
+        '哈哈，我先入职花果山 再回来应聘 完美闭环🐺',
+        '看到这一幕直接蚌埠住了😂',
+        '还得是老戏骨，一个眼神直接封神🔥',
+        '这一段我反反复复看了五遍，细节拉满！',
+        '只有我一个人觉得这段配乐绝了吗😭',
+        '大数据果然懂我，刚想找这个合集就刷到了',
+        '笑不活了，评论区比正片还精彩😂',
+        '建议直接申遗，这台词功底太顶了👍',
+        '前方高能！名场面打卡留念✨',
+        '表面风平浪静，实则全员八百个心眼子',
+        '导演加鸡腿，这运镜和反转真绝了👏',
+        '太真实了，简直就是在演我本人🤣',
+        '这段张力直接拉满，看起一身鸡皮疙瘩'
+    ];
+    const PROVINCE_POOL = [
+        '广东', '河北', '河南', '湖北', '浙江', '四川', '江苏', '北京',
+        '上海', '山东', '湖南', '福建', '重庆', '陕西', '辽宁', '安徽', '云南', '广西'
+    ];
+
+    function makeFallbackAvatarSvg(seedStr, nameStr) {
+        let hash = 0;
+        const s = String(seedStr || nameStr || 'Laya');
+        for (let i = 0; i < s.length; i++) hash = ((hash << 5) - hash) + s.charCodeAt(i);
+        const palettes = [
+            ['#ff758c', '#ff7eb3'], ['#4facfe', '#00f2fe'], ['#43e97b', '#38f9d7'],
+            ['#fa709a', '#fee140'], ['#a18cd1', '#fbc2eb'], ['#667eea', '#764ba2'],
+            ['#f093fb', '#f5576c'], ['#48c6ef', '#6f86d6'], ['#ff9a9e', '#fecfef']
+        ];
+        const pair = palettes[Math.abs(hash) % palettes.length];
+        const ch = (String(nameStr || '友').replace(/[^\u4e00-\u9fa5a-zA-Z0-9]/g, '')[0] || 'U').toUpperCase();
+        const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="${pair[0]}"/><stop offset="100%" stop-color="${pair[1]}"/></linearGradient></defs><rect width="80" height="80" rx="40" fill="url(#g)"/><circle cx="40" cy="30" r="13" fill="rgba(255,255,255,0.28)"/><path d="M18 68c4-14 14-20 22-20s18 6 22 20" fill="rgba(255,255,255,0.28)"/><text x="40" y="47" text-anchor="middle" fill="#fff" font-size="26" font-family="sans-serif" font-weight="800">${ch}</text></svg>`;
+        return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
+    }
+
+    function buildOnlineAvatarUrl(seed, apiMode) {
+        const cleanSeed = encodeURIComponent(String(seed || Math.random().toString(36).slice(2, 9)));
+        const modes = ['adventurer', 'lorelei', 'notionists', 'fun-emoji', 'picsum'];
+        const chosen = (!apiMode || apiMode === 'mixed')
+            ? modes[Math.floor(Math.random() * modes.length)]
+            : apiMode;
+        if (chosen === 'picsum') {
+            return `https://picsum.photos/seed/${cleanSeed}/120/120`;
+        }
+        if (chosen === 'fun-emoji') {
+            return `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${cleanSeed}`;
+        }
+        return `https://api.dicebear.com/7.x/${chosen}/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+    }
+
+    function randomDateLoc() {
+        const prov = PROVINCE_POOL[Math.floor(Math.random() * PROVINCE_POOL.length)];
+        const r = Math.random();
+        if (r < 0.22) {
+            const mins = Math.floor(Math.random() * 50) + 2;
+            return `${mins}分钟前 · ${prov}`;
+        }
+        if (r < 0.42) {
+            const hrs = Math.floor(Math.random() * 11) + 1;
+            return `${hrs}小时前 · ${prov}`;
+        }
+        const month = String(Math.floor(Math.random() * 3) + 8).padStart(2, '0');
+        const day = String(Math.floor(Math.random() * 27) + 1).padStart(2, '0');
+        return `${month}-${day} · ${prov}`;
+    }
+
+    const CommentEngine = {
+        isOpen: false,
+        isExpanded: false,
+        apiMode: 'mixed',
+        colPrefix: '观看完整合集：',
+        colTitle: '人情与世故',
+        headCount: '138',
+        tabAiText: 'AI 解析',
+        vidTipText: '视频由AI生成/剧情纯属虚构/无不良引导',
+        activeUploadIdx: -1,
+        activePhotoUploadIdx: -1,
+        list: [],
+
+        initDefaults() {
+            this.list = [
+                { id: 'c1', user: 'GKD', text: '牛总还是有点大智慧的', dateLoc: '10-14 · 广东', likes: '9', liked: false, avatar: buildOnlineAvatarUrl('gkd_101', 'adventurer'), image: '', isCustomAvatar: false },
+                { id: 'c2', user: '熟悉的陌生人³⁵⁸', text: '这剧情太牛了👍😁', dateLoc: '10-14 · 河北', likes: '8', liked: false, avatar: buildOnlineAvatarUrl('stranger_358', 'picsum'), image: '', isCustomAvatar: false },
+                { id: 'c3', user: '知夏', text: '好一招釜底抽薪', dateLoc: '10-14 · 河南', likes: '1', liked: false, avatar: buildOnlineAvatarUrl('zhixia_77', 'lorelei'), image: '', isCustomAvatar: false },
+                { id: 'c4', user: '树小森.', text: '哈哈，我先入职花果山 再回来应聘 完美闭环🐺', dateLoc: '10-15 · 湖北', likes: '4', liked: false, avatar: buildOnlineAvatarUrl('shuxiaosen_99', 'notionists'), image: '', isCustomAvatar: false },
+                { id: 'c5', user: '🦄大步扭™', text: '看到这一幕直接笑精神了😂', dateLoc: '10-15 · 浙江', likes: '16', liked: false, avatar: buildOnlineAvatarUrl('dabuniu_88', 'fun-emoji'), image: '', isCustomAvatar: false },
+                { id: 'c6', user: '晚风吹过夏', text: '演技真的在线，每个眼神里全是戏🔥', dateLoc: '10-16 · 四川', likes: '23', liked: false, avatar: buildOnlineAvatarUrl('wanfeng_66', 'adventurer'), image: '', isCustomAvatar: false }
+            ];
+            this.list.forEach(item => this.prefetchAvatarDataUrl(item));
+        },
+
+        prefetchAvatarDataUrl(item) {
+            if (!item || !item.avatar || item.avatar.startsWith('data:')) return;
+            const targetUrl = item.avatar;
+            fetch(targetUrl, { mode: 'cors' })
+                .then(res => res.ok ? res.blob() : Promise.reject())
+                .then(blob => new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.readAsDataURL(blob);
+                }))
+                .then(dataUrl => {
+                    if (dataUrl && item.avatar === targetUrl) {
+                        item.avatar = dataUrl;
+                        if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                    }
+                })
+                .catch(() => {});
+        },
+
+        setDrawerOpen(flag, showToastMsg = false) {
+            this.isOpen = !!flag;
+            const rt = document.getElementById('render-target');
+            if (rt) {
+                rt.classList.toggle('dy-comment-open', this.isOpen);
+            }
+            const sw1 = document.getElementById('sw-dy-comment-drawer');
+            const sw2 = document.getElementById('sw-dy-cmt-open-card');
+            if (sw1 && sw1.checked !== this.isOpen) sw1.checked = this.isOpen;
+            if (sw2 && sw2.checked !== this.isOpen) sw2.checked = this.isOpen;
+
+            if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
+                window.PlayerEngine.updateTransform();
+                setTimeout(() => window.PlayerEngine.updateTransform(), 60);
+                setTimeout(() => window.PlayerEngine.updateTransform(), 240);
+            }
+            if (showToastMsg) {
+                window.showToast(this.isOpen
+                    ? '💬 已弹出评论区！可直接点击画面评论文字修改、点头像上传换图，或上下滑动'
+                    : '📱 已收起评论区，恢复竖屏视频画面');
+            }
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        },
+
+        randomizeAll(includeText = true) {
+            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'mixed';
+            this.apiMode = mode;
+            const usedNames = new Set();
+            const usedTexts = new Set();
+            this.list.forEach((item, idx) => {
+                const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 7)}`;
+                if (!item.isCustomAvatar || includeText) {
+                    item.avatar = buildOnlineAvatarUrl(seed, mode);
+                    item.isCustomAvatar = false;
+                    this.prefetchAvatarDataUrl(item);
+                }
+                if (includeText) {
+                    let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+                    let tries = 0;
+                    while (usedNames.has(nick) && tries++ < 15) {
+                        nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+                    }
+                    usedNames.add(nick);
+                    item.user = nick;
+
+                    let txt = COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)];
+                    tries = 0;
+                    while (usedTexts.has(txt) && tries++ < 15) {
+                        txt = COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)];
+                    }
+                    usedTexts.add(txt);
+                    item.text = txt;
+                    item.dateLoc = randomDateLoc();
+                    item.likes = String(Math.floor(Math.random() * 68) + 1);
+                }
+            });
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        },
+
+        syncHeaderDOM() {
+            const colBar = document.getElementById('dy-cmt-collection-bar');
+            const colPrefixEl = document.getElementById('dy-cmt-col-prefix');
+            const colTitleEl = document.getElementById('dy-cmt-col-title');
+            const headCountEl = document.getElementById('dy-cmt-head-count');
+            const tabAiEl = document.getElementById('dy-cmt-tab-ai');
+            const vidTipEl = document.getElementById('dy-cmt-vid-tip');
+            const inColTitle = document.getElementById('in-cmt-col-title');
+            const inHeadCount = document.getElementById('in-cmt-head-count');
+
+            if (colPrefixEl && colPrefixEl.textContent !== this.colPrefix) colPrefixEl.textContent = this.colPrefix;
+            if (colTitleEl && colTitleEl.textContent !== this.colTitle) colTitleEl.textContent = this.colTitle;
+            if (colBar) colBar.style.display = this.colTitle.trim() ? 'flex' : 'none';
+            if (headCountEl && headCountEl.textContent !== this.headCount) headCountEl.textContent = this.headCount;
+            if (tabAiEl && tabAiEl.textContent !== this.tabAiText) tabAiEl.textContent = this.tabAiText;
+            if (vidTipEl && vidTipEl.textContent !== this.vidTipText) vidTipEl.textContent = this.vidTipText;
+            if (inColTitle && document.activeElement !== inColTitle) inColTitle.value = this.colTitle;
+            if (inHeadCount && document.activeElement !== inHeadCount) inHeadCount.value = this.headCount;
+        },
+
+        renderStage() {
+            this.syncHeaderDOM();
+            const container = document.getElementById('dy-cmt-list-inner');
+            if (!container) return;
+            container.innerHTML = '';
+
+            this.list.forEach((item, idx) => {
+                const row = document.createElement('div');
+                row.className = 'dy-cmt-item';
+
+                // 左侧头像 (点击直接上传替换该条评论头像)
+                const avWrap = document.createElement('div');
+                avWrap.className = 'dy-cmt-avatar-wrap interactive-elem';
+                avWrap.title = '点击上传并更换此条评论的头像';
+                const avImg = document.createElement('img');
+                avImg.className = 'dy-cmt-avatar';
+                avImg.crossOrigin = 'anonymous';
+                avImg.src = item.avatar || makeFallbackAvatarSvg(item.id, item.user);
+                avImg.onerror = () => {
+                    const fb = makeFallbackAvatarSvg(item.id + '_' + idx, item.user);
+                    if (avImg.src !== fb) avImg.src = fb;
+                };
+                avWrap.appendChild(avImg);
+                avWrap.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.activeUploadIdx = idx;
+                    const fileInp = document.getElementById('dy-cmt-avatar-file');
+                    if (fileInp) {
+                        fileInp.value = '';
+                        fileInp.click();
+                    }
+                });
+                row.appendChild(avWrap);
+
+                // 右侧主体
+                const main = document.createElement('div');
+                main.className = 'dy-cmt-main';
+
+                // 昵称行 + 悬停快捷按钮(随机头像 / 上传配图 / 删除)
+                const userRow = document.createElement('div');
+                userRow.className = 'dy-cmt-user-row';
+
+                const userSpan = document.createElement('span');
+                userSpan.className = 'dy-cmt-user interactive-elem';
+                userSpan.contentEditable = 'true';
+                userSpan.spellcheck = false;
+                userSpan.title = '点击直接编辑昵称';
+                userSpan.textContent = item.user || '匿名用户';
+                userSpan.addEventListener('input', () => {
+                    item.user = userSpan.textContent.trim();
+                    this.syncEditorRow(idx);
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+                userRow.appendChild(userSpan);
+
+                const qTools = document.createElement('div');
+                qTools.className = 'dy-cmt-stage-QuickTools';
+
+                const btnRandAv = document.createElement('button');
+                btnRandAv.type = 'button';
+                btnRandAv.className = 'dy-cmt-qbtn';
+                btnRandAv.textContent = '🎲头像';
+                btnRandAv.title = '随机换一个在线头像';
+                btnRandAv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`;
+                    item.avatar = buildOnlineAvatarUrl(seed, this.apiMode);
+                    item.isCustomAvatar = false;
+                    avImg.src = item.avatar;
+                    this.prefetchAvatarDataUrl(item);
+                    this.renderEditor();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const btnUpImg = document.createElement('button');
+                btnUpImg.type = 'button';
+                btnUpImg.className = 'dy-cmt-qbtn';
+                btnUpImg.textContent = '🖼️配图';
+                btnUpImg.title = '为此条评论上传照片/表情包';
+                btnUpImg.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.activePhotoUploadIdx = idx;
+                    const pInp = document.getElementById('dy-cmt-photo-file');
+                    if (pInp) {
+                        pInp.value = '';
+                        pInp.click();
+                    }
+                });
+
+                const btnDel = document.createElement('button');
+                btnDel.type = 'button';
+                btnDel.className = 'dy-cmt-qbtn';
+                btnDel.textContent = '✕';
+                btnDel.title = '删除此条评论';
+                btnDel.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.list.splice(idx, 1);
+                    this.renderStage();
+                    this.renderEditor();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                qTools.appendChild(btnRandAv);
+                qTools.appendChild(btnUpImg);
+                qTools.appendChild(btnDel);
+                userRow.appendChild(qTools);
+                main.appendChild(userRow);
+
+                // 评论正文 (点击直接在画面上编辑)
+                const txtDiv = document.createElement('div');
+                txtDiv.className = 'dy-cmt-text interactive-elem';
+                txtDiv.contentEditable = 'true';
+                txtDiv.spellcheck = false;
+                txtDiv.title = '点击直接修改评论文字';
+                txtDiv.textContent = item.text || '';
+                txtDiv.style.display = (item.text || !item.image) ? 'block' : 'none';
+                txtDiv.addEventListener('input', () => {
+                    item.text = txtDiv.textContent;
+                    this.syncEditorRow(idx);
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+                main.appendChild(txtDiv);
+
+                // 评论区上传的照片 / 表情包 (如图2第5条)
+                if (item.image) {
+                    const photoBox = document.createElement('div');
+                    photoBox.className = 'dy-cmt-photo-box interactive-elem';
+                    const pImg = document.createElement('img');
+                    pImg.className = 'dy-cmt-photo-img';
+                    pImg.src = item.image;
+                    pImg.title = '点击可更换此照片/表情包';
+                    pImg.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.activePhotoUploadIdx = idx;
+                        const pInp = document.getElementById('dy-cmt-photo-file');
+                        if (pInp) {
+                            pInp.value = '';
+                            pInp.click();
+                        }
+                    });
+
+                    const pDel = document.createElement('button');
+                    pDel.type = 'button';
+                    pDel.className = 'dy-cmt-photo-del';
+                    pDel.textContent = '✕';
+                    pDel.title = '移除照片/表情包';
+                    pDel.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        item.image = '';
+                        if (!item.text) item.text = '👍';
+                        this.renderStage();
+                        this.renderEditor();
+                        if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                    });
+
+                    photoBox.appendChild(pImg);
+                    photoBox.appendChild(pDel);
+                    main.appendChild(photoBox);
+                }
+
+                // 底部日期地区 + 回复 + 右侧点赞爱心与心碎图标
+                const metaRow = document.createElement('div');
+                metaRow.className = 'dy-cmt-meta-row';
+
+                const metaLeft = document.createElement('div');
+                metaLeft.className = 'dy-cmt-meta-left';
+
+                const dateLocSpan = document.createElement('span');
+                dateLocSpan.className = 'dy-cmt-date-loc interactive-elem';
+                dateLocSpan.contentEditable = 'true';
+                dateLocSpan.spellcheck = false;
+                dateLocSpan.title = '点击直接修改日期与地区';
+                dateLocSpan.textContent = item.dateLoc || '10-14 · 广东';
+                dateLocSpan.addEventListener('input', () => {
+                    item.dateLoc = dateLocSpan.textContent.trim();
+                    this.syncEditorRow(idx);
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const replySpan = document.createElement('span');
+                replySpan.className = 'dy-cmt-reply-btn interactive-elem';
+                replySpan.textContent = '回复';
+                replySpan.addEventListener('click', () => {
+                    const stageInp = document.getElementById('dy-cmt-stage-input');
+                    if (stageInp) {
+                        stageInp.placeholder = `回复 @${item.user}：`;
+                        stageInp.focus();
+                    }
+                });
+
+                metaLeft.appendChild(dateLocSpan);
+                metaLeft.appendChild(replySpan);
+                metaRow.appendChild(metaLeft);
+
+                const actions = document.createElement('div');
+                actions.className = 'dy-cmt-actions';
+
+                const likeBtn = document.createElement('div');
+                likeBtn.className = 'dy-cmt-like-btn interactive-elem' + (item.liked ? ' liked' : '');
+                likeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="${item.liked ? '#fe2c55' : 'none'}" stroke="${item.liked ? '#fe2c55' : '#8a8b91'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`;
+
+                const likeNum = document.createElement('span');
+                likeNum.className = 'dy-cmt-like-num interactive-elem';
+                likeNum.contentEditable = 'true';
+                likeNum.spellcheck = false;
+                likeNum.title = '点击数字可直接修改点赞数，点击爱心可点赞';
+                likeNum.textContent = item.likes || '1';
+                likeNum.addEventListener('click', (e) => e.stopPropagation());
+                likeNum.addEventListener('input', () => {
+                    item.likes = likeNum.textContent.trim();
+                    this.syncEditorRow(idx);
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                likeBtn.addEventListener('click', () => {
+                    item.liked = !item.liked;
+                    const n = parseInt(item.likes, 10);
+                    if (!isNaN(n)) {
+                        item.likes = String(item.liked ? n + 1 : Math.max(0, n - 1));
+                    }
+                    this.renderStage();
+                    this.renderEditor();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+                likeBtn.appendChild(likeNum);
+
+                const dislikeBtn = document.createElement('div');
+                dislikeBtn.className = 'dy-cmt-dislike-btn interactive-elem';
+                dislikeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8b91" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path><polyline points="12 5.7 10.3 11 13.5 13.5 11.5 18.5"></polyline></svg>`;
+
+                actions.appendChild(likeBtn);
+                actions.appendChild(dislikeBtn);
+                metaRow.appendChild(actions);
+
+                main.appendChild(metaRow);
+                row.appendChild(main);
+                container.appendChild(row);
+            });
+        },
+
+        syncEditorRow(idx) {
+            const edList = document.getElementById('dy-cmt-editor-list');
+            if (!edList) return;
+            const cards = edList.querySelectorAll('.dy-cmt-ed-card');
+            const card = cards[idx];
+            const item = this.list[idx];
+            if (!card || !item) return;
+            const inUser = card.querySelector('.ed-in-user');
+            const inDate = card.querySelector('.ed-in-date');
+            const inLikes = card.querySelector('.ed-in-likes');
+            const inText = card.querySelector('.ed-in-text');
+            if (inUser && document.activeElement !== inUser) inUser.value = item.user || '';
+            if (inDate && document.activeElement !== inDate) inDate.value = item.dateLoc || '';
+            if (inLikes && document.activeElement !== inLikes) inLikes.value = item.likes || '';
+            if (inText && document.activeElement !== inText) inText.value = item.text || '';
+        },
+
+        renderEditor() {
+            const edList = document.getElementById('dy-cmt-editor-list');
+            if (!edList) return;
+            edList.innerHTML = '';
+
+            this.list.forEach((item, idx) => {
+                const card = document.createElement('div');
+                card.className = 'dy-cmt-ed-card';
+
+                const topRow = document.createElement('div');
+                topRow.className = 'dy-cmt-ed-top';
+
+                const avImg = document.createElement('img');
+                avImg.className = 'dy-cmt-ed-avatar';
+                avImg.crossOrigin = 'anonymous';
+                avImg.src = item.avatar || makeFallbackAvatarSvg(item.id, item.user);
+                avImg.title = '点击上传自定义头像';
+                avImg.onerror = () => {
+                    const fb = makeFallbackAvatarSvg(item.id + '_' + idx, item.user);
+                    if (avImg.src !== fb) avImg.src = fb;
+                };
+                avImg.addEventListener('click', () => {
+                    this.activeUploadIdx = idx;
+                    const fileInp = document.getElementById('dy-cmt-avatar-file');
+                    if (fileInp) {
+                        fileInp.value = '';
+                        fileInp.click();
+                    }
+                });
+
+                const btnRandOne = document.createElement('button');
+                btnRandOne.type = 'button';
+                btnRandOne.className = 'dy-cmt-ed-btn';
+                btnRandOne.textContent = '🎲';
+                btnRandOne.title = '随机生成此条头像';
+                btnRandOne.addEventListener('click', () => {
+                    const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`;
+                    item.avatar = buildOnlineAvatarUrl(seed, this.apiMode);
+                    item.isCustomAvatar = false;
+                    this.prefetchAvatarDataUrl(item);
+                    this.renderStage();
+                    this.renderEditor();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const inUser = document.createElement('input');
+                inUser.type = 'text';
+                inUser.className = 'dy-cmt-ed-inp ed-in-user';
+                inUser.style.flex = '1';
+                inUser.placeholder = '昵称';
+                inUser.value = item.user || '';
+                inUser.addEventListener('input', (e) => {
+                    item.user = e.target.value;
+                    this.renderStage();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const inDate = document.createElement('input');
+                inDate.type = 'text';
+                inDate.className = 'dy-cmt-ed-inp ed-in-date';
+                inDate.style.width = '88px';
+                inDate.placeholder = '时间·地区';
+                inDate.value = item.dateLoc || '';
+                inDate.addEventListener('input', (e) => {
+                    item.dateLoc = e.target.value;
+                    this.renderStage();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const inLikes = document.createElement('input');
+                inLikes.type = 'text';
+                inLikes.className = 'dy-cmt-ed-inp ed-in-likes';
+                inLikes.style.width = '38px';
+                inLikes.placeholder = '赞';
+                inLikes.title = '点赞数';
+                inLikes.value = item.likes || '';
+                inLikes.addEventListener('input', (e) => {
+                    item.likes = e.target.value;
+                    this.renderStage();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const btnDel = document.createElement('button');
+                btnDel.type = 'button';
+                btnDel.className = 'sub-cue-del';
+                btnDel.textContent = '✕';
+                btnDel.title = '删除此条评论';
+                btnDel.addEventListener('click', () => {
+                    this.list.splice(idx, 1);
+                    this.renderStage();
+                    this.renderEditor();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                topRow.appendChild(avImg);
+                topRow.appendChild(btnRandOne);
+                topRow.appendChild(inUser);
+                topRow.appendChild(inDate);
+                topRow.appendChild(inLikes);
+                topRow.appendChild(btnDel);
+
+                const botRow = document.createElement('div');
+                botRow.style.cssText = 'display:flex; align-items:center; gap:5px;';
+
+                const inText = document.createElement('input');
+                inText.type = 'text';
+                inText.className = 'dy-cmt-ed-inp ed-in-text';
+                inText.style.flex = '1';
+                inText.placeholder = '输入评论文字（可留空仅发图片/表情包）...';
+                inText.value = item.text || '';
+                inText.addEventListener('input', (e) => {
+                    item.text = e.target.value;
+                    this.renderStage();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const btnPhoto = document.createElement('button');
+                btnPhoto.type = 'button';
+                btnPhoto.className = 'dy-cmt-ed-btn';
+                btnPhoto.style.color = item.image ? '#34d399' : '#38bdf8';
+                btnPhoto.textContent = item.image ? '🖼️换图' : '🖼️配图';
+                btnPhoto.title = '上传照片或表情包到此条评论';
+                btnPhoto.addEventListener('click', () => {
+                    this.activePhotoUploadIdx = idx;
+                    const pInp = document.getElementById('dy-cmt-photo-file');
+                    if (pInp) {
+                        pInp.value = '';
+                        pInp.click();
+                    }
+                });
+
+                botRow.appendChild(inText);
+                botRow.appendChild(btnPhoto);
+
+                if (item.image) {
+                    const btnClearPhoto = document.createElement('button');
+                    btnClearPhoto.type = 'button';
+                    btnClearPhoto.className = 'dy-cmt-ed-btn';
+                    btnClearPhoto.style.color = '#f87171';
+                    btnClearPhoto.textContent = '删图';
+                    btnClearPhoto.addEventListener('click', () => {
+                        item.image = '';
+                        this.renderStage();
+                        this.renderEditor();
+                        if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                    });
+                    botRow.appendChild(btnClearPhoto);
+                }
+
+                card.appendChild(topRow);
+                card.appendChild(botRow);
+                edList.appendChild(card);
+            });
+        }
+    };
+    window.CommentEngine = CommentEngine;
+    CommentEngine.initDefaults();
+    CommentEngine.renderStage();
+    CommentEngine.renderEditor();
+
+    // 绑定点击图3右侧气泡按钮 (#dy-btn-comment) 弹出/收起评论区抽屉
+    const dyBtnCommentBubble = document.getElementById('dy-btn-comment');
+    if (dyBtnCommentBubble) {
+        dyBtnCommentBubble.addEventListener('click', (e) => {
+            e.stopPropagation();
+            CommentEngine.setDrawerOpen(!CommentEngine.isOpen, true);
+            if (CommentEngine.isOpen) {
+                if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
+                const studioCard = document.getElementById('card-dy-comment-studio');
+                if (studioCard) studioCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        });
+    }
+
+    // 绑定评论区右上角关闭按钮 ✕ 与展开按钮 ⛶
+    const dyCmtBtnClose = document.getElementById('dy-cmt-btn-close');
+    if (dyCmtBtnClose) {
+        dyCmtBtnClose.addEventListener('click', (e) => {
+            e.stopPropagation();
+            CommentEngine.setDrawerOpen(false, true);
+        });
+    }
+    const dyCmtBtnExpand = document.getElementById('dy-cmt-btn-expand');
+    if (dyCmtBtnExpand) {
+        dyCmtBtnExpand.addEventListener('click', (e) => {
+            e.stopPropagation();
+            CommentEngine.isExpanded = !CommentEngine.isExpanded;
+            const rt = document.getElementById('render-target');
+            if (rt) rt.classList.toggle('dy-comment-expanded', CommentEngine.isExpanded);
+            if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
+                window.PlayerEngine.updateTransform();
+                setTimeout(() => window.PlayerEngine.updateTransform(), 230);
+            }
+        });
+    }
+
+    // 绑定右侧面板评论区开关、随机按钮、新增文字/表情包评论按钮
+    const swDyCommentDrawer = document.getElementById('sw-dy-comment-drawer');
+    const swDyCmtOpenCard = document.getElementById('sw-dy-cmt-open-card');
+    if (swDyCommentDrawer) {
+        swDyCommentDrawer.addEventListener('change', (e) => CommentEngine.setDrawerOpen(e.target.checked, true));
+    }
+    if (swDyCmtOpenCard) {
+        swDyCmtOpenCard.addEventListener('change', (e) => CommentEngine.setDrawerOpen(e.target.checked, true));
+    }
+
+    const selCmtAvatarApi = document.getElementById('sel-cmt-avatar-api');
+    if (selCmtAvatarApi) {
+        selCmtAvatarApi.addEventListener('change', (e) => {
+            CommentEngine.apiMode = e.target.value;
+            CommentEngine.randomizeAll(false);
+            window.showToast('🌐 已切换在线头像接口并刷新随机头像！');
+        });
+    }
+
+    const btnCmtRandomAll = document.getElementById('btn-cmt-random-all');
+    if (btnCmtRandomAll) {
+        btnCmtRandomAll.addEventListener('click', () => {
+            CommentEngine.randomizeAll(true);
+            if (!CommentEngine.isOpen) CommentEngine.setDrawerOpen(true, false);
+            window.showToast('🎲 已随机生成全套新头像、昵称、时间地区与评论内容！');
+        });
+    }
+
+    const btnCmtRandomAvatars = document.getElementById('btn-cmt-random-avatars');
+    if (btnCmtRandomAvatars) {
+        btnCmtRandomAvatars.addEventListener('click', () => {
+            CommentEngine.randomizeAll(false);
+            window.showToast('👤 已从在线接口重新随机生成全部头像！');
+        });
+    }
+
+    const btnCmtAddText = document.getElementById('btn-cmt-add-text');
+    if (btnCmtAddText) {
+        btnCmtAddText.addEventListener('click', () => {
+            const seed = `new_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            const newItem = {
+                id: seed,
+                user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
+                text: COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)],
+                dateLoc: randomDateLoc(),
+                likes: String(Math.floor(Math.random() * 30) + 1),
+                liked: false,
+                avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
+                image: '',
+                isCustomAvatar: false
+            };
+            CommentEngine.prefetchAvatarDataUrl(newItem);
+            CommentEngine.list.unshift(newItem);
+            CommentEngine.renderStage();
+            CommentEngine.renderEditor();
+            if (!CommentEngine.isOpen) CommentEngine.setDrawerOpen(true, false);
+            const listEl = document.getElementById('dy-comment-list');
+            if (listEl) listEl.scrollTop = 0;
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('✨ 已新增一条随机评论，可直接点击画面或右侧修改');
+        });
+    }
+
+    // 上传自定义评论头像处理
+    const dyCmtAvatarFile = document.getElementById('dy-cmt-avatar-file');
+    if (dyCmtAvatarFile) {
+        dyCmtAvatarFile.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const idx = CommentEngine.activeUploadIdx;
+                if (CommentEngine.list[idx]) {
+                    CommentEngine.list[idx].avatar = evt.target.result;
+                    CommentEngine.list[idx].isCustomAvatar = true;
+                    CommentEngine.renderStage();
+                    CommentEngine.renderEditor();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                    window.showToast('✅ 评论头像已更换为你上传的图片！');
+                }
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // 上传评论照片 / 表情包处理 (支持给已有评论配图，也支持直接发一条新图片/表情包评论)
+    const dyCmtPhotoFile = document.getElementById('dy-cmt-photo-file');
+    if (dyCmtPhotoFile) {
+        dyCmtPhotoFile.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const dataUrl = evt.target.result;
+                const idx = CommentEngine.activePhotoUploadIdx;
+                if (idx >= 0 && CommentEngine.list[idx]) {
+                    CommentEngine.list[idx].image = dataUrl;
+                } else {
+                    const seed = `img_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+                    const stageInp = document.getElementById('dy-cmt-stage-input');
+                    const typedTxt = stageInp ? stageInp.value.trim() : '';
+                    if (stageInp) stageInp.value = '';
+                    const newItem = {
+                        id: seed,
+                        user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
+                        text: typedTxt,
+                        dateLoc: randomDateLoc(),
+                        likes: String(Math.floor(Math.random() * 50) + 1),
+                        liked: false,
+                        avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
+                        image: dataUrl,
+                        isCustomAvatar: false
+                    };
+                    CommentEngine.prefetchAvatarDataUrl(newItem);
+                    CommentEngine.list.push(newItem);
+                    setTimeout(() => {
+                        const listEl = document.getElementById('dy-comment-list');
+                        if (listEl) listEl.scrollTop = listEl.scrollHeight;
+                    }, 50);
+                }
+                CommentEngine.activePhotoUploadIdx = -1;
+                CommentEngine.renderStage();
+                CommentEngine.renderEditor();
+                if (!CommentEngine.isOpen) CommentEngine.setDrawerOpen(true, false);
+                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                window.showToast('🖼️ 照片/表情包已成功添加到评论区！');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    const btnCmtAddPhoto = document.getElementById('btn-cmt-add-photo');
+    if (btnCmtAddPhoto && dyCmtPhotoFile) {
+        btnCmtAddPhoto.addEventListener('click', () => {
+            CommentEngine.activePhotoUploadIdx = -1;
+            dyCmtPhotoFile.value = '';
+            dyCmtPhotoFile.click();
+        });
+    }
+
+    const dyCmtBtnSendImg = document.getElementById('dy-cmt-btn-send-img');
+    if (dyCmtBtnSendImg && dyCmtPhotoFile) {
+        dyCmtBtnSendImg.addEventListener('click', (e) => {
+            e.stopPropagation();
+            CommentEngine.activePhotoUploadIdx = -1;
+            dyCmtPhotoFile.value = '';
+            dyCmtPhotoFile.click();
+        });
+    }
+
+    // 底部输入框回车直接发评论 + @与表情快捷按钮
+    const dyCmtStageInput = document.getElementById('dy-cmt-stage-input');
+    if (dyCmtStageInput) {
+        dyCmtStageInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const val = dyCmtStageInput.value.trim();
+                if (!val) return;
+                const seed = `post_${Date.now()}`;
+                const newItem = {
+                    id: seed,
+                    user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
+                    text: val,
+                    dateLoc: '刚刚 · ' + PROVINCE_POOL[Math.floor(Math.random() * PROVINCE_POOL.length)],
+                    likes: '1',
+                    liked: true,
+                    avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
+                    image: '',
+                    isCustomAvatar: false
+                };
+                CommentEngine.prefetchAvatarDataUrl(newItem);
+                CommentEngine.list.unshift(newItem);
+                dyCmtStageInput.value = '';
+                dyCmtStageInput.placeholder = '期待你的评论';
+                CommentEngine.renderStage();
+                CommentEngine.renderEditor();
+                const listEl = document.getElementById('dy-comment-list');
+                if (listEl) listEl.scrollTop = 0;
+                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                window.showToast('💬 评论已发布！可直接点击头像或文字继续修改');
+            }
+        });
+    }
+
+    const dyCmtBtnAt = document.getElementById('dy-cmt-btn-at');
+    if (dyCmtBtnAt && dyCmtStageInput) {
+        dyCmtBtnAt.addEventListener('click', () => {
+            const pick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+            dyCmtStageInput.value += `@${pick} `;
+            dyCmtStageInput.focus();
+        });
+    }
+
+    const dyCmtBtnEmoji = document.getElementById('dy-cmt-btn-emoji');
+    if (dyCmtBtnEmoji && dyCmtStageInput) {
+        const emojis = ['👍', '😁', '😂', '🔥', '❤️', '🐺', '👏', '🤣', '😭', '✨'];
+        dyCmtBtnEmoji.addEventListener('click', () => {
+            const em = emojis[Math.floor(Math.random() * emojis.length)];
+            dyCmtStageInput.value += em;
+            dyCmtStageInput.focus();
+        });
+    }
+
+    // 评论区头部合集名称、评论总数双向绑定
+    const inCmtColTitle = document.getElementById('in-cmt-col-title');
+    const inCmtHeadCount = document.getElementById('in-cmt-head-count');
+    const dyCmtColPrefixEl = document.getElementById('dy-cmt-col-prefix');
+    const dyCmtColTitleEl = document.getElementById('dy-cmt-col-title');
+    const dyCmtHeadCountEl = document.getElementById('dy-cmt-head-count');
+    const dyCmtTabAiEl = document.getElementById('dy-cmt-tab-ai');
+    const dyCmtVidTipEl = document.getElementById('dy-cmt-vid-tip');
+
+    if (inCmtColTitle) {
+        inCmtColTitle.addEventListener('input', (e) => {
+            CommentEngine.colTitle = e.target.value;
+            CommentEngine.syncHeaderDOM();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (inCmtHeadCount) {
+        inCmtHeadCount.addEventListener('input', (e) => {
+            CommentEngine.headCount = e.target.value;
+            CommentEngine.syncHeaderDOM();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (dyCmtColPrefixEl) {
+        dyCmtColPrefixEl.addEventListener('input', () => {
+            CommentEngine.colPrefix = dyCmtColPrefixEl.textContent;
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (dyCmtColTitleEl) {
+        dyCmtColTitleEl.addEventListener('input', () => {
+            CommentEngine.colTitle = dyCmtColTitleEl.textContent;
+            if (inCmtColTitle) inCmtColTitle.value = CommentEngine.colTitle;
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (dyCmtHeadCountEl) {
+        dyCmtHeadCountEl.addEventListener('input', () => {
+            CommentEngine.headCount = dyCmtHeadCountEl.textContent.trim();
+            if (inCmtHeadCount) inCmtHeadCount.value = CommentEngine.headCount;
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (dyCmtTabAiEl) {
+        dyCmtTabAiEl.addEventListener('input', () => {
+            CommentEngine.tabAiText = dyCmtTabAiEl.textContent.trim();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (dyCmtVidTipEl) {
+        dyCmtVidTipEl.addEventListener('input', () => {
+            CommentEngine.vidTipText = dyCmtVidTipEl.textContent.trim();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+
+    // 支持鼠标按住评论区列表上下拖拽滑动 (除滚轮外的真机滑动手感)
+    const dyCommentListScroll = document.getElementById('dy-comment-list');
+    if (dyCommentListScroll) {
+        let isDraggingList = false;
+        let startY = 0;
+        let startScrollTop = 0;
+        dyCommentListScroll.addEventListener('mousedown', (e) => {
+            if (e.target.isContentEditable || e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT') return;
+            isDraggingList = true;
+            startY = e.clientY;
+            startScrollTop = dyCommentListScroll.scrollTop;
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingList) return;
+            const dy = e.clientY - startY;
+            dyCommentListScroll.scrollTop = startScrollTop - dy;
+        });
+        window.addEventListener('mouseup', () => {
+            isDraggingList = false;
+        });
+    }
+
     const selMobileSkin = document.getElementById('sel-mobile-skin');
     const renderTarget = document.getElementById('render-target');
 
+    // 装载 Laya app 端风格专属内联 Base64 贴图资源 (保证 html2canvas 截图/导出视频零跨域清晰渲染)
+    if (window.LAYA_APP_ASSETS) {
+        document.querySelectorAll('img[data-laya-asset]').forEach(img => {
+            const key = img.getAttribute('data-laya-asset');
+            if (window.LAYA_APP_ASSETS[key]) {
+                img.src = window.LAYA_APP_ASSETS[key];
+            }
+        });
+    }
+
+    // 绑定「点哪里亮哪里」交互：支持顶部导航栏与底部导航栏点击即时切换高亮状态
+    function bindInteractiveTabs(containerSelector, itemSelector) {
+        const container = document.querySelector(containerSelector);
+        if (!container) return;
+        const items = container.querySelectorAll(itemSelector);
+        items.forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                items.forEach(el => el.classList.remove('active'));
+                item.classList.add('active');
+                const txt = item.textContent.trim();
+                if (txt) window.showToast(`✨ 已點亮：${txt}`);
+                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            });
+        });
+    }
+
+    bindInteractiveTabs('#laya-app-nav-tabs', '.laya-app-nav-item');
+    bindInteractiveTabs('#laya-app-bottom-tabs', '.laya-app-tab-item');
+    bindInteractiveTabs('.dy-nav-tabs', 'span');
+    bindInteractiveTabs('.laya-nav-tabs', 'span');
+    bindInteractiveTabs('.dy-bottom-tabs', '.dy-tab-item');
+    bindInteractiveTabs('.laya-bottom-tabs', '.laya-tab-item');
+
     function applyMobileSkin(skin) {
         if (!renderTarget) return;
+        renderTarget.classList.remove('skin-douyin', 'skin-laya', 'skin-laya-app');
         if (skin === 'laya') {
-            renderTarget.classList.remove('skin-douyin');
             renderTarget.classList.add('skin-laya');
+        } else if (skin === 'laya-app') {
+            renderTarget.classList.add('skin-laya-app');
         } else {
-            renderTarget.classList.remove('skin-laya');
             renderTarget.classList.add('skin-douyin');
         }
         triggerSaveStorage();
@@ -496,8 +1508,14 @@ window.switchRightTab = function (mode) {
 
     if (selMobileSkin) {
         selMobileSkin.addEventListener('change', (e) => {
-            applyMobileSkin(e.target.value);
-            window.showToast(e.target.value === 'laya' ? '💎 已切换为：Laya 官方社区风格' : '📱 已切换为：抖音原生短视频风格');
+            const val = e.target.value;
+            applyMobileSkin(val);
+            const labelMap = {
+                'douyin': '📱 已切换为：抖音原生短视频风格',
+                'laya': '💎 已切换为：Laya 官方社区风格',
+                'laya-app': '🌸 已切换为：Laya app 端风格'
+            };
+            window.showToast(labelMap[val] || labelMap['douyin']);
         });
     }
 
@@ -565,8 +1583,9 @@ window.switchRightTab = function (mode) {
     // 9大热门手机型号预设配置表
     const PHONE_MODEL_PRESETS = {
         'iphone16': {
-            name: '🍎 iPhone 16 Pro Max (灵动岛)',
-            cutout: 'island',
+            name: '🍎 iPhone 16 Pro Max (纯净全面屏默认)',
+            cutout: 'none',
+            cutout: 'none',
             signal: 'single-4',
             net: 'wifi',
             carrier: '',
@@ -668,7 +1687,7 @@ window.switchRightTab = function (mode) {
 
         // 2. 手机型号样式类与开孔样式
         const modelKey = selDyPhoneModel ? selDyPhoneModel.value : 'iphone16';
-        const cutoutKey = selDyCutout ? selDyCutout.value : 'island';
+        const cutoutKey = selDyCutout ? selDyCutout.value : 'none';
         dyStatusBar.className = `dy-status-bar model-${modelKey}${cutoutKey === 'punch-left' ? ' has-left-punch' : ''}`;
 
         if (dySbCutoutWrap) {
@@ -831,7 +1850,62 @@ window.switchRightTab = function (mode) {
         }
     });
 
+    function getCurrentRealClockTime() {
+        const now = new Date();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const mm = String(now.getMinutes()).padStart(2, '0');
+        return `${hh}:${mm}`;
+    }
+
+    const inDylClockTime = document.getElementById('in-dyl-clock-time');
+    const btnDylRandomTime = document.getElementById('btn-dyl-random-time');
+    const btnMRandomClock = document.getElementById('btn-m-random-clock');
+    const dylDispClockEl = document.getElementById('dyl-disp-clock');
+
+    function syncAllPhoneClockTimes(tStr, shouldSave = false) {
+        if (!tStr) tStr = getCurrentRealClockTime();
+        if (inDySbTime) inDySbTime.value = tStr;
+        if (inMStatusTime) inMStatusTime.value = tStr;
+        if (inDylClockTime) inDylClockTime.value = tStr;
+        if (mDispStatusTime) mDispStatusTime.textContent = tStr;
+        if (dylDispClockEl) dylDispClockEl.textContent = tStr;
+        renderDyStatusBar();
+        if (shouldSave) triggerSaveStorage();
+    }
+    window.syncAllPhoneClockTimes = syncAllPhoneClockTimes;
+
     function randomizeDyStatusTime() {
+        const h = String(Math.floor(Math.random() * 24)).padStart(2, '0');
+        const m = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+        const tStr = `${h}:${m}`;
+        syncAllPhoneClockTimes(tStr, true);
+        window.showToast(`🕒 已随机切换手机时间：${tStr}`);
+    }
+
+    if (btnMRandomClock) btnMRandomClock.addEventListener('click', randomizeDyStatusTime);
+    if (btnDylRandomTime) btnDylRandomTime.addEventListener('click', randomizeDyStatusTime);
+    if (mDispStatusTime) mDispStatusTime.addEventListener('click', randomizeDyStatusTime);
+    if (dylDispClockEl) dylDispClockEl.addEventListener('click', randomizeDyStatusTime);
+    if (inDylClockTime) {
+        inDylClockTime.addEventListener('input', (e) => {
+            syncAllPhoneClockTimes(e.target.value, true);
+        });
+    }
+    if (inMStatusTime) {
+        inMStatusTime.addEventListener('input', (e) => {
+            syncAllPhoneClockTimes(e.target.value, true);
+        });
+    }
+    if (inDySbTime) {
+        inDySbTime.addEventListener('input', (e) => {
+            syncAllPhoneClockTimes(e.target.value, true);
+        });
+    }
+
+    // 页面首次初始化时立即同步为打开网站时的真实系统时间
+    syncAllPhoneClockTimes(getCurrentRealClockTime(), false);
+
+    function _legacyRandomizeDyStatusTime_unused() {
         const h = String(Math.floor(Math.random() * 14) + 9).padStart(2, '0');
         const m = String(Math.floor(Math.random() * 60)).padStart(2, '0');
         const tStr = `${h}:${m}`;
@@ -912,6 +1986,7 @@ window.switchRightTab = function (mode) {
     bindToggle('sw-m-right-actions', 'm-bot-right-actions', 'flex');
 
     bindToggle('sw-dy-gold', 'dy-wrap-gold', 'flex');
+    bindToggle('sw-dy-featured', 'dy-wrap-featured', 'inline-flex');
     bindToggle('sw-dy-hotspot', 'dy-wrap-hotspot', 'flex');
     bindToggle('sw-dy-campaign', 'dy-wrap-campaign', 'inline-flex');
     bindToggle('sw-dy-right-bar', 'dy-wrap-right-bar', 'flex');
@@ -936,12 +2011,14 @@ window.switchRightTab = function (mode) {
     const swDyTopNav = document.getElementById('sw-dy-top-nav');
     const dyWrapTopNav = document.getElementById('dy-wrap-top-nav');
     const layaWrapTopNav = document.getElementById('laya-wrap-top-nav');
+    const layaAppWrapTopNav = document.getElementById('laya-app-wrap-top-nav');
     if (swDyTopNav) {
         swDyTopNav.addEventListener('change', (e) => {
             const op = e.target.checked ? '1' : '0';
             const pe = e.target.checked ? 'auto' : 'none';
             if (dyWrapTopNav) { dyWrapTopNav.style.opacity = op; dyWrapTopNav.style.pointerEvents = pe; }
             if (layaWrapTopNav) { layaWrapTopNav.style.opacity = op; layaWrapTopNav.style.pointerEvents = pe; }
+            if (layaAppWrapTopNav) { layaAppWrapTopNav.style.opacity = op; layaAppWrapTopNav.style.pointerEvents = pe; }
             triggerSaveStorage();
         });
     }
@@ -973,6 +2050,37 @@ window.switchRightTab = function (mode) {
     bindText('in-dy-desc', 'dy-disp-desc');
     bindText('in-dy-tags', 'dy-disp-tags');
     bindText('in-dy-gold-title', 'dy-disp-gold-title');
+    bindText('in-dy-featured-title', 'dy-disp-featured-title');
+
+    // 点击舞台上的「Laya 精選內容 >」胶囊，直接定位到右侧输入框修改文字
+    const dyWrapFeatured = document.getElementById('dy-wrap-featured');
+    const inDyFeaturedTitle = document.getElementById('in-dy-featured-title');
+    if (dyWrapFeatured && inDyFeaturedTitle) {
+        dyWrapFeatured.addEventListener('click', () => {
+            if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
+            inDyFeaturedTitle.focus();
+            inDyFeaturedTitle.select();
+            window.showToast('✨ 请在右侧编辑「Laya 精选内容」徽章文字');
+        });
+    }
+
+    // 绑定左下角圆形「彈✓」按钮开关弹幕
+    const dyBtnDmRound = document.getElementById('dy-btn-dm-round');
+    const dyDmRoundMark = document.getElementById('dy-dm-round-mark');
+    if (dyBtnDmRound) {
+        dyBtnDmRound.addEventListener('click', () => {
+            const swDm = document.getElementById('sw-danmaku');
+            if (swDm) {
+                swDm.checked = !swDm.checked;
+                swDm.dispatchEvent(new Event('change'));
+                if (dyDmRoundMark) {
+                    dyDmRoundMark.textContent = swDm.checked ? '✓' : '✕';
+                    dyDmRoundMark.style.color = swDm.checked ? '#25F4EE' : 'rgba(255,255,255,0.45)';
+                }
+                window.showToast(swDm.checked ? '💬 已开启画面弹幕' : '💬 已关闭画面弹幕');
+            }
+        });
+    }
     bindText('in-dy-hotspot-title', 'dy-disp-hotspot-title');
     bindText('in-dy-hotspot-views', 'dy-disp-hotspot-views');
 
@@ -2203,13 +3311,27 @@ window.switchRightTab = function (mode) {
                 avatarIsCustom: document.getElementById('dy-avatar-img')?.dataset.custom === 'true',
                 danmakuList: window.DanmakuEngine ? window.DanmakuEngine.list : [],
                 danmakuMode: window.DanmakuEngine ? window.DanmakuEngine.mode : 'scroll',
-                skin: document.getElementById('sel-mobile-skin')?.value || 'douyin',
+                skin: document.getElementById('sel-mobile-skin')?.value || 'laya-app',
+                viewportMode: (window.PlayerEngine && window.PlayerEngine.currentMode) ? window.PlayerEngine.currentMode : 'mode-pc',
+                layaAppTopIdx: Array.from(document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item')).findIndex(el => el.classList.contains('active')),
+                layaAppBotIdx: Array.from(document.querySelectorAll('#laya-app-bottom-tabs .laya-app-tab-item')).findIndex(el => el.classList.contains('active')),
                 logoVersion: document.getElementById('sel-logo-version')?.value || 'Laya.png',
                 subEnabled: window.SubtitleEngine ? window.SubtitleEngine.enabled : false,
                 subLang: window.SubtitleEngine ? window.SubtitleEngine.lang : 'simp',
                 subStyle: window.SubtitleEngine ? window.SubtitleEngine.style : 'douyin',
                 subSize: window.SubtitleEngine ? window.SubtitleEngine.size : 16,
-                subCues: window.SubtitleEngine ? window.SubtitleEngine.cues : []
+                subCues: window.SubtitleEngine ? window.SubtitleEngine.cues : [],
+                cmtData: window.CommentEngine ? {
+                    isOpen: window.CommentEngine.isOpen,
+                    isExpanded: window.CommentEngine.isExpanded,
+                    apiMode: window.CommentEngine.apiMode,
+                    colPrefix: window.CommentEngine.colPrefix,
+                    colTitle: window.CommentEngine.colTitle,
+                    headCount: window.CommentEngine.headCount,
+                    tabAiText: window.CommentEngine.tabAiText,
+                    vidTipText: window.CommentEngine.vidTipText,
+                    list: window.CommentEngine.list
+                } : null
             };
 
             document.querySelectorAll('input[type="text"], input[type="number"], input[type="range"], textarea').forEach(el => {
@@ -2235,7 +3357,26 @@ window.switchRightTab = function (mode) {
                 applyLogoVersion('Laya.png');
                 return;
             }
+            if (!raw) {
+                applyLogoVersion('Laya.png', false);
+                applyMobileSkin('laya-app');
+                syncAllPhoneClockTimes(getCurrentRealClockTime(), false);
+                localStorage.setItem('LAYA_V13_DEFAULTS_MIGRATED', '1');
+                return;
+            }
             const data = JSON.parse(raw);
+
+            // 一次性升级迁移：将旧版缓存自动迁移为「🌸 Laya app 端风格」+「✨ 无开孔纯净全面屏」+ 开启「Laya 精选内容」与「上升热点」
+            if (localStorage.getItem('LAYA_V13_DEFAULTS_MIGRATED') !== '1') {
+                data.skin = 'laya-app';
+                if (!data.selects) data.selects = {};
+                data.selects['sel-mobile-skin'] = 'laya-app';
+                data.selects['sel-dy-cutout'] = 'none';
+                if (!data.checkboxes) data.checkboxes = {};
+                data.checkboxes['sw-dy-featured'] = true;
+                data.checkboxes['sw-dy-hotspot'] = true;
+                localStorage.setItem('LAYA_V13_DEFAULTS_MIGRATED', '1');
+            }
 
             if (data.inputs) {
                 Object.entries(data.inputs).forEach(([id, val]) => {
@@ -2292,6 +3433,25 @@ window.switchRightTab = function (mode) {
                 selMobileSkin.value = data.skin;
                 applyMobileSkin(data.skin);
             }
+            if (typeof data.layaAppTopIdx === 'number' && data.layaAppTopIdx >= 0) {
+                const topItems = document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
+                if (topItems[data.layaAppTopIdx]) {
+                    topItems.forEach(el => el.classList.remove('active'));
+                    topItems[data.layaAppTopIdx].classList.add('active');
+                }
+            }
+            if (typeof data.layaAppBotIdx === 'number' && data.layaAppBotIdx >= 0) {
+                const botItems = document.querySelectorAll('#laya-app-bottom-tabs .laya-app-tab-item');
+                if (botItems[data.layaAppBotIdx]) {
+                    botItems.forEach(el => el.classList.remove('active'));
+                    botItems[data.layaAppBotIdx].classList.add('active');
+                }
+            }
+            if (data.viewportMode && window.PlayerEngine && typeof window.PlayerEngine.activateViewportMode === 'function') {
+                window.PlayerEngine.activateViewportMode(data.viewportMode);
+            }
+            if (true) {
+            }
 
             if (data.danmakuList && window.DanmakuEngine) {
                 window.DanmakuEngine.list = data.danmakuList;
@@ -2311,6 +3471,25 @@ window.switchRightTab = function (mode) {
                 if (data.subStyle) window.SubtitleEngine.style = data.subStyle;
                 if (data.subSize) window.SubtitleEngine.size = data.subSize;
                 window.SubtitleEngine.setEnabled(!!data.subEnabled, false);
+            }
+
+            if (data.cmtData && window.CommentEngine) {
+                const cd = data.cmtData;
+                if (cd.apiMode) window.CommentEngine.apiMode = cd.apiMode;
+                if (typeof cd.colPrefix === 'string') window.CommentEngine.colPrefix = cd.colPrefix;
+                if (typeof cd.colTitle === 'string') window.CommentEngine.colTitle = cd.colTitle;
+                if (typeof cd.headCount === 'string') window.CommentEngine.headCount = cd.headCount;
+                if (typeof cd.tabAiText === 'string') window.CommentEngine.tabAiText = cd.tabAiText;
+                if (typeof cd.vidTipText === 'string') window.CommentEngine.vidTipText = cd.vidTipText;
+                if (Array.isArray(cd.list) && cd.list.length > 0) {
+                    window.CommentEngine.list = cd.list;
+                    window.CommentEngine.list.forEach(it => window.CommentEngine.prefetchAvatarDataUrl(it));
+                }
+                window.CommentEngine.isExpanded = !!cd.isExpanded;
+                if (renderTarget) renderTarget.classList.toggle('dy-comment-expanded', !!cd.isExpanded);
+                window.CommentEngine.renderStage();
+                window.CommentEngine.renderEditor();
+                window.CommentEngine.setDrawerOpen(!!cd.isOpen, false);
             }
 
             if (window.PlayerEngine && typeof window.PlayerEngine.checkMediaAspect === 'function') {
@@ -2337,7 +3516,9 @@ window.switchRightTab = function (mode) {
     setTimeout(() => {
         loadAllFromStorage();
         // ★ 每次打开页面读取完配置后，自动重新在 1:20:00 ~ 2:30:00 之间随机生成总片长
-        if (window.PlayerEngine && typeof window.PlayerEngine.randomizeDuration === 'function') {
+            // ★ 每次打开或刷新网站，除其他配置保持上次离开时的状态外，所有板块的手机状态栏时间始终同步为打开/刷新时的真实时间
+            syncAllPhoneClockTimes(getCurrentRealClockTime(), false);
+            if (window.PlayerEngine && typeof window.PlayerEngine. randomizeDuration === 'function') {
             window.PlayerEngine.randomizeDuration(false);
         }
     }, 100);
@@ -2400,6 +3581,18 @@ window.switchRightTab = function (mode) {
         if (clonedAvatar) clonedAvatar.src = avatarSrc;
         const clonedDylAvatar = clonedDoc.getElementById('dyl-disp-avatar');
         if (clonedDylAvatar) clonedDylAvatar.src = avatarSrc;
+        const clonedFeatLogo = clonedDoc.getElementById('dy-featured-logo-img');
+        if (clonedFeatLogo) clonedFeatLogo.src = activeRealSrc;
+
+        // 导出截图/视频时隐藏评论区悬停快捷按钮并同步评论列表滚动位置
+        clonedDoc.querySelectorAll('.dy-cmt-stage-QuickTools, .dy-cmt-photo-del').forEach(el => {
+            el.style.setProperty('display', 'none', 'important');
+        });
+        const origCmtList = document.getElementById('dy-comment-list');
+        const clonedCmtInner = clonedDoc.getElementById('dy-cmt-list-inner');
+        if (origCmtList && clonedCmtInner && origCmtList.scrollTop > 0) {
+            clonedCmtInner.style.transform = `translateY(-${origCmtList.scrollTop}px)`;
+        }
 
         // 同步波浪线 Canvas 内容到克隆节点
         const origWave = document.getElementById('waveform-canvas');
@@ -2514,7 +3707,7 @@ window.switchRightTab = function (mode) {
                 ctx.fillRect(0, 0, outW, outH);
 
                 // 2. 计算取景框在输出画布中的精确坐标与裁剪参数
-                const isSpecialSubBox = renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box');
+                const isSpecialSubBox = renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box') || renderTarget.classList.contains('dy-comment-open');
                 const mwRect = (isSpecialSubBox && mediaWrapEl && mediaWrapEl.clientWidth > 0 && mediaWrapEl.clientHeight > 0)
                     ? mediaWrapEl.getBoundingClientRect()
                     : targetRect;
@@ -2823,7 +4016,7 @@ window.switchRightTab = function (mode) {
                     };
                 };
 
-                const isSpecialSubBox = renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box');
+                const isSpecialSubBox = renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box') || renderTarget.classList.contains('dy-comment-open');
                 const mediaWrapEl = document.getElementById('player-media-wrap');
                 const mediaWrapBox = isSpecialSubBox
                     ? (measureRelBox(mediaWrapEl) || { x: 0, y: 0, w: outW, h: outH })
