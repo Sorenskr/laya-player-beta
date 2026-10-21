@@ -2101,12 +2101,20 @@ main {
 .dy-right-bar {
     position: absolute;
     right: 9px;
-    bottom: 64px;
+    bottom: 98px;
     display: flex;
     flex-direction: column;
     align-items: center;
     pointer-events: auto;
-    z-index: 12;
+    z-index: 14;
+}
+
+#dy-btn-share {
+    margin-bottom: 0 !important;
+}
+
+#dy-vinyl-wrap {
+    display: none !important;
 }
 
 .dy-avatar-wrap {
@@ -3258,14 +3266,18 @@ input:checked + .slider-round:before {
 
 .form-grid-2 {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .form-row {
     display: flex;
     flex-direction: column;
     gap: 4px;
+    min-width: 0;
+    max-width: 100%;
 }
 
 .form-row label {
@@ -4879,9 +4891,9 @@ input[type="range"] {
     opacity: 0.92;
 }
 
-/* 视频右下角微字声明 (图2：视频由AI生成/剧情纯属虚构/无不良引导) */
+/* 视频右下角微字声明 (已按要求隐藏) */
 .mode-mobile-port.dy-comment-open .dy-cmt-vid-tip {
-    display: block;
+    display: none !important;
     position: absolute;
     top: 32.8%;
     right: 6px;
@@ -5217,37 +5229,45 @@ input[type="range"] {
 .dy-cmt-meta-left {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 4px;
     font-size: 11px;
     color: #999aa0;
+    white-space: nowrap;
+    min-width: 0;
 }
 
 .dy-cmt-date-loc {
     outline: none;
     cursor: text;
+    white-space: nowrap;
 }
 
 .dy-cmt-reply-btn {
     color: #66676e;
     font-weight: 500;
     cursor: pointer;
+    white-space: nowrap;
+    margin-left: 2px;
 }
 
 .dy-cmt-actions {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 5px;
     color: #8a8b91;
+    white-space: nowrap;
+    flex-shrink: 0;
 }
 
 .dy-cmt-like-btn {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: 2.5px;
     cursor: pointer;
     font-size: 11.5px;
     color: #8a8b91;
     user-select: none;
+    white-space: nowrap;
 }
 
 .dy-cmt-like-btn.liked {
@@ -5709,18 +5729,23 @@ input[type="range"] {
 
 
 
-/* 输入框旁边的骰子按钮组合样式 */
+/* 输入框旁边的骰子按钮组合样式 (严格约束宽度，防止双列网格右侧骰子被挤出边框) */
 .input-with-dice {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
 }
 
 .input-with-dice > input,
 .input-with-dice > select {
-    flex: 1;
-    min-width: 0;
+    flex: 1 1 0% !important;
+    width: 0 !important;
+    min-width: 0 !important;
+    box-sizing: border-box;
 }
 
 .btn-inline-dice {
@@ -5728,11 +5753,13 @@ input[type="range"] {
     border: 1px solid #323d56;
     color: #7dd3fc;
     border-radius: 5px;
-    padding: 5px 7px;
+    width: 27px;
+    height: 27px;
+    padding: 0;
     font-size: 12px;
     line-height: 1;
     cursor: pointer;
-    flex-shrink: 0;
+    flex: 0 0 27px;
     display: inline-flex;
     align-items: center;
     justify-content: center;

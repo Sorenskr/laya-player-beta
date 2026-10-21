@@ -648,7 +648,7 @@
                             <span class="dy-action-txt" id="dy-val-shares">2766</span>
                         </div>
 
-                        <div class="dy-action-item interactive-elem" id="dy-vinyl-wrap" style="margin-bottom: 0;" title="点击更换头像 (与上方作者头像实时同步)">
+                        <div class="dy-action-item interactive-elem" id="dy-vinyl-wrap" style="display: none !important; margin-bottom: 0;">
                             <div class="dy-vinyl-record">
                                 <img src="Laya.png" class="dy-vinyl-avatar" id="dy-vinyl-img" alt="Vinyl Avatar">
                             </div>
@@ -820,8 +820,8 @@
                     </svg>
                 </div>
 
-                <!-- 竖屏评论区开启时视频右下角微字提示 (可点击修改或隐藏) -->
-                <div class="dy-cmt-vid-tip interactive-elem" id="dy-cmt-vid-tip" contenteditable="true" spellcheck="false" title="点击直接编辑视频右下角小字提示">視頻由AI生成/劇情純屬虛構/無不良引導</div>
+                <!-- 竖屏评论区开启时视频右下角微字提示 (已按要求移除隐藏) -->
+                <div class="dy-cmt-vid-tip" id="dy-cmt-vid-tip" style="display: none !important;"></div>
 
                 <div class="dy-comment-drawer" id="dy-comment-drawer">
                     <!-- 顶部合集栏 -->
@@ -2241,10 +2241,10 @@
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-random-viral-metrics" title="按上传视频时长规律 (5000~100万) 重新随机生成点赞、评论、收藏、分享与在看人数">🎲 按时长规律随机</button>
                 </div>
                 <div class="form-row">
-                    <label>右侧中间与底部静态头像 (上下两个头像实时同步，点击画面头像也可直接切换)</label>
+                    <label>作者静态头像 (点画面头像或下方按钮可直接联网随机换头像)</label>
                     <div style="display: flex; gap: 6px;">
                         <input type="file" id="dy-avatar-uploader" accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" id="btn-random-author-avatar" title="点击随机切换真人/潮流静态头像（上下两个头像同步更换）">🎲 随机换头像</button>
+                        <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" id="btn-random-author-avatar" title="点击从在线头像接口随机切换头像">🎲 随机换头像</button>
                         <button type="button" class="btn btn-secondary btn-sm" style="flex: 1;" onclick="document.getElementById('dy-avatar-uploader').click()">📁 上传头像</button>
                         <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-avatar">恢复官方图</button>
                     </div>
@@ -2403,11 +2403,21 @@
                     </div>
                 </div>
 
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-                    <button type="button" class="btn btn-primary btn-sm" id="btn-cmt-random-all" title="随机更换所有评论的真人头像、繁体/英文昵称、时间、海外IP、点赞数与内容">🎲 随机全部 (含评论词)</button>
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-random-avatars" title="一键随机更换所有评论的头像、昵称、海外IP、时间与点赞数（保留评论正文）">🎲 随机头像+昵称+时间+赞</button>
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-add-text">＋ 新增一条文字评论</button>
+                <div style="display:grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap:6px;">
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-cmt-smart-scene" title="自动分析当前视频/画面与标题内容，智能生成贴合画面的自然评论">🎬 按画面智能生成评论</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-random-all" title="随机更换所有评论的在线头像、繁体/英文昵称、时间、海外IP、点赞数与内容">🎲 随机全部 (含评论词)</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-random-avatars" title="一键从在线网站接口随机更换所有评论的头像、昵称、海外IP、时间与点赞数（保留评论正文）">🎲 在线随机头像+昵称+赞</button>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-add-photo" style="border-color:rgba(56,189,248,0.5); color:#38bdf8;">🖼️ 上传图片/表情包评论</button>
+                </div>
+
+                <div class="form-row" style="margin-top:4px; background:rgba(15, 23, 42, 0.55); border:1px solid rgba(56, 189, 248, 0.25); border-radius:7px; padding:7px 8px;">
+                    <label style="color:#7dd3fc;">📋 批量输入/粘贴评论 (一行一条，换行自动识别分配到每条评论)</label>
+                    <textarea id="in-batch-comments" rows="3" placeholder="在这里粘贴或输入多条评论，每行一条（直接回车换行）：&#10;这段拍得真好，反反复复看了好几遍&#10;女主颜值和气质太绝了吧&#10;求完整版合集在哪里看"></textarea>
+                    <div style="display:flex; gap:6px; margin-top:4px;">
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-batch-cmt-replace" style="flex:1;">🚀 换行识别并替换全部评论</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-batch-cmt-append" style="flex:1;">➕ 换行识别并追加评论</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-add-text" title="单独新增一条评论">＋单条</button>
+                    </div>
                 </div>
 
                 <div class="form-grid-2">
