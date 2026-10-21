@@ -340,9 +340,9 @@ main {
     background: #000000;
 }
 
-/* 竖屏模式下横屏视频居中取景框 (图3：上下纯黑，中间16:9横向视窗) */
+/* 竖屏模式下横屏视频居中取景框 (图3：上下纯黑，中间16:9横向视窗，上移留出全屏观看胶囊与下方文案空间) */
 .mode-mobile-port.port-land-box .media-container {
-    top: 26%;
+    top: 18.5%;
     left: 0;
     width: 100%;
     height: auto;
@@ -2061,7 +2061,7 @@ main {
 
 .dy-fullscreen-pill {
     position: absolute;
-    top: 58%;
+    top: 51.8%;
     left: 50%;
     transform: translate(-50%, -50%);
     z-index: 12;
@@ -2375,10 +2375,14 @@ main {
 
 .dy-tiny-progressbar {
     position: relative;
-    width: 100%;
-    height: 2px;
-    background: rgba(255, 255, 255, 0.22);
-    border-radius: 1px;
+    width: calc(100% + 64px);
+    height: 3.5px;
+    background: rgba(255, 255, 255, 0.30);
+    border-radius: 2px;
+    margin-top: 3px;
+    cursor: pointer;
+    pointer-events: auto;
+    z-index: 16;
 }
 
 .dy-tiny-buffer {
@@ -2386,7 +2390,9 @@ main {
     left: 0;
     top: 0;
     height: 100%;
-    background: rgba(255, 255, 255, 0.38);
+    background: rgba(255, 255, 255, 0.48);
+    border-radius: 2px;
+    pointer-events: none;
 }
 
 .dy-tiny-fill {
@@ -2395,16 +2401,21 @@ main {
     top: 0;
     height: 100%;
     background: #ffffff;
+    border-radius: 2px;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.85);
+    pointer-events: none;
 }
 
 .dy-tiny-scrubber {
     position: absolute;
-    right: -3px;
-    top: -2px;
-    width: 6px;
-    height: 6px;
+    right: -4px;
+    top: -2.25px;
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     background: #ffffff;
+    box-shadow: 0 0 6px rgba(255, 255, 255, 0.95);
+    pointer-events: none;
 }
 
 /* 左下角顶部：弹幕圆钮 + Laya 精选内容 > 胶囊徽章 (复刻抖音内容结构 + Laya 专属高定视觉) */
@@ -3419,7 +3430,7 @@ input[type="range"] {
 .dy-land-frame-overlay {
     display: none;
     position: absolute;
-    top: 26%;
+    top: 18.5%;
     left: 0;
     width: 100%;
     aspect-ratio: 16 / 9;
@@ -3484,16 +3495,16 @@ input[type="range"] {
     letter-spacing: 0.4px;
 }
 
-/* 图3下全屏观看按钮紧贴 16:9 视频框正下方居中 */
+/* 图3下全屏观看按钮紧贴 16:9 视频框正下方居中，绝不遮挡下方精选内容与文案 */
 .mode-mobile-port.port-land-box .dy-fullscreen-pill {
-    top: calc(26% + (100% * 9 / 16 * 9 / 16) + 14px) !important;
-    top: 59.5% !important;
+    top: calc(18.5% + (100% * 9 / 16 * 9 / 16) + 8px) !important;
+    top: 51.8% !important;
     left: 50% !important;
     transform: translateX(-50%) !important;
-    background: rgba(28, 30, 36, 0.78);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(28, 30, 36, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.22);
     border-radius: 18px;
-    padding: 5px 13px;
+    padding: 4px 13px;
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -3505,6 +3516,47 @@ input[type="range"] {
     z-index: 15;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
     transition: transform 0.15s ease, background 0.15s ease;
+    white-space: nowrap;
+}
+
+/* 横屏居中框模式下：彈✓圆钮贴在16:9视频左下角，下方信息区紧凑排版，确保全屏观看胶囊居中且绝不遮挡下方文字 */
+.mode-mobile-port.port-land-box .dy-left-info {
+    bottom: 56px;
+}
+
+.mode-mobile-port.port-land-box .dy-left-top-badges {
+    gap: 4px;
+    margin-bottom: 4px;
+}
+
+.mode-mobile-port.port-land-box .dy-dm-round-btn {
+    position: absolute;
+    bottom: calc(100% + 28px);
+    left: 0;
+}
+
+.mode-mobile-port.port-land-box .dy-author-row {
+    margin-bottom: 2px;
+}
+
+.mode-mobile-port.port-land-box .dy-desc-row {
+    line-height: 1.32;
+    margin-bottom: 4px;
+    font-size: 13px;
+}
+
+.mode-mobile-port.port-land-box .dy-disclaimer-pill {
+    margin-bottom: 4px;
+    font-size: 11px;
+    line-height: 1.25;
+}
+
+.mode-mobile-port.port-land-box .dy-search-bar-row {
+    margin-bottom: 4px;
+}
+
+.mode-mobile-port.port-land-box .dy-hotspot-bar {
+    margin-bottom: 5px;
 }
 
 .dy-fullscreen-pill:hover {
@@ -4356,8 +4408,8 @@ input[type="range"] {
     background: #13151b;
     border: 1px solid #282c37;
     border-radius: 10px;
-    padding: 8px 12px 10px;
-    margin-top: 8px;
+    padding: 5px 12px 7px;
+    margin-top: 6px;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65);
     display: flex;
     flex-direction: column;
@@ -4506,7 +4558,7 @@ input[type="range"] {
     display: flex;
     align-items: stretch;
     gap: 6px;
-    height: 68px;
+    height: 52px;
 }
 
 .jy-track-side {
@@ -4541,7 +4593,7 @@ input[type="range"] {
 }
 
 .jy-filmstrip {
-    height: 44px;
+    height: 32px;
     width: 100%;
     display: flex;
     overflow: hidden;
@@ -4559,7 +4611,7 @@ input[type="range"] {
 
 /* 剪映风格青绿色音频轨道条 */
 .jy-audio-bar {
-    height: 22px;
+    height: 18px;
     width: 100%;
     background: #145961;
     border-top: 1px solid rgba(255, 255, 255, 0.12);

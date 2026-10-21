@@ -887,12 +887,25 @@ window.PlayerEngine = {
 
     previewVideo.addEventListener('loadedmetadata', () => {
         const isPortMode = renderTarget.classList.contains('mode-mobile-port');
+        const isLandscapeVid = (previewVideo.videoWidth || 0) >= (previewVideo.videoHeight || 1);
         if (isPortMode) {
-            window.PlayerEngine.cropOrient = (swDyLandBox && swDyLandBox.checked) ? 'land' : 'port';
+            if (isLandscapeVid) {
+                window.PlayerEngine.cropOrient = 'land';
+                if (swDyLandBox) swDyLandBox.checked = true;
+            } else {
+                window.PlayerEngine.cropOrient = (swDyLandBox && swDyLandBox.checked) ? 'land' : 'port';
+            }
         }
         checkMediaAspect();
         ensureGreenBoxMovable();
         updateTransform();
+        const realDur = (previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
+            ? previewVideo.duration
+            : (window.PlayerEngine.videoDuration || 15);
+        if (typeof window.randomizeViralMetricsByDuration === 'function') {
+            window.randomizeViralMetricsByDuration(realDur, true);
+        }
+        syncPreviewVideoProgress();
     });
 
     if (swDyLandBox) {
@@ -1111,9 +1124,20 @@ window.PlayerEngine = {
         inMTotalTime.addEventListener('input', (e) => applyStartAndTotalTime(null, e.target.value, true));
     }
 
-    function handleProgressSliderInput(val) {
-        const numVal = parseFloat(val) || 0;
+    function handleProgressSliderInput(val, seekVideo = true) {
+        const numVal = Math.min(100, Math.max(0, parseFloat(val) || 0));
         syncAllProgressBars(numVal);
+        if (seekVideo && window.PlayerEngine.isVideoMode && previewVideo) {
+            const vidDur = (previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
+                ? previewVideo.duration
+                : (window.PlayerEngine.videoDuration || 0);
+            if (vidDur > 0) {
+                try {
+                    previewVideo.currentTime = (numVal / 100) * vidDur;
+                } catch (e) {}
+                updateJianyingPlayheadUI();
+            }
+        }
         const total = window.PlayerEngine.timeToSec(inTotalTime.value) || 7581;
         const newSec = Math.round((numVal / 100) * total);
         const newStartStr = window.PlayerEngine.secToTime(newSec);
@@ -1170,9 +1194,35 @@ window.PlayerEngine = {
         });
     }
 
-    previewVideo.addEventListener('timeupdate', () => {
-        if (!window.PlayerEngine.isVideoMode) return;
-        // 录制导出期间跳过高频 DOM 重排，保证 60fps 零卡顿丝滑录制
+    const dyTinyProgressbarEl = document.getElementById('dy-tiny-progressbar') || document.querySelector('.dy-tiny-progressbar');
+    if (dyTinyProgressbarEl) {
+        let isScrubbingDyBar = false;
+        const scrubDyBarAt = (clientX) => {
+            const rect = dyTinyProgressbarEl.getBoundingClientRect();
+            if (!rect.width) return;
+            const pct = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
+            handleProgressSliderInput(pct, true);
+        };
+        dyTinyProgressbarEl.addEventListener('mousedown', (e) => {
+            isScrubbingDyBar = true;
+            scrubDyBarAt(e.clientX);
+            e.stopPropagation();
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isScrubbingDyBar) return;
+            scrubDyBarAt(e.clientX);
+        });
+        window.addEventListener('mouseup', () => {
+            isScrubbingDyBar = false;
+        });
+        dyTinyProgressbarEl.addEventListener('click', (e) => {
+            scrubDyBarAt(e.clientX);
+            e.stopPropagation();
+        });
+    }
+
+    function syncPreviewVideoProgress() {
+        if (!window.PlayerEngine.isVideoMode || !previewVideo) return;
         if (window.__isExportRecording) return;
 
         updateJianyingPlayheadUI();
@@ -1181,7 +1231,6 @@ window.PlayerEngine = {
             window.SubtitleEngine.onTimeUpdate(previewVideo.currentTime);
         }
 
-        // 在非导出录制状态下，仅当视频处于播放态且用户未手动将游标拖出区间外定位时，到达裁剪终点才自动循环回起点
         if (!jyDragMode && !previewVideo.paused && !window.PlayerEngine._allowPlayOutsideTrim) {
             const range = window.PlayerEngine.getTrimRange();
             if (previewVideo.currentTime >= range.end) {
@@ -1189,17 +1238,51 @@ window.PlayerEngine = {
             }
         }
 
-        if (!swSyncVideoTime || !swSyncVideoTime.checked) return;
-        const baseStart = window.PlayerEngine.timeToSec(inStartTime.value);
-        const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 7581;
-        const elapsed = Math.floor(previewVideo.currentTime);
-        const curSec = baseStart + elapsed;
-        if (dispTime) dispTime.textContent = `${window.PlayerEngine.secToTime(curSec)} / ${window.PlayerEngine.secToTime(totalSec)}`;
-        if (mDispTime) mDispTime.textContent = `${window.PlayerEngine.secToShortTime(curSec)} / ${window.PlayerEngine.secToShortTime(totalSec)}`;
-        if (dylDispCur) dylDispCur.textContent = window.PlayerEngine.secToMinSec(curSec % 3600, false);
-        const pct = Math.min(100, (curSec / totalSec) * 100);
-        syncAllProgressBars(pct);
+        const vidDur = (previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
+            ? previewVideo.duration
+            : (window.PlayerEngine.videoDuration || 1);
+        const curVidSec = Math.max(0, previewVideo.currentTime || 0);
+
+        // 预览播放视频时，底部进度条随上传视频的真实画面时长 (0% -> 100%) 实时丝滑移动
+        const vidPct = Math.min(100, Math.max(0, (curVidSec / vidDur) * 100));
+        syncAllProgressBars(vidPct);
+
+        if (dylDispCur) dylDispCur.textContent = window.PlayerEngine.secToMinSec(curVidSec, false);
+        if (dylDispDur) dylDispDur.textContent = window.PlayerEngine.secToMinSec(vidDur, false);
+
+        if (!swSyncVideoTime || swSyncVideoTime.checked) {
+            const baseStart = window.PlayerEngine.timeToSec(inStartTime.value);
+            const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 7581;
+            const elapsed = Math.floor(curVidSec);
+            const curSec = baseStart + elapsed;
+            if (dispTime) dispTime.textContent = `${window.PlayerEngine.secToTime(curSec)} / ${window.PlayerEngine.secToTime(totalSec)}`;
+            if (mDispTime) mDispTime.textContent = `${window.PlayerEngine.secToShortTime(curSec)} / ${window.PlayerEngine.secToShortTime(totalSec)}`;
+        }
+    }
+
+    let previewProgRafId = null;
+    function tickPreviewProgressRaf() {
+        if (!window.PlayerEngine.isVideoMode || !previewVideo || previewVideo.paused || window.__isExportRecording) {
+            previewProgRafId = null;
+            return;
+        }
+        syncPreviewVideoProgress();
+        previewProgRafId = requestAnimationFrame(tickPreviewProgressRaf);
+    }
+
+    previewVideo.addEventListener('play', () => {
+        if (previewProgRafId) cancelAnimationFrame(previewProgRafId);
+        previewProgRafId = requestAnimationFrame(tickPreviewProgressRaf);
     });
+    previewVideo.addEventListener('pause', () => {
+        if (previewProgRafId) {
+            cancelAnimationFrame(previewProgRafId);
+            previewProgRafId = null;
+        }
+        syncPreviewVideoProgress();
+    });
+    previewVideo.addEventListener('seeked', syncPreviewVideoProgress);
+    previewVideo.addEventListener('timeupdate', syncPreviewVideoProgress);
 
     randomizeDuration(false);
     checkMediaAspect();

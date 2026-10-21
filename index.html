@@ -718,7 +718,7 @@
                             </div>
                         </div>
 
-                        <div class="dy-tiny-progressbar">
+                        <div class="dy-tiny-progressbar interactive-elem" id="dy-tiny-progressbar" title="点击或拖动可调节播放进度">
                             <div class="dy-tiny-buffer" id="dy-tiny-buffer" style="width: 68%;"></div>
                             <div class="dy-tiny-fill" id="dy-tiny-fill" style="width: 5%;">
                                 <div class="dy-tiny-scrubber"></div>
@@ -2214,6 +2214,7 @@
             <div class="panel-card">
                 <div class="card-header">
                     <span>📊 互动数据与作者资料</span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-random-viral-metrics" title="按上传视频时长规律 (5000~100万) 重新随机生成点赞、评论、收藏、分享与在看人数">🎲 按时长规律随机</button>
                 </div>
                 <div class="form-row">
                     <label>自定义头像上传 (支持恢复官方图)</label>
@@ -2273,7 +2274,7 @@
                     <input type="text" id="in-dy-hotspot-title" value="台灣色情女優大賽">
                 </div>
                 <div class="form-row">
-                    <label>热点观看人数</label>
+                    <label>热点观看人数 (15万~200万随机波动，也可手动编辑) <a href="javascript:void(0)" id="btn-random-hotspot-views" style="color:#5dade2; text-decoration:none; margin-left:4px;">🎲随机</a></label>
                     <input type="text" id="in-dy-hotspot-views" value="117.7萬人在看">
                 </div>
                 <div class="form-row">

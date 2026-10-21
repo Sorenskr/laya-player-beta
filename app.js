@@ -2427,6 +2427,176 @@ window.switchRightTab = function (mode) {
     bindText('in-dy-hotspot-title', 'dy-disp-hotspot-title');
     bindText('in-dy-hotspot-views', 'dy-disp-hotspot-views');
 
+    /* ==========================================================================
+       ★ 6.2 严格遵循图3视频时长爆款规律：每次打开/刷新或上传视频自动随机生成
+          点赞 (5000~100万)、评论、收藏、分享 与 热点在看人数 (15万~200万)，同时保留手动编辑
+       ========================================================================== */
+    function formatViralCountTrad(num) {
+        const n = Math.max(1, Math.round(Number(num) || 0));
+        if (n >= 1000000) return '100萬';
+        if (n >= 10000) {
+            return (n / 10000).toFixed(1) + '萬';
+        }
+        return String(n);
+    }
+
+    function getViralTierByDuration(durSec) {
+        const d = Math.max(1, Number(durSec) || 15);
+        // 图3五档时长标准：
+        // 1) 7-15秒: 完播率65%, 点赞率6%(赞÷播), 赞评率3%(评÷赞), 转发率2%(转÷播), 关注/收藏率2%(藏÷播)
+        // 2) 15-25秒: 完播率50%, 点赞率5%(赞÷播), 赞评率2%(评÷赞), 转发率1%(转÷播), 关注/收藏率2%(藏÷播)
+        // 3) 25-40秒: 完播率40%, 点赞率5%(赞÷播), 赞评率2%(评÷赞), 转发率1%(转÷播), 关注/收藏率2%(藏÷播)
+        // 4) 40-60秒: 完播率35%, 点赞率4%(赞÷播), 赞评率2%(评÷赞), 转发率1%(转÷播), 关注/收藏率1.5%(藏÷播)
+        // 5) 60-120秒+: 完播率30%, 点赞率3%(赞÷播), 赞评率3%(评÷赞), 转发率0.5%(转÷播), 关注/收藏率1%(藏÷播)
+        if (d <= 15) {
+            return { label: '7-15秒作品', finishRate: 0.65, likeRate: 0.06, cmtPerLike: 0.03, shareRate: 0.02, starRate: 0.02 };
+        } else if (d <= 25) {
+            return { label: '15-25秒作品', finishRate: 0.50, likeRate: 0.05, cmtPerLike: 0.02, shareRate: 0.01, starRate: 0.02 };
+        } else if (d <= 40) {
+            return { label: '25-40秒作品', finishRate: 0.40, likeRate: 0.05, cmtPerLike: 0.02, shareRate: 0.01, starRate: 0.02 };
+        } else if (d <= 60) {
+            return { label: '40-60秒作品', finishRate: 0.35, likeRate: 0.04, cmtPerLike: 0.02, shareRate: 0.01, starRate: 0.015 };
+        } else {
+            return { label: '60-120秒作品', finishRate: 0.30, likeRate: 0.03, cmtPerLike: 0.03, shareRate: 0.005, starRate: 0.01 };
+        }
+    }
+
+    function randomizeHotspotViewsOnly(showMsg = false) {
+        const viewsWan = (15 + Math.random() * 185).toFixed(1);
+        const viewsStr = `${viewsWan}萬人在看`;
+        const inHotViews = document.getElementById('in-dy-hotspot-views');
+        const dispHotViews = document.getElementById('dy-disp-hotspot-views');
+        if (inHotViews) inHotViews.value = viewsStr;
+        if (dispHotViews) dispHotViews.textContent = viewsStr;
+        if (showMsg && typeof window.showToast === 'function') {
+            window.showToast(`🔥 已随机生成热点在看人数：${viewsStr}`);
+        }
+        return viewsStr;
+    }
+
+    function randomizeViralMetricsByDuration(customDurSec = null, showMsg = false) {
+        let durSec = Number(customDurSec);
+        if (!durSec || !isFinite(durSec) || durSec <= 0) {
+            if (window.PlayerEngine && window.PlayerEngine.isVideoMode && previewVideo && previewVideo.duration && isFinite(previewVideo.duration)) {
+                durSec = previewVideo.duration;
+            } else if (window.PlayerEngine && window.PlayerEngine.videoDuration && window.PlayerEngine.videoDuration > 1) {
+                durSec = window.PlayerEngine.videoDuration;
+            } else {
+                // 未上传视频打开/刷新页面时，随机抽取五档时长之一
+                const sampleDurs = [11, 19, 32, 48, 75];
+                durSec = sampleDurs[Math.floor(Math.random() * sampleDurs.length)];
+            }
+        }
+
+        const tier = getViralTierByDuration(durSec);
+
+        // 点赞数从 5000 ~ 100万 (5,000 ~ 1,000,000) 分段均匀随机，保证每次刷新都有丰富跨度
+        const roll = Math.random();
+        let likesRaw;
+        if (roll < 0.28) {
+            likesRaw = Math.floor(5000 + Math.random() * 45000); // 5000 ~ 5.0萬
+        } else if (roll < 0.70) {
+            likesRaw = Math.floor(50000 + Math.random() * 300000); // 5.0萬 ~ 35.0萬
+        } else {
+            likesRaw = Math.floor(350000 + Math.random() * 650000); // 35.0萬 ~ 100萬
+        }
+        likesRaw = Math.min(1000000, Math.max(5000, likesRaw));
+
+        // 严格依据图3公式反推播放量，并计算评论量、转发量、收藏量（带 ±7% 自然微幅波动避免呆板整数）
+        const impliedPlays = likesRaw / tier.likeRate;
+        const jitter = () => 0.93 + Math.random() * 0.14;
+
+        const commentsRaw = Math.max(50, Math.round(likesRaw * tier.cmtPerLike * jitter()));
+        const sharesRaw = Math.max(50, Math.round(impliedPlays * tier.shareRate * jitter()));
+        const starsRaw = Math.max(80, Math.round(impliedPlays * tier.starRate * jitter()));
+
+        const likesStr = formatViralCountTrad(likesRaw);
+        const commentsStr = formatViralCountTrad(commentsRaw);
+        const starsStr = formatViralCountTrad(starsRaw);
+        const sharesStr = formatViralCountTrad(sharesRaw);
+
+        const inLikes = document.getElementById('in-dy-likes');
+        const inComments = document.getElementById('in-dy-comments');
+        const inStars = document.getElementById('in-dy-stars');
+        const inShares = document.getElementById('in-dy-shares');
+
+        if (inLikes) inLikes.value = likesStr;
+        if (inComments) inComments.value = commentsStr;
+        if (inStars) inStars.value = starsStr;
+        if (inShares) inShares.value = sharesStr;
+
+        const dyValLikes = document.getElementById('dy-val-likes');
+        const dyValComments = document.getElementById('dy-val-comments');
+        const dyValStars = document.getElementById('dy-val-stars');
+        const dyValShares = document.getElementById('dy-val-shares');
+
+        if (dyValLikes) dyValLikes.textContent = likesStr;
+        if (dyValComments) dyValComments.textContent = commentsStr;
+        if (dyValStars) dyValStars.textContent = starsStr;
+        if (dyValShares) dyValShares.textContent = sharesStr;
+
+        const dylDispLike = document.getElementById('dyl-disp-like');
+        const dylDispComment = document.getElementById('dyl-disp-comment');
+        const dylDispStar = document.getElementById('dyl-disp-star');
+        if (dylDispLike) dylDispLike.textContent = likesStr;
+        if (dylDispComment) dylDispComment.textContent = commentsStr;
+        if (dylDispStar) dylDispStar.textContent = starsStr;
+
+        // 同步评论区顶部评论总数显示
+        if (window.CommentEngine) {
+            window.CommentEngine.headCount = commentsStr;
+            window.CommentEngine.syncHeaderDOM();
+        }
+
+        // 同步在看人数 15万~200万 随机波动
+        const viewsStr = randomizeHotspotViewsOnly(false);
+
+        if (showMsg && typeof window.showToast === 'function') {
+            window.showToast(`🎲 已按【${tier.label} (${Math.round(durSec)}s)】规律随机：讚${likesStr} · 評${commentsStr} · 藏${starsStr} · 轉${sharesStr} · ${viewsStr}`);
+        }
+    }
+    window.randomizeViralMetricsByDuration = randomizeViralMetricsByDuration;
+
+    const btnRandomViralMetrics = document.getElementById('btn-random-viral-metrics');
+    if (btnRandomViralMetrics) {
+        btnRandomViralMetrics.addEventListener('click', () => {
+            randomizeViralMetricsByDuration(null, true);
+            triggerSaveStorage();
+        });
+    }
+
+    const btnRandomHotspotViews = document.getElementById('btn-random-hotspot-views');
+    if (btnRandomHotspotViews) {
+        btnRandomHotspotViews.addEventListener('click', (e) => {
+            e.preventDefault();
+            randomizeHotspotViewsOnly(true);
+            triggerSaveStorage();
+        });
+    }
+
+    // 支持直接点击画面上的点赞/评论/收藏/分享数字与热点在看人数跳转右侧输入框手动编辑
+    [
+        { stageId: 'dy-val-likes', inputId: 'in-dy-likes', name: '点赞数' },
+        { stageId: 'dy-val-comments', inputId: 'in-dy-comments', name: '评论数' },
+        { stageId: 'dy-val-stars', inputId: 'in-dy-stars', name: '收藏数' },
+        { stageId: 'dy-val-shares', inputId: 'in-dy-shares', name: '分享数' },
+        { stageId: 'dy-disp-hotspot-views', inputId: 'in-dy-hotspot-views', name: '热点观看人数' }
+    ].forEach(item => {
+        const stEl = document.getElementById(item.stageId);
+        const inEl = document.getElementById(item.inputId);
+        if (stEl && inEl) {
+            stEl.style.cursor = 'pointer';
+            stEl.title = `点击在右侧自由编辑${item.name}`;
+            stEl.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
+                inEl.focus();
+                inEl.select();
+                window.showToast(`✏️ 请在右侧直接输入修改「${item.name}」`);
+            });
+        }
+    });
+
     // ★ 全屏左上角剧集/片名 与 作者名 专属输入框联动 (默认均为 Laya)
     const dylDispTitle = document.getElementById('dyl-disp-title');
     const inpDyLfTitle = document.getElementById('inp-dy-lf-title');
@@ -4032,12 +4202,14 @@ window.switchRightTab = function (mode) {
 
     setTimeout(() => {
         loadAllFromStorage();
+        // ★ 每次打开或刷新网站，所有板块的手机状态栏时间始终同步为打开/刷新时的真实时间
+        syncAllPhoneClockTimes(getCurrentRealClockTime(), false);
         // ★ 每次打开页面读取完配置后，自动重新在 1:20:00 ~ 2:30:00 之间随机生成总片长
-            // ★ 每次打开或刷新网站，除其他配置保持上次离开时的状态外，所有板块的手机状态栏时间始终同步为打开/刷新时的真实时间
-            syncAllPhoneClockTimes(getCurrentRealClockTime(), false);
-            if (window.PlayerEngine && typeof window.PlayerEngine.randomizeDuration === 'function') {
+        if (window.PlayerEngine && typeof window.PlayerEngine.randomizeDuration === 'function') {
             window.PlayerEngine.randomizeDuration(false);
         }
+        // ★ 每次打开或刷新页面，严格按图3时长规律自动随机生成新的点赞(5000~100万)、评论、收藏、分享与热点在看人数(15万~200万)
+        randomizeViralMetricsByDuration(null, false);
     }, 100);
 
     /* ==========================================================================
@@ -4810,10 +4982,15 @@ window.switchRightTab = function (mode) {
                             ctx.fillText(shortTime, mTimeBox.x, mTimeBox.y + mTimeBox.h / 2);
                         }
                     } else if (isDyLand) {
+                        const realVidDur = (previewVideo && previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
+                            ? previewVideo.duration
+                            : (recordSeconds || 10);
+                        const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : elapsedSec;
+                        const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
                         if (showDylBot && dylBarBox) {
                             ctx.fillStyle = 'rgba(255,255,255,0.28)';
                             ctx.fillRect(dylBarBox.x, dylBarBox.y, dylBarBox.w, dylBarBox.h);
-                            const fillW = dylBarBox.w * curPct;
+                            const fillW = dylBarBox.w * realVidPct;
                             ctx.fillStyle = '#ffffff';
                             ctx.fillRect(dylBarBox.x, dylBarBox.y, fillW, dylBarBox.h);
                             ctx.beginPath();
@@ -4822,23 +4999,29 @@ window.switchRightTab = function (mode) {
                             ctx.fill();
                         }
                         if (showDylBot && showDylTime && dylTimeBox) {
-                            const tLeft = window.PlayerEngine.secToMinSec(Math.floor(curSec) % 3600, false);
-                            const tRight = window.PlayerEngine.secToMinSec(Math.min(3599, totalVideoSec), false);
+                            const tLeft = window.PlayerEngine.secToMinSec(Math.floor(realVidCur), false);
+                            const tRight = window.PlayerEngine.secToMinSec(Math.floor(realVidDur), false);
                             ctx.font = `700 ${Math.round(12 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
                             ctx.fillStyle = 'rgba(255,255,255,0.92)';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(`${tLeft} / ${tRight}`, dylTimeBox.x, dylTimeBox.y + dylTimeBox.h / 2);
                         }
                     } else if (isPort && dyBarBox) {
-                        ctx.fillStyle = 'rgba(255,255,255,0.22)';
-                        ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w, dyBarBox.h);
-                        ctx.fillStyle = 'rgba(255,255,255,0.38)';
-                        ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w * bufferPct, dyBarBox.h);
-                        const fillW = dyBarBox.w * curPct;
+                        const realVidDur = (previewVideo && previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
+                            ? previewVideo.duration
+                            : (recordSeconds || 10);
+                        const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : elapsedSec;
+                        const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
+                        const barH = Math.max(3.5 * scaleRatioY, dyBarBox.h);
+                        ctx.fillStyle = 'rgba(255,255,255,0.30)';
+                        ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w, barH);
+                        ctx.fillStyle = 'rgba(255,255,255,0.48)';
+                        ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w * bufferPct, barH);
+                        const fillW = dyBarBox.w * realVidPct;
                         ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(dyBarBox.x, dyBarBox.y, fillW, dyBarBox.h);
+                        ctx.fillRect(dyBarBox.x, dyBarBox.y, fillW, barH);
                         ctx.beginPath();
-                        ctx.arc(dyBarBox.x + fillW, dyBarBox.y + dyBarBox.h / 2, 3.2 * scaleRatioX, 0, Math.PI * 2);
+                        ctx.arc(dyBarBox.x + fillW, dyBarBox.y + barH / 2, 4.2 * scaleRatioX, 0, Math.PI * 2);
                         ctx.fillStyle = '#ffffff';
                         ctx.fill();
                     }
