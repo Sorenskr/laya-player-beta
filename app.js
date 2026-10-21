@@ -1794,6 +1794,19 @@ window.switchRightTab = function (mode) {
     }
     window.renderDyStatusBar = renderDyStatusBar;
 
+    function injectLayaAppAssets() {
+        if (!window.LAYA_APP_ASSETS) return;
+        document.querySelectorAll('img[data-laya-asset]').forEach(img => {
+            const key = img.getAttribute('data-laya-asset');
+            if (window.LAYA_APP_ASSETS[key]) {
+                img.src = window.LAYA_APP_ASSETS[key];
+            }
+        });
+    }
+    injectLayaAppAssets();
+    setTimeout(injectLayaAppAssets, 60);
+    setTimeout(injectLayaAppAssets, 250);
+
     function applyDyPhoneModelPreset(modelKey, showToastMsg = true) {
         const preset = PHONE_MODEL_PRESETS[modelKey];
         if (!preset) return;
@@ -3518,7 +3531,7 @@ window.switchRightTab = function (mode) {
         // ★ 每次打开页面读取完配置后，自动重新在 1:20:00 ~ 2:30:00 之间随机生成总片长
             // ★ 每次打开或刷新网站，除其他配置保持上次离开时的状态外，所有板块的手机状态栏时间始终同步为打开/刷新时的真实时间
             syncAllPhoneClockTimes(getCurrentRealClockTime(), false);
-            if (window.PlayerEngine && typeof window.PlayerEngine. randomizeDuration === 'function') {
+            if (window.PlayerEngine && typeof window.PlayerEngine.randomizeDuration === 'function') {
             window.PlayerEngine.randomizeDuration(false);
         }
     }, 100);
@@ -3583,6 +3596,12 @@ window.switchRightTab = function (mode) {
         if (clonedDylAvatar) clonedDylAvatar.src = avatarSrc;
         const clonedFeatLogo = clonedDoc.getElementById('dy-featured-logo-img');
         if (clonedFeatLogo) clonedFeatLogo.src = activeRealSrc;
+        if (window.LAYA_APP_ASSETS) {
+            clonedDoc.querySelectorAll('img[data-laya-asset]').forEach(img => {
+                const key = img.getAttribute('data-laya-asset');
+                if (window.LAYA_APP_ASSETS[key]) img.src = window.LAYA_APP_ASSETS[key];
+            });
+        }
 
         // 导出截图/视频时隐藏评论区悬停快捷按钮并同步评论列表滚动位置
         clonedDoc.querySelectorAll('.dy-cmt-stage-QuickTools, .dy-cmt-photo-del').forEach(el => {
