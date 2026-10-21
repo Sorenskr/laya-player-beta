@@ -2084,8 +2084,8 @@ main {
 
 .dy-right-bar {
     position: absolute;
-    right: 8px;
-    bottom: 84px;
+    right: 9px;
+    bottom: 64px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -2095,16 +2095,17 @@ main {
 
 .dy-avatar-wrap {
     position: relative;
-    margin-bottom: 14px;
+    margin-bottom: 13px;
 }
 
 .dy-avatar-img {
-    width: 44px;
-    height: 44px;
+    width: 43px;
+    height: 43px;
     border-radius: 50%;
-    border: 1.5px solid #fff;
+    border: 1.6px solid rgba(255, 255, 255, 0.96);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
     object-fit: cover;
-    background: transparent;
+    background: #14161c;
     cursor: pointer;
     transition: transform 0.15s ease;
     display: block;
@@ -2136,19 +2137,19 @@ main {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 12px;
+    margin-bottom: 10px;
     text-shadow: none !important;
 }
 
 .dy-action-icon {
-    width: 38px;
-    height: 38px;
+    width: 36px;
+    height: 36px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    margin-bottom: 2px;
+    margin-bottom: 1px;
 }
 
 .dy-action-txt {
@@ -2159,24 +2160,28 @@ main {
 }
 
 .dy-vinyl-record {
-    width: 36px;
-    height: 36px;
+    width: 38px;
+    height: 38px;
     border-radius: 50%;
-    background: #111;
-    border: 6px solid #222;
+    background: radial-gradient(circle, #242731 0%, #101217 70%, #1d2028 100%);
+    border: 6px solid #181a20;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16), 0 3px 8px rgba(0, 0, 0, 0.48);
     display: flex;
     align-items: center;
     justify-content: center;
-    animation: vinylRotate 5s linear infinite;
+    overflow: hidden;
+    animation: vinylRotate 6s linear infinite;
+    cursor: pointer;
+    margin-top: 2px;
 }
 
-.dy-vinyl-center {
-    width: 10px;
-    height: 10px;
+.dy-vinyl-avatar {
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
-    background: transparent;
-    cursor: pointer;
-    transition: transform 0.15s ease;
+    object-fit: cover;
+    display: block;
+    pointer-events: none;
 }
 
 @keyframes vinylRotate {
@@ -2186,7 +2191,7 @@ main {
 .dy-left-info {
     position: absolute;
     left: 12px;
-    right: 76px;
+    right: 68px;
     bottom: 58px;
     display: flex;
     flex-direction: column;
@@ -2196,22 +2201,22 @@ main {
 }
 
 .dy-author-row {
-    margin-bottom: 4px;
+    margin-bottom: 3px;
 }
 
 .dy-author-name {
-    font-size: 15.5px;
+    font-size: 15px;
     font-weight: 700;
     color: #ffffff;
     text-shadow: none !important;
 }
 
 .dy-desc-row {
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 400;
     color: #f1f2f6;
-    line-height: 1.45;
-    margin-bottom: 6px;
+    line-height: 1.42;
+    margin-bottom: 4px;
     word-break: break-all;
     text-shadow: none !important;
 }
@@ -2225,17 +2230,30 @@ main {
 .dy-disclaimer-pill {
     display: inline-flex;
     align-items: center;
-    font-size: 11.5px;
-    color: rgba(255, 255, 255, 0.72);
-    margin-bottom: 7px;
+    font-size: 9.5px;
+    line-height: 1.25;
+    color: rgba(255, 255, 255, 0.56);
+    margin-bottom: 5px;
     width: fit-content;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
     text-shadow: none !important;
+    transition: color 0.15s ease;
+}
+
+.dy-disclaimer-pill:hover {
+    color: rgba(255, 255, 255, 0.85);
 }
 
 .dy-horn-icon {
-    width: 12px;
-    height: 12px;
-    margin-right: 4px;
+    width: 10px;
+    height: 10px;
+    margin-right: 3.5px;
+    flex-shrink: 0;
+    opacity: 0.78;
 }
 
 .dy-search-bar-row {

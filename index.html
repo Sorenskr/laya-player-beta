@@ -648,9 +648,9 @@
                             <span class="dy-action-txt" id="dy-val-shares">2766</span>
                         </div>
 
-                        <div class="dy-action-item interactive-elem" style="margin-bottom: 0;">
+                        <div class="dy-action-item interactive-elem" id="dy-vinyl-wrap" style="margin-bottom: 0;" title="点击更换头像 (与上方作者头像实时同步)">
                             <div class="dy-vinyl-record">
-                                <div class="dy-vinyl-center"></div>
+                                <img src="Laya.png" class="dy-vinyl-avatar" id="dy-vinyl-img" alt="Vinyl Avatar">
                             </div>
                         </div>
                     </div>
@@ -671,7 +671,7 @@
                         </div>
 
                         <div class="dy-author-row">
-                            <span class="dy-author-name" id="dy-disp-author">@Laya 视频</span>
+                            <span class="dy-author-name" id="dy-disp-author">@Laya 視頻</span>
                         </div>
 
                         <div class="dy-desc-row">
@@ -679,11 +679,11 @@
                             <span class="dy-tags-inline" id="dy-disp-tags">#心動熱舞 #私密精選</span>
                         </div>
 
-                        <div class="dy-disclaimer-pill interactive-elem" id="dy-wrap-campaign">
+                        <div class="dy-disclaimer-pill interactive-elem" id="dy-wrap-campaign" title="點擊在右側修改或切換作者聲明文案">
                             <svg class="dy-horn-icon" viewBox="0 0 24 24" fill="currentColor">
                                 <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
                             </svg>
-                            <span id="dy-disp-campaign">平台提示：本作品為私密企劃演繹，未成年人請主動離開 &gt;</span>
+                            <span id="dy-disp-campaign">作者聲明：虛構演繹，僅供娛樂</span>
                         </div>
 
                         <div class="dy-search-bar-row">
@@ -2174,7 +2174,7 @@
                         </label>
                     </div>
                     <div class="switch-tile">
-                        <span>平台声明条</span>
+                        <span>作者声明条</span>
                         <label class="ios-toggle">
                             <input type="checkbox" id="sw-dy-campaign" checked>
                             <span class="slider-round"></span>
@@ -2228,7 +2228,7 @@
                 <div class="form-grid-2">
                     <div class="form-row">
                         <label>点赞数</label>
-                        <input type="text" id="in-dy-likes" value="3.3萬">
+                        <input type="text" id="in-dy-likes" value="3.3万">
                     </div>
                     <div class="form-row">
                         <label>评论数</label>
@@ -2236,7 +2236,7 @@
                     </div>
                     <div class="form-row">
                         <label>收藏数</label>
-                        <input type="text" id="in-dy-stars" value="1.1萬">
+                        <input type="text" id="in-dy-stars" value="1.1万">
                     </div>
                     <div class="form-row">
                         <label>分享数</label>
@@ -2252,12 +2252,12 @@
                     <input type="text" id="in-dy-msg-count" value="1">
                 </div>
                 <div class="form-row">
-                    <label>作品文案说明</label>
-                    <textarea id="in-dy-desc">Laya 丨 1896 已解鎖完整無碼未刪減版，點擊任意處觀看</textarea>
+                    <label>作品文案说明 (右侧简体编辑，左侧画面自动显示繁体)</label>
+                    <textarea id="in-dy-desc">Laya 丨 1896 已解锁完整无码未删减版，点击任意处观看</textarea>
                 </div>
                 <div class="form-row">
                     <label>热门标签 (Tags)</label>
-                    <input type="text" id="in-dy-tags" value="#心動熱舞 #私密精選">
+                    <input type="text" id="in-dy-tags" value="#心动热舞 #私密精选">
                 </div>
             </div>
 
@@ -2266,20 +2266,43 @@
                     <span>🔥 热点与热搜词配置</span>
                 </div>
                 <div class="form-row">
+                    <label>📢 作者声明文案切换与编辑 (画面自动显示繁体)</label>
+                    <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                        <select id="sel-dy-campaign-preset" style="flex: 1;">
+                            <option value="作者声明：虚构演绎，仅供娱乐" selected>作者声明：虚构演绎，仅供娱乐</option>
+                            <option value="虚构演绎，仅供娱乐">虚构演绎，仅供娱乐</option>
+                            <option value="作者声明：剧情纯属虚构，请勿模仿">作者声明：剧情纯属虚构，请勿模仿</option>
+                            <option value="作者声明：内容仅供娱乐，请勿当真">作者声明：内容仅供娱乐，请勿当真</option>
+                            <option value="平台提示：本作品为私密企划演绎，未成年人请主动离开 >">平台提示：本作品为私密企划演绎，未成年人请主动离开 &gt;</option>
+                            <option value="custom">✍️ 自定义输入声明文案</option>
+                        </select>
+                    </div>
+                    <input type="text" id="in-dy-campaign" value="作者声明：虚构演绎，仅供娱乐" placeholder="输入简体中文即可，左侧画面自动转为繁体">
+                </div>
+                <div class="form-row">
                     <label>✨ Laya 精选内容徽章文字</label>
-                    <input type="text" id="in-dy-featured-title" value="Laya 精選內容">
+                    <input type="text" id="in-dy-featured-title" value="Laya 精选内容">
                 </div>
                 <div class="form-row">
                     <label>🔥 上升热点标题词</label>
-                    <input type="text" id="in-dy-hotspot-title" value="台灣色情女優大賽">
+                    <input type="text" id="in-dy-hotspot-title" value="台湾色情女优大赛">
                 </div>
                 <div class="form-row">
                     <label>热点观看人数 (15万~200万随机波动，也可手动编辑) <a href="javascript:void(0)" id="btn-random-hotspot-views" style="color:#5dade2; text-decoration:none; margin-left:4px;">🎲随机</a></label>
-                    <input type="text" id="in-dy-hotspot-views" value="117.7萬人在看">
+                    <input type="text" id="in-dy-hotspot-views" value="117.7万人在看">
                 </div>
                 <div class="form-row">
-                    <label>猜你想搜热词</label>
-                    <input type="text" id="in-dy-gold-title" value="猜你想搜 · Laya 獨家完整版合集">
+                    <label>🔍 搜索栏前缀切换与热词 (猜你想搜 / 相关搜索)</label>
+                    <div style="display: flex; gap: 6px;">
+                        <select id="sel-dy-search-prefix" style="width: 118px; flex-shrink: 0;">
+                            <option value="猜你想搜" selected>猜你想搜 ·</option>
+                            <option value="相关搜索">相关搜索 ·</option>
+                            <option value="大家都在搜">大家都在搜 ·</option>
+                            <option value="热门搜索">热门搜索 ·</option>
+                            <option value="none">不加前缀</option>
+                        </select>
+                        <input type="text" id="in-dy-gold-title" value="猜你想搜 · Laya 独家完整版合集" style="flex: 1;">
+                    </div>
                 </div>
             </div>
             <!-- 💬 竖屏评论区弹窗与随机头像/图文表情包编辑工坊 -->
@@ -2312,12 +2335,12 @@
 
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>🌏 评论 IP 属地范围 (繁体)</label>
+                        <label>🌏 评论 IP 属地范围 (画面显示繁体)</label>
                         <select id="sel-cmt-ip-region">
                             <option value="tw-hk-my" selected>🇹🇼 台/港/马 + 海外混合</option>
-                            <option value="tw-only">🇹🇼 仅台湾地区 (台灣/台北等)</option>
-                            <option value="hk-mo">🇭🇰 仅港澳地区 (香港/澳門)</option>
-                            <option value="my-sg">🇲🇾 仅新马地区 (馬來西亞/新加坡)</option>
+                            <option value="tw-only">🇹🇼 仅台湾地区 (台湾/台北等)</option>
+                            <option value="hk-mo">🇭🇰 仅港澳地区 (香港/澳门)</option>
+                            <option value="my-sg">🇲🇾 仅新马地区 (马来西亚/新加坡)</option>
                             <option value="overseas-all">🌍 全球海外国家与地区</option>
                             <option value="random-omit">🎲 台港澳海外 (随机部分不带IP)</option>
                             <option value="none">🚫 不加 IP 地址 (仅显示时间)</option>
@@ -2345,7 +2368,7 @@
                 <div class="form-grid-2">
                     <div class="form-row">
                         <label>顶部合集名称 (可留空隐藏)</label>
-                        <input type="text" id="in-cmt-col-title" value="人情與世故">
+                        <input type="text" id="in-cmt-col-title" value="人情与世故">
                     </div>
                     <div class="form-row">
                         <label>评论区顶部总数</label>

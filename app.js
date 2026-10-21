@@ -270,7 +270,24 @@ window.switchRightTab = function (mode) {
     const mBrandLogo = document.getElementById('m-brand-logo');
     const dyLfWmLogo = document.getElementById('dy-lf-wm-logo');
     const dyAvatarImg = document.getElementById('dy-avatar-img');
+    const dyVinylImg = document.getElementById('dy-vinyl-img');
     const dylDispAvatar = document.getElementById('dyl-disp-avatar');
+
+    // ★ 同步更新右侧中间作者头像、右侧最下方黑胶唱片头像与全屏横屏头像
+    function syncAuthorAvatarEverywhere(src, isCustom = false) {
+        if (!src) return;
+        if (dyAvatarImg) {
+            dyAvatarImg.src = src;
+            dyAvatarImg.dataset.custom = isCustom ? 'true' : 'false';
+        }
+        if (dyVinylImg) {
+            dyVinylImg.src = src;
+        }
+        if (dylDispAvatar) {
+            dylDispAvatar.src = src;
+        }
+    }
+    window.syncAuthorAvatarEverywhere = syncAuthorAvatarEverywhere;
 
     // 默认直接使用自带的 window.LOCAL_LOGOS (Laya.png / Laya2.png)，若用户主动上传过自定义图标则优先用用户的
     const customLogoDB = {
@@ -295,10 +312,9 @@ window.switchRightTab = function (mode) {
         const dyFeaturedLogoImg = document.getElementById('dy-featured-logo-img');
         if (dyFeaturedLogoImg) dyFeaturedLogoImg.src = realSrc;
 
-        // 手机竖屏头像与全屏横屏头像如果没单独上传过其他人物头像，也同步使用当前自带蓝/紫 Logo
+        // 手机竖屏头像、右下角黑胶唱片头像与全屏横屏头像如果没单独上传过其他人物头像，同步使用当前自带蓝/紫 Logo
         if (dyAvatarImg && (!dyAvatarImg.dataset.custom || dyAvatarImg.dataset.custom === 'false')) {
-            dyAvatarImg.src = realSrc;
-            if (dylDispAvatar) dylDispAvatar.src = realSrc;
+            syncAuthorAvatarEverywhere(realSrc, false);
         }
         if (shouldSave && typeof triggerSaveStorage === 'function') triggerSaveStorage();
     }
@@ -703,7 +719,7 @@ window.switchRightTab = function (mode) {
         });
     }
     if (dyAvatarClickWrap && dyBtnFollow) {
-        dyAvatarClickWrap.title = '点击直接上传更换右侧头像 (右键可一键系统随机生成头像)';
+        dyAvatarClickWrap.title = '点击直接上传更换右侧头像，下方唱片头像自动同步 (右键可一键系统随机生成)';
         dyAvatarClickWrap.addEventListener('click', (e) => {
             if (e.target === dyBtnFollow) return;
             const uploader = document.getElementById('dy-avatar-uploader');
@@ -713,6 +729,23 @@ window.switchRightTab = function (mode) {
             }
         });
         dyAvatarClickWrap.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const btnRandAv = document.getElementById('btn-random-author-avatar');
+            if (btnRandAv) btnRandAv.click();
+        });
+    }
+    const dyVinylWrap = document.getElementById('dy-vinyl-wrap');
+    if (dyVinylWrap) {
+        dyVinylWrap.title = '点击直接上传更换头像 (与上方作者头像实时同步，右键可随机生成)';
+        dyVinylWrap.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const uploader = document.getElementById('dy-avatar-uploader');
+            if (uploader) {
+                uploader.value = '';
+                uploader.click();
+            }
+        });
+        dyVinylWrap.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             const btnRandAv = document.getElementById('btn-random-author-avatar');
             if (btnRandAv) btnRandAv.click();
@@ -1024,14 +1057,19 @@ window.switchRightTab = function (mode) {
             const inColTitle = document.getElementById('in-cmt-col-title');
             const inHeadCount = document.getElementById('in-cmt-head-count');
 
+            const stageColTitle = typeof window.toStageTrad === 'function' ? window.toStageTrad(this.colTitle) : this.colTitle;
+            const stageHeadCount = typeof window.toStageTrad === 'function' ? window.toStageTrad(this.headCount) : this.headCount;
+            const simpColTitle = typeof window.toEditorSimp === 'function' ? window.toEditorSimp(this.colTitle) : this.colTitle;
+            const simpHeadCount = typeof window.toEditorSimp === 'function' ? window.toEditorSimp(this.headCount) : this.headCount;
+
             if (colPrefixEl && colPrefixEl.textContent !== this.colPrefix) colPrefixEl.textContent = this.colPrefix;
-            if (colTitleEl && colTitleEl.textContent !== this.colTitle) colTitleEl.textContent = this.colTitle;
+            if (colTitleEl && colTitleEl.textContent !== stageColTitle) colTitleEl.textContent = stageColTitle;
             if (colBar) colBar.style.display = this.colTitle.trim() ? 'flex' : 'none';
-            if (headCountEl && headCountEl.textContent !== this.headCount) headCountEl.textContent = this.headCount;
+            if (headCountEl && headCountEl.textContent !== stageHeadCount) headCountEl.textContent = stageHeadCount;
             if (tabAiEl && tabAiEl.textContent !== this.tabAiText) tabAiEl.textContent = this.tabAiText;
             if (vidTipEl && vidTipEl.textContent !== this.vidTipText) vidTipEl.textContent = this.vidTipText;
-            if (inColTitle && document.activeElement !== inColTitle) inColTitle.value = this.colTitle;
-            if (inHeadCount && document.activeElement !== inHeadCount) inHeadCount.value = this.headCount;
+            if (inColTitle && document.activeElement !== inColTitle) inColTitle.value = simpColTitle;
+            if (inHeadCount && document.activeElement !== inHeadCount) inHeadCount.value = simpHeadCount;
         },
 
         renderStage() {
@@ -2366,14 +2404,84 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    const bindText = (inputId, outputId, secondaryOutputId = null) => {
+    // ★ 右侧编辑框保持中文简体，左侧画面自动渲染为繁体中文
+    const STAGE_PHRASE_S2T = [
+        ['作者声明', '作者聲明'],
+        ['虚构演绎', '虛構演繹'],
+        ['仅供娱乐', '僅供娛樂'],
+        ['剧情纯属虚构', '劇情純屬虛構'],
+        ['请勿模仿', '請勿模仿'],
+        ['请勿当真', '請勿當真'],
+        ['相关搜索', '相關搜索'],
+        ['热门搜索', '熱門搜索'],
+        ['精选内容', '精選內容'],
+        ['台湾色情女优大赛', '台灣色情女優大賽'],
+        ['台湾', '台灣'],
+        ['女优', '女優'],
+        ['大赛', '大賽'],
+        ['独家', '獨家'],
+        ['视频', '視頻'],
+        ['已解锁完整无码未删减版', '已解鎖完整無碼未刪減版'],
+        ['点击任意处观看', '點擊任意處觀看'],
+        ['心动热舞', '心動熱舞'],
+        ['私密精选', '私密精選'],
+        ['私密企划演绎', '私密企劃演繹'],
+        ['请主动离开', '請主動離開'],
+        ['人情与世故', '人情與世故']
+    ];
+
+    function toStageTrad(str) {
+        if (str === null || str === undefined) return '';
+        let out = String(str);
+        for (const [s, t] of STAGE_PHRASE_S2T) {
+            if (out.includes(s)) out = out.split(s).join(t);
+        }
+        const map = window.__SUB_S2T_CHARS;
+        if (map) {
+            let res = '';
+            for (let i = 0; i < out.length; i++) {
+                const ch = out[i];
+                res += (ch.charCodeAt(0) >= 0x4e00 && map[ch]) ? map[ch] : ch;
+            }
+            out = res;
+        } else {
+            out = out.replace(/万/g, '萬');
+        }
+        return out;
+    }
+
+    function toEditorSimp(str) {
+        if (str === null || str === undefined) return '';
+        let out = String(str);
+        for (const [s, t] of STAGE_PHRASE_S2T) {
+            if (out.includes(t)) out = out.split(t).join(s);
+        }
+        const map = window.__SUB_T2S_CHARS;
+        if (map) {
+            let res = '';
+            for (let i = 0; i < out.length; i++) {
+                const ch = out[i];
+                res += (ch.charCodeAt(0) >= 0x4e00 && map[ch]) ? map[ch] : ch;
+            }
+            out = res;
+        } else {
+            out = out.replace(/萬/g, '万');
+        }
+        return out;
+    }
+    window.toStageTrad = toStageTrad;
+    window.toEditorSimp = toEditorSimp;
+
+    const bindText = (inputId, outputId, secondaryOutputId = null, forceTradOnStage = false) => {
         const inp = document.getElementById(inputId);
         const out = document.getElementById(outputId);
         const out2 = secondaryOutputId ? document.getElementById(secondaryOutputId) : null;
         if (inp && out) {
             inp.addEventListener('input', (e) => {
-                out.textContent = e.target.value;
-                if (out2) out2.textContent = e.target.value;
+                const rawVal = e.target.value;
+                const stageVal = forceTradOnStage ? toStageTrad(rawVal) : rawVal;
+                out.textContent = stageVal;
+                if (out2) out2.textContent = stageVal;
                 triggerSaveStorage();
             });
         }
@@ -2385,15 +2493,108 @@ window.switchRightTab = function (mode) {
     bindText('in-free-pill-text', 'disp-free-pill-text');
     bindText('in-banner-body', 'disp-banner-body');
     bindText('in-dm-placeholder', 'disp-dm-placeholder');
-    bindText('in-dy-likes', 'dy-val-likes', 'dyl-disp-like');
-    bindText('in-dy-comments', 'dy-val-comments', 'dyl-disp-comment');
-    bindText('in-dy-stars', 'dy-val-stars', 'dyl-disp-star');
-    bindText('in-dy-shares', 'dy-val-shares');
-    bindText('in-dy-author', 'dy-disp-author', 'dyl-disp-author');
-    bindText('in-dy-desc', 'dy-disp-desc');
-    bindText('in-dy-tags', 'dy-disp-tags');
-    bindText('in-dy-gold-title', 'dy-disp-gold-title');
-    bindText('in-dy-featured-title', 'dy-disp-featured-title');
+    bindText('in-dy-likes', 'dy-val-likes', 'dyl-disp-like', true);
+    bindText('in-dy-comments', 'dy-val-comments', 'dyl-disp-comment', true);
+    bindText('in-dy-stars', 'dy-val-stars', 'dyl-disp-star', true);
+    bindText('in-dy-shares', 'dy-val-shares', null, true);
+    bindText('in-dy-author', 'dy-disp-author', 'dyl-disp-author', true);
+    bindText('in-dy-desc', 'dy-disp-desc', null, true);
+    bindText('in-dy-tags', 'dy-disp-tags', null, true);
+    bindText('in-dy-campaign', 'dy-disp-campaign', null, true);
+    bindText('in-dy-gold-title', 'dy-disp-gold-title', null, true);
+    bindText('in-dy-featured-title', 'dy-disp-featured-title', null, true);
+
+    // ★ 作者声明下拉预设与输入框联动（右侧简体中文，左侧画面自动繁体中文）
+    const selDyCampaignPreset = document.getElementById('sel-dy-campaign-preset');
+    const inDyCampaign = document.getElementById('in-dy-campaign');
+    const dyDispCampaign = document.getElementById('dy-disp-campaign');
+    const dyWrapCampaign = document.getElementById('dy-wrap-campaign');
+    if (selDyCampaignPreset && inDyCampaign && dyDispCampaign) {
+        selDyCampaignPreset.addEventListener('change', (e) => {
+            if (e.target.value !== 'custom') {
+                inDyCampaign.value = e.target.value;
+                dyDispCampaign.textContent = toStageTrad(e.target.value);
+                triggerSaveStorage();
+                window.showToast(`📢 已切换声明文案：${toStageTrad(e.target.value)}`);
+            } else {
+                inDyCampaign.focus();
+                inDyCampaign.select();
+            }
+        });
+        inDyCampaign.addEventListener('input', () => {
+            const matchOpt = Array.from(selDyCampaignPreset.options).find(o => o.value === inDyCampaign.value.trim());
+            selDyCampaignPreset.value = matchOpt ? matchOpt.value : 'custom';
+        });
+    }
+    if (dyWrapCampaign && inDyCampaign) {
+        dyWrapCampaign.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
+            inDyCampaign.focus();
+            inDyCampaign.select();
+            window.showToast('📢 请在右侧选择或编辑「作者声明」文案');
+        });
+        dyWrapCampaign.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (selDyCampaignPreset) {
+                const validOpts = Array.from(selDyCampaignPreset.options).filter(o => o.value !== 'custom');
+                const curIdx = validOpts.findIndex(o => o.value === inDyCampaign.value.trim());
+                const nextOpt = validOpts[(curIdx + 1) % validOpts.length];
+                if (nextOpt) {
+                    selDyCampaignPreset.value = nextOpt.value;
+                    selDyCampaignPreset.dispatchEvent(new Event('change'));
+                }
+            }
+        });
+    }
+
+    // ★ 搜索栏前缀切换（猜你想搜 / 相关搜索 / 大家都在搜 / 热门搜索）与热词联动
+    const selDySearchPrefix = document.getElementById('sel-dy-search-prefix');
+    const inDyGoldTitle = document.getElementById('in-dy-gold-title');
+    const dyDispGoldTitle = document.getElementById('dy-disp-gold-title');
+    const dyWrapGold = document.getElementById('dy-wrap-gold');
+
+    function extractSearchKeywordBody(rawStr) {
+        return String(rawStr || '')
+            .replace(/^(猜你想搜|相关搜索|相關搜索|大家都在搜|热门搜索|熱門搜索)s*[·•:：-]s*/, '')
+            .trim() || 'Laya 独家完整版合集';
+    }
+
+    if (selDySearchPrefix && inDyGoldTitle && dyDispGoldTitle) {
+        selDySearchPrefix.addEventListener('change', (e) => {
+            const prefix = e.target.value;
+            const bodySimp = toEditorSimp(extractSearchKeywordBody(inDyGoldTitle.value));
+            const combinedSimp = prefix === 'none' ? bodySimp : `${prefix} · ${bodySimp}`;
+            inDyGoldTitle.value = combinedSimp;
+            dyDispGoldTitle.textContent = toStageTrad(combinedSimp);
+            triggerSaveStorage();
+            window.showToast(`🔍 已切换搜索栏为：${toStageTrad(combinedSimp)}`);
+        });
+        inDyGoldTitle.addEventListener('input', () => {
+            const v = inDyGoldTitle.value.trim();
+            if (v.startsWith('猜你想搜')) selDySearchPrefix.value = '猜你想搜';
+            else if (v.startsWith('相关搜索') || v.startsWith('相關搜索')) selDySearchPrefix.value = '相关搜索';
+            else if (v.startsWith('大家都在搜')) selDySearchPrefix.value = '大家都在搜';
+            else if (v.startsWith('热门搜索') || v.startsWith('熱門搜索')) selDySearchPrefix.value = '热门搜索';
+        });
+    }
+    if (dyWrapGold && inDyGoldTitle) {
+        dyWrapGold.title = '点击在右侧编辑搜索词 (右键可快速切换「猜你想搜 / 相關搜索」)';
+        dyWrapGold.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
+            inDyGoldTitle.focus();
+            inDyGoldTitle.select();
+            window.showToast('🔍 请在右侧切换「猜你想搜 / 相关搜索」或编辑搜索热词');
+        });
+        dyWrapGold.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (selDySearchPrefix) {
+                selDySearchPrefix.value = selDySearchPrefix.value === '猜你想搜' ? '相关搜索' : '猜你想搜';
+                selDySearchPrefix.dispatchEvent(new Event('change'));
+            }
+        });
+    }
 
     // 点击舞台上的「Laya 精選內容 >」胶囊，直接定位到右侧输入框修改文字
     const dyWrapFeatured = document.getElementById('dy-wrap-featured');
@@ -2424,8 +2625,8 @@ window.switchRightTab = function (mode) {
             }
         });
     }
-    bindText('in-dy-hotspot-title', 'dy-disp-hotspot-title');
-    bindText('in-dy-hotspot-views', 'dy-disp-hotspot-views');
+    bindText('in-dy-hotspot-title', 'dy-disp-hotspot-title', null, true);
+    bindText('in-dy-hotspot-views', 'dy-disp-hotspot-views', null, true);
 
     /* ==========================================================================
        ★ 6.2 严格遵循图3视频时长爆款规律：每次打开/刷新或上传视频自动随机生成
@@ -2436,6 +2637,15 @@ window.switchRightTab = function (mode) {
         if (n >= 1000000) return '100萬';
         if (n >= 10000) {
             return (n / 10000).toFixed(1) + '萬';
+        }
+        return String(n);
+    }
+
+    function formatViralCountSimp(num) {
+        const n = Math.max(1, Math.round(Number(num) || 0));
+        if (n >= 1000000) return '100万';
+        if (n >= 10000) {
+            return (n / 10000).toFixed(1) + '万';
         }
         return String(n);
     }
@@ -2463,15 +2673,16 @@ window.switchRightTab = function (mode) {
 
     function randomizeHotspotViewsOnly(showMsg = false) {
         const viewsWan = (15 + Math.random() * 185).toFixed(1);
-        const viewsStr = `${viewsWan}萬人在看`;
+        const viewsSimp = `${viewsWan}万人在看`;
+        const viewsTrad = `${viewsWan}萬人在看`;
         const inHotViews = document.getElementById('in-dy-hotspot-views');
         const dispHotViews = document.getElementById('dy-disp-hotspot-views');
-        if (inHotViews) inHotViews.value = viewsStr;
-        if (dispHotViews) dispHotViews.textContent = viewsStr;
+        if (inHotViews) inHotViews.value = viewsSimp;
+        if (dispHotViews) dispHotViews.textContent = viewsTrad;
         if (showMsg && typeof window.showToast === 'function') {
-            window.showToast(`🔥 已随机生成热点在看人数：${viewsStr}`);
+            window.showToast(`🔥 已随机生成热点在看人数：${viewsSimp}`);
         }
-        return viewsStr;
+        return viewsTrad;
     }
 
     function randomizeViralMetricsByDuration(customDurSec = null, showMsg = false) {
@@ -2510,41 +2721,46 @@ window.switchRightTab = function (mode) {
         const sharesRaw = Math.max(50, Math.round(impliedPlays * tier.shareRate * jitter()));
         const starsRaw = Math.max(80, Math.round(impliedPlays * tier.starRate * jitter()));
 
-        const likesStr = formatViralCountTrad(likesRaw);
-        const commentsStr = formatViralCountTrad(commentsRaw);
-        const starsStr = formatViralCountTrad(starsRaw);
-        const sharesStr = formatViralCountTrad(sharesRaw);
+        const likesTrad = formatViralCountTrad(likesRaw);
+        const commentsTrad = formatViralCountTrad(commentsRaw);
+        const starsTrad = formatViralCountTrad(starsRaw);
+        const sharesTrad = formatViralCountTrad(sharesRaw);
+
+        const likesSimp = formatViralCountSimp(likesRaw);
+        const commentsSimp = formatViralCountSimp(commentsRaw);
+        const starsSimp = formatViralCountSimp(starsRaw);
+        const sharesSimp = formatViralCountSimp(sharesRaw);
 
         const inLikes = document.getElementById('in-dy-likes');
         const inComments = document.getElementById('in-dy-comments');
         const inStars = document.getElementById('in-dy-stars');
         const inShares = document.getElementById('in-dy-shares');
 
-        if (inLikes) inLikes.value = likesStr;
-        if (inComments) inComments.value = commentsStr;
-        if (inStars) inStars.value = starsStr;
-        if (inShares) inShares.value = sharesStr;
+        if (inLikes) inLikes.value = likesSimp;
+        if (inComments) inComments.value = commentsSimp;
+        if (inStars) inStars.value = starsSimp;
+        if (inShares) inShares.value = sharesSimp;
 
         const dyValLikes = document.getElementById('dy-val-likes');
         const dyValComments = document.getElementById('dy-val-comments');
         const dyValStars = document.getElementById('dy-val-stars');
         const dyValShares = document.getElementById('dy-val-shares');
 
-        if (dyValLikes) dyValLikes.textContent = likesStr;
-        if (dyValComments) dyValComments.textContent = commentsStr;
-        if (dyValStars) dyValStars.textContent = starsStr;
-        if (dyValShares) dyValShares.textContent = sharesStr;
+        if (dyValLikes) dyValLikes.textContent = likesTrad;
+        if (dyValComments) dyValComments.textContent = commentsTrad;
+        if (dyValStars) dyValStars.textContent = starsTrad;
+        if (dyValShares) dyValShares.textContent = sharesTrad;
 
         const dylDispLike = document.getElementById('dyl-disp-like');
         const dylDispComment = document.getElementById('dyl-disp-comment');
         const dylDispStar = document.getElementById('dyl-disp-star');
-        if (dylDispLike) dylDispLike.textContent = likesStr;
-        if (dylDispComment) dylDispComment.textContent = commentsStr;
-        if (dylDispStar) dylDispStar.textContent = starsStr;
+        if (dylDispLike) dylDispLike.textContent = likesTrad;
+        if (dylDispComment) dylDispComment.textContent = commentsTrad;
+        if (dylDispStar) dylDispStar.textContent = starsTrad;
 
         // 同步评论区顶部评论总数显示
         if (window.CommentEngine) {
-            window.CommentEngine.headCount = commentsStr;
+            window.CommentEngine.headCount = commentsTrad;
             window.CommentEngine.syncHeaderDOM();
         }
 
@@ -2552,7 +2768,7 @@ window.switchRightTab = function (mode) {
         const viewsStr = randomizeHotspotViewsOnly(false);
 
         if (showMsg && typeof window.showToast === 'function') {
-            window.showToast(`🎲 已按【${tier.label} (${Math.round(durSec)}s)】规律随机：讚${likesStr} · 評${commentsStr} · 藏${starsStr} · 轉${sharesStr} · ${viewsStr}`);
+            window.showToast(`🎲 已按【${tier.label} (${Math.round(durSec)}s)】规律随机：赞${likesSimp} · 评${commentsSimp} · 藏${starsSimp} · 转${sharesSimp}`);
         }
     }
     window.randomizeViralMetricsByDuration = randomizeViralMetricsByDuration;
@@ -2709,7 +2925,7 @@ window.switchRightTab = function (mode) {
         '唳':'唳','唷':'唷','唼':'唼','唾':'唾','唿':'唿','啁':'啁','啃':'啃','啄':'啄','商':'商','啉':'啉',
         '啊':'啊','啤':'啤','啥':'啥','啦':'啦','啧':'嘖','啪':'啪','啬':'嗇','啭':'囀','啮':'嚙','啰':'囉',
         '啸':'嘯','喷':'噴','喽':'嘍','喾':'嚳','嗫':'囁','呵':'呵','嗔':'嗔','嘘':'噓','嘱':'囑','嘿':'嘿',
-        '嘴':'嘴','嘶':'嘶','嘹':'嘹','嘻':'嘻','嘿':'嘿','噌':'噌','':'噍','噎':'噎','嘘':'噓','器':'器',
+        '嘴':'嘴','嘶':'嘶','嘹':'嘹','嘻':'嘻','嘿':'嘿','噌':'噌','噎':'噎','嘘':'噓','器':'器',
         '噩':'噩','噪':'噪','噫':'噫','噬':'噬','噱':'噱','噶':'噶','噼':'噼','嚎':'嚎','嚏':'嚏','嚣':'囂',
         '嚷':'嚷','嚼':'嚼','囊':'囊','囚':'囚','四':'四','回':'回','因':'因','团':'團','囤':'囤','园':'園',
         '困':'困','囱':'囪','围':'圍','囵':'圇','国':'國','图':'圖','圆':'圓','圈':'圈','圉':'圉','圊':'圊',
@@ -2722,7 +2938,7 @@ window.switchRightTab = function (mode) {
         '埃':'埃','埋':'埋','城':'城','埏':'埏','埒':'埒','埔':'埔','埕':'埕','埘':'塒','埙':'塤','埚':'堝',
         '埝':'埝','域':'域','埠':'埠','埯':'埯','埴':'埴','埸':'埸','培':'培','基':'基','埽':'埽','堀':'堀',
         '堂':'堂','坚':'堅','堆':'堆','堇':'堇','堋':'堋','堍':'堍','堑':'塹','堕':'墮','堙':'堙','堞':'堞',
-        '堠':'堠','堡':'堡','堤':'堤','堪':'堪','尧':'堯','堰':'堰','报':'報','场':'場','堵':'堵','6':'6',
+        '堠':'堠','堡':'堡','堤':'堤','堪':'堪','尧':'堯','堰':'堰','报':'報','场':'場','堵':'堵',
         '境':'境','墅':'墅','墉':'墉','垫':'墊','墓':'墓','墙':'牆','增':'增','墟':'墟','墨':'墨','墩':'墩',
         '堕':'墮','壁':'壁','壅':'壅','坛':'壇','壑':'壑','压':'壓','壕':'壕','壤':'壤','士':'士','壮':'壯',
         '声':'聲','壳':'殼','壶':'壺','处':'處','备':'備','复':'復','夏':'夏','夕':'夕','外':'外','夙':'夙',
@@ -2740,7 +2956,7 @@ window.switchRightTab = function (mode) {
         '娼':'娼','婀':'婀','婆':'婆','婉':'婉','婊':'婊','婕':'婕','婚':'婚','婢':'婢','妇女':'婦女','婧':'婧',
         '婪':'婪','婴':'嬰','婶':'嬸','媒':'媒','媚':'媚','媛':'媛','媳':'媳','媲':'媲','嫁':'嫁','嫂':'嫂',
         '嫉':'嫉','嫌':'嫌','嫡':'嫡','嫣':'嫣','嫦':'嫦','嫩':'嫩','嫫':'嫫','嫱':'嬙','嬉':'嬉','婵':'嬋',
-        '':'媠','嬴':'嬴','嬷':'嬤','孀':'孀','子':'子','孑':'孑','孓':'孓','孔':'孔','孕':'孕','字':'字',
+        '嬴':'嬴','嬷':'嬤','孀':'孀','子':'子','孑':'孑','孓':'孓','孔':'孔','孕':'孕','字':'字',
         '存':'存','孙':'孫','孚':'孚','孛':'孛','孜':'孜','孝':'孝','孟':'孟','季':'季','孤':'孤','学':'學',
         '孩':'孩','孪':'孿','宁':'寧','它':'它','宅':'宅','宇':'宇','守':'守','安':'安','宋':'宋','完':'完',
         '宏':'宏','宗':'宗','官':'官','宙':'宙','定':'定','宛':'宛','宜':'宜','宝':'寶','实':'實','宠':'寵',
@@ -2767,7 +2983,7 @@ window.switchRightTab = function (mode) {
         '弥':'彌','弦':'弦','弧':'弧','弩':'弩','弯':'彎','弱':'弱','弹':'彈','强':'強','归':'歸','当':'當',
         '录':'錄','彦':'彥','彩':'彩','彪':'彪','彬':'彬','彭':'彭','彰':'彰','影':'影','役':'役','彻':'徹',
         '彼':'彼','往':'往','征':'征','径':'徑','待':'待','徇':'徇','很':'很','律':'律','后':'後','徐':'徐',
-        '徒':'徒','得':'得','徘':'徘','徙':'徙','御':'御','徨':'徨','循':'循','微':'微','德':'德','':'徵',
+        '徒':'徒','得':'得','徘':'徘','徙':'徙','御':'御','徨':'徨','循':'循','微':'微','德':'德',
         '心':'心','必':'必','忆':'憶','忌':'忌','忍':'忍','忏':'懺','忐':'忐','忑':'忑','志':'志','忘':'忘',
         '忙':'忙','忠':'忠','忧':'憂','快':'快','忱':'忱','念':'念','忽':'忽','怀':'懷','态':'態','怂':'慫',
         '怃':'憮','怄':'慪','怅':'悵','怆':'愴','怎':'怎','怒':'怒','怕':'怕','怖':'怖','怜':'憐','思':'思',
@@ -2780,7 +2996,7 @@ window.switchRightTab = function (mode) {
         '惬':'愜','惭':'慚','惮':'憚','惯':'慣','惰':'惰','想':'想','惶':'惶','惹':'惹','惺':'惺','愁':'愁',
         '愈':'愈','愉':'愉','意':'意','愕':'愕','愚':'愚','感':'感','愠':'慍','愧':'愧','愫':'愫','慈':'慈',
         '慎':'慎','慌':'慌','慕':'慕','慢':'慢','慧':'慧','慨':'慨','慰':'慰','慵':'慵','慷':'慷','憋':'憋',
-        '憎':'憎','憔':'憔','':'憝','憧':'憧','憨':'憨','憩':'憩','懂':'懂','懈':'懈','应':'應','懊':'懊',
+        '憎':'憎','憔':'憔','憧':'憧','憨':'憨','憩':'憩','懂':'懂','懈':'懈','应':'應','懊':'懊',
         '懋':'懋','懑':'懣','懒':'懶','懦':'懦','戏':'戲','成':'成','我':'我','戒':'戒','战':'戰','戚':'戚',
         '户':'戶','房':'房','所':'所','扁':'扁','扇':'扇','手':'手','才':'才','扎':'扎','扑':'撲','扒':'扒',
         '打':'打','扔':'扔','托':'托','扛':'扛','扣':'扣','执':'執','扩':'擴','扪':'捫','扫':'掃','扬':'揚',
@@ -2788,7 +3004,7 @@ window.switchRightTab = function (mode) {
         '技':'技','抄':'抄','抉':'抉','把':'把','抑':'抑','抒':'抒','抓':'抓','投':'投','抖':'抖','抗':'抗',
         '折':'折','抚':'撫','抛':'拋','抟':'摶','抠':'摳','抡':'掄','抢':'搶','护':'護','报':'報','担':'擔',
         '拟':'擬','拢':'攏','拣':'揀','拥':'擁','拦':'攔','拧':'擰','拨':'撥','择':'擇','挂':'掛','挚':'摯',
-        '挛':'攣','':'掗','挝':'撾','挞':'撻','挟':'挾','挠':'撓','挡':'擋','挢':'撟','挣':'掙','挤':'擠',
+        '挛':'攣','挝':'撾','挞':'撻','挟':'挾','挠':'撓','挡':'擋','挢':'撟','挣':'掙','挤':'擠',
         '挥':'揮','挦':'撏','挨':'挨','挪':'挪','挫':'挫','振':'振','挺':'挺','挽':'挽','捂':'捂','捃':'捃',
         '捅':'捅','捆':'捆','捉':'捉','捋':'捋','捌':'捌','捍':'捍','捎':'捎','捏':'捏','捐':'捐','捕':'捕',
         '捞':'撈','损':'損','捡':'撿','换':'換','捣':'搗','捧':'捧','据':'據','捱':'捱','捶':'捶','捷':'捷',
@@ -2865,7 +3081,7 @@ window.switchRightTab = function (mode) {
         '溽':'溽','滁':'滁','滂':'滂','沧':'滄','灭':'滅','滋':'滋','滑':'滑','滓':'滓','滔':'滔','滕':'滕',
         '滚':'滾','滞':'滯','滟':'灩','滠':'滠','满':'滿','滢':'瀅','滤':'濾','滥':'濫','滦':'灤','滨':'濱',
         '滩':'灘','滴':'滴','漂':'漂','漆':'漆','漏':'漏','漓':'漓','演':'演','漕':'漕','漠':'漠','汉':'漢',
-        '涟':'漣','漩':'漩','漪':'漪','漫':'漫','渍':'漬','漱':'漱','8':'漲','漳':'漳','漶':'漶','渐':'漸',
+        '涟':'漣','漩':'漩','漪':'漪','漫':'漫','渍':'漬','漱':'漱','漳':'漳','漶':'漶','渐':'漸',
         '漾':'漾','浆':'漿','颖':'穎','泼':'潑','洁':'潔','潜':'潛','潮':'潮','澎':'澎','潺':'潺','溃':'潰',
         '澄':'澄','浇':'澆','涝':'澇','澈':'澈','涧':'澗','澜':'瀾','澡':'澡','泽':'澤','澳':'澳','激':'激',
         '浊':'濁','濂':'濂','浓':'濃','濑':'瀨','濒':'瀕','濞':'濞','济':'濟','濠':'濠','濡':'濡','涛':'濤',
@@ -2880,7 +3096,7 @@ window.switchRightTab = function (mode) {
         '煞':'煞','煤':'煤','煦':'煦','照':'照','煨':'煨','煮':'煮','煲':'煲','煳':'煳','煸':'煸','煺':'煺',
         '煽':'煽','熄':'熄','熊':'熊','熏':'熏','熔':'熔','熙':'熙','熟':'熟','熨':'熨','熬':'熬','熵':'熵',
         '熹':'熹','燃':'燃','燎':'燎','燔':'燔','燕':'燕','燠':'燠','燥':'燥','燧':'燧','燮':'燮','爆':'爆',
-        '爪':'爪','爬':'爬','8':'爭','爱':'愛','父':'父','爷':'爺','爸':'爸','爹':'爹','爽':'爽','片':'片',
+        '爪':'爪','爬':'爬','爱':'愛','父':'父','爷':'爺','爸':'爸','爹':'爹','爽':'爽','片':'片',
         '版':'版','牌':'牌','牍':'牘','牙':'牙','牛':'牛','牝':'牝','牟':'牟','牡':'牡','牢':'牢','牦':'犛',
         '牧':'牧','物':'物','牲':'牲','牵':'牽','特':'特','牺':'犧','犯':'犯','状':'狀','犹':'猶','狂':'狂',
         '狐':'狐','狗':'狗','狙':'狙','狞':'獰','狠':'狠','狡':'狡','独':'獨','狭':'狹','狮':'獅','狯':'獪',
@@ -2901,7 +3117,7 @@ window.switchRightTab = function (mode) {
         '病':'病','症':'症','痈':'癰','痉':'痙','痊':'痊','痍':'痍','痒':'癢','痔':'痔','痕':'痕','痘':'痘',
         '痛':'痛','痞':'痞','痢':'痢','痣':'痣','痤':'痤','痦':'痦','痧':'痧','痨':'癆','痪':'瘓','痫':'癇',
         '痰':'痰','痴':'癡','痹':'痺','痼':'痼','痿':'痿','瘀':'瘀','瘁':'瘁','瘃':'瘃','瘅':'癉','瘆':'瘮',
-        '':'瘇','疯':'瘋','疡':'瘍','瘟':'瘟','瘠':'瘠','疮':'瘡','瘢':'瘢','瘤':'瘤','瘥':'瘥','瘦':'瘦',
+        '疯':'瘋','疡':'瘍','瘟':'瘟','瘠':'瘠','疮':'瘡','瘢':'瘢','瘤':'瘤','瘥':'瘥','瘦':'瘦',
         '疟':'瘧','瘸':'瘸','瘪':'癟','瘫':'癱','瘾':'癮','瘿':'癭','癞':'癩','癣':'癬','癫':'癲','癸':'癸',
         '登':'登','发':'發','白':'白','百':'百','皂':'皂','的':'的','皆':'皆','皇':'皇','皈':'皈','皋':'皋',
         '皎':'皎','皑':'皚','皓':'皓','皖':'皖','皮':'皮','皱':'皺','皿':'皿','盂':'盂','盅':'盅','盆':'盆',
@@ -3079,6 +3295,8 @@ window.switchRightTab = function (mode) {
         '鼓':'鼓','鼠':'鼠','鼻':'鼻','齐':'齊','齿':'齒','龄':'齡','龙':'龍','龚':'龔','龛':'龕','龟':'龜'
     };
     const SUB_T2S_CHARS = Object.fromEntries(Object.entries(SUB_S2T_CHARS).map(([s, t]) => [t, s]));
+    window.__SUB_S2T_CHARS = SUB_S2T_CHARS;
+    window.__SUB_T2S_CHARS = SUB_T2S_CHARS;
 
     function convertSubText(str, toTrad = false) {
         if (!str) return '';
@@ -3730,10 +3948,8 @@ window.switchRightTab = function (mode) {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (evt) => {
-                dyAvatarImg.src = evt.target.result;
-                dyAvatarImg.dataset.custom = 'true';
-                if (dylDispAvatar) dylDispAvatar.src = evt.target.result;
-                window.showToast('头像已成功更换！');
+                syncAuthorAvatarEverywhere(evt.target.result, true);
+                window.showToast('头像已成功更换（下方唱片头像已同步更新）！');
                 triggerSaveStorage();
             };
             reader.readAsDataURL(file);
@@ -3744,10 +3960,8 @@ window.switchRightTab = function (mode) {
         btnResetAvatar.addEventListener('click', () => {
             const currentLogo = selLogoVersion ? selLogoVersion.value : 'Laya.png';
             const logoSrc = getActiveLogoSrc(currentLogo);
-            dyAvatarImg.src = logoSrc;
-            dyAvatarImg.dataset.custom = 'false';
-            if (dylDispAvatar) dylDispAvatar.src = logoSrc;
-            window.showToast('已恢复官方 Logo 头像');
+            syncAuthorAvatarEverywhere(logoSrc, false);
+            window.showToast('已恢复官方 Logo 头像（下方唱片头像已同步）');
             triggerSaveStorage();
         });
     }
@@ -3758,10 +3972,8 @@ window.switchRightTab = function (mode) {
             const seed = 'author_' + Math.random().toString(36).slice(2, 9);
             const apiMode = (window.CommentEngine && window.CommentEngine.apiMode) ? window.CommentEngine.apiMode : 'real-human';
             const onlineUrl = buildOnlineAvatarUrl(seed, apiMode);
-            dyAvatarImg.src = onlineUrl;
-            dyAvatarImg.dataset.custom = 'true';
-            if (dylDispAvatar) dylDispAvatar.src = onlineUrl;
-            window.showToast('已生成随机真人头像');
+            syncAuthorAvatarEverywhere(onlineUrl, true);
+            window.showToast('已生成随机真人头像（下方唱片头像已同步）');
             try {
                 const resp = await fetch(onlineUrl, { mode: 'cors' });
                 if (resp.ok) {
@@ -3769,9 +3981,7 @@ window.switchRightTab = function (mode) {
                     const reader = new FileReader();
                     reader.onloadend = () => {
                         if (typeof reader.result === 'string') {
-                            dyAvatarImg.src = reader.result;
-                            dyAvatarImg.dataset.custom = 'true';
-                            if (dylDispAvatar) dylDispAvatar.src = reader.result;
+                            syncAuthorAvatarEverywhere(reader.result, true);
                             triggerSaveStorage();
                         }
                     };
@@ -4030,8 +4240,23 @@ window.switchRightTab = function (mode) {
                 data.checkboxes['sw-dy-hotspot'] = true;
                 localStorage.setItem('LAYA_V13_DEFAULTS_MIGRATED', '1');
             }
-            if (data.inputs && (data.inputs['in-dy-hotspot-title'] === '下班去炫頂配螺螄粉' || data.inputs['in-dy-hotspot-title'] === '下班去炫顶配螺蛳粉')) {
-                data.inputs['in-dy-hotspot-title'] = '台灣色情女優大賽';
+            if (data.inputs && (data.inputs['in-dy-hotspot-title'] === '下班去炫頂配螺螄粉' || data.inputs['in-dy-hotspot-title'] === '下班去炫顶配螺蛳粉' || data.inputs['in-dy-hotspot-title'] === '台灣色情女優大賽')) {
+                data.inputs['in-dy-hotspot-title'] = '台湾色情女优大赛';
+            }
+            // V15 迁移：右侧编辑框统一使用简体中文，左侧舞台自动渲染繁体中文；作者声明默认「作者声明：虚构演绎，仅供娱乐」
+            if (localStorage.getItem('LAYA_V15_CAMPAIGN_SIMP_MIGRATED') !== '1') {
+                if (!data.inputs) data.inputs = {};
+                if (!data.selects) data.selects = {};
+                if (!data.inputs['in-dy-campaign'] || data.inputs['in-dy-campaign'].includes('未成年人')) {
+                    data.inputs['in-dy-campaign'] = '作者声明：虚构演绎，仅供娱乐';
+                    data.selects['sel-dy-campaign-preset'] = '作者声明：虚构演绎，仅供娱乐';
+                }
+                ['in-dy-desc', 'in-dy-tags', 'in-dy-featured-title', 'in-dy-hotspot-title', 'in-dy-gold-title', 'in-cmt-col-title', 'in-dy-campaign'].forEach(k => {
+                    if (typeof data.inputs[k] === 'string') {
+                        data.inputs[k] = toEditorSimp(data.inputs[k]);
+                    }
+                });
+                localStorage.setItem('LAYA_V15_CAMPAIGN_SIMP_MIGRATED', '1');
             }
 
             window.__isRestoringStorage = true;
@@ -4082,9 +4307,7 @@ window.switchRightTab = function (mode) {
             }
 
             if (data.avatar && dyAvatarImg && data.avatarIsCustom) {
-                dyAvatarImg.src = data.avatar;
-                dyAvatarImg.dataset.custom = 'true';
-                if (dylDispAvatar) dylDispAvatar.src = data.avatar;
+                syncAuthorAvatarEverywhere(data.avatar, true);
             }
 
             if (data.skin && selMobileSkin) {
@@ -4268,6 +4491,8 @@ window.switchRightTab = function (mode) {
         const avatarSrc = (dyAvatarImg && dyAvatarImg.dataset.custom === 'true') ? dyAvatarImg.src : activeRealSrc;
         const clonedAvatar = clonedDoc.getElementById('dy-avatar-img');
         if (clonedAvatar) clonedAvatar.src = avatarSrc;
+        const clonedVinylAvatar = clonedDoc.getElementById('dy-vinyl-img');
+        if (clonedVinylAvatar) clonedVinylAvatar.src = avatarSrc;
         const clonedDylAvatar = clonedDoc.getElementById('dyl-disp-avatar');
         if (clonedDylAvatar) clonedDylAvatar.src = avatarSrc;
         const clonedFeatLogo = clonedDoc.getElementById('dy-featured-logo-img');
