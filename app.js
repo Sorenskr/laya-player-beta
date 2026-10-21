@@ -703,12 +703,19 @@ window.switchRightTab = function (mode) {
         });
     }
     if (dyAvatarClickWrap && dyBtnFollow) {
+        dyAvatarClickWrap.title = '点击直接上传更换右侧头像 (右键可一键系统随机生成头像)';
         dyAvatarClickWrap.addEventListener('click', (e) => {
             if (e.target === dyBtnFollow) return;
-            if (dyBtnFollow.classList.contains('follow-hidden')) {
-                setFollowPlusVisible(true, true);
-                window.showToast('❤️ 已恢复头像下方红色 + 号');
+            const uploader = document.getElementById('dy-avatar-uploader');
+            if (uploader) {
+                uploader.value = '';
+                uploader.click();
             }
+        });
+        dyAvatarClickWrap.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            const btnRandAv = document.getElementById('btn-random-author-avatar');
+            if (btnRandAv) btnRandAv.click();
         });
     }
 
@@ -3443,8 +3450,53 @@ window.switchRightTab = function (mode) {
             dyAvatarImg.src = logoSrc;
             dyAvatarImg.dataset.custom = 'false';
             if (dylDispAvatar) dylDispAvatar.src = logoSrc;
-            window.showToast('已恢复当前选中的官方 Logo 头像！');
+            window.showToast('已恢复官方 Logo 头像');
             triggerSaveStorage();
+        });
+    }
+
+    const btnRandomAuthorAvatar = document.getElementById('btn-random-author-avatar');
+    if (btnRandomAuthorAvatar && dyAvatarImg) {
+        btnRandomAuthorAvatar.addEventListener('click', async () => {
+            const seed = 'author_' + Math.random().toString(36).slice(2, 9);
+            const apiMode = (window.CommentEngine && window.CommentEngine.apiMode) ? window.CommentEngine.apiMode : 'mixed';
+            const onlineUrl = buildOnlineAvatarUrl(seed, apiMode);
+            const fallbackSvg = makeFallbackAvatarSvg(seed, 'L');
+            dyAvatarImg.src = fallbackSvg;
+            dyAvatarImg.dataset.custom = 'true';
+            if (dylDispAvatar) dylDispAvatar.src = fallbackSvg;
+            window.showToast('已生成随机头像');
+            try {
+                const resp = await fetch(onlineUrl, { mode: 'cors' });
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        if (typeof reader.result === 'string') {
+                            dyAvatarImg.src = reader.result;
+                            dyAvatarImg.dataset.custom = 'true';
+                            if (dylDispAvatar) dylDispAvatar.src = reader.result;
+                            triggerSaveStorage();
+                        }
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            } catch (err) {
+                triggerSaveStorage();
+            }
+        });
+    }
+
+    if (dylDispAvatar) {
+        dylDispAvatar.style.cursor = 'pointer';
+        dylDispAvatar.title = '点击上传更换头像';
+        dylDispAvatar.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const uploader = document.getElementById('dy-avatar-uploader');
+            if (uploader) {
+                uploader.value = '';
+                uploader.click();
+            }
         });
     }
 
