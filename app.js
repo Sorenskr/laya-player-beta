@@ -3613,10 +3613,52 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // 绑定手机横屏影音左上角方形 Logo (#m-wrap-logo) 点击上传、右键或按钮切换蓝/紫标
+    // 绑定手机横屏影音左上角方形 Logo (#m-wrap-logo) 点击上传、右键或按钮切换蓝/紫标 + 放大缩小滑轨
     const mWrapLogo = document.getElementById('m-wrap-logo');
     const mLogoUploader = document.getElementById('m-logo-uploader');
     const btnMLogoToggleBuiltin = document.getElementById('btn-m-logo-toggle-builtin');
+    const inMLogoScale = document.getElementById('in-m-logo-scale');
+    const txtMLogoScale = document.getElementById('txt-m-logo-scale');
+    const inGlobalLogoScale = document.getElementById('in-global-logo-scale');
+    const txtGlobalLogoScale = document.getElementById('txt-global-logo-scale');
+
+    function applyLogoScale(pctVal, shouldSave = true) {
+        const pct = Math.min(220, Math.max(50, parseInt(pctVal, 10) || 100));
+        const ratio = pct / 100;
+        if (inMLogoScale && document.activeElement !== inMLogoScale) inMLogoScale.value = pct;
+        if (inGlobalLogoScale && document.activeElement !== inGlobalLogoScale) inGlobalLogoScale.value = pct;
+        if (txtMLogoScale) txtMLogoScale.textContent = pct + '%';
+        if (txtGlobalLogoScale) txtGlobalLogoScale.textContent = pct + '%';
+
+        // 1. 手机横屏影音左上角方形 Logo (#m-wrap-logo)
+        if (mWrapLogo) {
+            const boxPx = Math.round(36 * ratio);
+            mWrapLogo.style.width = boxPx + 'px';
+            mWrapLogo.style.height = boxPx + 'px';
+            mWrapLogo.style.borderRadius = Math.max(4, Math.round(8 * ratio)) + 'px';
+        }
+        // 2. 电脑网页版左上胶囊内小 Logo (#player-mini-logo)
+        if (playerMiniLogo) {
+            const miniPx = Math.round(16 * ratio);
+            playerMiniLogo.style.width = miniPx + 'px';
+            playerMiniLogo.style.height = miniPx + 'px';
+        }
+        // 3. 竖屏 16:9 视窗右上角水印 Logo (#dy-lf-wm-logo)
+        if (dyLfWmLogo) {
+            const wmPx = Math.round(26 * ratio);
+            dyLfWmLogo.style.width = wmPx + 'px';
+            dyLfWmLogo.style.height = wmPx + 'px';
+        }
+        if (shouldSave && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+    }
+
+    if (inMLogoScale) {
+        inMLogoScale.addEventListener('input', (e) => applyLogoScale(e.target.value, true));
+    }
+    if (inGlobalLogoScale) {
+        inGlobalLogoScale.addEventListener('input', (e) => applyLogoScale(e.target.value, true));
+    }
+
     if (mWrapLogo) {
         mWrapLogo.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -3633,6 +3675,14 @@ window.switchRightTab = function (mode) {
                 window.showToast(selLogoVersion.value === 'Laya2.png' ? '已切换为紫色官方标' : '已切换为蓝色官方标');
             }
         });
+        // 支持鼠标悬停在画面左上角 Logo 上滚动滚轮直接无级放大/缩小
+        mWrapLogo.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const cur = parseInt((inMLogoScale && inMLogoScale.value) || '100', 10) || 100;
+            const delta = e.deltaY < 0 ? 6 : -6;
+            applyLogoScale(cur + delta, true);
+        }, { passive: false });
     }
     if (mLogoUploader) {
         mLogoUploader.addEventListener('change', (e) => {

@@ -1320,6 +1320,13 @@
                     <button class="btn btn-secondary btn-sm" id="btn-reset-builtin-logo" title="恢复系统自带的 Laya.png / Laya2.png">恢复自带</button>
                 </div>
             </div>
+            <div class="form-row" style="margin-top: 4px;">
+                <div class="range-box">
+                    <label>🔍 画面 Logo 图标放大缩小 (支持滚轮缩放)</label>
+                    <span class="range-value" id="txt-global-logo-scale">100%</span>
+                </div>
+                <input type="range" id="in-global-logo-scale" min="50" max="220" value="100">
+            </div>
             <div class="switch-tile highlight-tile" style="margin-top: 4px;">
                 <span>🎥 导出视频时保留设备屏幕外框与动态进度条</span>
                 <label class="ios-toggle">
@@ -1626,6 +1633,13 @@
                         <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" onclick="document.getElementById('m-logo-uploader').click()">📁 上传横屏 Logo</button>
                         <button type="button" class="btn btn-secondary btn-sm" style="flex: 1;" id="btn-m-logo-toggle-builtin">🔄 切换蓝/紫官方标</button>
                     </div>
+                </div>
+                <div class="form-row">
+                    <div class="range-box">
+                        <label>🔍 左上角 Logo 放大缩小滑轨 (或鼠标悬停滚轮缩放)</label>
+                        <span class="range-value" id="txt-m-logo-scale">100%</span>
+                    </div>
+                    <input type="range" id="in-m-logo-scale" min="50" max="220" value="100">
                 </div>
                 <div class="switch-tile highlight-tile">
                     <span>✨ 显示左上角画质徽标 (4K / 1080P 等)</span>
