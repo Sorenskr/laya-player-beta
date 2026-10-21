@@ -10,14 +10,29 @@ window.showToast = function (msg) {
 
     const toast = document.createElement('div');
     toast.className = 'toast';
-    toast.textContent = msg;
+    // 页面初始化恢复缓存期间，不弹出任何打扰用户的 Toast
+    if (window.__isRestoringStorage) return;
+
+    // 剥离所有 Emoji 小表情、压缩冗余提示词，且仅保留最新 1 条轻提示，绝不堆叠遮挡画面
+    let cleanMsg = String(msg || '')
+        .replace(/[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}\u{2300}-\u{23FF}\u{2B50}\u{2705}\u{274C}\u{26A0}\u{FE0F}\u{200D}]+/gu, '')
+        .replace(/^[\s·•|：:-]+/, '')
+        .replace(/^已切换为[：:]\s*/, '')
+        .replace(/^已切換為[：:]\s*/, '')
+        .replace(/^画面已切换为[：:]\s*/, '')
+        .replace(/，可直接拖动绿框调整构图！/g, '')
+        .replace(/\s*\([^)]*\)\s*/g, '')
+        .trim();
+    if (!cleanMsg) return;
+    container.innerHTML = '';
+    toast.textContent = cleanMsg;
     container.appendChild(toast);
 
     requestAnimationFrame(() => toast.classList.add('show'));
     setTimeout(() => {
         toast.classList.remove('show');
         setTimeout(() => toast.remove(), 260);
-    }, 2800);
+    }, 1500);
 };
 
 // 切换右侧控制面板选项卡
@@ -47,6 +62,8 @@ window.switchRightTab = function (mode) {
     } else {
         if (tabWeb) tabWeb.classList.add('active');
         if (panelWeb) panelWeb.classList.add('active');
+        const qaModeBadgeEl = document.getElementById('qa-rail-mode-badge');
+        if (qaModeBadgeEl) qaModeBadgeEl.textContent = '💻 电脑网页';
     }
 };
 
@@ -63,6 +80,157 @@ window.switchRightTab = function (mode) {
     if (tabCinema) tabCinema.addEventListener('click', () => window.switchRightTab('m-cinema'));
     if (tabDy) tabDy.addEventListener('click', () => window.switchRightTab('dy'));
     if (tabDm) tabDm.addEventListener('click', () => window.switchRightTab('dm'));
+
+    /* ==========================================================================
+       ★ 0.5 中间长条「⚡ 快速访问」快捷键导航栏：选中放大高亮、未选文字缩小、双向联动
+       ========================================================================== */
+    const qaRailList = document.getElementById('qa-rail-list');
+    const qaModeBadge = document.getElementById('qa-rail-mode-badge');
+    const rightSidebarEl = document.getElementById('right-sidebar');
+
+    function ensureRightPanelCardIds() {
+        if (!rightSidebarEl) return;
+        const allCards = rightSidebarEl.querySelectorAll('.panel-card');
+        const headerKeywordMap = [
+            { kw: '官方 Logo 切换', id: 'card-logo-switch' },
+            { kw: '手机竖屏皮肤模式切换', id: 'card-dy-skin' },
+            { kw: '顶部手机状态栏与机型仿真', id: 'card-dy-statusbar' },
+            { kw: '全屏观看与横竖取景设置', id: 'card-dy-fullscreen' },
+            { kw: '智能画面字幕识别与多条编辑', id: 'card-dy-subtitle' },
+            { kw: '全屏观看(横屏) 控件显隐', id: 'card-dyl-switches' },
+            { kw: '竖屏专属组件显隐开关', id: 'card-dy-switches' },
+            { kw: '互动数据与作者资料', id: 'card-dy-author' },
+            { kw: '热点与热搜词配置', id: 'card-dy-hotspot' },
+            { kw: '评论区弹窗与图文', id: 'card-dy-comment-studio' },
+            { kw: '电脑网页端小配件显隐矩阵', id: 'card-web-switches' },
+            { kw: '高能热度波浪曲线', id: 'card-web-wave' },
+            { kw: '电脑端文案与预设自定义', id: 'card-web-text' },
+            { kw: '手机顶部状态栏仿真配置', id: 'card-mc-statusbar' },
+            { kw: '左上角画质徽标与标题配置', id: 'card-mc-badge' },
+            { kw: '手机横屏组件显隐开关', id: 'card-mc-switches' },
+            { kw: '弹幕运动与定格控制', id: 'card-dm-studio' },
+            { kw: '独立取景框', id: 'card-crop-box' }
+        ];
+
+        allCards.forEach(card => {
+            const headerEl = card.querySelector('.card-header');
+            const headerTxt = headerEl ? headerEl.textContent : '';
+            if (headerTxt.includes('起始时间与进度条控制')) {
+                if (card.closest('#panel-m-cinema-settings')) {
+                    card.id = 'card-mc-time';
+                } else if (card.closest('#panel-web-settings')) {
+                    card.id = 'card-web-time';
+                }
+                return;
+            }
+            for (const rule of headerKeywordMap) {
+                if (headerTxt.includes(rule.kw)) {
+                    card.id = rule.id;
+                    break;
+                }
+            }
+        });
+    }
+    ensureRightPanelCardIds();
+
+    let isQaProgrammaticScroll = false;
+    let qaScrollTimer = null;
+
+    function setActiveQuickAccessItem(targetCardId, scrollRailIntoView = true) {
+        if (!qaRailList || !targetCardId) return;
+        const qaItems = qaRailList.querySelectorAll('.qa-item');
+        qaItems.forEach(btn => {
+            const isMatch = btn.getAttribute('data-target-card') === targetCardId;
+            btn.classList.toggle('active', isMatch);
+            if (isMatch && scrollRailIntoView) {
+                btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        });
+    }
+
+    if (qaRailList && rightSidebarEl) {
+        const qaItems = qaRailList.querySelectorAll('.qa-item');
+        qaItems.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetCardId = btn.getAttribute('data-target-card');
+                const targetTab = btn.getAttribute('data-tab');
+
+                // 1. 立即切换选中项放大高亮，其余未选项文字与尺寸自动缩小
+                setActiveQuickAccessItem(targetCardId, false);
+
+                // 2. 自动切换到对应的右侧控制面板 Tab
+                if (targetTab && targetTab !== 'keep' && typeof window.switchRightTab === 'function') {
+                    window.switchRightTab(targetTab);
+                    if (qaModeBadge) {
+                        const badgeMap = { 'dy': '📲 竖屏社区', 'web': '💻 电脑网页', 'm-cinema': '📱 手机横屏', 'dm': '💬 弹幕工坊' };
+                        qaModeBadge.textContent = badgeMap[targetTab] || '全板块';
+                    }
+                }
+
+                // 3. 丝滑滚动右侧控制面板到目标卡片，并触发流光呼吸边框提示
+                ensureRightPanelCardIds();
+                const cardEl = document.getElementById(targetCardId);
+                if (cardEl) {
+                    isQaProgrammaticScroll = true;
+                    if (qaScrollTimer) clearTimeout(qaScrollTimer);
+
+                    rightSidebarEl.querySelectorAll('.panel-card.qa-card-focus-glow').forEach(c => {
+                        c.classList.remove('qa-card-focus-glow');
+                    });
+
+                    requestAnimationFrame(() => {
+                        const sidebarRect = rightSidebarEl.getBoundingClientRect();
+                        const cardRect = cardEl.getBoundingClientRect();
+                        const targetTop = rightSidebarEl.scrollTop + (cardRect.top - sidebarRect.top) - 12;
+                        rightSidebarEl.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+
+                        void cardEl.offsetWidth;
+                        cardEl.classList.add('qa-card-focus-glow');
+
+                        // 自动聚焦卡片内第一个主下拉框或输入框，方便一键直改
+                        const firstControl = cardEl.querySelector('select, input[type="text"]');
+                        if (firstControl && targetCardId !== 'card-dy-comment-studio') {
+                            setTimeout(() => {
+                                try { firstControl.focus({ preventScroll: true }); } catch (e) {}
+                            }, 280);
+                        }
+                    });
+
+                    qaScrollTimer = setTimeout(() => {
+                        isQaProgrammaticScroll = false;
+                    }, 620);
+                }
+            });
+        });
+
+        // 当用户在右侧控制栏手动滚动或点击某张卡片时，中间快速访问栏也自动联动放大对应项
+        rightSidebarEl.addEventListener('click', (e) => {
+            const clickedCard = e.target.closest('.panel-card');
+            if (clickedCard && clickedCard.id) {
+                setActiveQuickAccessItem(clickedCard.id, true);
+            }
+        });
+
+        rightSidebarEl.addEventListener('scroll', () => {
+            if (isQaProgrammaticScroll) return;
+            const sidebarRect = rightSidebarEl.getBoundingClientRect();
+            const anchorY = sidebarRect.top + 95;
+            const visibleCards = Array.from(rightSidebarEl.querySelectorAll('.panel-card')).filter(c => c.offsetParent !== null && c.id);
+            let bestCard = null;
+            let bestDist = Infinity;
+            visibleCards.forEach(c => {
+                const r = c.getBoundingClientRect();
+                const dist = Math.abs(r.top - anchorY);
+                if (dist < bestDist) {
+                    bestDist = dist;
+                    bestCard = c;
+                }
+            });
+            if (bestCard && bestCard.id) {
+                setActiveQuickAccessItem(bestCard.id, true);
+            }
+        }, { passive: true });
+    }
 
     /* ==========================================================================
        ★ 1. 官方蓝/紫双 Logo 默认自带引擎 (免上传直出，同时支持可选自定义替换)
@@ -655,6 +823,7 @@ window.switchRightTab = function (mode) {
 
             if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
                 window.PlayerEngine.updateTransform();
+                window.__isRestoringStorage = false;
                 setTimeout(() => window.PlayerEngine.updateTransform(), 60);
                 setTimeout(() => window.PlayerEngine.updateTransform(), 240);
             }
@@ -1171,6 +1340,7 @@ window.switchRightTab = function (mode) {
             if (rt) rt.classList.toggle('dy-comment-expanded', CommentEngine.isExpanded);
             if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
                 window.PlayerEngine.updateTransform();
+                window.__isRestoringStorage = false;
                 setTimeout(() => window.PlayerEngine.updateTransform(), 230);
             }
         });
@@ -3390,6 +3560,11 @@ window.switchRightTab = function (mode) {
                 data.checkboxes['sw-dy-hotspot'] = true;
                 localStorage.setItem('LAYA_V13_DEFAULTS_MIGRATED', '1');
             }
+            if (data.inputs && (data.inputs['in-dy-hotspot-title'] === '下班去炫頂配螺螄粉' || data.inputs['in-dy-hotspot-title'] === '下班去炫顶配螺蛳粉')) {
+                data.inputs['in-dy-hotspot-title'] = '台灣色情女優大賽';
+            }
+
+            window.__isRestoringStorage = true;
 
             if (data.inputs) {
                 Object.entries(data.inputs).forEach(([id, val]) => {
@@ -3510,8 +3685,10 @@ window.switchRightTab = function (mode) {
             }
             if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
                 window.PlayerEngine.updateTransform();
+                window.__isRestoringStorage = false;
             }
         } catch (e) {
+            window.__isRestoringStorage = false;
             console.warn('Storage load:', e);
         }
     }
