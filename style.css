@@ -1065,7 +1065,9 @@ main {
     height: 36px;
     border-radius: 8px;
     overflow: hidden;
-    background: #0D5BE1;
+    background: transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -2102,7 +2104,9 @@ main {
     border-radius: 50%;
     border: 1.5px solid #fff;
     object-fit: cover;
-    background: #0D5BE1;
+    background: transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease;
     display: block;
 }
 
@@ -2170,7 +2174,9 @@ main {
     width: 10px;
     height: 10px;
     border-radius: 50%;
-    background: #0D5BE1;
+    background: transparent;
+    cursor: pointer;
+    transition: transform 0.15s ease;
 }
 
 @keyframes vinylRotate {
@@ -5305,7 +5311,7 @@ input[type="range"] {
        无左右大边框、无文字边框，未触碰/未选中时隐藏 Emoji 且文字缩小，触碰或选中时显示 Emoji 并放大
    ========================================================================== */
 .quick-access-rail {
-    width: 146px;
+    width: 166px;
     height: 100%;
     background: transparent;
     border: none;
@@ -5324,7 +5330,7 @@ input[type="range"] {
 }
 
 .qa-rail-inner {
-    width: 146px;
+    width: 166px;
     height: 100%;
     display: flex;
     flex-direction: column;
@@ -5395,6 +5401,8 @@ input[type="range"] {
 .qa-rail-header {
     display: flex;
     align-items: center;
+    flex-wrap: nowrap;
+    white-space: nowrap;
     gap: 5px;
     padding: 12px 8px 6px 10px;
     border: none;
@@ -5406,6 +5414,8 @@ input[type="range"] {
     font-size: 11px;
     font-weight: 700;
     letter-spacing: 0.3px;
+    white-space: nowrap;
+    flex-shrink: 0;
     background: linear-gradient(90deg, #cbd5e1 0%, #7dd3fc 100%);
     background-clip: text;
     -webkit-background-clip: text;
@@ -5414,10 +5424,12 @@ input[type="range"] {
 
 .qa-rail-badge {
     margin-left: auto;
-    font-size: 9px;
+    font-size: 9.5px;
     font-weight: 600;
-    padding: 1px 5px;
+    padding: 1px 6px;
     border-radius: 999px;
+    white-space: nowrap;
+    flex-shrink: 0;
     background: rgba(56, 189, 248, 0.1);
     color: #38bdf8;
     border: none;
@@ -5433,6 +5445,8 @@ input[type="range"] {
     padding: 2px 4px;
     cursor: pointer;
     border-radius: 4px;
+    white-space: nowrap;
+    flex-shrink: 0;
     transition: color 0.15s ease, background 0.15s ease;
 }
 

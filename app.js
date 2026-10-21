@@ -188,7 +188,7 @@ window.switchRightTab = function (mode) {
                 if (targetTab && targetTab !== 'keep' && typeof window.switchRightTab === 'function') {
                     window.switchRightTab(targetTab);
                     if (qaModeBadge) {
-                        const badgeMap = { 'dy': '📲 竖屏社区', 'web': '💻 电脑网页', 'm-cinema': '📱 手机横屏', 'dm': '💬 弹幕工坊' };
+                        const badgeMap = { 'dy': '竖屏社区', 'web': '电脑网页', 'm-cinema': '手机横屏', 'dm': '弹幕工坊' };
                         qaModeBadge.textContent = badgeMap[targetTab] || '全板块';
                     }
                 }
@@ -722,36 +722,77 @@ window.switchRightTab = function (mode) {
     /* ==========================================================================
        ★ 4.8 手机竖屏评论区弹窗抽屉与在线随机头像/图文表情包互动引擎 (CommentEngine)
        ========================================================================== */
+    // 记录打开页面或上传视频的基准时间戳，评论时间严格落在 [发布视频时间, 打开页面/上传视频时间] 之间
+    window.__pageOpenOrUploadTime = Date.now();
+    const mediaUploaderForTime = document.getElementById('media-uploader');
+    if (mediaUploaderForTime) {
+        mediaUploaderForTime.addEventListener('change', () => {
+            window.__pageOpenOrUploadTime = Date.now();
+        });
+    }
+
+    // 繁体中文昵称 (台/港/马风格) + 英文昵称 混合池
     const NICKNAME_POOL = [
-        'GKD', '熟悉的陌生人³⁵⁸', '知夏', '树小森.', '🦄大步扭™',
-        '晚风吹过夏', '可乐加冰🧊', '熬夜冠军🏆', '芝士雪豹', '人间清醒✨',
-        'momo', '电子榨菜爱好者', '半夏微凉', '不吃香菜', '暴富小锦鲤🎏',
-        '江湖夜雨', '星河滚烫', '柠檬不酸🍋', '一只小团子', '清风徐来',
-        '卡布奇诺', '北辰', '夏目友人', '纯爱战神', '摸鱼达人🐟',
-        '山野万里', '橘子汽水🍊', '月亮不睡我不睡', '风吹半夏', '云朵偷喝我酒'
+        'Chloe_tw', 'Kevin.88', 'Jason_HK', '阿傑Jay', '子瑜✨',
+        '林小柔', 'Mia_chen', 'Alex_W', '半糖去冰🧋', '夜貓子Owl',
+        'Ethan_Lin', '微風信義', 'Sophia.L', '台北小辣椒🌶️', 'Lucas_MY',
+        '港島妹妹', 'Olivia_99', 'Kuala_阿豪', 'Ryan_Tpe', '忠孝東路走九遍',
+        '貓空看星星', 'abella.vibes', '旺角卡門', '珍奶要波霸', 'Daniel_K',
+        '小確幸🌸', 'Leo_studio', '深夜食堂🍜', 'Vivian.c', '西門町阿翔',
+        '維多利亞港的風', 'Marcus_852', '星際漫遊者', '萱萱_tw', '建宏_TPE',
+        '芷晴_hk', '宇軒.my', 'Amber_Lin', '家豪_888', '心凌Cyndi✨'
     ];
+    // 全繁体评论词池
     const COMMENT_TEXT_POOL = [
-        '牛总还是有点大智慧的',
-        '这剧情太牛了👍😁',
+        '牛總還是有點大智慧的',
+        '這劇情太牛了👍😁',
         '好一招釜底抽薪',
-        '哈哈，我先入职花果山 再回来应聘 完美闭环🐺',
-        '看到这一幕直接蚌埠住了😂',
-        '还得是老戏骨，一个眼神直接封神🔥',
-        '这一段我反反复复看了五遍，细节拉满！',
-        '只有我一个人觉得这段配乐绝了吗😭',
-        '大数据果然懂我，刚想找这个合集就刷到了',
-        '笑不活了，评论区比正片还精彩😂',
-        '建议直接申遗，这台词功底太顶了👍',
-        '前方高能！名场面打卡留念✨',
-        '表面风平浪静，实则全员八百个心眼子',
-        '导演加鸡腿，这运镜和反转真绝了👏',
-        '太真实了，简直就是在演我本人🤣',
-        '这段张力直接拉满，看起一身鸡皮疙瘩'
+        '哈哈，我先入職花果山 再回來應聘 完美閉環🐺',
+        '看到這一幕直接笑噴了😂',
+        '還得是老戲骨，一個眼神直接封神🔥',
+        '這一段我反反覆覆看了五遍，細節拉滿！',
+        '只有我一個人覺得這段配樂絕了嗎😭',
+        '大數據果然懂我，剛想找這個合集就刷到了',
+        '笑不活了，評論區比正片還精彩😂',
+        '建議直接申遺，這台詞功底太頂了👍',
+        '前方高能！名場面打卡留念✨',
+        '表面風平浪靜，實則全員八百個心眼子',
+        '導演加雞腿，這運鏡和反轉真絕了👏',
+        '太真實了，簡直就是在演我本人🤣',
+        '這段張力直接拉滿，看起一身雞皮疙瘩'
     ];
-    const PROVINCE_POOL = [
-        '广东', '河北', '河南', '湖北', '浙江', '四川', '江苏', '北京',
-        '上海', '山东', '湖南', '福建', '重庆', '陕西', '辽宁', '安徽', '云南', '广西'
-    ];
+    // 严格排除中国大陆省份，仅保留台湾、香港、马来西亚及海外国家地区（全繁体）
+    const IP_POOL_TW = ['台灣', '台灣', '台灣', '台北', '新北', '台中', '高雄', '桃園', '台南'];
+    const IP_POOL_HK_MO = ['香港', '香港', '香港', '澳門'];
+    const IP_POOL_MY_SG = ['馬來西亞', '馬來西亞', '吉隆坡', '檳城', '新加坡', '新加坡'];
+    const IP_POOL_OVERSEAS = ['美國', '加拿大', '日本', '韓國', '英國', '澳洲', '泰國', '法國', '德國', '紐西蘭'];
+    const PROVINCE_POOL = [...IP_POOL_TW, ...IP_POOL_HK_MO, ...IP_POOL_MY_SG, ...IP_POOL_OVERSEAS];
+
+    function pickOverseasIpLocation(regionMode) {
+        const mode = regionMode || document.getElementById('sel-cmt-ip-region')?.value || (window.CommentEngine && window.CommentEngine.ipRegion) || 'tw-hk-my';
+        if (mode === 'none') return '';
+        if (mode === 'random-omit' && Math.random() < 0.38) return '';
+        if (mode === 'tw-only') {
+            return IP_POOL_TW[Math.floor(Math.random() * IP_POOL_TW.length)];
+        }
+        if (mode === 'hk-mo') {
+            return IP_POOL_HK_MO[Math.floor(Math.random() * IP_POOL_HK_MO.length)];
+        }
+        if (mode === 'my-sg') {
+            return IP_POOL_MY_SG[Math.floor(Math.random() * IP_POOL_MY_SG.length)];
+        }
+        if (mode === 'overseas-all') {
+            return PROVINCE_POOL[Math.floor(Math.random() * PROVINCE_POOL.length)];
+        }
+        // 默认 tw-hk-my：优先台湾、香港、马来西亚，辅以海外国家，并支持约 15% 概率自然省略 IP
+        const r = Math.random();
+        if (r < 0.14) return '';
+        if (r < 0.78) {
+            const corePool = [...IP_POOL_TW, ...IP_POOL_HK_MO, ...IP_POOL_MY_SG];
+            return corePool[Math.floor(Math.random() * corePool.length)];
+        }
+        return IP_POOL_OVERSEAS[Math.floor(Math.random() * IP_POOL_OVERSEAS.length)];
+    }
 
     function makeFallbackAvatarSvg(seedStr, nameStr) {
         let hash = 0;
@@ -769,13 +810,31 @@ window.switchRightTab = function (mode) {
     }
 
     function buildOnlineAvatarUrl(seed, apiMode) {
-        const cleanSeed = encodeURIComponent(String(seed || Math.random().toString(36).slice(2, 9)));
-        const modes = ['adventurer', 'lorelei', 'notionists', 'fun-emoji', 'picsum'];
-        const chosen = (!apiMode || apiMode === 'mixed')
-            ? modes[Math.floor(Math.random() * modes.length)]
-            : apiMode;
+        const rawStr = String(seed || Math.random().toString(36).slice(2, 9));
+        const cleanSeed = encodeURIComponent(rawStr);
+        let hash = 0;
+        for (let i = 0; i < rawStr.length; i++) {
+            hash = ((hash << 5) - hash) + rawStr.charCodeAt(i);
+            hash |= 0;
+        }
+        const absHash = Math.abs(hash);
+
+        let chosen = apiMode || 'real-human';
+        if (chosen === 'mixed') {
+            const roll = (absHash % 100) / 100;
+            if (roll < 0.68) chosen = 'real-human';
+            else if (roll < 0.85) chosen = 'picsum';
+            else if (roll < 0.93) chosen = 'lorelei';
+            else chosen = 'adventurer';
+        }
+
+        if (chosen === 'real-human') {
+            const gender = (absHash % 10 < 6) ? 'women' : 'men';
+            const portraitId = (absHash % 90) + 1;
+            return `https://randomuser.me/api/portraits/${gender}/${portraitId}.jpg`;
+        }
         if (chosen === 'picsum') {
-            return `https://picsum.photos/seed/${cleanSeed}/120/120`;
+            return `https://picsum.photos/seed/${cleanSeed}/150/150`;
         }
         if (chosen === 'fun-emoji') {
             return `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${cleanSeed}`;
@@ -783,43 +842,62 @@ window.switchRightTab = function (mode) {
         return `https://api.dicebear.com/7.x/${chosen}/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
     }
 
-    function randomDateLoc() {
-        const prov = PROVINCE_POOL[Math.floor(Math.random() * PROVINCE_POOL.length)];
-        const r = Math.random();
-        if (r < 0.22) {
-            const mins = Math.floor(Math.random() * 50) + 2;
-            return `${mins}分钟前 · ${prov}`;
+    // 生成介于 [发布视频时间, 打开页面/上传视频时间] 之间的随机评论时间 + 海外/台港澳马 IP
+    function randomDateLoc(ipRegionOverride, pubHoursOverride) {
+        const endTimeMs = window.__pageOpenOrUploadTime || Date.now();
+        const pubHours = parseFloat(pubHoursOverride || document.getElementById('sel-cmt-pub-window')?.value || (window.CommentEngine && window.CommentEngine.pubWindowHours) || 72) || 72;
+        const startTimeMs = endTimeMs - pubHours * 3600 * 1000;
+        const spanMs = Math.max(120 * 1000, endTimeMs - startTimeMs - 60 * 1000);
+        const cmtTimeMs = startTimeMs + 30 * 1000 + Math.floor(Math.random() * spanMs);
+
+        const diffSec = Math.max(60, Math.floor((endTimeMs - cmtTimeMs) / 1000));
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHr = Math.floor(diffMin / 60);
+
+        const d = new Date(cmtTimeMs);
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+
+        let timeStr = '';
+        if (diffMin < 60) {
+            timeStr = `${Math.max(1, diffMin)}分鐘前`;
+        } else if (diffHr < 24) {
+            timeStr = `${diffHr}小時前`;
+        } else if (diffHr < 48 && Math.random() < 0.45) {
+            timeStr = `昨天 ${hh}:${min}`;
+        } else {
+            timeStr = `${mm}-${dd}`;
         }
-        if (r < 0.42) {
-            const hrs = Math.floor(Math.random() * 11) + 1;
-            return `${hrs}小时前 · ${prov}`;
-        }
-        const month = String(Math.floor(Math.random() * 3) + 8).padStart(2, '0');
-        const day = String(Math.floor(Math.random() * 27) + 1).padStart(2, '0');
-        return `${month}-${day} · ${prov}`;
+
+        const loc = pickOverseasIpLocation(ipRegionOverride);
+        return loc ? `${timeStr} · ${loc}` : timeStr;
     }
 
     const CommentEngine = {
         isOpen: false,
         isExpanded: false,
-        apiMode: 'mixed',
-        colPrefix: '观看完整合集：',
-        colTitle: '人情与世故',
+        apiMode: 'real-human',
+        ipRegion: 'tw-hk-my',
+        pubWindowHours: 72,
+        colPrefix: '觀看完整合集：',
+        colTitle: '人情與世故',
         headCount: '138',
         tabAiText: 'AI 解析',
-        vidTipText: '视频由AI生成/剧情纯属虚构/无不良引导',
+        vidTipText: '視頻由AI生成/劇情純屬虛構/無不良引導',
         activeUploadIdx: -1,
         activePhotoUploadIdx: -1,
         list: [],
 
         initDefaults() {
             this.list = [
-                { id: 'c1', user: 'GKD', text: '牛总还是有点大智慧的', dateLoc: '10-14 · 广东', likes: '9', liked: false, avatar: buildOnlineAvatarUrl('gkd_101', 'adventurer'), image: '', isCustomAvatar: false },
-                { id: 'c2', user: '熟悉的陌生人³⁵⁸', text: '这剧情太牛了👍😁', dateLoc: '10-14 · 河北', likes: '8', liked: false, avatar: buildOnlineAvatarUrl('stranger_358', 'picsum'), image: '', isCustomAvatar: false },
-                { id: 'c3', user: '知夏', text: '好一招釜底抽薪', dateLoc: '10-14 · 河南', likes: '1', liked: false, avatar: buildOnlineAvatarUrl('zhixia_77', 'lorelei'), image: '', isCustomAvatar: false },
-                { id: 'c4', user: '树小森.', text: '哈哈，我先入职花果山 再回来应聘 完美闭环🐺', dateLoc: '10-15 · 湖北', likes: '4', liked: false, avatar: buildOnlineAvatarUrl('shuxiaosen_99', 'notionists'), image: '', isCustomAvatar: false },
-                { id: 'c5', user: '🦄大步扭™', text: '看到这一幕直接笑精神了😂', dateLoc: '10-15 · 浙江', likes: '16', liked: false, avatar: buildOnlineAvatarUrl('dabuniu_88', 'fun-emoji'), image: '', isCustomAvatar: false },
-                { id: 'c6', user: '晚风吹过夏', text: '演技真的在线，每个眼神里全是戏🔥', dateLoc: '10-16 · 四川', likes: '23', liked: false, avatar: buildOnlineAvatarUrl('wanfeng_66', 'adventurer'), image: '', isCustomAvatar: false }
+                { id: 'c1', user: 'Chloe_tw', text: '牛總還是有點大智慧的', dateLoc: randomDateLoc('tw-only', 72), likes: '9', liked: false, avatar: 'https://randomuser.me/api/portraits/women/44.jpg', image: '', isCustomAvatar: false },
+                { id: 'c2', user: '阿傑Jay', text: '這劇情太牛了👍😁', dateLoc: randomDateLoc('hk-mo', 72), likes: '8', liked: false, avatar: 'https://randomuser.me/api/portraits/men/32.jpg', image: '', isCustomAvatar: false },
+                { id: 'c3', user: 'Jason_HK', text: '好一招釜底抽薪', dateLoc: randomDateLoc('my-sg', 72), likes: '1', liked: false, avatar: 'https://randomuser.me/api/portraits/men/68.jpg', image: '', isCustomAvatar: false },
+                { id: 'c4', user: '子瑜✨', text: '哈哈，我先入職花果山 再回來應聘 完美閉環🐺', dateLoc: randomDateLoc('tw-only', 72), likes: '4', liked: false, avatar: 'https://randomuser.me/api/portraits/women/65.jpg', image: '', isCustomAvatar: false },
+                { id: 'c5', user: 'Kevin.88', text: '看到這一幕直接笑精神了😂', dateLoc: randomDateLoc('none', 72), likes: '16', liked: false, avatar: 'https://randomuser.me/api/portraits/men/22.jpg', image: '', isCustomAvatar: false },
+                { id: 'c6', user: '半糖去冰🧋', text: '演技真的在線，每個眼神裡全是戲🔥', dateLoc: randomDateLoc('overseas-all', 72), likes: '23', liked: false, avatar: 'https://randomuser.me/api/portraits/women/19.jpg', image: '', isCustomAvatar: false }
             ];
             this.list.forEach(item => this.prefetchAvatarDataUrl(item));
         },
@@ -862,15 +940,45 @@ window.switchRightTab = function (mode) {
             }
             if (showToastMsg) {
                 window.showToast(this.isOpen
-                    ? '💬 已弹出评论区！可直接点击画面评论文字修改、点头像上传换图，或上下滑动'
-                    : '📱 已收起评论区，恢复竖屏视频画面');
+                    ? '已弹出评论区'
+                    : '已收起评论区');
             }
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
         },
 
-        randomizeAll(includeText = true) {
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'mixed';
+        // 单条评论点击筛子 🎲：同时随机更换头像、繁体/英文昵称、发布后~上传前的时间、海外/台港澳马IP
+        randomizeSingleItem(idx) {
+            const item = this.list[idx];
+            if (!item) return;
+            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
             this.apiMode = mode;
+            const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 8)}`;
+            item.avatar = buildOnlineAvatarUrl(seed, mode);
+            item.isCustomAvatar = false;
+            this.prefetchAvatarDataUrl(item);
+
+            const usedNames = new Set(this.list.map((it, i) => i !== idx ? it.user : ''));
+            let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+            let tries = 0;
+            while (usedNames.has(nick) && tries++ < 20) {
+                nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+            }
+            item.user = nick;
+            item.dateLoc = randomDateLoc(this.ipRegion, this.pubWindowHours);
+            item.likes = String(Math.floor(Math.random() * 68) + 1);
+
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        },
+
+        randomizeAll(includeText = true) {
+            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
+            const ipReg = document.getElementById('sel-cmt-ip-region')?.value || this.ipRegion || 'tw-hk-my';
+            const pubWin = parseFloat(document.getElementById('sel-cmt-pub-window')?.value) || this.pubWindowHours || 72;
+            this.apiMode = mode;
+            this.ipRegion = ipReg;
+            this.pubWindowHours = pubWin;
             const usedNames = new Set();
             const usedTexts = new Set();
             this.list.forEach((item, idx) => {
@@ -880,15 +988,18 @@ window.switchRightTab = function (mode) {
                     item.isCustomAvatar = false;
                     this.prefetchAvatarDataUrl(item);
                 }
-                if (includeText) {
-                    let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-                    let tries = 0;
-                    while (usedNames.has(nick) && tries++ < 15) {
-                        nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-                    }
-                    usedNames.add(nick);
-                    item.user = nick;
+                // 无论点击哪个随机筛子，昵称、时间与海外/台港澳马IP都会一并随机更换
+                let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+                let tries = 0;
+                while (usedNames.has(nick) && tries++ < 15) {
+                    nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+                }
+                usedNames.add(nick);
+                item.user = nick;
+                item.dateLoc = randomDateLoc(ipReg, pubWin);
+                item.likes = String(Math.floor(Math.random() * 68) + 1);
 
+                if (includeText) {
                     let txt = COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)];
                     tries = 0;
                     while (usedTexts.has(txt) && tries++ < 15) {
@@ -896,8 +1007,6 @@ window.switchRightTab = function (mode) {
                     }
                     usedTexts.add(txt);
                     item.text = txt;
-                    item.dateLoc = randomDateLoc();
-                    item.likes = String(Math.floor(Math.random() * 68) + 1);
                 }
             });
             this.renderStage();
@@ -963,7 +1072,7 @@ window.switchRightTab = function (mode) {
                 const main = document.createElement('div');
                 main.className = 'dy-cmt-main';
 
-                // 昵称行 + 悬停快捷按钮(随机头像 / 上传配图 / 删除)
+                // 昵称行 + 悬停快捷按钮(随机头像/昵称/IP/时间、上传配图、删除)
                 const userRow = document.createElement('div');
                 userRow.className = 'dy-cmt-user-row';
 
@@ -972,7 +1081,7 @@ window.switchRightTab = function (mode) {
                 userSpan.contentEditable = 'true';
                 userSpan.spellcheck = false;
                 userSpan.title = '点击直接编辑昵称';
-                userSpan.textContent = item.user || '匿名用户';
+                userSpan.textContent = item.user || '匿名用戶';
                 userSpan.addEventListener('input', () => {
                     item.user = userSpan.textContent.trim();
                     this.syncEditorRow(idx);
@@ -986,24 +1095,18 @@ window.switchRightTab = function (mode) {
                 const btnRandAv = document.createElement('button');
                 btnRandAv.type = 'button';
                 btnRandAv.className = 'dy-cmt-qbtn';
-                btnRandAv.textContent = '🎲头像';
-                btnRandAv.title = '随机换一个在线头像';
+                btnRandAv.textContent = '🎲隨機';
+                btnRandAv.title = '隨機更換此條評論的頭像、暱稱、時間與海外IP';
                 btnRandAv.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`;
-                    item.avatar = buildOnlineAvatarUrl(seed, this.apiMode);
-                    item.isCustomAvatar = false;
-                    avImg.src = item.avatar;
-                    this.prefetchAvatarDataUrl(item);
-                    this.renderEditor();
-                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                    this.randomizeSingleItem(idx);
                 });
 
                 const btnUpImg = document.createElement('button');
                 btnUpImg.type = 'button';
                 btnUpImg.className = 'dy-cmt-qbtn';
-                btnUpImg.textContent = '🖼️配图';
-                btnUpImg.title = '为此条评论上传照片/表情包';
+                btnUpImg.textContent = '🖼️配圖';
+                btnUpImg.title = '為此條評論上傳照片/表情包';
                 btnUpImg.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.activePhotoUploadIdx = idx;
@@ -1018,7 +1121,7 @@ window.switchRightTab = function (mode) {
                 btnDel.type = 'button';
                 btnDel.className = 'dy-cmt-qbtn';
                 btnDel.textContent = '✕';
-                btnDel.title = '删除此条评论';
+                btnDel.title = '刪除此條評論';
                 btnDel.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.list.splice(idx, 1);
@@ -1096,8 +1199,8 @@ window.switchRightTab = function (mode) {
                 dateLocSpan.className = 'dy-cmt-date-loc interactive-elem';
                 dateLocSpan.contentEditable = 'true';
                 dateLocSpan.spellcheck = false;
-                dateLocSpan.title = '点击直接修改日期与地区';
-                dateLocSpan.textContent = item.dateLoc || '10-14 · 广东';
+                dateLocSpan.title = '点击直接修改日期与地区（可删除地区仅保留时间）';
+                dateLocSpan.textContent = item.dateLoc || '3小時前 · 台灣';
                 dateLocSpan.addEventListener('input', () => {
                     item.dateLoc = dateLocSpan.textContent.trim();
                     this.syncEditorRow(idx);
@@ -1106,11 +1209,11 @@ window.switchRightTab = function (mode) {
 
                 const replySpan = document.createElement('span');
                 replySpan.className = 'dy-cmt-reply-btn interactive-elem';
-                replySpan.textContent = '回复';
+                replySpan.textContent = '回覆';
                 replySpan.addEventListener('click', () => {
                     const stageInp = document.getElementById('dy-cmt-stage-input');
                     if (stageInp) {
-                        stageInp.placeholder = `回复 @${item.user}：`;
+                        stageInp.placeholder = `回覆 @${item.user}：`;
                         stageInp.focus();
                     }
                 });
@@ -1216,22 +1319,16 @@ window.switchRightTab = function (mode) {
                 btnRandOne.type = 'button';
                 btnRandOne.className = 'dy-cmt-ed-btn';
                 btnRandOne.textContent = '🎲';
-                btnRandOne.title = '随机生成此条头像';
+                btnRandOne.title = '点击随机更换此条评论的头像、昵称、时间与海外IP';
                 btnRandOne.addEventListener('click', () => {
-                    const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`;
-                    item.avatar = buildOnlineAvatarUrl(seed, this.apiMode);
-                    item.isCustomAvatar = false;
-                    this.prefetchAvatarDataUrl(item);
-                    this.renderStage();
-                    this.renderEditor();
-                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                    this.randomizeSingleItem(idx);
                 });
 
                 const inUser = document.createElement('input');
                 inUser.type = 'text';
                 inUser.className = 'dy-cmt-ed-inp ed-in-user';
                 inUser.style.flex = '1';
-                inUser.placeholder = '昵称';
+                inUser.placeholder = '繁体/英文昵称';
                 inUser.value = item.user || '';
                 inUser.addEventListener('input', (e) => {
                     item.user = e.target.value;
@@ -1242,8 +1339,8 @@ window.switchRightTab = function (mode) {
                 const inDate = document.createElement('input');
                 inDate.type = 'text';
                 inDate.className = 'dy-cmt-ed-inp ed-in-date';
-                inDate.style.width = '88px';
-                inDate.placeholder = '时间·地区';
+                inDate.style.width = '98px';
+                inDate.placeholder = '时间(·海外IP)';
                 inDate.value = item.dateLoc || '';
                 inDate.addEventListener('input', (e) => {
                     item.dateLoc = e.target.value;
@@ -1394,7 +1491,35 @@ window.switchRightTab = function (mode) {
         selCmtAvatarApi.addEventListener('change', (e) => {
             CommentEngine.apiMode = e.target.value;
             CommentEngine.randomizeAll(false);
-            window.showToast('🌐 已切换在线头像接口并刷新随机头像！');
+            window.showToast('已更新评论头像风格与随机资料');
+        });
+    }
+
+    const selCmtIpRegion = document.getElementById('sel-cmt-ip-region');
+    if (selCmtIpRegion) {
+        selCmtIpRegion.addEventListener('change', (e) => {
+            CommentEngine.ipRegion = e.target.value;
+            CommentEngine.list.forEach(item => {
+                item.dateLoc = randomDateLoc(CommentEngine.ipRegion, CommentEngine.pubWindowHours);
+            });
+            CommentEngine.renderStage();
+            CommentEngine.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(e.target.value === 'none' ? '已隐藏评论 IP 属地（仅显示时间）' : '已更新评论区海外/台港澳马 IP 属地');
+        });
+    }
+
+    const selCmtPubWindow = document.getElementById('sel-cmt-pub-window');
+    if (selCmtPubWindow) {
+        selCmtPubWindow.addEventListener('change', (e) => {
+            CommentEngine.pubWindowHours = parseFloat(e.target.value) || 72;
+            CommentEngine.list.forEach(item => {
+                item.dateLoc = randomDateLoc(CommentEngine.ipRegion, CommentEngine.pubWindowHours);
+            });
+            CommentEngine.renderStage();
+            CommentEngine.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('已按新的视频发布时间区间重算评论时间');
         });
     }
 
@@ -1403,7 +1528,7 @@ window.switchRightTab = function (mode) {
         btnCmtRandomAll.addEventListener('click', () => {
             CommentEngine.randomizeAll(true);
             if (!CommentEngine.isOpen) CommentEngine.setDrawerOpen(true, false);
-            window.showToast('🎲 已随机生成全套新头像、昵称、时间地区与评论内容！');
+            window.showToast('已随机更换头像、繁体/英文昵称、时间、IP与评论');
         });
     }
 
@@ -1411,7 +1536,7 @@ window.switchRightTab = function (mode) {
     if (btnCmtRandomAvatars) {
         btnCmtRandomAvatars.addEventListener('click', () => {
             CommentEngine.randomizeAll(false);
-            window.showToast('👤 已从在线接口重新随机生成全部头像！');
+            window.showToast('已随机更换头像、繁体/英文昵称、时间与IP');
         });
     }
 
@@ -1423,7 +1548,7 @@ window.switchRightTab = function (mode) {
                 id: seed,
                 user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
                 text: COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)],
-                dateLoc: randomDateLoc(),
+                dateLoc: randomDateLoc(CommentEngine.ipRegion, CommentEngine.pubWindowHours),
                 likes: String(Math.floor(Math.random() * 30) + 1),
                 liked: false,
                 avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
@@ -1438,7 +1563,7 @@ window.switchRightTab = function (mode) {
             const listEl = document.getElementById('dy-comment-list');
             if (listEl) listEl.scrollTop = 0;
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-            window.showToast('✨ 已新增一条随机评论，可直接点击画面或右侧修改');
+            window.showToast('已新增一条随机评论');
         });
     }
 
@@ -1457,7 +1582,7 @@ window.switchRightTab = function (mode) {
                     CommentEngine.renderStage();
                     CommentEngine.renderEditor();
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-                    window.showToast('✅ 评论头像已更换为你上传的图片！');
+                    window.showToast('评论头像已更换');
                 }
             };
             reader.readAsDataURL(file);
@@ -1485,7 +1610,7 @@ window.switchRightTab = function (mode) {
                         id: seed,
                         user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
                         text: typedTxt,
-                        dateLoc: randomDateLoc(),
+                        dateLoc: randomDateLoc(CommentEngine.ipRegion, CommentEngine.pubWindowHours),
                         likes: String(Math.floor(Math.random() * 50) + 1),
                         liked: false,
                         avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
@@ -1504,7 +1629,7 @@ window.switchRightTab = function (mode) {
                 CommentEngine.renderEditor();
                 if (!CommentEngine.isOpen) CommentEngine.setDrawerOpen(true, false);
                 if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-                window.showToast('🖼️ 照片/表情包已成功添加到评论区！');
+                window.showToast('图片/表情包已添加到评论区');
             };
             reader.readAsDataURL(file);
         });
@@ -1537,11 +1662,12 @@ window.switchRightTab = function (mode) {
                 const val = dyCmtStageInput.value.trim();
                 if (!val) return;
                 const seed = `post_${Date.now()}`;
+                const loc = pickOverseasIpLocation(CommentEngine.ipRegion);
                 const newItem = {
                     id: seed,
                     user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
                     text: val,
-                    dateLoc: '刚刚 · ' + PROVINCE_POOL[Math.floor(Math.random() * PROVINCE_POOL.length)],
+                    dateLoc: loc ? `剛剛 · ${loc}` : '剛剛',
                     likes: '1',
                     liked: true,
                     avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
@@ -1551,13 +1677,13 @@ window.switchRightTab = function (mode) {
                 CommentEngine.prefetchAvatarDataUrl(newItem);
                 CommentEngine.list.unshift(newItem);
                 dyCmtStageInput.value = '';
-                dyCmtStageInput.placeholder = '期待你的评论';
+                dyCmtStageInput.placeholder = '期待你的評論';
                 CommentEngine.renderStage();
                 CommentEngine.renderEditor();
                 const listEl = document.getElementById('dy-comment-list');
                 if (listEl) listEl.scrollTop = 0;
                 if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-                window.showToast('💬 评论已发布！可直接点击头像或文字继续修改');
+                window.showToast('评论已发布');
             }
         });
     }
@@ -2195,6 +2321,7 @@ window.switchRightTab = function (mode) {
     bindToggle('sw-waveform', 'wrap-waveform', 'block');
     // 手机横屏画质徽标开关 & 中央大播放键显隐开关
     bindToggle('sw-m-res-badge', 'm-disp-res-badge', 'inline-flex');
+    bindToggle('sw-m-logo-only', 'm-wrap-logo', 'flex');
     bindToggle('sw-m-center-play', 'm-wrap-center-play', 'flex');
     bindToggle('sw-m-status-bar', 'm-status-bar', 'flex');
     bindToggle('sw-m-top-header', 'm-top-header', 'flex');
@@ -3459,13 +3586,12 @@ window.switchRightTab = function (mode) {
     if (btnRandomAuthorAvatar && dyAvatarImg) {
         btnRandomAuthorAvatar.addEventListener('click', async () => {
             const seed = 'author_' + Math.random().toString(36).slice(2, 9);
-            const apiMode = (window.CommentEngine && window.CommentEngine.apiMode) ? window.CommentEngine.apiMode : 'mixed';
+            const apiMode = (window.CommentEngine && window.CommentEngine.apiMode) ? window.CommentEngine.apiMode : 'real-human';
             const onlineUrl = buildOnlineAvatarUrl(seed, apiMode);
-            const fallbackSvg = makeFallbackAvatarSvg(seed, 'L');
-            dyAvatarImg.src = fallbackSvg;
+            dyAvatarImg.src = onlineUrl;
             dyAvatarImg.dataset.custom = 'true';
-            if (dylDispAvatar) dylDispAvatar.src = fallbackSvg;
-            window.showToast('已生成随机头像');
+            if (dylDispAvatar) dylDispAvatar.src = onlineUrl;
+            window.showToast('已生成随机真人头像');
             try {
                 const resp = await fetch(onlineUrl, { mode: 'cors' });
                 if (resp.ok) {
@@ -3484,6 +3610,50 @@ window.switchRightTab = function (mode) {
             } catch (err) {
                 triggerSaveStorage();
             }
+        });
+    }
+
+    // 绑定手机横屏影音左上角方形 Logo (#m-wrap-logo) 点击上传、右键或按钮切换蓝/紫标
+    const mWrapLogo = document.getElementById('m-wrap-logo');
+    const mLogoUploader = document.getElementById('m-logo-uploader');
+    const btnMLogoToggleBuiltin = document.getElementById('btn-m-logo-toggle-builtin');
+    if (mWrapLogo) {
+        mWrapLogo.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (mLogoUploader) {
+                mLogoUploader.value = '';
+                mLogoUploader.click();
+            }
+        });
+        mWrapLogo.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (selLogoVersion) {
+                selLogoVersion.value = selLogoVersion.value === 'Laya.png' ? 'Laya2.png' : 'Laya.png';
+                applyLogoVersion(selLogoVersion.value);
+                window.showToast(selLogoVersion.value === 'Laya2.png' ? '已切换为紫色官方标' : '已切换为蓝色官方标');
+            }
+        });
+    }
+    if (mLogoUploader) {
+        mLogoUploader.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const curKey = (selLogoVersion && selLogoVersion.value) ? selLogoVersion.value : 'Laya.png';
+                customLogoDB[curKey] = evt.target.result;
+                localStorage.setItem(curKey === 'Laya2.png' ? 'LAYA_CUSTOM_LOGO_2' : 'LAYA_CUSTOM_LOGO_1', evt.target.result);
+                applyLogoVersion(curKey);
+                window.showToast('横屏 Logo 已更换');
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+    if (btnMLogoToggleBuiltin && selLogoVersion) {
+        btnMLogoToggleBuiltin.addEventListener('click', () => {
+            selLogoVersion.value = selLogoVersion.value === 'Laya.png' ? 'Laya2.png' : 'Laya.png';
+            applyLogoVersion(selLogoVersion.value);
+            window.showToast(selLogoVersion.value === 'Laya2.png' ? '已切换为紫色官方标' : '已切换为蓝色官方标');
         });
     }
 
@@ -3586,6 +3756,8 @@ window.switchRightTab = function (mode) {
                     isOpen: window.CommentEngine.isOpen,
                     isExpanded: window.CommentEngine.isExpanded,
                     apiMode: window.CommentEngine.apiMode,
+                    ipRegion: window.CommentEngine.ipRegion,
+                    pubWindowHours: window.CommentEngine.pubWindowHours,
                     colPrefix: window.CommentEngine.colPrefix,
                     colTitle: window.CommentEngine.colTitle,
                     headCount: window.CommentEngine.headCount,
@@ -3741,15 +3913,42 @@ window.switchRightTab = function (mode) {
 
             if (data.cmtData && window.CommentEngine) {
                 const cd = data.cmtData;
-                if (cd.apiMode) window.CommentEngine.apiMode = cd.apiMode;
-                if (typeof cd.colPrefix === 'string') window.CommentEngine.colPrefix = cd.colPrefix;
-                if (typeof cd.colTitle === 'string') window.CommentEngine.colTitle = cd.colTitle;
-                if (typeof cd.headCount === 'string') window.CommentEngine.headCount = cd.headCount;
-                if (typeof cd.tabAiText === 'string') window.CommentEngine.tabAiText = cd.tabAiText;
-                if (typeof cd.vidTipText === 'string') window.CommentEngine.vidTipText = cd.vidTipText;
-                if (Array.isArray(cd.list) && cd.list.length > 0) {
-                    window.CommentEngine.list = cd.list;
-                    window.CommentEngine.list.forEach(it => window.CommentEngine.prefetchAvatarDataUrl(it));
+                const migratedV14 = localStorage.getItem('LAYA_V14_OVERSEAS_CMT_MIGRATED') === '1';
+                if (!migratedV14) {
+                    localStorage.setItem('LAYA_V14_OVERSEAS_CMT_MIGRATED', '1');
+                    window.CommentEngine.apiMode = 'real-human';
+                    window.CommentEngine.ipRegion = 'tw-hk-my';
+                    window.CommentEngine.pubWindowHours = 72;
+                    window.CommentEngine.colPrefix = '觀看完整合集：';
+                    window.CommentEngine.colTitle = '人情與世故';
+                    window.CommentEngine.vidTipText = '視頻由AI生成/劇情純屬虛構/無不良引導';
+                    const selApi = document.getElementById('sel-cmt-avatar-api');
+                    if (selApi) selApi.value = 'real-human';
+                    const selIp = document.getElementById('sel-cmt-ip-region');
+                    if (selIp) selIp.value = 'tw-hk-my';
+                    window.CommentEngine.initDefaults();
+                } else {
+                    if (cd.apiMode) window.CommentEngine.apiMode = cd.apiMode;
+                    if (cd.ipRegion) window.CommentEngine.ipRegion = cd.ipRegion;
+                    if (cd.pubWindowHours) window.CommentEngine.pubWindowHours = cd.pubWindowHours;
+                    if (typeof cd.colPrefix === 'string') window.CommentEngine.colPrefix = cd.colPrefix;
+                    if (typeof cd.colTitle === 'string') window.CommentEngine.colTitle = cd.colTitle;
+                    if (typeof cd.headCount === 'string') window.CommentEngine.headCount = cd.headCount;
+                    if (typeof cd.tabAiText === 'string') window.CommentEngine.tabAiText = cd.tabAiText;
+                    if (typeof cd.vidTipText === 'string') window.CommentEngine.vidTipText = cd.vidTipText;
+                    if (Array.isArray(cd.list) && cd.list.length > 0) {
+                        const mainlandProvs = ['广东', '河北', '河南', '湖北', '浙江', '四川', '江苏', '北京', '上海', '山东', '湖南', '福建', '重庆', '陕西', '辽宁', '安徽', '云南', '广西'];
+                        cd.list.forEach((it, idx) => {
+                            if (it.dateLoc && mainlandProvs.some(p => it.dateLoc.includes(p))) {
+                                it.dateLoc = randomDateLoc(window.CommentEngine.ipRegion, window.CommentEngine.pubWindowHours);
+                            }
+                            if (!it.avatar) {
+                                it.avatar = buildOnlineAvatarUrl(`mig_${idx}`, window.CommentEngine.apiMode);
+                            }
+                        });
+                        window.CommentEngine.list = cd.list;
+                        window.CommentEngine.list.forEach(it => window.CommentEngine.prefetchAvatarDataUrl(it));
+                    }
                 }
                 window.CommentEngine.isExpanded = !!cd.isExpanded;
                 if (renderTarget) renderTarget.classList.toggle('dy-comment-expanded', !!cd.isExpanded);

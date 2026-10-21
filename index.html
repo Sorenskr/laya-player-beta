@@ -347,7 +347,7 @@
 
                     <!-- 2. 左上角圆角方形 Logo 与 [4K徽标 + Laya-1896] 双行标题区 -->
                     <div class="m-top-header" id="m-top-header">
-                        <div class="m-logo-box" id="m-wrap-logo">
+                        <div class="m-logo-box interactive-elem" id="m-wrap-logo" title="点击直接上传更换此 Logo（右键切换蓝标/紫标）">
                             <img src="Laya.png" id="m-brand-logo" alt="Logo" class="m-logo-img">
                         </div>
                         <div class="m-title-text-group">
@@ -821,14 +821,14 @@
                 </div>
 
                 <!-- 竖屏评论区开启时视频右下角微字提示 (可点击修改或隐藏) -->
-                <div class="dy-cmt-vid-tip interactive-elem" id="dy-cmt-vid-tip" contenteditable="true" spellcheck="false" title="点击直接编辑视频右下角小字提示">视频由AI生成/剧情纯属虚构/无不良引导</div>
+                <div class="dy-cmt-vid-tip interactive-elem" id="dy-cmt-vid-tip" contenteditable="true" spellcheck="false" title="点击直接编辑视频右下角小字提示">視頻由AI生成/劇情純屬虛構/無不良引導</div>
 
                 <div class="dy-comment-drawer" id="dy-comment-drawer">
                     <!-- 顶部合集栏 -->
                     <div class="dy-cmt-collection-bar" id="dy-cmt-collection-bar">
                         <div class="dy-cmt-col-left">
-                            <span class="dy-cmt-col-prefix" id="dy-cmt-col-prefix" contenteditable="true" spellcheck="false" title="点击直接修改前缀">观看完整合集：</span>
-                            <span class="dy-cmt-col-title" id="dy-cmt-col-title" contenteditable="true" spellcheck="false" title="点击直接修改合集名称">人情与世故</span>
+                            <span class="dy-cmt-col-prefix" id="dy-cmt-col-prefix" contenteditable="true" spellcheck="false" title="点击直接修改前缀">觀看完整合集：</span>
+                            <span class="dy-cmt-col-title" id="dy-cmt-col-title" contenteditable="true" spellcheck="false" title="点击直接修改合集名称">人情與世故</span>
                         </div>
                         <div class="dy-cmt-col-actions">
                             <button type="button" class="dy-cmt-circle-btn interactive-elem" id="dy-cmt-btn-expand" title="切换评论区高度">
@@ -849,7 +849,7 @@
                     <!-- 评论数与 AI 解析标签栏 -->
                     <div class="dy-cmt-tabs-bar">
                         <div class="dy-cmt-tab-item active">
-                            <span id="dy-cmt-tab-label" contenteditable="true" spellcheck="false">评论</span>
+                            <span id="dy-cmt-tab-label" contenteditable="true" spellcheck="false">評論</span>
                             <span class="dy-cmt-tab-count" id="dy-cmt-head-count" contenteditable="true" spellcheck="false" title="点击直接修改评论总数">138</span>
                         </div>
                         <div class="dy-cmt-tab-item">
@@ -865,7 +865,7 @@
                     <!-- 底部固定评论发送栏 (支持直接输入文字回车发送、点击图片图标上传照片/表情包) -->
                     <div class="dy-cmt-bottom-bar">
                         <div class="dy-cmt-input-pill">
-                            <input type="text" class="dy-cmt-stage-input interactive-elem" id="dy-cmt-stage-input" placeholder="期待你的评论" title="输入内容按回车直接发布新评论">
+                            <input type="text" class="dy-cmt-stage-input interactive-elem" id="dy-cmt-stage-input" placeholder="期待你的評論" title="输入内容按回车直接发布新评论">
                             <div class="dy-cmt-input-icons">
                                 <button type="button" class="dy-cmt-icon-btn interactive-elem" id="dy-cmt-btn-send-img" title="点击上传照片/表情包发到评论区">
                                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
@@ -1610,8 +1610,22 @@
             <!-- 卡片 3：左上角画质徽标与标题配置 -->
             <div class="panel-card">
                 <div class="card-header">
-                    <span>🎬 左上角画质徽标与标题配置</span>
-                    <span class="badge-tip">可切换/可开关</span>
+                    <span>🎬 左上角 Logo、画质徽标与标题配置</span>
+                    <span class="badge-tip">点击画面可换</span>
+                </div>
+                <div class="switch-tile highlight-tile">
+                    <span>🖼️ 显示左上角方形 Logo 图标 (点击画面 Logo 可直接换图)</span>
+                    <label class="ios-toggle">
+                        <input type="checkbox" id="sw-m-logo-only" checked>
+                        <span class="slider-round"></span>
+                    </label>
+                </div>
+                <div class="form-row">
+                    <div style="display: flex; gap: 6px;">
+                        <input type="file" id="m-logo-uploader" accept="image/*" style="display: none;">
+                        <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" onclick="document.getElementById('m-logo-uploader').click()">📁 上传横屏 Logo</button>
+                        <button type="button" class="btn btn-secondary btn-sm" style="flex: 1;" id="btn-m-logo-toggle-builtin">🔄 切换蓝/紫官方标</button>
+                    </div>
                 </div>
                 <div class="switch-tile highlight-tile">
                     <span>✨ 显示左上角画质徽标 (4K / 1080P 等)</span>
@@ -2269,20 +2283,46 @@
                 </div>
 
                 <div class="form-row">
-                    <label>🌐 在线随机头像生成接口 (支持一键随机/点击头像上传)</label>
+                    <label>👤 在线头像风格 (优先真实真人头像，也支持其他风格)</label>
                     <select id="sel-cmt-avatar-api">
-                        <option value="mixed" selected>🎲 全网混合随机头像接口 (写实+插画+潮玩)</option>
-                        <option value="picsum">📸 写实风景/真人摄影头像接口 (Picsum API)</option>
-                        <option value="adventurer">🎭 潮流插画人物头像接口 (DiceBear Adventurer)</option>
-                        <option value="lorelei">🌸 二次元质感漫画头像接口 (DiceBear Lorelei)</option>
-                        <option value="notionists">😎 极简酷潮涂鸦头像接口 (DiceBear Notionists)</option>
-                        <option value="fun-emoji">🐱 趣味萌系表情头像接口 (DiceBear FunEmoji)</option>
+                        <option value="real-human" selected>📸 高清真人实拍头像库 (真实男女生活照 · 推荐)</option>
+                        <option value="mixed">🎲 真人为主 + 少量插画混合 (80%真人 + 20%插画)</option>
+                        <option value="picsum">🌆 写实摄影/风景氛围头像 (Picsum API)</option>
+                        <option value="adventurer">🎭 潮流插画人物头像 (DiceBear Adventurer)</option>
+                        <option value="lorelei">🌸 二次元质感漫画头像 (DiceBear Lorelei)</option>
+                        <option value="notionists">😎 极简酷潮涂鸦头像 (DiceBear Notionists)</option>
+                        <option value="fun-emoji">🐱 趣味萌系表情头像 (DiceBear FunEmoji)</option>
                     </select>
                 </div>
 
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>🌏 评论 IP 属地范围 (繁体)</label>
+                        <select id="sel-cmt-ip-region">
+                            <option value="tw-hk-my" selected>🇹🇼 台/港/马 + 海外混合</option>
+                            <option value="tw-only">🇹🇼 仅台湾地区 (台灣/台北等)</option>
+                            <option value="hk-mo">🇭🇰 仅港澳地区 (香港/澳門)</option>
+                            <option value="my-sg">🇲🇾 仅新马地区 (馬來西亞/新加坡)</option>
+                            <option value="overseas-all">🌍 全球海外国家与地区</option>
+                            <option value="random-omit">🎲 台港澳海外 (随机部分不带IP)</option>
+                            <option value="none">🚫 不加 IP 地址 (仅显示时间)</option>
+                        </select>
+                    </div>
+                    <div class="form-row">
+                        <label>🕒 视频发布时间 (早于当前上传)</label>
+                        <select id="sel-cmt-pub-window">
+                            <option value="3">发布于 3 小时前 ~ 现在</option>
+                            <option value="12">发布于 12 小时前 ~ 现在</option>
+                            <option value="24">发布于 1 天前 ~ 现在</option>
+                            <option value="72" selected>发布于 3 天前 ~ 现在</option>
+                            <option value="168">发布于 7 天前 ~ 现在</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-                    <button type="button" class="btn btn-primary btn-sm" id="btn-cmt-random-all" title="随机更换所有评论的头像、昵称、时间地区与评论内容">🎲 随机全部评论与头像</button>
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-random-avatars" title="调用在线头像接口重新随机所有未手动上传的头像">👤 仅随机全部头像</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-cmt-random-all" title="随机更换所有评论的真人头像、繁体/英文昵称、时间、海外IP与内容">🎲 随机全部 (含评论词)</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-random-avatars" title="一键随机更换所有评论的头像、昵称、海外IP与时间（保留评论正文）">🎲 随机头像+IP+昵称+时间</button>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-add-text">＋ 新增一条文字评论</button>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-add-photo" style="border-color:rgba(56,189,248,0.5); color:#38bdf8;">🖼️ 上传图片/表情包评论</button>
                 </div>
@@ -2290,7 +2330,7 @@
                 <div class="form-grid-2">
                     <div class="form-row">
                         <label>顶部合集名称 (可留空隐藏)</label>
-                        <input type="text" id="in-cmt-col-title" value="人情与世故">
+                        <input type="text" id="in-cmt-col-title" value="人情與世故">
                     </div>
                     <div class="form-row">
                         <label>评论区顶部总数</label>
