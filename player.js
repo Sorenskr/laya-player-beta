@@ -1072,9 +1072,16 @@ window.PlayerEngine = {
             if (inMTotalTime) inMTotalTime.value = totalStr;
         }
         refreshTimeUI();
-        const startSec = window.PlayerEngine.timeToSec(inStartTime.value);
+        let startSec = window.PlayerEngine.timeToSec(inStartTime.value);
         const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value);
         if (totalSec > 0) {
+            if (startSec >= totalSec * 0.96) {
+                startSec = Math.max(5, Math.floor(totalSec * 0.28));
+                const fixedStart = window.PlayerEngine.secToTime(startSec);
+                if (inStartTime) inStartTime.value = fixedStart;
+                if (inMStartTime) inMStartTime.value = fixedStart;
+                refreshTimeUI();
+            }
             const pct = Math.min(100, Math.max(0, (startSec / totalSec) * 100));
             syncAllProgressBars(pct);
         }

@@ -270,7 +270,6 @@ window.switchRightTab = function (mode) {
     const mBrandLogo = document.getElementById('m-brand-logo');
     const dyLfWmLogo = document.getElementById('dy-lf-wm-logo');
     const dyAvatarImg = document.getElementById('dy-avatar-img');
-    const dyVinylImg = document.getElementById('dy-vinyl-img');
     const dylDispAvatar = document.getElementById('dyl-disp-avatar');
 
     // ★ 同步更新右侧中间作者头像、右侧最下方静态头像与全屏横屏头像（100% 实时联动）
@@ -279,9 +278,6 @@ window.switchRightTab = function (mode) {
         if (dyAvatarImg) {
             if (dyAvatarImg.src !== src) dyAvatarImg.src = src;
             dyAvatarImg.dataset.custom = isCustom ? 'true' : 'false';
-        }
-        if (dyVinylImg && dyVinylImg.src !== src) {
-            dyVinylImg.src = src;
         }
         if (dylDispAvatar && dylDispAvatar.src !== src) {
             dylDispAvatar.src = src;
@@ -293,7 +289,6 @@ window.switchRightTab = function (mode) {
         const avatarObs = new MutationObserver(() => {
             const curSrc = dyAvatarImg.getAttribute('src') || dyAvatarImg.src;
             if (curSrc) {
-                if (dyVinylImg && dyVinylImg.getAttribute('src') !== curSrc) dyVinylImg.src = curSrc;
                 if (dylDispAvatar && dylDispAvatar.getAttribute('src') !== curSrc) dylDispAvatar.src = curSrc;
             }
         });
@@ -738,23 +733,6 @@ window.switchRightTab = function (mode) {
             if (btnRandAv) btnRandAv.click();
         });
         dyAvatarClickWrap.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const uploader = document.getElementById('dy-avatar-uploader');
-            if (uploader) {
-                uploader.value = '';
-                uploader.click();
-            }
-        });
-    }
-    const dyVinylWrap = document.getElementById('dy-vinyl-wrap');
-    if (dyVinylWrap) {
-        dyVinylWrap.title = '点击随机切换头像（与上方头像实时同步，右键可上传本地图片）';
-        dyVinylWrap.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const btnRandAv = document.getElementById('btn-random-author-avatar');
-            if (btnRandAv) btnRandAv.click();
-        });
-        dyVinylWrap.addEventListener('contextmenu', (e) => {
             e.preventDefault();
             const uploader = document.getElementById('dy-avatar-uploader');
             if (uploader) {
@@ -1260,7 +1238,7 @@ window.switchRightTab = function (mode) {
 
         // 🎬 按当前视频/画面标题、话题、热搜词智能生成匹配的评论（自然口语，拒绝每句末尾带表情包）
         smartGenerateByScene() {
-            const rawDesc = (document.getElementById('in-dy-desc')?.value || document.getElementById('in-m-title')?.value || '').trim();
+            const rawDesc = (document.getElementById('in-dy-desc')?.value || document.getElementById('in-m-sub-title')?.value || document.getElementById('in-title')?.value || '').trim();
             const rawTags = (document.getElementById('in-dy-tags')?.value || '').trim();
             const rawHot = (document.getElementById('in-dy-hotspot-title')?.value || '').trim();
             const rawFeat = (document.getElementById('in-dy-featured-title')?.value || '').trim();
@@ -3057,7 +3035,7 @@ window.switchRightTab = function (mode) {
 
     function extractSearchKeywordBody(rawStr) {
         return String(rawStr || '')
-            .replace(/^(猜你想搜|相关搜索|相關搜索|大家都在搜|热门搜索|熱門搜索)s*[·•:：-]s*/, '')
+            .replace(/^(猜你想搜|相关搜索|相關搜索|大家都在搜|热门搜索|熱門搜索)\s*[·•:：-]\s*/, '')
             .trim() || 'Laya 独家完整版合集';
     }
 
@@ -3312,7 +3290,7 @@ window.switchRightTab = function (mode) {
         const dyDispAuthor = document.getElementById('dy-disp-author');
         const dylDispAuthor = document.getElementById('dyl-disp-author');
         const inpDyLfBrand = document.getElementById('inp-dy-lf-brand');
-        const dyLfWmBrand = document.getElementById('dy-lf-wm-brand');
+        const dyLfWmBrand = document.getElementById('dy-disp-box-wm');
         if (inDyAuthor) inDyAuthor.value = fullAuthor;
         if (dyDispAuthor) dyDispAuthor.textContent = toStageTrad(fullAuthor);
         if (dylDispAuthor) dylDispAuthor.textContent = toStageTrad(rawPick);
@@ -3367,7 +3345,7 @@ window.switchRightTab = function (mode) {
         inpDyLfBrand.addEventListener('input', (e) => {
             const val = e.target.value;
             const dylAuthor = document.getElementById('dyl-disp-author');
-            const wmBrand = document.getElementById('dy-lf-wm-brand');
+            const wmBrand = document.getElementById('dy-disp-box-wm');
             if (dylAuthor) dylAuthor.textContent = val;
             if (wmBrand) wmBrand.textContent = val;
             if (inDyAuthorEl) inDyAuthorEl.value = val;
@@ -3591,7 +3569,7 @@ window.switchRightTab = function (mode) {
         '桥':'橋','桦':'樺','桧':'檜','桨':'槳','桩':'樁','梦':'夢','检':'檢','棂':'欞','棉':'棉','棋':'棋',
         '棍':'棍','棒':'棒','棕':'棕','棘':'棘','棚':'棚','棠':'棠','棣':'棣','森':'森','棱':'稜','棵':'棵',
         '棹':'棹','棺':'棺','椅':'椅','植':'植','椎':'椎','椒':'椒','椭':'橢','椰':'椰','椴':'椴','椿':'椿',
-        '楂':'楂','杨':'楊','枫':'楓','楔':'楔','楚':'楚','楞':'','楠':'楠','楣':'楣','楦':'楦','楫':'楫',
+        '楂':'楂','杨':'楊','枫':'楓','楔':'楔','楚':'楚','楞':'楞','楠':'楠','楣':'楣','楦':'楦','楫':'楫',
         '楮':'楮','楷':'楷','楸':'楸','楹':'楹','楼':'樓','概':'概','榄':'欖','榆':'榆','榈':'櫚','榉':'櫸',
         '槛':'檻','槟':'檳','槠':'櫧','横':'橫','樯':'檣','樱':'櫻','樵':'樵','樽':'樽','樾':'樾','橄':'橄',
         '橇':'橇','橐':'橐','橘':'橘','橙':'橙','橡':'橡','橱':'櫥','橹':'櫓','橼':'櫞','檀':'檀','檄':'檄',
@@ -4807,7 +4785,24 @@ window.switchRightTab = function (mode) {
             window.__isRestoringStorage = true;
 
             if (data.inputs) {
+                // 统一网页端与手机端的时间/进度缓存，防止旧版 23:18 覆盖导致进度条跳到 100% 最右端
+                if (data.inputs['in-total-time']) {
+                    data.inputs['in-m-total-time'] = data.inputs['in-total-time'];
+                }
+                if (data.inputs['in-start-time']) {
+                    data.inputs['in-m-start-time'] = data.inputs['in-start-time'];
+                }
+                const savedProg = parseFloat(data.inputs['in-progress'] || data.inputs['in-m-progress'] || '26');
+                if (savedProg >= 92 || savedProg <= 1) {
+                    data.inputs['in-progress'] = '26';
+                    data.inputs['in-m-progress'] = '26';
+                    data.inputs['in-start-time'] = '00:28:15';
+                    data.inputs['in-m-start-time'] = '00:28:15';
+                    data.inputs['in-total-time'] = '01:54:21';
+                    data.inputs['in-m-total-time'] = '01:54:21';
+                }
                 Object.entries(data.inputs).forEach(([id, val]) => {
+                    if (id === 'in-m-start-time' || id === 'in-m-total-time' || id === 'in-m-progress' || id === 'in-progress') return;
                     const el = document.getElementById(id);
                     if (el) {
                         el.value = val;
@@ -5041,8 +5036,6 @@ window.switchRightTab = function (mode) {
         const avatarSrc = (dyAvatarImg && dyAvatarImg.dataset.custom === 'true') ? dyAvatarImg.src : activeRealSrc;
         const clonedAvatar = clonedDoc.getElementById('dy-avatar-img');
         if (clonedAvatar) clonedAvatar.src = avatarSrc;
-        const clonedVinylAvatar = clonedDoc.getElementById('dy-vinyl-img');
-        if (clonedVinylAvatar) clonedVinylAvatar.src = avatarSrc;
         const clonedDylAvatar = clonedDoc.getElementById('dyl-disp-avatar');
         if (clonedDylAvatar) clonedDylAvatar.src = avatarSrc;
         const clonedFeatLogo = clonedDoc.getElementById('dy-featured-logo-img');
@@ -5825,7 +5818,7 @@ window.switchRightTab = function (mode) {
                         const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : elapsedSec;
                         const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
                         const barH = Math.max(3.5 * scaleRatioY, dyBarBox.h);
-                        ctx.fillStyle = 'rgba(255,255,255,0.64)';
+                        ctx.fillStyle = 'rgba(255,255,255,0.50)';
                         ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w, barH);
                         const fillW = dyBarBox.w * realVidPct;
                         ctx.fillStyle = '#ffffff';
