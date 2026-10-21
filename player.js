@@ -1083,22 +1083,90 @@ window.PlayerEngine = {
         }
     }
 
+    function randomizeStartTimeOnly(showMsg = false) {
+        const totalSec = window.PlayerEngine.timeToSec(inTotalTime ? inTotalTime.value : '01:54:21') || 6861;
+        const maxStart = Math.max(15, Math.floor(totalSec * 0.78));
+        const randomStartSec = Math.floor(15 + Math.random() * (maxStart - 15));
+        const formattedStart = window.PlayerEngine.secToTime(randomStartSec);
+        const curTotalStr = inTotalTime ? inTotalTime.value : '01:54:21';
+        applyStartAndTotalTime(formattedStart, curTotalStr, true);
+        if (showMsg) {
+            toast(`已随机切换起始时间：${window.PlayerEngine.secToShortTime(randomStartSec)}`);
+        }
+    }
+    window.PlayerEngine.randomizeStartTimeOnly = randomizeStartTimeOnly;
+
     function randomizeDuration(showMsg = false) {
         const minSec = 1 * 3600 + 20 * 60;
         const maxSec = 2 * 3600 + 30 * 60;
         const randomTotalSec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
         const formattedTotal = window.PlayerEngine.secToTime(randomTotalSec);
         const curStartStr = inStartTime ? inStartTime.value : '00:04:07';
-        applyStartAndTotalTime(curStartStr, formattedTotal, false);
+        applyStartAndTotalTime(curStartStr, formattedTotal, showMsg);
         if (showMsg) {
-            toast(`🎲 已随机生成新总片长：${window.PlayerEngine.secToShortTime(randomTotalSec)}`);
+            toast(`已随机切换结尾总时长：${window.PlayerEngine.secToShortTime(randomTotalSec)}`);
         }
     }
     window.PlayerEngine.randomizeDuration = randomizeDuration;
 
-    if (btnRandomTime) {
-        btnRandomTime.addEventListener('click', () => randomizeDuration(true));
+    function randomizeBothStartAndTotalTime(showMsg = false) {
+        const minSec = 1 * 3600 + 20 * 60;
+        const maxSec = 2 * 3600 + 30 * 60;
+        const randomTotalSec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
+        const formattedTotal = window.PlayerEngine.secToTime(randomTotalSec);
+        const maxStart = Math.max(15, Math.floor(randomTotalSec * 0.65));
+        const randomStartSec = Math.floor(15 + Math.random() * (maxStart - 15));
+        const formattedStart = window.PlayerEngine.secToTime(randomStartSec);
+        applyStartAndTotalTime(formattedStart, formattedTotal, true);
+        if (showMsg) {
+            toast(`已随机切换时间：${window.PlayerEngine.secToShortTime(randomStartSec)} / ${window.PlayerEngine.secToShortTime(randomTotalSec)}`);
+        }
     }
+    window.PlayerEngine.randomizeBothStartAndTotalTime = randomizeBothStartAndTotalTime;
+
+    [
+        'btn-random-start-time',
+        'btn-random-start-time-link',
+        'btn-random-m-start-time',
+        'btn-random-m-start-time-link'
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                randomizeStartTimeOnly(true);
+            });
+        }
+    });
+
+    [
+        'btn-random-total-time',
+        'btn-random-total-time-link',
+        'btn-random-m-total-time',
+        'btn-random-m-total-time-link'
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                randomizeDuration(true);
+            });
+        }
+    });
+
+    [
+        'btn-random-time',
+        'btn-web-random-time-all',
+        'btn-dyl-random-prog-time'
+    ].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                randomizeBothStartAndTotalTime(true);
+            });
+        }
+    });
 
     if (swSyncVideoTime && swMSyncVideoTime) {
         swSyncVideoTime.addEventListener('change', (e) => {

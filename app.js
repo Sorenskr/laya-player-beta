@@ -273,21 +273,32 @@ window.switchRightTab = function (mode) {
     const dyVinylImg = document.getElementById('dy-vinyl-img');
     const dylDispAvatar = document.getElementById('dyl-disp-avatar');
 
-    // ★ 同步更新右侧中间作者头像、右侧最下方黑胶唱片头像与全屏横屏头像
+    // ★ 同步更新右侧中间作者头像、右侧最下方静态头像与全屏横屏头像（100% 实时联动）
     function syncAuthorAvatarEverywhere(src, isCustom = false) {
         if (!src) return;
         if (dyAvatarImg) {
-            dyAvatarImg.src = src;
+            if (dyAvatarImg.src !== src) dyAvatarImg.src = src;
             dyAvatarImg.dataset.custom = isCustom ? 'true' : 'false';
         }
-        if (dyVinylImg) {
+        if (dyVinylImg && dyVinylImg.src !== src) {
             dyVinylImg.src = src;
         }
-        if (dylDispAvatar) {
+        if (dylDispAvatar && dylDispAvatar.src !== src) {
             dylDispAvatar.src = src;
         }
     }
     window.syncAuthorAvatarEverywhere = syncAuthorAvatarEverywhere;
+
+    if (dyAvatarImg && typeof MutationObserver !== 'undefined') {
+        const avatarObs = new MutationObserver(() => {
+            const curSrc = dyAvatarImg.getAttribute('src') || dyAvatarImg.src;
+            if (curSrc) {
+                if (dyVinylImg && dyVinylImg.getAttribute('src') !== curSrc) dyVinylImg.src = curSrc;
+                if (dylDispAvatar && dylDispAvatar.getAttribute('src') !== curSrc) dylDispAvatar.src = curSrc;
+            }
+        });
+        avatarObs.observe(dyAvatarImg, { attributes: true, attributeFilter: ['src'] });
+    }
 
     // 默认直接使用自带的 window.LOCAL_LOGOS (Laya.png / Laya2.png)，若用户主动上传过自定义图标则优先用用户的
     const customLogoDB = {
@@ -719,36 +730,37 @@ window.switchRightTab = function (mode) {
         });
     }
     if (dyAvatarClickWrap && dyBtnFollow) {
-        dyAvatarClickWrap.title = '点击直接上传更换右侧头像，下方唱片头像自动同步 (右键可一键系统随机生成)';
+        dyAvatarClickWrap.title = '点击随机切换头像（中间与底部头像实时同步，右键可上传本地图片）';
         dyAvatarClickWrap.addEventListener('click', (e) => {
             if (e.target === dyBtnFollow) return;
+            e.stopPropagation();
+            const btnRandAv = document.getElementById('btn-random-author-avatar');
+            if (btnRandAv) btnRandAv.click();
+        });
+        dyAvatarClickWrap.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
             const uploader = document.getElementById('dy-avatar-uploader');
             if (uploader) {
                 uploader.value = '';
                 uploader.click();
             }
-        });
-        dyAvatarClickWrap.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const btnRandAv = document.getElementById('btn-random-author-avatar');
-            if (btnRandAv) btnRandAv.click();
         });
     }
     const dyVinylWrap = document.getElementById('dy-vinyl-wrap');
     if (dyVinylWrap) {
-        dyVinylWrap.title = '点击直接上传更换头像 (与上方作者头像实时同步，右键可随机生成)';
+        dyVinylWrap.title = '点击随机切换头像（与上方头像实时同步，右键可上传本地图片）';
         dyVinylWrap.addEventListener('click', (e) => {
             e.stopPropagation();
+            const btnRandAv = document.getElementById('btn-random-author-avatar');
+            if (btnRandAv) btnRandAv.click();
+        });
+        dyVinylWrap.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
             const uploader = document.getElementById('dy-avatar-uploader');
             if (uploader) {
                 uploader.value = '';
                 uploader.click();
             }
-        });
-        dyVinylWrap.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            const btnRandAv = document.getElementById('btn-random-author-avatar');
-            if (btnRandAv) btnRandAv.click();
         });
     }
 
@@ -908,6 +920,21 @@ window.switchRightTab = function (mode) {
         return loc ? `${timeStr} · ${loc}` : timeStr;
     }
 
+    // 生成评论点赞数：从几个、几百、几千到几十万不等（左侧舞台显示繁体萬，右侧编辑框显示简体万）
+    function randomCommentLikes() {
+        const roll = Math.random();
+        if (roll < 0.30) {
+            return String(Math.floor(Math.random() * 97) + 2); // 2 ~ 98
+        } else if (roll < 0.58) {
+            return String(Math.floor(Math.random() * 900) + 100); // 100 ~ 999
+        } else if (roll < 0.80) {
+            return String(Math.floor(Math.random() * 9000) + 1000); // 1000 ~ 9999
+        } else {
+            const wan = (1.1 + Math.random() * 66.8).toFixed(1); // 1.1萬 ~ 67.9萬
+            return `${wan}萬`;
+        }
+    }
+
     const CommentEngine = {
         isOpen: false,
         isExpanded: false,
@@ -925,12 +952,12 @@ window.switchRightTab = function (mode) {
 
         initDefaults() {
             this.list = [
-                { id: 'c1', user: 'Chloe_tw', text: '牛總還是有點大智慧的', dateLoc: randomDateLoc('tw-only', 72), likes: '9', liked: false, avatar: 'https://randomuser.me/api/portraits/women/44.jpg', image: '', isCustomAvatar: false },
-                { id: 'c2', user: '阿傑Jay', text: '這劇情太牛了👍😁', dateLoc: randomDateLoc('hk-mo', 72), likes: '8', liked: false, avatar: 'https://randomuser.me/api/portraits/men/32.jpg', image: '', isCustomAvatar: false },
-                { id: 'c3', user: 'Jason_HK', text: '好一招釜底抽薪', dateLoc: randomDateLoc('my-sg', 72), likes: '1', liked: false, avatar: 'https://randomuser.me/api/portraits/men/68.jpg', image: '', isCustomAvatar: false },
-                { id: 'c4', user: '子瑜✨', text: '哈哈，我先入職花果山 再回來應聘 完美閉環🐺', dateLoc: randomDateLoc('tw-only', 72), likes: '4', liked: false, avatar: 'https://randomuser.me/api/portraits/women/65.jpg', image: '', isCustomAvatar: false },
-                { id: 'c5', user: 'Kevin.88', text: '看到這一幕直接笑精神了😂', dateLoc: randomDateLoc('none', 72), likes: '16', liked: false, avatar: 'https://randomuser.me/api/portraits/men/22.jpg', image: '', isCustomAvatar: false },
-                { id: 'c6', user: '半糖去冰🧋', text: '演技真的在線，每個眼神裡全是戲🔥', dateLoc: randomDateLoc('overseas-all', 72), likes: '23', liked: false, avatar: 'https://randomuser.me/api/portraits/women/19.jpg', image: '', isCustomAvatar: false }
+                { id: 'c1', user: 'Chloe_tw', text: '牛總還是有點大智慧的', dateLoc: randomDateLoc('tw-only', 72), likes: '12.6萬', liked: false, avatar: 'https://randomuser.me/api/portraits/women/44.jpg', image: '', isCustomAvatar: false },
+                { id: 'c2', user: '阿傑Jay', text: '這劇情太牛了👍😁', dateLoc: randomDateLoc('hk-mo', 72), likes: '3.8萬', liked: false, avatar: 'https://randomuser.me/api/portraits/men/32.jpg', image: '', isCustomAvatar: false },
+                { id: 'c3', user: 'Jason_HK', text: '好一招釜底抽薪', dateLoc: randomDateLoc('my-sg', 72), likes: '5280', liked: false, avatar: 'https://randomuser.me/api/portraits/men/68.jpg', image: '', isCustomAvatar: false },
+                { id: 'c4', user: '子瑜✨', text: '哈哈，我先入職花果山 再回來應聘 完美閉環🐺', dateLoc: randomDateLoc('tw-only', 72), likes: '842', liked: false, avatar: 'https://randomuser.me/api/portraits/women/65.jpg', image: '', isCustomAvatar: false },
+                { id: 'c5', user: 'Kevin.88', text: '看到這一幕直接笑精神了😂', dateLoc: randomDateLoc('none', 72), likes: '69', liked: false, avatar: 'https://randomuser.me/api/portraits/men/22.jpg', image: '', isCustomAvatar: false },
+                { id: 'c6', user: '半糖去冰🧋', text: '演技真的在線，每個眼神裡全是戲🔥', dateLoc: randomDateLoc('overseas-all', 72), likes: '9', liked: false, avatar: 'https://randomuser.me/api/portraits/women/19.jpg', image: '', isCustomAvatar: false }
             ];
             this.list.forEach(item => this.prefetchAvatarDataUrl(item));
         },
@@ -979,7 +1006,62 @@ window.switchRightTab = function (mode) {
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
         },
 
-        // 单条评论点击筛子 🎲：同时随机更换头像、繁体/英文昵称、发布后~上传前的时间、海外/台港澳马IP
+        // 单独随机某一条评论的头像
+        randomizeSingleAvatar(idx) {
+            const item = this.list[idx];
+            if (!item) return;
+            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
+            this.apiMode = mode;
+            const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 8)}`;
+            item.avatar = buildOnlineAvatarUrl(seed, mode);
+            item.isCustomAvatar = false;
+            this.prefetchAvatarDataUrl(item);
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('已随机切换评论头像');
+        },
+
+        // 单独随机某一条评论的昵称（英文或繁体中文）
+        randomizeSingleNickname(idx) {
+            const item = this.list[idx];
+            if (!item) return;
+            const usedNames = new Set(this.list.map((it, i) => i !== idx ? it.user : ''));
+            let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+            let tries = 0;
+            while ((usedNames.has(nick) || nick === item.user) && tries++ < 25) {
+                nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+            }
+            item.user = nick;
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`已随机切换昵称：${nick}`);
+        },
+
+        // 单独随机某一条评论的时间与海外/台港澳马IP
+        randomizeSingleDateLoc(idx) {
+            const item = this.list[idx];
+            if (!item) return;
+            item.dateLoc = randomDateLoc(this.ipRegion, this.pubWindowHours);
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`已随机切换评论时间：${item.dateLoc}`);
+        },
+
+        // 单独随机某一条评论的点赞数（几个到几十万不等）
+        randomizeSingleLikes(idx) {
+            const item = this.list[idx];
+            if (!item) return;
+            item.likes = randomCommentLikes();
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`已随机切换评论点赞数：${item.likes}`);
+        },
+
+        // 单条评论点击总筛子 🎲：同时随机更换头像、繁体/英文昵称、发布后~上传前的时间、海外/台港澳马IP、点赞数
         randomizeSingleItem(idx) {
             const item = this.list[idx];
             if (!item) return;
@@ -998,7 +1080,7 @@ window.switchRightTab = function (mode) {
             }
             item.user = nick;
             item.dateLoc = randomDateLoc(this.ipRegion, this.pubWindowHours);
-            item.likes = String(Math.floor(Math.random() * 68) + 1);
+            item.likes = randomCommentLikes();
 
             this.renderStage();
             this.renderEditor();
@@ -1021,7 +1103,6 @@ window.switchRightTab = function (mode) {
                     item.isCustomAvatar = false;
                     this.prefetchAvatarDataUrl(item);
                 }
-                // 无论点击哪个随机筛子，昵称、时间与海外/台港澳马IP都会一并随机更换
                 let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
                 let tries = 0;
                 while (usedNames.has(nick) && tries++ < 15) {
@@ -1030,7 +1111,7 @@ window.switchRightTab = function (mode) {
                 usedNames.add(nick);
                 item.user = nick;
                 item.dateLoc = randomDateLoc(ipReg, pubWin);
-                item.likes = String(Math.floor(Math.random() * 68) + 1);
+                item.likes = randomCommentLikes();
 
                 if (includeText) {
                     let txt = COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)];
@@ -1082,10 +1163,10 @@ window.switchRightTab = function (mode) {
                 const row = document.createElement('div');
                 row.className = 'dy-cmt-item';
 
-                // 左侧头像 (点击直接上传替换该条评论头像)
+                // 左侧静态头像 (点击随机切换头像，右键可上传本地头像)
                 const avWrap = document.createElement('div');
                 avWrap.className = 'dy-cmt-avatar-wrap interactive-elem';
-                avWrap.title = '点击上传并更换此条评论的头像';
+                avWrap.title = '点击随机切换此条评论头像（右键可上传自定义头像）';
                 const avImg = document.createElement('img');
                 avImg.className = 'dy-cmt-avatar';
                 avImg.crossOrigin = 'anonymous';
@@ -1096,6 +1177,11 @@ window.switchRightTab = function (mode) {
                 };
                 avWrap.appendChild(avImg);
                 avWrap.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.randomizeSingleAvatar(idx);
+                });
+                avWrap.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
                     e.stopPropagation();
                     this.activeUploadIdx = idx;
                     const fileInp = document.getElementById('dy-cmt-avatar-file');
@@ -1110,9 +1196,12 @@ window.switchRightTab = function (mode) {
                 const main = document.createElement('div');
                 main.className = 'dy-cmt-main';
 
-                // 昵称行 + 悬停快捷按钮(随机头像/昵称/IP/时间、上传配图、删除)
+                // 昵称行 + 昵称旁专属骰子按钮 + 悬停快捷工具
                 const userRow = document.createElement('div');
                 userRow.className = 'dy-cmt-user-row';
+
+                const userLeftWrap = document.createElement('div');
+                userLeftWrap.style.cssText = 'display:inline-flex; align-items:center; gap:4px; min-width:0;';
 
                 const userSpan = document.createElement('span');
                 userSpan.className = 'dy-cmt-user interactive-elem';
@@ -1125,7 +1214,20 @@ window.switchRightTab = function (mode) {
                     this.syncEditorRow(idx);
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                 });
-                userRow.appendChild(userSpan);
+
+                const btnNickDice = document.createElement('button');
+                btnNickDice.type = 'button';
+                btnNickDice.className = 'dy-cmt-inline-dice interactive-elem';
+                btnNickDice.textContent = '🎲';
+                btnNickDice.title = '点击随机切换名字（英文或繁体中文）';
+                btnNickDice.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.randomizeSingleNickname(idx);
+                });
+
+                userLeftWrap.appendChild(userSpan);
+                userLeftWrap.appendChild(btnNickDice);
+                userRow.appendChild(userLeftWrap);
 
                 const qTools = document.createElement('div');
                 qTools.className = 'dy-cmt-stage-QuickTools';
@@ -1256,7 +1358,18 @@ window.switchRightTab = function (mode) {
                     }
                 });
 
+                const btnDateDice = document.createElement('button');
+                btnDateDice.type = 'button';
+                btnDateDice.className = 'dy-cmt-inline-dice interactive-elem';
+                btnDateDice.textContent = '🎲';
+                btnDateDice.title = '点击随机切换评论时间与海外IP';
+                btnDateDice.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.randomizeSingleDateLoc(idx);
+                });
+
                 metaLeft.appendChild(dateLocSpan);
+                metaLeft.appendChild(btnDateDice);
                 metaLeft.appendChild(replySpan);
                 metaRow.appendChild(metaLeft);
 
@@ -1271,8 +1384,9 @@ window.switchRightTab = function (mode) {
                 likeNum.className = 'dy-cmt-like-num interactive-elem';
                 likeNum.contentEditable = 'true';
                 likeNum.spellcheck = false;
-                likeNum.title = '点击数字可直接修改点赞数，点击爱心可点赞';
-                likeNum.textContent = item.likes || '1';
+                likeNum.title = '点击数字可直接修改点赞数，点击旁边的🎲可随机切换（几个到几十万不等）';
+                const stageLikesTxt = typeof window.toStageTrad === 'function' ? window.toStageTrad(item.likes || '1') : (item.likes || '1');
+                likeNum.textContent = stageLikesTxt;
                 likeNum.addEventListener('click', (e) => e.stopPropagation());
                 likeNum.addEventListener('input', () => {
                     item.likes = likeNum.textContent.trim();
@@ -1282,9 +1396,11 @@ window.switchRightTab = function (mode) {
 
                 likeBtn.addEventListener('click', () => {
                     item.liked = !item.liked;
-                    const n = parseInt(item.likes, 10);
-                    if (!isNaN(n)) {
-                        item.likes = String(item.liked ? n + 1 : Math.max(0, n - 1));
+                    if (!String(item.likes).includes('萬') && !String(item.likes).includes('万')) {
+                        const n = parseInt(item.likes, 10);
+                        if (!isNaN(n)) {
+                            item.likes = String(item.liked ? n + 1 : Math.max(0, n - 1));
+                        }
                     }
                     this.renderStage();
                     this.renderEditor();
@@ -1292,11 +1408,22 @@ window.switchRightTab = function (mode) {
                 });
                 likeBtn.appendChild(likeNum);
 
+                const btnLikeDice = document.createElement('button');
+                btnLikeDice.type = 'button';
+                btnLikeDice.className = 'dy-cmt-inline-dice interactive-elem';
+                btnLikeDice.textContent = '🎲';
+                btnLikeDice.title = '点击随机切换评论点赞数（几个到几十万不等）';
+                btnLikeDice.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.randomizeSingleLikes(idx);
+                });
+
                 const dislikeBtn = document.createElement('div');
                 dislikeBtn.className = 'dy-cmt-dislike-btn interactive-elem';
                 dislikeBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#8a8b91" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path><polyline points="12 5.7 10.3 11 13.5 13.5 11.5 18.5"></polyline></svg>`;
 
                 actions.appendChild(likeBtn);
+                actions.appendChild(btnLikeDice);
                 actions.appendChild(dislikeBtn);
                 metaRow.appendChild(actions);
 
@@ -1353,19 +1480,20 @@ window.switchRightTab = function (mode) {
                     }
                 });
 
-                const btnRandOne = document.createElement('button');
-                btnRandOne.type = 'button';
-                btnRandOne.className = 'dy-cmt-ed-btn';
-                btnRandOne.textContent = '🎲';
-                btnRandOne.title = '点击随机更换此条评论的头像、昵称、时间与海外IP';
-                btnRandOne.addEventListener('click', () => {
-                    this.randomizeSingleItem(idx);
+                const btnRandAv = document.createElement('button');
+                btnRandAv.type = 'button';
+                btnRandAv.className = 'dy-cmt-ed-btn';
+                btnRandAv.textContent = '🎲';
+                btnRandAv.title = '随机换头像';
+                btnRandAv.addEventListener('click', () => {
+                    this.randomizeSingleAvatar(idx);
                 });
 
                 const inUser = document.createElement('input');
                 inUser.type = 'text';
                 inUser.className = 'dy-cmt-ed-inp ed-in-user';
                 inUser.style.flex = '1';
+                inUser.style.minWidth = '64px';
                 inUser.placeholder = '繁体/英文昵称';
                 inUser.value = item.user || '';
                 inUser.addEventListener('input', (e) => {
@@ -1374,11 +1502,20 @@ window.switchRightTab = function (mode) {
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                 });
 
+                const btnRandNick = document.createElement('button');
+                btnRandNick.type = 'button';
+                btnRandNick.className = 'dy-cmt-ed-btn';
+                btnRandNick.textContent = '🎲';
+                btnRandNick.title = '随机换昵称（英文或繁体中文）';
+                btnRandNick.addEventListener('click', () => {
+                    this.randomizeSingleNickname(idx);
+                });
+
                 const inDate = document.createElement('input');
                 inDate.type = 'text';
                 inDate.className = 'dy-cmt-ed-inp ed-in-date';
-                inDate.style.width = '98px';
-                inDate.placeholder = '时间(·海外IP)';
+                inDate.style.width = '78px';
+                inDate.placeholder = '时间·IP';
                 inDate.value = item.dateLoc || '';
                 inDate.addEventListener('input', (e) => {
                     item.dateLoc = e.target.value;
@@ -1386,17 +1523,36 @@ window.switchRightTab = function (mode) {
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                 });
 
+                const btnRandDate = document.createElement('button');
+                btnRandDate.type = 'button';
+                btnRandDate.className = 'dy-cmt-ed-btn';
+                btnRandDate.textContent = '🎲';
+                btnRandDate.title = '随机换时间与海外IP';
+                btnRandDate.addEventListener('click', () => {
+                    this.randomizeSingleDateLoc(idx);
+                });
+
                 const inLikes = document.createElement('input');
                 inLikes.type = 'text';
                 inLikes.className = 'dy-cmt-ed-inp ed-in-likes';
-                inLikes.style.width = '38px';
-                inLikes.placeholder = '赞';
-                inLikes.title = '点赞数';
-                inLikes.value = item.likes || '';
+                inLikes.style.width = '46px';
+                inLikes.placeholder = '赞数';
+                inLikes.title = '评论点赞数（几个到几十万不等）';
+                const simpLikes = typeof window.toEditorSimp === 'function' ? window.toEditorSimp(item.likes || '') : (item.likes || '');
+                inLikes.value = simpLikes;
                 inLikes.addEventListener('input', (e) => {
-                    item.likes = e.target.value;
+                    item.likes = typeof window.toStageTrad === 'function' ? window.toStageTrad(e.target.value) : e.target.value;
                     this.renderStage();
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const btnRandLikes = document.createElement('button');
+                btnRandLikes.type = 'button';
+                btnRandLikes.className = 'dy-cmt-ed-btn';
+                btnRandLikes.textContent = '🎲';
+                btnRandLikes.title = '随机换评论点赞数（几个到几十万不等）';
+                btnRandLikes.addEventListener('click', () => {
+                    this.randomizeSingleLikes(idx);
                 });
 
                 const btnDel = document.createElement('button');
@@ -1412,10 +1568,13 @@ window.switchRightTab = function (mode) {
                 });
 
                 topRow.appendChild(avImg);
-                topRow.appendChild(btnRandOne);
+                topRow.appendChild(btnRandAv);
                 topRow.appendChild(inUser);
+                topRow.appendChild(btnRandNick);
                 topRow.appendChild(inDate);
+                topRow.appendChild(btnRandDate);
                 topRow.appendChild(inLikes);
+                topRow.appendChild(btnRandLikes);
                 topRow.appendChild(btnDel);
 
                 const botRow = document.createElement('div');
@@ -1558,6 +1717,40 @@ window.switchRightTab = function (mode) {
             CommentEngine.renderEditor();
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
             window.showToast('已按新的视频发布时间区间重算评论时间');
+        });
+    }
+
+    ['btn-cmt-random-pub-time', 'btn-cmt-random-pub-time-link'].forEach(id => {
+        const btn = document.getElementById(id);
+        if (btn && selCmtPubWindow) {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const opts = Array.from(selCmtPubWindow.options);
+                const pickOpt = opts[Math.floor(Math.random() * opts.length)];
+                if (pickOpt) {
+                    selCmtPubWindow.value = pickOpt.value;
+                    CommentEngine.pubWindowHours = parseFloat(pickOpt.value) || 72;
+                }
+                CommentEngine.list.forEach(item => {
+                    item.dateLoc = randomDateLoc(CommentEngine.ipRegion, CommentEngine.pubWindowHours);
+                });
+                CommentEngine.renderStage();
+                CommentEngine.renderEditor();
+                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                window.showToast('已随机切换视频发布时间并更新所有评论时间');
+            });
+        }
+    });
+
+    const btnCmtRandomHeadCount = document.getElementById('btn-cmt-random-head-count');
+    if (btnCmtRandomHeadCount) {
+        btnCmtRandomHeadCount.addEventListener('click', (e) => {
+            e.preventDefault();
+            const rndLikes = randomCommentLikes();
+            CommentEngine.headCount = rndLikes;
+            CommentEngine.syncHeaderDOM();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`已随机切换评论总数：${toEditorSimp(rndLikes)}`);
         });
     }
 
@@ -2264,6 +2457,15 @@ window.switchRightTab = function (mode) {
 
     if (btnMRandomClock) btnMRandomClock.addEventListener('click', randomizeDyStatusTime);
     if (btnDylRandomTime) btnDylRandomTime.addEventListener('click', randomizeDyStatusTime);
+    ['btn-m-random-clock-btn', 'btn-dy-random-time-btn', 'btn-dyl-random-time-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                randomizeDyStatusTime();
+            });
+        }
+    });
     if (mDispStatusTime) mDispStatusTime.addEventListener('click', randomizeDyStatusTime);
     if (dylDispClockEl) dylDispClockEl.addEventListener('click', randomizeDyStatusTime);
     if (inDylClockTime) {
@@ -2781,14 +2983,56 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    const btnRandomHotspotViews = document.getElementById('btn-random-hotspot-views');
-    if (btnRandomHotspotViews) {
-        btnRandomHotspotViews.addEventListener('click', (e) => {
-            e.preventDefault();
-            randomizeHotspotViewsOnly(true);
-            triggerSaveStorage();
-        });
+    ['btn-random-hotspot-views', 'btn-random-hotspot-views-btn'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                randomizeHotspotViewsOnly(true);
+                triggerSaveStorage();
+            });
+        }
+    });
+
+    ['btn-random-dy-likes', 'btn-random-dy-comments', 'btn-random-dy-stars', 'btn-random-dy-shares'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                randomizeViralMetricsByDuration(null, true);
+                triggerSaveStorage();
+            });
+        }
+    });
+
+    // ★ 作者昵称旁骰子按钮：点一下随机切换英文或繁体中文名字
+    function randomizeAuthorNickname() {
+        const rawPick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)].replace(/[✨🧋🌶️🌸🍜]/g, '').trim();
+        const fullAuthor = rawPick.startsWith('@') ? rawPick : ('@' + rawPick);
+        const inDyAuthor = document.getElementById('in-dy-author');
+        const dyDispAuthor = document.getElementById('dy-disp-author');
+        const dylDispAuthor = document.getElementById('dyl-disp-author');
+        const inpDyLfBrand = document.getElementById('inp-dy-lf-brand');
+        const dyLfWmBrand = document.getElementById('dy-lf-wm-brand');
+        if (inDyAuthor) inDyAuthor.value = fullAuthor;
+        if (dyDispAuthor) dyDispAuthor.textContent = toStageTrad(fullAuthor);
+        if (dylDispAuthor) dylDispAuthor.textContent = toStageTrad(rawPick);
+        if (inpDyLfBrand) inpDyLfBrand.value = rawPick;
+        if (dyLfWmBrand) dyLfWmBrand.textContent = toStageTrad(rawPick);
+        triggerSaveStorage();
+        window.showToast(`已随机切换昵称：${toStageTrad(fullAuthor)}`);
     }
+    window.randomizeAuthorNickname = randomizeAuthorNickname;
+
+    ['btn-random-dy-author', 'btn-random-lf-brand', 'btn-random-lf-brand-link'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener('click', (e) => {
+                e.preventDefault();
+                randomizeAuthorNickname();
+            });
+        }
+    });
 
     // 支持直接点击画面上的点赞/评论/收藏/分享数字与热点在看人数跳转右侧输入框手动编辑
     [
@@ -4308,6 +4552,8 @@ window.switchRightTab = function (mode) {
 
             if (data.avatar && dyAvatarImg && data.avatarIsCustom) {
                 syncAuthorAvatarEverywhere(data.avatar, true);
+            } else if (dyAvatarImg && dyAvatarImg.src) {
+                syncAuthorAvatarEverywhere(dyAvatarImg.src, false);
             }
 
             if (data.skin && selMobileSkin) {
@@ -4504,9 +4750,46 @@ window.switchRightTab = function (mode) {
             });
         }
 
-        // 导出截图/视频时隐藏评论区悬停快捷按钮并同步评论列表滚动位置
-        clonedDoc.querySelectorAll('.dy-cmt-stage-QuickTools, .dy-cmt-photo-del').forEach(el => {
+        // 导出截图/视频时隐藏评论区悬停快捷按钮及骰子小按钮，并同步评论列表滚动位置
+        clonedDoc.querySelectorAll('.dy-cmt-stage-QuickTools, .dy-cmt-photo-del, .dy-cmt-inline-dice').forEach(el => {
             el.style.setProperty('display', 'none', 'important');
+        });
+
+        // 强制锁定底部头像与中间头像为静态圆形图片，绝不旋转
+        clonedDoc.querySelectorAll('.dy-vinyl-record, .dy-vinyl-avatar, .dy-avatar-img').forEach(el => {
+            el.style.setProperty('animation', 'none', 'important');
+            el.style.setProperty('transform', 'none', 'important');
+        });
+
+        // 精确锁定「全屏觀看」按钮在克隆画布中的水平正中间像素坐标，彻底杜绝 html2canvas 缩放偏移
+        const origTarget = document.getElementById('render-target');
+        const origFsPill = document.getElementById('dy-fullscreen-pill');
+        const clonedFsPill = clonedDoc.getElementById('dy-fullscreen-pill');
+        if (origTarget && origFsPill && clonedFsPill && origFsPill.offsetWidth > 0) {
+            const targetW = origTarget.clientWidth || origTarget.getBoundingClientRect().width;
+            const pillW = origFsPill.offsetWidth || origFsPill.getBoundingClientRect().width;
+            const exactLeftPx = Math.max(0, Math.round((targetW - pillW) / 2));
+            clonedFsPill.style.setProperty('left', exactLeftPx + 'px', 'important');
+            clonedFsPill.style.setProperty('right', 'auto', 'important');
+            clonedFsPill.style.setProperty('margin', '0', 'important');
+            clonedFsPill.style.setProperty('transform', 'none', 'important');
+        }
+
+        // 精确锁定顶部导航栏发光底衬 (.laya-app-nav-glow) 在各自文字正中心，彻底杜绝 html2canvas 百分比偏移
+        const origNavItems = document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
+        const clonedNavItems = clonedDoc.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
+        origNavItems.forEach((origItem, idx) => {
+            const clonedItem = clonedNavItems[idx];
+            if (!clonedItem) return;
+            const clonedGlow = clonedItem.querySelector('.laya-app-nav-glow');
+            if (clonedGlow) {
+                const iw = origItem.offsetWidth || 36;
+                const ih = origItem.offsetHeight || 22;
+                clonedGlow.style.setProperty('left', Math.round((iw - 42) / 2) + 'px', 'important');
+                clonedGlow.style.setProperty('top', Math.round((ih - 24) / 2) + 'px', 'important');
+                clonedGlow.style.setProperty('margin', '0', 'important');
+                clonedGlow.style.setProperty('transform', 'none', 'important');
+            }
         });
         const origCmtList = document.getElementById('dy-comment-list');
         const clonedCmtInner = clonedDoc.getElementById('dy-cmt-list-inner');

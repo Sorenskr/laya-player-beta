@@ -445,9 +445,9 @@
                             </span>
                             <span class="dy-sb-time interactive-elem" id="dy-sb-time" title="点击可随机切换时间">14:24</span>
                             <span class="dy-sb-carrier" id="dy-sb-carrier" style="display: none;">中国移动</span>
-                            <!-- 定位小箭头 -->
+                            <!-- 定位小箭头 (原生右上45度路径，无需CSS旋转，杜绝截图偏移) -->
                             <svg class="dy-sb-icon" id="dy-sb-loc" viewBox="0 0 24 24" fill="currentColor" title="定位服务">
-                                <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+                                <path d="M21 3L3 10.53v.98l6.84 2.65L12.48 21h.98L21 3z"/>
                             </svg>
                             <!-- 勿扰月亮 -->
                             <svg class="dy-sb-icon" id="dy-sb-dnd" style="display: none;" viewBox="0 0 24 24" fill="currentColor" title="勿扰模式">
@@ -1341,7 +1341,7 @@
             <div class="panel-card">
                 <div class="card-header">
                     <span>⏱️ 起始时间与进度条控制</span>
-                    <span class="badge-tip">多端同步走动</span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-web-random-time-all" title="点击同时随机更换起始时间与结尾总时长">🎲 随机时间</button>
                 </div>
                 <div class="switch-tile highlight-tile">
                     <span>播放与录制时秒数、进度条真实走动</span>
@@ -1352,12 +1352,18 @@
                 </div>
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>当前起始时间 (同步横屏)</label>
-                        <input type="text" id="in-start-time" value="00:04:07">
+                        <label>当前起始时间 <a href="javascript:void(0)" id="btn-random-start-time-link" style="color:#5dade2; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-start-time" value="00:04:07">
+                            <button type="button" class="btn-inline-dice" id="btn-random-start-time" title="点击随机切换当前起始播放时间">🎲</button>
+                        </div>
                     </div>
                     <div class="form-row">
-                        <label>结尾总时长 (1:20~2:30随机)</label>
-                        <input type="text" id="in-total-time" value="02:06:21">
+                        <label>结尾总时长 <a href="javascript:void(0)" id="btn-random-total-time-link" style="color:#5dade2; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-total-time" value="02:06:21">
+                            <button type="button" class="btn-inline-dice" id="btn-random-total-time" title="点击随机切换结尾总时长 (1:20:00~2:30:00)">🎲</button>
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -1549,7 +1555,7 @@
             <div class="panel-card">
                 <div class="card-header">
                     <span>⏱️ 起始时间与进度条控制</span>
-                    <button class="btn btn-secondary btn-sm" id="btn-random-time" title="在 1:20:00 ~ 2:30:00 之间重新随机生成总时长">🎲 随机总时长</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-random-time" title="点击同时随机更换起始时间与结尾总时长">🎲 随机时间</button>
                 </div>
                 <div class="switch-tile highlight-tile">
                     <span>播放与录制时秒数、进度条真实走动</span>
@@ -1560,12 +1566,18 @@
                 </div>
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>当前起始时间 (同步电脑端)</label>
-                        <input type="text" id="in-m-start-time" value="00:04:07">
+                        <label>当前起始时间 <a href="javascript:void(0)" id="btn-random-m-start-time-link" style="color:#5dade2; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-m-start-time" value="00:04:07">
+                            <button type="button" class="btn-inline-dice" id="btn-random-m-start-time" title="点击随机切换当前起始播放时间">🎲</button>
+                        </div>
                     </div>
                     <div class="form-row">
-                        <label>结尾总时长 (1:20~2:30随机)</label>
-                        <input type="text" id="in-m-total-time" value="02:06:21">
+                        <label>结尾总时长 <a href="javascript:void(0)" id="btn-random-m-total-time-link" style="color:#5dade2; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-m-total-time" value="02:06:21">
+                            <button type="button" class="btn-inline-dice" id="btn-random-m-total-time" title="点击随机切换结尾总时长 (1:20:00~2:30:00)">🎲</button>
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -1593,7 +1605,10 @@
                 <div class="form-grid-2">
                     <div class="form-row">
                         <label>手机顶部时间 <a href="javascript:void(0)" id="btn-m-random-clock" style="color:#5dade2; text-decoration:none; margin-left:4px;">🎲随机</a></label>
-                        <input type="text" id="in-m-status-time" value="14:24">
+                        <div class="input-with-dice">
+                            <input type="text" id="in-m-status-time" value="14:24">
+                            <button type="button" class="btn-inline-dice" id="btn-m-random-clock-btn" title="点击随机切换手机顶部时间">🎲</button>
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>手机信号格数</label>
@@ -1783,7 +1798,10 @@
                     </div>
                     <div class="form-row">
                         <label>状态栏时间 <a href="javascript:void(0)" id="btn-dy-random-time" style="color:#5dade2; text-decoration:none; margin-left:4px;">🎲随机</a></label>
-                        <input type="text" id="in-dy-sb-time" value="14:24">
+                        <div class="input-with-dice">
+                            <input type="text" id="in-dy-sb-time" value="14:24">
+                            <button type="button" class="btn-inline-dice" id="btn-dy-random-time-btn" title="点击随机切换手机状态栏时间">🎲</button>
+                        </div>
                     </div>
                 </div>
 
@@ -1961,8 +1979,11 @@
                 </div>
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>左上角作者昵称</label>
-                        <input type="text" id="inp-dy-lf-brand" class="text-input" value="Laya" placeholder="默认 Laya">
+                        <label>左上角作者昵称 <a href="javascript:void(0)" id="btn-random-lf-brand-link" style="color:#5dade2; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="inp-dy-lf-brand" class="text-input" value="Laya" placeholder="默认 Laya">
+                            <button type="button" class="btn-inline-dice" id="btn-random-lf-brand" title="点击随机切换英文或繁体中文昵称">🎲</button>
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>竖屏取景方式</label>
@@ -2062,7 +2083,10 @@
                 </div>
                 <div class="form-row" style="margin-bottom: 6px;">
                     <label>全屏顶部状态栏时间 <a href="javascript:void(0)" id="btn-dyl-random-time" style="color:#5dade2; text-decoration:none; margin-left:4px;">🎲随机</a></label>
-                    <input type="text" id="in-dyl-clock-time" value="14:24">
+                    <div class="input-with-dice">
+                        <input type="text" id="in-dyl-clock-time" value="14:24">
+                        <button type="button" class="btn-inline-dice" id="btn-dyl-random-time-btn" title="点击随机切换全屏顶部状态栏时间">🎲</button>
+                    </div>
                 </div>
                 <div style="display:none;">
                 </div>
@@ -2117,7 +2141,7 @@
                         </label>
                     </div>
                     <div class="switch-tile">
-                        <span>进度时间 (00:14/02:37)</span>
+                        <span>进度时间 <button type="button" class="btn-inline-dice" id="btn-dyl-random-prog-time" title="点击随机换一个播放进度时间" style="padding:1px 4px; font-size:10px; margin-left:2px;">🎲</button></span>
                         <label class="ios-toggle">
                             <input type="checkbox" id="sw-dyl-time" checked>
                             <span class="slider-round"></span>
@@ -2217,35 +2241,50 @@
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-random-viral-metrics" title="按上传视频时长规律 (5000~100万) 重新随机生成点赞、评论、收藏、分享与在看人数">🎲 按时长规律随机</button>
                 </div>
                 <div class="form-row">
-                    <label>自定义头像上传 (支持恢复官方图)</label>
+                    <label>右侧中间与底部静态头像 (上下两个头像实时同步，点击画面头像也可直接切换)</label>
                     <div style="display: flex; gap: 6px;">
                         <input type="file" id="dy-avatar-uploader" accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" onclick="document.getElementById('dy-avatar-uploader').click()">📁 上传头像</button>
-                        <button type="button" class="btn btn-secondary btn-sm" style="flex: 1;" id="btn-random-author-avatar">🎲 系统生成</button>
-                        <button class="btn btn-secondary btn-sm" id="btn-reset-avatar">恢复官方图</button>
+                        <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" id="btn-random-author-avatar" title="点击随机切换真人/潮流静态头像（上下两个头像同步更换）">🎲 随机换头像</button>
+                        <button type="button" class="btn btn-secondary btn-sm" style="flex: 1;" onclick="document.getElementById('dy-avatar-uploader').click()">📁 上传头像</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-avatar">恢复官方图</button>
                     </div>
                 </div>
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>点赞数</label>
-                        <input type="text" id="in-dy-likes" value="3.3万">
+                        <label>点赞数 (5000~100万)</label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-dy-likes" value="3.3万">
+                            <button type="button" class="btn-inline-dice" id="btn-random-dy-likes" title="点击按时长规律随机切换点赞数與互动数据">🎲</button>
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>评论数</label>
-                        <input type="text" id="in-dy-comments" value="1098">
+                        <div class="input-with-dice">
+                            <input type="text" id="in-dy-comments" value="1098">
+                            <button type="button" class="btn-inline-dice" id="btn-random-dy-comments" title="点击随机切换评论数">🎲</button>
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>收藏数</label>
-                        <input type="text" id="in-dy-stars" value="1.1万">
+                        <div class="input-with-dice">
+                            <input type="text" id="in-dy-stars" value="1.1万">
+                            <button type="button" class="btn-inline-dice" id="btn-random-dy-stars" title="点击随机切换收藏数">🎲</button>
+                        </div>
                     </div>
                     <div class="form-row">
                         <label>分享数</label>
-                        <input type="text" id="in-dy-shares" value="2766">
+                        <div class="input-with-dice">
+                            <input type="text" id="in-dy-shares" value="2766">
+                            <button type="button" class="btn-inline-dice" id="btn-random-dy-shares" title="点击随机切换分享数">🎲</button>
+                        </div>
                     </div>
                 </div>
                 <div class="form-row">
-                    <label>作者账号名</label>
-                    <input type="text" id="in-dy-author" value="@Laya 视频">
+                    <label>作者账号昵称 (支持英文或繁体中文，点骰子直接换名字)</label>
+                    <div class="input-with-dice">
+                        <input type="text" id="in-dy-author" value="@Laya 视频">
+                        <button type="button" class="btn-inline-dice" id="btn-random-dy-author" title="点击随机切换英文或繁体中文作者昵称">🎲</button>
+                    </div>
                 </div>
                 <div class="form-row">
                     <label>未读消息数量 (留空则隐藏)</label>
@@ -2289,7 +2328,10 @@
                 </div>
                 <div class="form-row">
                     <label>热点观看人数 (15万~200万随机波动，也可手动编辑) <a href="javascript:void(0)" id="btn-random-hotspot-views" style="color:#5dade2; text-decoration:none; margin-left:4px;">🎲随机</a></label>
-                    <input type="text" id="in-dy-hotspot-views" value="117.7万人在看">
+                    <div class="input-with-dice">
+                        <input type="text" id="in-dy-hotspot-views" value="117.7万人在看">
+                        <button type="button" class="btn-inline-dice" id="btn-random-hotspot-views-btn" title="点击随机切换热点在看人数 (15万~200万)">🎲</button>
+                    </div>
                 </div>
                 <div class="form-row">
                     <label>🔍 搜索栏前缀切换与热词 (猜你想搜 / 相关搜索)</label>
@@ -2347,20 +2389,23 @@
                         </select>
                     </div>
                     <div class="form-row">
-                        <label>🕒 视频发布时间 (早于当前上传)</label>
-                        <select id="sel-cmt-pub-window">
-                            <option value="3">发布于 3 小时前 ~ 现在</option>
-                            <option value="12">发布于 12 小时前 ~ 现在</option>
-                            <option value="24">发布于 1 天前 ~ 现在</option>
-                            <option value="72" selected>发布于 3 天前 ~ 现在</option>
-                            <option value="168">发布于 7 天前 ~ 现在</option>
-                        </select>
+                        <label>🕒 视频发布时间 <a href="javascript:void(0)" id="btn-cmt-random-pub-time-link" style="color:#5dade2; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <select id="sel-cmt-pub-window" style="flex:1;">
+                                <option value="3">3 小时前 ~ 现在</option>
+                                <option value="12">12 小时前 ~ 现在</option>
+                                <option value="24">1 天前 ~ 现在</option>
+                                <option value="72" selected>3 天前 ~ 现在</option>
+                                <option value="168">7 天前 ~ 现在</option>
+                            </select>
+                            <button type="button" class="btn-inline-dice" id="btn-cmt-random-pub-time" title="点击随机更换所有评论的时间">🎲</button>
+                        </div>
                     </div>
                 </div>
 
                 <div style="display:grid; grid-template-columns: 1fr 1fr; gap:6px;">
-                    <button type="button" class="btn btn-primary btn-sm" id="btn-cmt-random-all" title="随机更换所有评论的真人头像、繁体/英文昵称、时间、海外IP与内容">🎲 随机全部 (含评论词)</button>
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-random-avatars" title="一键随机更换所有评论的头像、昵称、海外IP与时间（保留评论正文）">🎲 随机头像+IP+昵称+时间</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-cmt-random-all" title="随机更换所有评论的真人头像、繁体/英文昵称、时间、海外IP、点赞数与内容">🎲 随机全部 (含评论词)</button>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-random-avatars" title="一键随机更换所有评论的头像、昵称、海外IP、时间与点赞数（保留评论正文）">🎲 随机头像+昵称+时间+赞</button>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-add-text">＋ 新增一条文字评论</button>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-add-photo" style="border-color:rgba(56,189,248,0.5); color:#38bdf8;">🖼️ 上传图片/表情包评论</button>
                 </div>
@@ -2372,7 +2417,10 @@
                     </div>
                     <div class="form-row">
                         <label>评论区顶部总数</label>
-                        <input type="text" id="in-cmt-head-count" value="138">
+                        <div class="input-with-dice">
+                            <input type="text" id="in-cmt-head-count" value="138">
+                            <button type="button" class="btn-inline-dice" id="btn-cmt-random-head-count" title="点击随机切换评论总数">🎲</button>
+                        </div>
                     </div>
                 </div>
 
