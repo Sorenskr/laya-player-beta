@@ -854,37 +854,85 @@ window.switchRightTab = function (mode) {
         return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     }
 
-    function buildOnlineAvatarUrl(seed, apiMode) {
+    // 精选在线亚洲人像与萌宠头像补充池 (CORS 友好)
+    const ONLINE_ASIAN_BEAUTIES = [
+        'https://images.unsplash.com/photo-1526631189662-734f65edd957?auto=format&fit=crop&w=180&h=180&q=80',
+        'https://images.unsplash.com/photo-1631947430066-48c30d57b943?auto=format&fit=crop&w=180&h=180&q=80',
+        'https://images.unsplash.com/photo-1633307458354-292dd679a763?auto=format&fit=crop&w=180&h=180&q=80',
+        'https://images.unsplash.com/photo-1525672716948-1f0bb9c49883?auto=format&fit=crop&w=180&h=180&q=80'
+    ];
+    const ONLINE_FUN_PETS = [
+        'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=180&h=180&q=80',
+        'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=180&h=180&q=80',
+        'https://images.unsplash.com/photo-1612536057832-2ff7cc8486ba?auto=format&fit=crop&w=180&h=180&q=80',
+        'https://images.unsplash.com/photo-1425082661705-1834bfd09dca?auto=format&fit=crop&w=180&h=180&q=80',
+        'https://images.unsplash.com/photo-1529778873920-4da4926a72c2?auto=format&fit=crop&w=180&h=180&q=80',
+        'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=180&h=180&q=80'
+    ];
+    const ONLINE_FOREIGN_RARE = [
+        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=180&h=180&q=80',
+        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=180&h=180&q=80'
+    ];
+
+    let __avatarCycleCounter = Math.floor(Math.random() * 100);
+
+    function pickFromPoolAvoiding(pool, avoidSet) {
+        if (!Array.isArray(pool) || pool.length === 0) return '';
+        const candidates = avoidSet ? pool.filter(u => !avoidSet.has(u)) : pool;
+        const activePool = candidates.length > 0 ? candidates : pool;
+        __avatarCycleCounter = (__avatarCycleCounter + 1) % 99999;
+        const idx = (__avatarCycleCounter + Math.floor(Math.random() * activePool.length)) % activePool.length;
+        return activePool[idx];
+    }
+
+    function buildOnlineAvatarUrl(seed, apiMode, avoidSet = null) {
         const rawStr = String(seed || Math.random().toString(36).slice(2, 9));
         const cleanSeed = encodeURIComponent(rawStr);
-        let hash = 0;
-        for (let i = 0; i < rawStr.length; i++) {
-            hash = ((hash << 5) - hash) + rawStr.charCodeAt(i);
-            hash |= 0;
-        }
-        const absHash = Math.abs(hash);
+        const db = window.LAYA_ASIAN_AVATARS || {};
+        const beauties = [...(db.beauties || []), ...ONLINE_ASIAN_BEAUTIES];
+        const guys = [...(db.guys || [])];
+        const anime = [...(db.anime || [])];
+        const pets = [...(db.pets || []), ...ONLINE_FUN_PETS];
+        const cartoons = [...(db.cartoons || [])];
+        const memes = [...(db.memes || [])];
+        const allFun = [...anime, ...pets, ...cartoons, ...memes];
 
-        let chosen = apiMode || 'real-human';
-        if (chosen === 'mixed') {
-            const roll = (absHash % 100) / 100;
-            if (roll < 0.68) chosen = 'real-human';
-            else if (roll < 0.85) chosen = 'picsum';
-            else if (roll < 0.93) chosen = 'lorelei';
-            else chosen = 'adventurer';
-        }
+        const mode = apiMode || 'real-human';
 
-        if (chosen === 'real-human') {
-            const gender = (absHash % 10 < 6) ? 'women' : 'men';
-            const portraitId = (absHash % 90) + 1;
-            return `https://randomuser.me/api/portraits/${gender}/${portraitId}.jpg`;
+        if (mode === 'asian-beauty') {
+            return pickFromPoolAvoiding(beauties, avoidSet);
         }
-        if (chosen === 'picsum') {
+        if (mode === 'asian-guy') {
+            return pickFromPoolAvoiding(guys.length ? guys : beauties, avoidSet);
+        }
+        if (mode === 'cn-fun' || mode === 'fun-emoji') {
+            return pickFromPoolAvoiding(allFun, avoidSet);
+        }
+        if (mode === 'lorelei') {
+            if (anime.length > 0 && Math.random() < 0.7) {
+                return pickFromPoolAvoiding(anime, avoidSet);
+            }
+            return `https://api.dicebear.com/7.x/lorelei/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+        }
+        if (mode === 'adventurer' || mode === 'notionists') {
+            return `https://api.dicebear.com/7.x/${mode}/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+        }
+        if (mode === 'picsum') {
             return `https://picsum.photos/seed/${cleanSeed}/150/150`;
         }
-        if (chosen === 'fun-emoji') {
-            return `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${cleanSeed}`;
+
+        // 默认「real-human / mixed」：以亚洲美女(45%)、亚洲男生(22%)为主，搭配卡通动漫/搞笑萌宠/表情包(29%)，外国人头像极少(4%)
+        const r = Math.random();
+        if (r < 0.45 && beauties.length > 0) {
+            return pickFromPoolAvoiding(beauties, avoidSet);
         }
-        return `https://api.dicebear.com/7.x/${chosen}/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
+        if (r < 0.67 && guys.length > 0) {
+            return pickFromPoolAvoiding(guys, avoidSet);
+        }
+        if (r < 0.96 && allFun.length > 0) {
+            return pickFromPoolAvoiding(allFun, avoidSet);
+        }
+        return pickFromPoolAvoiding(ONLINE_FOREIGN_RARE, avoidSet);
     }
 
     // 生成介于 [发布视频时间, 打开页面/上传视频时间] 之间的随机评论时间 + 海外/台港澳马 IP
@@ -951,13 +999,18 @@ window.switchRightTab = function (mode) {
         list: [],
 
         initDefaults() {
+            const db = window.LAYA_ASIAN_AVATARS || {};
+            const b = db.beauties || [];
+            const g = db.guys || [];
+            const p = db.pets || [];
+            const a = db.anime || [];
             this.list = [
-                { id: 'c1', user: 'Chloe_tw', text: '牛總還是有點大智慧的', dateLoc: randomDateLoc('tw-only', 72), likes: '12.6萬', liked: false, avatar: 'https://randomuser.me/api/portraits/women/44.jpg', image: '', isCustomAvatar: false },
-                { id: 'c2', user: '阿傑Jay', text: '這劇情太牛了👍😁', dateLoc: randomDateLoc('hk-mo', 72), likes: '3.8萬', liked: false, avatar: 'https://randomuser.me/api/portraits/men/32.jpg', image: '', isCustomAvatar: false },
-                { id: 'c3', user: 'Jason_HK', text: '好一招釜底抽薪', dateLoc: randomDateLoc('my-sg', 72), likes: '5280', liked: false, avatar: 'https://randomuser.me/api/portraits/men/68.jpg', image: '', isCustomAvatar: false },
-                { id: 'c4', user: '子瑜✨', text: '哈哈，我先入職花果山 再回來應聘 完美閉環🐺', dateLoc: randomDateLoc('tw-only', 72), likes: '842', liked: false, avatar: 'https://randomuser.me/api/portraits/women/65.jpg', image: '', isCustomAvatar: false },
-                { id: 'c5', user: 'Kevin.88', text: '看到這一幕直接笑精神了😂', dateLoc: randomDateLoc('none', 72), likes: '69', liked: false, avatar: 'https://randomuser.me/api/portraits/men/22.jpg', image: '', isCustomAvatar: false },
-                { id: 'c6', user: '半糖去冰🧋', text: '演技真的在線，每個眼神裡全是戲🔥', dateLoc: randomDateLoc('overseas-all', 72), likes: '9', liked: false, avatar: 'https://randomuser.me/api/portraits/women/19.jpg', image: '', isCustomAvatar: false }
+                { id: 'c1', user: 'Chloe_tw', text: '牛總還是有點大智慧的', dateLoc: randomDateLoc('tw-only', 72), likes: '12.6萬', liked: false, avatar: b[0] || buildOnlineAvatarUrl('c1', 'asian-beauty'), image: '', isCustomAvatar: false },
+                { id: 'c2', user: '阿傑Jay', text: '這劇情太牛了👍😁', dateLoc: randomDateLoc('hk-mo', 72), likes: '3.8萬', liked: false, avatar: g[0] || buildOnlineAvatarUrl('c2', 'asian-guy'), image: '', isCustomAvatar: false },
+                { id: 'c3', user: '子瑜✨', text: '哈哈，我先入職花果山 再回來應聘 完美閉環🐺', dateLoc: randomDateLoc('tw-only', 72), likes: '5280', liked: false, avatar: b[3] || buildOnlineAvatarUrl('c3', 'asian-beauty'), image: '', isCustomAvatar: false },
+                { id: 'c4', user: '半糖去冰🧋', text: '好一招釜底抽薪', dateLoc: randomDateLoc('my-sg', 72), likes: '842', liked: false, avatar: p[1] || buildOnlineAvatarUrl('c4', 'cn-fun'), image: '', isCustomAvatar: false },
+                { id: 'c5', user: 'Jason_HK', text: '看到這一幕直接笑精神了😂', dateLoc: randomDateLoc('none', 72), likes: '69', liked: false, avatar: g[2] || buildOnlineAvatarUrl('c5', 'asian-guy'), image: '', isCustomAvatar: false },
+                { id: 'c6', user: '林小柔', text: '演技真的在線，每個眼神裡全是戲🔥', dateLoc: randomDateLoc('overseas-all', 72), likes: '19', liked: false, avatar: a[2] || b[5] || buildOnlineAvatarUrl('c6', 'real-human'), image: '', isCustomAvatar: false }
             ];
             this.list.forEach(item => this.prefetchAvatarDataUrl(item));
         },
@@ -1006,14 +1059,15 @@ window.switchRightTab = function (mode) {
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
         },
 
-        // 单独随机某一条评论的头像
+        // 单独随机某一条评论的头像（自动避开当前已显示的头像）
         randomizeSingleAvatar(idx) {
             const item = this.list[idx];
             if (!item) return;
             const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
             this.apiMode = mode;
+            const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
             const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 8)}`;
-            item.avatar = buildOnlineAvatarUrl(seed, mode);
+            item.avatar = buildOnlineAvatarUrl(seed, mode, usedAvatars);
             item.isCustomAvatar = false;
             this.prefetchAvatarDataUrl(item);
             this.renderStage();
@@ -1067,8 +1121,9 @@ window.switchRightTab = function (mode) {
             if (!item) return;
             const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
             this.apiMode = mode;
+            const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
             const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 8)}`;
-            item.avatar = buildOnlineAvatarUrl(seed, mode);
+            item.avatar = buildOnlineAvatarUrl(seed, mode, usedAvatars);
             item.isCustomAvatar = false;
             this.prefetchAvatarDataUrl(item);
 
@@ -1096,10 +1151,13 @@ window.switchRightTab = function (mode) {
             this.pubWindowHours = pubWin;
             const usedNames = new Set();
             const usedTexts = new Set();
+            const usedAvatars = new Set();
             this.list.forEach((item, idx) => {
                 const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 7)}`;
                 if (!item.isCustomAvatar || includeText) {
-                    item.avatar = buildOnlineAvatarUrl(seed, mode);
+                    const nextAv = buildOnlineAvatarUrl(seed, mode, usedAvatars);
+                    usedAvatars.add(nextAv);
+                    item.avatar = nextAv;
                     item.isCustomAvatar = false;
                     this.prefetchAvatarDataUrl(item);
                 }
@@ -4215,9 +4273,11 @@ window.switchRightTab = function (mode) {
         btnRandomAuthorAvatar.addEventListener('click', async () => {
             const seed = 'author_' + Math.random().toString(36).slice(2, 9);
             const apiMode = (window.CommentEngine && window.CommentEngine.apiMode) ? window.CommentEngine.apiMode : 'real-human';
-            const onlineUrl = buildOnlineAvatarUrl(seed, apiMode);
+            const avoidSet = new Set([dyAvatarImg.src]);
+            const onlineUrl = buildOnlineAvatarUrl(seed, apiMode, avoidSet);
             syncAuthorAvatarEverywhere(onlineUrl, true);
-            window.showToast('已生成随机真人头像（下方唱片头像已同步）');
+            triggerSaveStorage();
+            window.showToast('已随机切换头像（中间与底部头像已同步）');
             try {
                 const resp = await fetch(onlineUrl, { mode: 'cors' });
                 if (resp.ok) {
@@ -4602,8 +4662,10 @@ window.switchRightTab = function (mode) {
 
             if (data.cmtData && window.CommentEngine) {
                 const cd = data.cmtData;
-                const migratedV14 = localStorage.getItem('LAYA_V14_OVERSEAS_CMT_MIGRATED') === '1';
-                if (!migratedV14) {
+                const migratedV16 = localStorage.getItem('LAYA_V16_ASIAN_AVATAR_MIGRATED') === '1';
+                if (!migratedV16) {
+                    localStorage.setItem('LAYA_V16_ASIAN_AVATAR_MIGRATED', '1');
+                    localStorage.setItem('LAYA_V14_OVERSEAS_CMT_MIGRATED', '1');
                     localStorage.setItem('LAYA_V14_OVERSEAS_CMT_MIGRATED', '1');
                     window.CommentEngine.apiMode = 'real-human';
                     window.CommentEngine.ipRegion = 'tw-hk-my';
