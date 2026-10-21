@@ -2423,7 +2423,7 @@ main {
     position: relative;
     width: calc(100% + 64px);
     height: 3.5px;
-    background: rgba(255, 255, 255, 0.30);
+    background: rgba(255, 255, 255, 0.64);
     border-radius: 2px;
     margin-top: 3px;
     cursor: pointer;
@@ -2432,11 +2432,12 @@ main {
 }
 
 .dy-tiny-buffer {
+    display: none !important;
     position: absolute;
     left: 0;
     top: 0;
     height: 100%;
-    background: rgba(255, 255, 255, 0.48);
+    background: transparent;
     border-radius: 2px;
     pointer-events: none;
 }

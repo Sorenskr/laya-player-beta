@@ -5825,10 +5825,8 @@ window.switchRightTab = function (mode) {
                         const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : elapsedSec;
                         const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
                         const barH = Math.max(3.5 * scaleRatioY, dyBarBox.h);
-                        ctx.fillStyle = 'rgba(255,255,255,0.30)';
+                        ctx.fillStyle = 'rgba(255,255,255,0.64)';
                         ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w, barH);
-                        ctx.fillStyle = 'rgba(255,255,255,0.48)';
-                        ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w * bufferPct, barH);
                         const fillW = dyBarBox.w * realVidPct;
                         ctx.fillStyle = '#ffffff';
                         ctx.fillRect(dyBarBox.x, dyBarBox.y, fillW, barH);
