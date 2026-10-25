@@ -954,6 +954,46 @@ window.switchRightTab = function (mode) {
         return loc ? `${timeStr} · ${loc}` : timeStr;
     }
 
+    // 拆分与合并「日期时间 · IP属地」，支持单独随机切换日期时间或单独随机切换 IP 地址
+    function splitDateLoc(dateLocStr) {
+        const raw = String(dateLocStr || '').trim();
+        if (!raw) return { datePart: '剛剛', ipPart: '台灣' };
+        const parts = raw.split(/\s*·\s*/);
+        if (parts.length >= 2) {
+            return {
+                datePart: parts[0].trim() || '剛剛',
+                ipPart: parts.slice(1).join(' · ').trim()
+            };
+        }
+        return { datePart: raw, ipPart: '' };
+    }
+
+    function joinDateLoc(datePart, ipPart) {
+        const d = String(datePart || '').trim() || '剛剛';
+        const ip = String(ipPart || '').trim();
+        return ip ? `${d} · ${ip}` : d;
+    }
+
+    function randomOnlyTimeStr(pubHoursOverride, currentStr = '') {
+        let tries = 0;
+        let res = '剛剛';
+        do {
+            const full = randomDateLoc('none', pubHoursOverride);
+            res = splitDateLoc(full).datePart;
+        } while (res === currentStr && tries++ < 12);
+        return res;
+    }
+
+    function randomOnlyIpStr(ipRegionOverride, currentIp = '') {
+        const reg = (!ipRegionOverride || ipRegionOverride === 'none') ? 'tw-hk-my' : ipRegionOverride;
+        let tries = 0;
+        let res = '台灣';
+        do {
+            res = pickOverseasIpLocation(reg) || '台灣';
+        } while (res === currentIp && tries++ < 15);
+        return res;
+    }
+
     // 生成评论点赞数：从几个、几百、几千到几十万不等（左侧舞台显示繁体萬，右侧编辑框显示简体万）
     function randomCommentLikes() {
         const roll = Math.random();
@@ -1356,7 +1396,33 @@ window.switchRightTab = function (mode) {
             this.renderStage();
             this.renderEditor();
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-            window.showToast(`已随机切换评论时间：${item.dateLoc}`);
+            window.showToast(`已随机切换评论时间与IP：${item.dateLoc}`);
+        },
+
+        // 单独随机某一条评论的「日期时间」（保留原有IP地址）
+        randomizeSingleTimeOnly(idx) {
+            const item = this.list[idx];
+            if (!item) return;
+            const { datePart, ipPart } = splitDateLoc(item.dateLoc);
+            const newTime = randomOnlyTimeStr(this.pubWindowHours, datePart);
+            item.dateLoc = joinDateLoc(newTime, ipPart);
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`🎲 已随机切换评论日期：${newTime}`);
+        },
+
+        // 单独随机某一条评论的「IP地址」（保留原有日期时间）
+        randomizeSingleIpOnly(idx) {
+            const item = this.list[idx];
+            if (!item) return;
+            const { datePart, ipPart } = splitDateLoc(item.dateLoc);
+            const newIp = randomOnlyIpStr(this.ipRegion, ipPart);
+            item.dateLoc = joinDateLoc(datePart, newIp);
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`🎲 已随机切换评论IP地址：${newIp}`);
         },
 
         // 单独随机某一条评论的点赞数（几个到几十万不等）
@@ -1368,6 +1434,90 @@ window.switchRightTab = function (mode) {
             this.renderEditor();
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
             window.showToast(`已随机切换评论点赞数：${item.likes}`);
+        },
+
+        // ====== 二级回复（跟评/作者回复）专属单项随机筛子方法 ======
+        randomizeReplyAvatar(idx, rIdx, forceGenderMode = null) {
+            const rep = this.list[idx] && this.list[idx].replies && this.list[idx].replies[rIdx];
+            if (!rep) return;
+            const mode = forceGenderMode || document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
+            const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
+            if (rep.avatar) usedAvatars.add(rep.avatar);
+            const seed = `rep_av_${Date.now()}_${idx}_${rIdx}_${Math.random().toString(36).slice(2, 7)}`;
+            rep.avatar = buildOnlineAvatarUrl(seed, mode, usedAvatars);
+            rep.isCustomAvatar = true;
+            this.prefetchAvatarDataUrl(rep);
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('🎲 已随机切换回复头像');
+        },
+
+        randomizeReplyNickname(idx, rIdx) {
+            const rep = this.list[idx] && this.list[idx].replies && this.list[idx].replies[rIdx];
+            if (!rep) return;
+            let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+            let tries = 0;
+            while (nick === rep.user && tries++ < 25) {
+                nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+            }
+            rep.user = nick;
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`🎲 已随机切换回复名字：${nick}`);
+        },
+
+        randomizeReplyTimeOnly(idx, rIdx) {
+            const rep = this.list[idx] && this.list[idx].replies && this.list[idx].replies[rIdx];
+            if (!rep) return;
+            const { datePart, ipPart } = splitDateLoc(rep.dateLoc);
+            const newTime = randomOnlyTimeStr(this.pubWindowHours, datePart);
+            rep.dateLoc = joinDateLoc(newTime, ipPart);
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`🎲 已随机切换回复日期：${newTime}`);
+        },
+
+        randomizeReplyIpOnly(idx, rIdx) {
+            const rep = this.list[idx] && this.list[idx].replies && this.list[idx].replies[rIdx];
+            if (!rep) return;
+            const { datePart, ipPart } = splitDateLoc(rep.dateLoc);
+            const newIp = randomOnlyIpStr(this.ipRegion, ipPart);
+            rep.dateLoc = joinDateLoc(datePart, newIp);
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`🎲 已随机切换回复IP地址：${newIp}`);
+        },
+
+        randomizeReplyLikes(idx, rIdx) {
+            const rep = this.list[idx] && this.list[idx].replies && this.list[idx].replies[rIdx];
+            if (!rep) return;
+            rep.likes = randomCommentLikes();
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`🎲 已随机切换回复点赞数：${rep.likes}`);
+        },
+
+        randomizeReplyAll(idx, rIdx) {
+            const rep = this.list[idx] && this.list[idx].replies && this.list[idx].replies[rIdx];
+            if (!rep) return;
+            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
+            const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
+            const seed = `rep_all_${Date.now()}_${idx}_${rIdx}_${Math.random().toString(36).slice(2, 7)}`;
+            rep.avatar = buildOnlineAvatarUrl(seed, mode, usedAvatars);
+            rep.isCustomAvatar = true;
+            this.prefetchAvatarDataUrl(rep);
+            rep.user = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
+            rep.dateLoc = randomDateLoc(this.ipRegion, this.pubWindowHours);
+            rep.likes = randomCommentLikes();
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('🎲 已随机切换该条回复的头像、名字、日期、IP与点赞数');
         },
 
         // 单条评论点击总筛子 🎲：同时随机更换头像、繁体/英文昵称、发布后~上传前的时间、海外/台港澳马IP、点赞数
@@ -1677,12 +1827,23 @@ window.switchRightTab = function (mode) {
                 const main = document.createElement('div');
                 main.className = 'dy-cmt-main';
 
-                // 昵称行 + 昵称旁专属骰子按钮 + 悬停快捷工具
+                // 昵称行 + 头像筛子 + 昵称旁专属骰子按钮 + 悬停快捷工具
                 const userRow = document.createElement('div');
                 userRow.className = 'dy-cmt-user-row';
 
                 const userLeftWrap = document.createElement('div');
-                userLeftWrap.style.cssText = 'display:inline-flex; align-items:center; gap:4px; min-width:0;';
+                userLeftWrap.style.cssText = 'display:inline-flex; align-items:center; gap:3px; min-width:0;';
+
+                const btnAvDice = document.createElement('button');
+                btnAvDice.type = 'button';
+                btnAvDice.className = 'dy-cmt-inline-dice interactive-elem';
+                btnAvDice.style.marginLeft = '0';
+                btnAvDice.textContent = '🎲';
+                btnAvDice.title = '点击随机切换此条评论头像';
+                btnAvDice.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.randomizeSingleAvatar(idx);
+                });
 
                 const userSpan = document.createElement('span');
                 userSpan.className = 'dy-cmt-user interactive-elem';
@@ -1706,6 +1867,7 @@ window.switchRightTab = function (mode) {
                     this.randomizeSingleNickname(idx);
                 });
 
+                userLeftWrap.appendChild(btnAvDice);
                 userLeftWrap.appendChild(userSpan);
                 userLeftWrap.appendChild(btnNickDice);
                 userRow.appendChild(userLeftWrap);
@@ -1826,24 +1988,73 @@ window.switchRightTab = function (mode) {
                     main.appendChild(photoBox);
                 }
 
-                // 底部日期地区 + 回复 + 右侧点赞爱心与心碎图标
+                // 底部：日期(带🎲) + IP地址(带🎲) + 回复 + 右侧点赞数量(带🎲)
                 const metaRow = document.createElement('div');
                 metaRow.className = 'dy-cmt-meta-row';
 
                 const metaLeft = document.createElement('div');
                 metaLeft.className = 'dy-cmt-meta-left';
 
-                const dateLocSpan = document.createElement('span');
-                dateLocSpan.className = 'dy-cmt-date-loc interactive-elem';
-                dateLocSpan.contentEditable = 'true';
-                dateLocSpan.spellcheck = false;
-                dateLocSpan.title = '点击直接修改日期与地区（可删除地区仅保留时间）';
-                dateLocSpan.textContent = item.dateLoc || '3小時前 · 台灣';
-                dateLocSpan.addEventListener('input', () => {
-                    item.dateLoc = dateLocSpan.textContent.trim();
+                const parsedMainDL = splitDateLoc(item.dateLoc || '3小時前 · 台灣');
+
+                const dateOnlySpan = document.createElement('span');
+                dateOnlySpan.className = 'dy-cmt-date-loc interactive-elem';
+                dateOnlySpan.contentEditable = 'true';
+                dateOnlySpan.spellcheck = false;
+                dateOnlySpan.title = '点击直接修改评论日期时间';
+                dateOnlySpan.textContent = parsedMainDL.datePart;
+                dateOnlySpan.addEventListener('input', () => {
+                    const curIp = splitDateLoc(item.dateLoc).ipPart;
+                    item.dateLoc = joinDateLoc(dateOnlySpan.textContent.trim(), curIp);
                     this.syncEditorRow(idx);
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                 });
+
+                const btnDateDice = document.createElement('button');
+                btnDateDice.type = 'button';
+                btnDateDice.className = 'dy-cmt-inline-dice interactive-elem';
+                btnDateDice.textContent = '🎲';
+                btnDateDice.title = '点击随机切换评论日期时间';
+                btnDateDice.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.randomizeSingleTimeOnly(idx);
+                });
+
+                metaLeft.appendChild(dateOnlySpan);
+                metaLeft.appendChild(btnDateDice);
+
+                if (parsedMainDL.ipPart || this.ipRegion !== 'none') {
+                    const dotSpan = document.createElement('span');
+                    dotSpan.className = 'dy-cmt-date-loc';
+                    dotSpan.textContent = ' · ';
+                    metaLeft.appendChild(dotSpan);
+
+                    const ipOnlySpan = document.createElement('span');
+                    ipOnlySpan.className = 'dy-cmt-date-loc interactive-elem';
+                    ipOnlySpan.contentEditable = 'true';
+                    ipOnlySpan.spellcheck = false;
+                    ipOnlySpan.title = '点击直接修改评论 IP 属地';
+                    ipOnlySpan.textContent = parsedMainDL.ipPart || '台灣';
+                    ipOnlySpan.addEventListener('input', () => {
+                        const curDate = splitDateLoc(item.dateLoc).datePart;
+                        item.dateLoc = joinDateLoc(curDate, ipOnlySpan.textContent.trim());
+                        this.syncEditorRow(idx);
+                        if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                    });
+
+                    const btnIpDice = document.createElement('button');
+                    btnIpDice.type = 'button';
+                    btnIpDice.className = 'dy-cmt-inline-dice interactive-elem';
+                    btnIpDice.textContent = '🎲';
+                    btnIpDice.title = '点击随机切换评论 IP 地址';
+                    btnIpDice.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.randomizeSingleIpOnly(idx);
+                    });
+
+                    metaLeft.appendChild(ipOnlySpan);
+                    metaLeft.appendChild(btnIpDice);
+                }
 
                 const replySpan = document.createElement('span');
                 replySpan.className = 'dy-cmt-reply-btn interactive-elem';
@@ -1855,18 +2066,6 @@ window.switchRightTab = function (mode) {
                     this.openReplyComposer(idx, -1, 'user');
                 });
 
-                const btnDateDice = document.createElement('button');
-                btnDateDice.type = 'button';
-                btnDateDice.className = 'dy-cmt-inline-dice interactive-elem';
-                btnDateDice.textContent = '🎲';
-                btnDateDice.title = '点击随机切换评论时间与海外IP';
-                btnDateDice.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    this.randomizeSingleDateLoc(idx);
-                });
-
-                metaLeft.appendChild(dateLocSpan);
-                metaLeft.appendChild(btnDateDice);
                 metaLeft.appendChild(replySpan);
                 metaRow.appendChild(metaLeft);
 
@@ -1925,7 +2124,7 @@ window.switchRightTab = function (mode) {
                 metaRow.appendChild(actions);
                 main.appendChild(metaRow);
 
-                // ★ 二级回复列表（作者回复 + 普通用户跟评：头像 19px、字号 11.5px，明显小于一级评论）
+                // ★ 二级回复列表（作者回复 + 普通用户跟评：头像 19px、字号 11.5px，且头像、名字、日期、IP地址、点赞数旁边均有 🎲 筛子可切换）
                 if (this.showReplies && Array.isArray(item.replies) && item.replies.length > 0) {
                     const repListEl = document.createElement('div');
                     repListEl.className = 'dy-cmt-replies-list';
@@ -1936,7 +2135,7 @@ window.switchRightTab = function (mode) {
 
                         const rAvWrap = document.createElement('div');
                         rAvWrap.className = 'dy-cmt-reply-avatar-wrap interactive-elem';
-                        rAvWrap.title = '点击切换此条回复头像';
+                        rAvWrap.title = '左键点击随机切换回复头像（右键点击上传本地头像）';
                         const rAvImg = document.createElement('img');
                         rAvImg.className = 'dy-cmt-reply-avatar';
                         rAvImg.crossOrigin = 'anonymous';
@@ -1949,13 +2148,18 @@ window.switchRightTab = function (mode) {
                         rAvWrap.appendChild(rAvImg);
                         rAvWrap.addEventListener('click', (e) => {
                             e.stopPropagation();
-                            const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
-                            rep.avatar = buildOnlineAvatarUrl(`rep_${Date.now()}_${rIdx}`, this.apiMode, usedAvatars);
-                            rep.isCustomAvatar = true;
-                            this.prefetchAvatarDataUrl(rep);
-                            this.renderStage();
-                            this.renderEditor();
-                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                            this.randomizeReplyAvatar(idx, rIdx);
+                        });
+                        rAvWrap.addEventListener('contextmenu', (e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            this.activeUploadIdx = idx;
+                            this.activeUploadReplyIdx = rIdx;
+                            const fileInp = document.getElementById('dy-cmt-avatar-file');
+                            if (fileInp) {
+                                fileInp.value = '';
+                                fileInp.click();
+                            }
                         });
                         repRow.appendChild(rAvWrap);
 
@@ -1965,10 +2169,25 @@ window.switchRightTab = function (mode) {
                         const rUserRow = document.createElement('div');
                         rUserRow.className = 'dy-cmt-reply-user-row';
 
+                        // 1. 回复头像旁专属筛子 🎲
+                        const rBtnAvDice = document.createElement('button');
+                        rBtnAvDice.type = 'button';
+                        rBtnAvDice.className = 'dy-cmt-inline-dice interactive-elem';
+                        rBtnAvDice.style.marginLeft = '0';
+                        rBtnAvDice.textContent = '🎲';
+                        rBtnAvDice.title = '点击随机切换此条回复的头像';
+                        rBtnAvDice.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.randomizeReplyAvatar(idx, rIdx);
+                        });
+                        rUserRow.appendChild(rBtnAvDice);
+
+                        // 2. 回复名字 + 名字旁专属筛子 🎲
                         const rUserSpan = document.createElement('span');
                         rUserSpan.className = 'dy-cmt-reply-user interactive-elem';
                         rUserSpan.contentEditable = 'true';
                         rUserSpan.spellcheck = false;
+                        rUserSpan.title = '点击直接编辑回复名字';
                         rUserSpan.textContent = rep.isAuthor ? (rep.user || this.getAuthorNameStage()) : (rep.user || '用戶');
                         rUserSpan.addEventListener('input', () => {
                             rep.user = rUserSpan.textContent.trim();
@@ -1976,6 +2195,17 @@ window.switchRightTab = function (mode) {
                             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                         });
                         rUserRow.appendChild(rUserSpan);
+
+                        const rBtnNickDice = document.createElement('button');
+                        rBtnNickDice.type = 'button';
+                        rBtnNickDice.className = 'dy-cmt-inline-dice interactive-elem';
+                        rBtnNickDice.textContent = '🎲';
+                        rBtnNickDice.title = '点击随机切换此条回复的名字';
+                        rBtnNickDice.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.randomizeReplyNickname(idx, rIdx);
+                        });
+                        rUserRow.appendChild(rBtnNickDice);
 
                         if (rep.isAuthor) {
                             const authorBadge = document.createElement('span');
@@ -1991,10 +2221,25 @@ window.switchRightTab = function (mode) {
                             rUserRow.appendChild(toTag);
                         }
 
+                        const rRightTools = document.createElement('div');
+                        rRightTools.className = 'dy-cmt-stage-QuickTools';
+                        rRightTools.style.marginLeft = 'auto';
+
+                        const rBtnRandAll = document.createElement('button');
+                        rBtnRandAll.type = 'button';
+                        rBtnRandAll.className = 'dy-cmt-qbtn interactive-elem';
+                        rBtnRandAll.style.cssText = 'padding:0 4px; font-size:9px;';
+                        rBtnRandAll.textContent = '🎲全換';
+                        rBtnRandAll.title = '一键随机切换此条回复的头像、名字、日期、IP与点赞';
+                        rBtnRandAll.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.randomizeReplyAll(idx, rIdx);
+                        });
+
                         const rDelBtn = document.createElement('button');
                         rDelBtn.type = 'button';
                         rDelBtn.className = 'dy-cmt-qbtn interactive-elem';
-                        rDelBtn.style.cssText = 'margin-left:auto; padding:0 4px; font-size:9px;';
+                        rDelBtn.style.cssText = 'padding:0 4px; font-size:9px;';
                         rDelBtn.textContent = '✕';
                         rDelBtn.title = '删除此条回复';
                         rDelBtn.addEventListener('click', (e) => {
@@ -2004,7 +2249,9 @@ window.switchRightTab = function (mode) {
                             this.renderEditor();
                             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                         });
-                        rUserRow.appendChild(rDelBtn);
+                        rRightTools.appendChild(rBtnRandAll);
+                        rRightTools.appendChild(rDelBtn);
+                        rUserRow.appendChild(rRightTools);
                         rBody.appendChild(rUserRow);
 
                         if (rep.text || !rep.image) {
@@ -2050,16 +2297,68 @@ window.switchRightTab = function (mode) {
                         const rMetaLeft = document.createElement('div');
                         rMetaLeft.className = 'dy-cmt-reply-meta-left';
 
+                        const parsedRepDL = splitDateLoc(rep.dateLoc || '剛剛 · 台灣');
+
+                        // 3. 回复日期 + 日期旁专属筛子 🎲
                         const rDateSpan = document.createElement('span');
                         rDateSpan.className = 'dy-cmt-date-loc interactive-elem';
                         rDateSpan.contentEditable = 'true';
                         rDateSpan.spellcheck = false;
-                        rDateSpan.textContent = rep.dateLoc || '剛剛 · 台灣';
+                        rDateSpan.title = '点击直接编辑回复日期';
+                        rDateSpan.textContent = parsedRepDL.datePart;
                         rDateSpan.addEventListener('input', () => {
-                            rep.dateLoc = rDateSpan.textContent.trim();
+                            const curIp = splitDateLoc(rep.dateLoc).ipPart;
+                            rep.dateLoc = joinDateLoc(rDateSpan.textContent.trim(), curIp);
+                            this.renderEditor();
                             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                         });
+
+                        const rBtnDateDice = document.createElement('button');
+                        rBtnDateDice.type = 'button';
+                        rBtnDateDice.className = 'dy-cmt-inline-dice interactive-elem';
+                        rBtnDateDice.textContent = '🎲';
+                        rBtnDateDice.title = '点击随机切换回复日期时间';
+                        rBtnDateDice.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.randomizeReplyTimeOnly(idx, rIdx);
+                        });
+
                         rMetaLeft.appendChild(rDateSpan);
+                        rMetaLeft.appendChild(rBtnDateDice);
+
+                        // 4. 回复 IP 地址 + IP 旁专属筛子 🎲
+                        if (parsedRepDL.ipPart || this.ipRegion !== 'none') {
+                            const rDotSpan = document.createElement('span');
+                            rDotSpan.className = 'dy-cmt-date-loc';
+                            rDotSpan.textContent = ' · ';
+                            rMetaLeft.appendChild(rDotSpan);
+
+                            const rIpSpan = document.createElement('span');
+                            rIpSpan.className = 'dy-cmt-date-loc interactive-elem';
+                            rIpSpan.contentEditable = 'true';
+                            rIpSpan.spellcheck = false;
+                            rIpSpan.title = '点击直接编辑回复 IP 地址';
+                            rIpSpan.textContent = parsedRepDL.ipPart || '台灣';
+                            rIpSpan.addEventListener('input', () => {
+                                const curDate = splitDateLoc(rep.dateLoc).datePart;
+                                rep.dateLoc = joinDateLoc(curDate, rIpSpan.textContent.trim());
+                                this.renderEditor();
+                                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                            });
+
+                            const rBtnIpDice = document.createElement('button');
+                            rBtnIpDice.type = 'button';
+                            rBtnIpDice.className = 'dy-cmt-inline-dice interactive-elem';
+                            rBtnIpDice.textContent = '🎲';
+                            rBtnIpDice.title = '点击随机切换回复 IP 地址';
+                            rBtnIpDice.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                this.randomizeReplyIpOnly(idx, rIdx);
+                            });
+
+                            rMetaLeft.appendChild(rIpSpan);
+                            rMetaLeft.appendChild(rBtnIpDice);
+                        }
 
                         if (this.allowReply) {
                             const rReplyBtn = document.createElement('span');
@@ -2074,6 +2373,10 @@ window.switchRightTab = function (mode) {
                         }
                         rMetaRow.appendChild(rMetaLeft);
 
+                        // 5. 回复点赞数量 + 点赞旁专属筛子 🎲
+                        const rLikeWrap = document.createElement('div');
+                        rLikeWrap.style.cssText = 'display:inline-flex; align-items:center; gap:2px;';
+
                         const rLikeBtn = document.createElement('div');
                         rLikeBtn.className = 'dy-cmt-reply-like-btn interactive-elem' + (rep.liked ? ' liked' : '');
                         rLikeBtn.innerHTML = `<svg width="11.5" height="11.5" viewBox="0 0 24 24" fill="${rep.liked ? '#fe2c55' : 'none'}" stroke="${rep.liked ? '#fe2c55' : '#8a8b91'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`;
@@ -2081,10 +2384,12 @@ window.switchRightTab = function (mode) {
                         rLikeNum.className = 'dy-cmt-like-num interactive-elem';
                         rLikeNum.contentEditable = 'true';
                         rLikeNum.spellcheck = false;
+                        rLikeNum.title = '点击数字直接修改回复点赞数';
                         rLikeNum.textContent = typeof window.toStageTrad === 'function' ? window.toStageTrad(rep.likes || '1') : (rep.likes || '1');
                         rLikeNum.addEventListener('click', (e) => e.stopPropagation());
                         rLikeNum.addEventListener('input', () => {
                             rep.likes = rLikeNum.textContent.trim();
+                            this.renderEditor();
                             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                         });
                         rLikeBtn.addEventListener('click', () => {
@@ -2098,7 +2403,20 @@ window.switchRightTab = function (mode) {
                             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                         });
                         rLikeBtn.appendChild(rLikeNum);
-                        rMetaRow.appendChild(rLikeBtn);
+
+                        const rBtnLikeDice = document.createElement('button');
+                        rBtnLikeDice.type = 'button';
+                        rBtnLikeDice.className = 'dy-cmt-inline-dice interactive-elem';
+                        rBtnLikeDice.textContent = '🎲';
+                        rBtnLikeDice.title = '点击随机切换此条回复的点赞数量';
+                        rBtnLikeDice.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            this.randomizeReplyLikes(idx, rIdx);
+                        });
+
+                        rLikeWrap.appendChild(rLikeBtn);
+                        rLikeWrap.appendChild(rBtnLikeDice);
+                        rMetaRow.appendChild(rLikeWrap);
 
                         rBody.appendChild(rMetaRow);
                         repRow.appendChild(rBody);
@@ -2120,13 +2438,16 @@ window.switchRightTab = function (mode) {
             const card = cards[idx];
             const item = this.list[idx];
             if (!card || !item) return;
+            const parsedDL = splitDateLoc(item.dateLoc);
             const inUser = card.querySelector('.ed-in-user');
-            const inDate = card.querySelector('.ed-in-date');
+            const inDateOnly = card.querySelector('.ed-in-date-only');
+            const inIpOnly = card.querySelector('.ed-in-ip-only');
             const inLikes = card.querySelector('.ed-in-likes');
             const inText = card.querySelector('.ed-in-text');
             const inAvUrl = card.querySelector('.ed-in-avatar-url');
             if (inUser && document.activeElement !== inUser) inUser.value = item.user || '';
-            if (inDate && document.activeElement !== inDate) inDate.value = item.dateLoc || '';
+            if (inDateOnly && document.activeElement !== inDateOnly) inDateOnly.value = parsedDL.datePart || '';
+            if (inIpOnly && document.activeElement !== inIpOnly) inIpOnly.value = parsedDL.ipPart || '';
             if (inLikes && document.activeElement !== inLikes) inLikes.value = item.likes || '';
             if (inText && document.activeElement !== inText) inText.value = item.text || '';
             if (inAvUrl && document.activeElement !== inAvUrl) {
@@ -2210,34 +2531,9 @@ window.switchRightTab = function (mode) {
                 btnRandNick.type = 'button';
                 btnRandNick.className = 'dy-cmt-ed-btn';
                 btnRandNick.textContent = '🎲';
-                btnRandNick.title = '随机换昵称';
+                btnRandNick.title = '随机换名字';
                 btnRandNick.addEventListener('click', () => {
                     this.randomizeSingleNickname(idx);
-                });
-
-                const inDate = document.createElement('input');
-                inDate.type = 'text';
-                inDate.className = 'dy-cmt-ed-inp ed-in-date';
-                inDate.style.width = '72px';
-                inDate.placeholder = '时间·IP';
-                inDate.value = item.dateLoc || '';
-                inDate.addEventListener('input', (e) => {
-                    item.dateLoc = e.target.value;
-                    this.renderStage();
-                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-                });
-
-                const inLikes = document.createElement('input');
-                inLikes.type = 'text';
-                inLikes.className = 'dy-cmt-ed-inp ed-in-likes';
-                inLikes.style.width = '44px';
-                inLikes.placeholder = '赞数';
-                const simpLikes = typeof window.toEditorSimp === 'function' ? window.toEditorSimp(item.likes || '') : (item.likes || '');
-                inLikes.value = simpLikes;
-                inLikes.addEventListener('input', (e) => {
-                    item.likes = typeof window.toStageTrad === 'function' ? window.toStageTrad(e.target.value) : e.target.value;
-                    this.renderStage();
-                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                 });
 
                 const btnDel = document.createElement('button');
@@ -2258,9 +2554,85 @@ window.switchRightTab = function (mode) {
                 topRow.appendChild(btnMaleAv);
                 topRow.appendChild(inUser);
                 topRow.appendChild(btnRandNick);
-                topRow.appendChild(inDate);
-                topRow.appendChild(inLikes);
                 topRow.appendChild(btnDel);
+
+                // 第二行：日期 + 🎲、IP地址 + 🎲、点赞数 + 🎲
+                const metaEditRow = document.createElement('div');
+                metaEditRow.style.cssText = 'display:flex; align-items:center; gap:4px;';
+                const parsedDL = splitDateLoc(item.dateLoc);
+
+                const inDateOnly = document.createElement('input');
+                inDateOnly.type = 'text';
+                inDateOnly.className = 'dy-cmt-ed-inp ed-in-date-only';
+                inDateOnly.style.width = '64px';
+                inDateOnly.placeholder = '日期时间';
+                inDateOnly.value = parsedDL.datePart || '';
+                inDateOnly.addEventListener('input', (e) => {
+                    const curIp = splitDateLoc(item.dateLoc).ipPart;
+                    item.dateLoc = joinDateLoc(e.target.value, curIp);
+                    this.renderStage();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const btnRandDateOnly = document.createElement('button');
+                btnRandDateOnly.type = 'button';
+                btnRandDateOnly.className = 'dy-cmt-ed-btn';
+                btnRandDateOnly.textContent = '🎲';
+                btnRandDateOnly.title = '随机切换评论日期时间';
+                btnRandDateOnly.addEventListener('click', () => {
+                    this.randomizeSingleTimeOnly(idx);
+                });
+
+                const inIpOnly = document.createElement('input');
+                inIpOnly.type = 'text';
+                inIpOnly.className = 'dy-cmt-ed-inp ed-in-ip-only';
+                inIpOnly.style.width = '54px';
+                inIpOnly.placeholder = 'IP地址';
+                inIpOnly.value = parsedDL.ipPart || '';
+                inIpOnly.addEventListener('input', (e) => {
+                    const curDate = splitDateLoc(item.dateLoc).datePart;
+                    item.dateLoc = joinDateLoc(curDate, e.target.value);
+                    this.renderStage();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const btnRandIpOnly = document.createElement('button');
+                btnRandIpOnly.type = 'button';
+                btnRandIpOnly.className = 'dy-cmt-ed-btn';
+                btnRandIpOnly.textContent = '🎲';
+                btnRandIpOnly.title = '随机切换评论 IP 地址';
+                btnRandIpOnly.addEventListener('click', () => {
+                    this.randomizeSingleIpOnly(idx);
+                });
+
+                const inLikes = document.createElement('input');
+                inLikes.type = 'text';
+                inLikes.className = 'dy-cmt-ed-inp ed-in-likes';
+                inLikes.style.width = '48px';
+                inLikes.placeholder = '点赞数';
+                const simpLikes = typeof window.toEditorSimp === 'function' ? window.toEditorSimp(item.likes || '') : (item.likes || '');
+                inLikes.value = simpLikes;
+                inLikes.addEventListener('input', (e) => {
+                    item.likes = typeof window.toStageTrad === 'function' ? window.toStageTrad(e.target.value) : e.target.value;
+                    this.renderStage();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                });
+
+                const btnRandLikes = document.createElement('button');
+                btnRandLikes.type = 'button';
+                btnRandLikes.className = 'dy-cmt-ed-btn';
+                btnRandLikes.textContent = '🎲';
+                btnRandLikes.title = '随机切换评论点赞数量';
+                btnRandLikes.addEventListener('click', () => {
+                    this.randomizeSingleLikes(idx);
+                });
+
+                metaEditRow.appendChild(inDateOnly);
+                metaEditRow.appendChild(btnRandDateOnly);
+                metaEditRow.appendChild(inIpOnly);
+                metaEditRow.appendChild(btnRandIpOnly);
+                metaEditRow.appendChild(inLikes);
+                metaEditRow.appendChild(btnRandLikes);
 
                 // 手动指定单条评论头像 URL 行
                 const urlRow = document.createElement('div');
@@ -2363,10 +2735,11 @@ window.switchRightTab = function (mode) {
                 }
 
                 card.appendChild(topRow);
+                card.appendChild(metaEditRow);
                 card.appendChild(urlRow);
                 card.appendChild(botRow);
 
-                // 二级回复后台管理列表
+                // ★ 二级回复后台管理列表：支持头像+🎲、名字+🎲、日期+🎲、IP地址+🎲、点赞数量+🎲
                 if (item.replies.length > 0) {
                     const repWrap = document.createElement('div');
                     repWrap.className = 'dy-cmt-ed-replies-wrap';
@@ -2374,7 +2747,9 @@ window.switchRightTab = function (mode) {
                     item.replies.forEach((rep, rIdx) => {
                         const rRow = document.createElement('div');
                         rRow.className = 'dy-cmt-ed-reply-row';
+                        rRow.style.cssText = 'display:flex; flex-direction:column; gap:4px; padding:5px; background:rgba(15,23,42,0.55); border-radius:6px; border:1px solid rgba(51,65,85,0.45);';
 
+                        // 第 1 行：身份切换 + 头像 + 头像🎲 + 女/男 + 名字输入框 + 名字🎲 + 删除
                         const rTop = document.createElement('div');
                         rTop.style.cssText = 'display:flex; align-items:center; gap:4px;';
 
@@ -2391,22 +2766,184 @@ window.switchRightTab = function (mode) {
                             if (rep.isAuthor) {
                                 rep.user = this.getAuthorNameStage();
                                 rep.avatar = this.getAuthorAvatarSrc();
+                                rep.isCustomAvatar = false;
                             }
                             this.renderStage();
                             this.renderEditor();
                             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                         });
 
+                        const rAvImg = document.createElement('img');
+                        rAvImg.className = 'dy-cmt-ed-avatar';
+                        rAvImg.style.cssText = 'width:20px; height:20px; border-radius:50%; object-fit:cover; cursor:pointer; flex-shrink:0;';
+                        rAvImg.crossOrigin = 'anonymous';
+                        const fallbackAuthorAv = rep.isAuthor ? this.getAuthorAvatarSrc() : '';
+                        rAvImg.src = (rep.isAuthor && !rep.isCustomAvatar) ? fallbackAuthorAv : (rep.avatar || makeFallbackAvatarSvg(rep.id, rep.user));
+                        rAvImg.title = '点击上传此条回复的本地头像';
+                        rAvImg.onerror = () => {
+                            const fb = makeFallbackAvatarSvg(rep.id + '_' + rIdx, rep.user);
+                            if (rAvImg.src !== fb) rAvImg.src = fb;
+                        };
+                        rAvImg.addEventListener('click', () => {
+                            this.activeUploadIdx = idx;
+                            this.activeUploadReplyIdx = rIdx;
+                            const fileInp = document.getElementById('dy-cmt-avatar-file');
+                            if (fileInp) {
+                                fileInp.value = '';
+                                fileInp.click();
+                            }
+                        });
+
+                        const rBtnRandAv = document.createElement('button');
+                        rBtnRandAv.type = 'button';
+                        rBtnRandAv.className = 'dy-cmt-ed-btn';
+                        rBtnRandAv.textContent = '🎲';
+                        rBtnRandAv.title = '随机切换此条回复的头像';
+                        rBtnRandAv.addEventListener('click', () => {
+                            this.randomizeReplyAvatar(idx, rIdx);
+                        });
+
+                        const rBtnFemaleAv = document.createElement('button');
+                        rBtnFemaleAv.type = 'button';
+                        rBtnFemaleAv.className = 'dy-cmt-ed-btn';
+                        rBtnFemaleAv.textContent = '女';
+                        rBtnFemaleAv.title = '换成中国女生头像';
+                        rBtnFemaleAv.addEventListener('click', () => {
+                            this.randomizeReplyAvatar(idx, rIdx, 'cn-female');
+                        });
+
+                        const rBtnMaleAv = document.createElement('button');
+                        rBtnMaleAv.type = 'button';
+                        rBtnMaleAv.className = 'dy-cmt-ed-btn';
+                        rBtnMaleAv.textContent = '男';
+                        rBtnMaleAv.title = '换成中国男生头像';
+                        rBtnMaleAv.addEventListener('click', () => {
+                            this.randomizeReplyAvatar(idx, rIdx, 'cn-male');
+                        });
+
                         const rUserInp = document.createElement('input');
                         rUserInp.type = 'text';
                         rUserInp.className = 'dy-cmt-ed-inp';
-                        rUserInp.style.width = '72px';
+                        rUserInp.style.flex = '1';
+                        rUserInp.style.minWidth = '52px';
+                        rUserInp.placeholder = '回复名字';
                         rUserInp.value = rep.user || '';
                         rUserInp.addEventListener('input', (e) => {
                             rep.user = e.target.value;
                             this.renderStage();
                             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                         });
+
+                        const rBtnRandNick = document.createElement('button');
+                        rBtnRandNick.type = 'button';
+                        rBtnRandNick.className = 'dy-cmt-ed-btn';
+                        rBtnRandNick.textContent = '🎲';
+                        rBtnRandNick.title = '随机切换回复名字';
+                        rBtnRandNick.addEventListener('click', () => {
+                            this.randomizeReplyNickname(idx, rIdx);
+                        });
+
+                        const rDelBtn = document.createElement('button');
+                        rDelBtn.type = 'button';
+                        rDelBtn.className = 'sub-cue-del';
+                        rDelBtn.textContent = '✕';
+                        rDelBtn.title = '删除此条回复';
+                        rDelBtn.addEventListener('click', () => {
+                            item.replies.splice(rIdx, 1);
+                            this.renderStage();
+                            this.renderEditor();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+
+                        rTop.appendChild(rRoleBtn);
+                        rTop.appendChild(rAvImg);
+                        rTop.appendChild(rBtnRandAv);
+                        rTop.appendChild(rBtnFemaleAv);
+                        rTop.appendChild(rBtnMaleAv);
+                        rTop.appendChild(rUserInp);
+                        rTop.appendChild(rBtnRandNick);
+                        rTop.appendChild(rDelBtn);
+
+                        // 第 2 行：回复日期 + 🎲、回复 IP 地址 + 🎲、回复点赞数量 + 🎲
+                        const rMeta = document.createElement('div');
+                        rMeta.style.cssText = 'display:flex; align-items:center; gap:4px;';
+                        const parsedRepDL = splitDateLoc(rep.dateLoc);
+
+                        const rDateInp = document.createElement('input');
+                        rDateInp.type = 'text';
+                        rDateInp.className = 'dy-cmt-ed-inp';
+                        rDateInp.style.width = '62px';
+                        rDateInp.placeholder = '日期时间';
+                        rDateInp.value = parsedRepDL.datePart || '';
+                        rDateInp.addEventListener('input', (e) => {
+                            const curIp = splitDateLoc(rep.dateLoc).ipPart;
+                            rep.dateLoc = joinDateLoc(e.target.value, curIp);
+                            this.renderStage();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+
+                        const rBtnRandDate = document.createElement('button');
+                        rBtnRandDate.type = 'button';
+                        rBtnRandDate.className = 'dy-cmt-ed-btn';
+                        rBtnRandDate.textContent = '🎲';
+                        rBtnRandDate.title = '随机切换此条回复的日期时间';
+                        rBtnRandDate.addEventListener('click', () => {
+                            this.randomizeReplyTimeOnly(idx, rIdx);
+                        });
+
+                        const rIpInp = document.createElement('input');
+                        rIpInp.type = 'text';
+                        rIpInp.className = 'dy-cmt-ed-inp';
+                        rIpInp.style.width = '52px';
+                        rIpInp.placeholder = 'IP地址';
+                        rIpInp.value = parsedRepDL.ipPart || '';
+                        rIpInp.addEventListener('input', (e) => {
+                            const curDate = splitDateLoc(rep.dateLoc).datePart;
+                            rep.dateLoc = joinDateLoc(curDate, e.target.value);
+                            this.renderStage();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+
+                        const rBtnRandIp = document.createElement('button');
+                        rBtnRandIp.type = 'button';
+                        rBtnRandIp.className = 'dy-cmt-ed-btn';
+                        rBtnRandIp.textContent = '🎲';
+                        rBtnRandIp.title = '随机切换此条回复的 IP 地址';
+                        rBtnRandIp.addEventListener('click', () => {
+                            this.randomizeReplyIpOnly(idx, rIdx);
+                        });
+
+                        const rLikesInp = document.createElement('input');
+                        rLikesInp.type = 'text';
+                        rLikesInp.className = 'dy-cmt-ed-inp';
+                        rLikesInp.style.width = '46px';
+                        rLikesInp.placeholder = '点赞数';
+                        rLikesInp.value = typeof window.toEditorSimp === 'function' ? window.toEditorSimp(rep.likes || '1') : (rep.likes || '1');
+                        rLikesInp.addEventListener('input', (e) => {
+                            rep.likes = typeof window.toStageTrad === 'function' ? window.toStageTrad(e.target.value) : e.target.value;
+                            this.renderStage();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+
+                        const rBtnRandLikes = document.createElement('button');
+                        rBtnRandLikes.type = 'button';
+                        rBtnRandLikes.className = 'dy-cmt-ed-btn';
+                        rBtnRandLikes.textContent = '🎲';
+                        rBtnRandLikes.title = '随机切换此条回复的点赞数量';
+                        rBtnRandLikes.addEventListener('click', () => {
+                            this.randomizeReplyLikes(idx, rIdx);
+                        });
+
+                        rMeta.appendChild(rDateInp);
+                        rMeta.appendChild(rBtnRandDate);
+                        rMeta.appendChild(rIpInp);
+                        rMeta.appendChild(rBtnRandIp);
+                        rMeta.appendChild(rLikesInp);
+                        rMeta.appendChild(rBtnRandLikes);
+
+                        // 第 3 行：回复文字内容 + 配图按钮
+                        const rBot = document.createElement('div');
+                        rBot.style.cssText = 'display:flex; align-items:center; gap:4px;';
 
                         const rTxtInp = document.createElement('input');
                         rTxtInp.type = 'text';
@@ -2423,7 +2960,7 @@ window.switchRightTab = function (mode) {
                         const rImgBtn = document.createElement('button');
                         rImgBtn.type = 'button';
                         rImgBtn.className = 'dy-cmt-ed-btn';
-                        rImgBtn.textContent = rep.image ? '🖼️换' : '🖼️图';
+                        rImgBtn.textContent = rep.image ? '🖼️换图' : '🖼️配图';
                         rImgBtn.title = '为此条二级回复上传或更换图片';
                         rImgBtn.addEventListener('click', () => {
                             if (!this.allowImage) {
@@ -2439,23 +2976,12 @@ window.switchRightTab = function (mode) {
                             }
                         });
 
-                        const rDelBtn = document.createElement('button');
-                        rDelBtn.type = 'button';
-                        rDelBtn.className = 'sub-cue-del';
-                        rDelBtn.textContent = '✕';
-                        rDelBtn.addEventListener('click', () => {
-                            item.replies.splice(rIdx, 1);
-                            this.renderStage();
-                            this.renderEditor();
-                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-                        });
+                        rBot.appendChild(rTxtInp);
+                        rBot.appendChild(rImgBtn);
 
-                        rTop.appendChild(rRoleBtn);
-                        rTop.appendChild(rUserInp);
-                        rTop.appendChild(rTxtInp);
-                        rTop.appendChild(rImgBtn);
-                        rTop.appendChild(rDelBtn);
                         rRow.appendChild(rTop);
+                        rRow.appendChild(rMeta);
+                        rRow.appendChild(rBot);
                         repWrap.appendChild(rRow);
                     });
 
@@ -2827,7 +3353,7 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // 上传自定义评论头像处理
+    // 上传自定义评论/回复头像处理
     const dyCmtAvatarFile = document.getElementById('dy-cmt-avatar-file');
     if (dyCmtAvatarFile) {
         dyCmtAvatarFile.addEventListener('change', (e) => {
@@ -2836,13 +3362,21 @@ window.switchRightTab = function (mode) {
             const reader = new FileReader();
             reader.onload = (evt) => {
                 const idx = CommentEngine.activeUploadIdx;
+                const repIdx = CommentEngine.activeUploadReplyIdx;
                 if (CommentEngine.list[idx]) {
-                    CommentEngine.list[idx].avatar = evt.target.result;
-                    CommentEngine.list[idx].isCustomAvatar = true;
+                    if (repIdx >= 0 && Array.isArray(CommentEngine.list[idx].replies) && CommentEngine.list[idx].replies[repIdx]) {
+                        CommentEngine.list[idx].replies[repIdx].avatar = evt.target.result;
+                        CommentEngine.list[idx].replies[repIdx].isCustomAvatar = true;
+                        window.showToast('回复头像已更换');
+                    } else {
+                        CommentEngine.list[idx].avatar = evt.target.result;
+                        CommentEngine.list[idx].isCustomAvatar = true;
+                        window.showToast('评论头像已更换');
+                    }
+                    CommentEngine.activeUploadReplyIdx = -1;
                     CommentEngine.renderStage();
                     CommentEngine.renderEditor();
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-                    window.showToast('评论头像已更换');
                 }
             };
             reader.readAsDataURL(file);
