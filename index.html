@@ -7,6 +7,7 @@
     <!-- 浏览器标签页图标 (上传到 GitHub Pages 后不再显示地球图标) -->
     <link rel="icon" href="favicon.png" type="image/png">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
     <link rel="stylesheet" href="style.css">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
@@ -743,7 +744,7 @@
                             <div class="laya-tab-item interactive-elem"><span class="laya-tab-icon">🎮</span><span>娛樂</span></div>
                             <div class="laya-tab-item interactive-elem" style="position: relative;">
                                 <span class="laya-tab-icon">💬</span><span>消息</span>
-                                <span class="laya-msg-badge">27</span>
+                                <span class="laya-msg-badge" id="laya-disp-msg-badge">27</span>
                             </div>
                             <div class="laya-tab-item interactive-elem"><span class="laya-tab-icon">👤</span><span>我的</span></div>
                         </div>
@@ -786,6 +787,7 @@
                                     <img class="laya-app-tab-icon icon-inactive" data-laya-asset="tab_4-4" alt="消息">
                                 </div>
                                 <span class="laya-app-tab-label">消息</span>
+                                <span class="laya-app-msg-badge" id="laya-app-disp-msg-badge">99+</span>
                             </div>
                             <div class="laya-app-tab-item interactive-elem" title="點擊切換亮起：我的">
                                 <div class="laya-app-tab-icon-wrap">
@@ -849,12 +851,54 @@
                         <div class="dy-cmt-list-inner" id="dy-cmt-list-inner"></div>
                     </div>
 
+                    <!-- 弹出式回复输入框 (点击某条评论的"回覆"弹出，支持作者回复/普通用户跟评、纯文字/纯图片/文字+图片) -->
+                    <div class="dy-cmt-reply-modal" id="dy-cmt-reply-modal" style="display: none;">
+                        <div class="dy-cmt-reply-modal-head">
+                            <div class="dy-cmt-reply-target-info">
+                                <span id="dy-cmt-reply-target-label">回覆 @用戶：</span>
+                                <span class="dy-cmt-reply-char-hint" id="dy-cmt-reply-char-hint">0/100</span>
+                            </div>
+                            <div class="dy-cmt-reply-role-switch">
+                                <button type="button" class="dy-reply-role-btn active interactive-elem" id="dy-reply-role-user" data-role="user" title="以普通用户身份跟评">👤 用戶跟評</button>
+                                <button type="button" class="dy-reply-role-btn interactive-elem" id="dy-reply-role-author" data-role="author" title="以视频作者身份回复">👑 作者回覆</button>
+                                <button type="button" class="dy-reply-close-btn interactive-elem" id="dy-reply-modal-cancel" title="取消回复">✕</button>
+                            </div>
+                        </div>
+                        <div class="dy-cmt-reply-img-preview-wrap" id="dy-cmt-reply-img-preview-wrap" style="display: none;">
+                            <div class="dy-cmt-reply-img-thumb-box">
+                                <img id="dy-cmt-reply-img-preview" src="" alt="預覽圖">
+                                <button type="button" class="dy-cmt-reply-img-remove interactive-elem" id="dy-cmt-reply-img-remove" title="移除图片">✕</button>
+                            </div>
+                            <span class="dy-cmt-reply-img-tip">已附加圖片（可直接發純圖片，或配文字一起發）</span>
+                        </div>
+                        <div class="dy-cmt-reply-input-row">
+                            <input type="text" class="dy-cmt-reply-input interactive-elem" id="dy-cmt-reply-input" placeholder="輸入回覆內容（支持純文字、純圖片、文字+圖片）...">
+                            <button type="button" class="dy-cmt-reply-Upload-btn interactive-elem" id="dy-cmt-reply-btn-img" title="添加回复图片/表情包">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <rect x="3" y="3" width="18" height="18" rx="3" ry="3"></rect>
+                                    <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                                    <polyline points="21 15 16 10 5 21"></polyline>
+                                </svg>
+                            </button>
+                            <button type="button" class="dy-cmt-reply-submit-btn interactive-elem" id="dy-cmt-reply-submit">確定</button>
+                        </div>
+                    </div>
+
+                    <!-- 底部主评论待发图片预览条 (支持主评论文字+图片一起发) -->
+                    <div class="dy-cmt-stage-img-bar" id="dy-cmt-stage-img-bar" style="display: none;">
+                        <div class="dy-cmt-reply-img-thumb-box">
+                            <img id="dy-cmt-stage-img-preview" src="" alt="待發圖片">
+                            <button type="button" class="dy-cmt-reply-img-remove interactive-elem" id="dy-cmt-stage-img-remove" title="移除图片">✕</button>
+                        </div>
+                        <span class="dy-cmt-reply-img-tip">待發圖片（按確定或回車可純圖/圖文一起發）</span>
+                    </div>
+
                     <!-- 底部固定评论发送栏 (支持直接输入文字回车发送、点击图片图标上传照片/表情包) -->
                     <div class="dy-cmt-bottom-bar">
                         <div class="dy-cmt-input-pill">
-                            <input type="text" class="dy-cmt-stage-input interactive-elem" id="dy-cmt-stage-input" placeholder="期待你的評論" title="输入内容按回车直接发布新评论">
+                            <input type="text" class="dy-cmt-stage-input interactive-elem" id="dy-cmt-stage-input" placeholder="期待你的評論" title="输入内容按回车或点确定直接发布评论">
                             <div class="dy-cmt-input-icons">
-                                <button type="button" class="dy-cmt-icon-btn interactive-elem" id="dy-cmt-btn-send-img" title="点击上传照片/表情包发到评论区">
+                                <button type="button" class="dy-cmt-icon-btn interactive-elem" id="dy-cmt-btn-send-img" title="点击上传照片/表情包（支持纯图或配文字一起发）">
                                     <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
                                         <rect x="3" y="3" width="18" height="18" rx="3" ry="3"></rect>
                                         <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -875,6 +919,7 @@
                                         <line x1="15" y1="9.5" x2="15.01" y2="9.5" stroke-width="2.5"></line>
                                     </svg>
                                 </button>
+                                <button type="button" class="dy-cmt-stage-send-btn interactive-elem" id="dy-cmt-btn-stage-submit" title="发送评论">確定</button>
                             </div>
                         </div>
                     </div>
@@ -882,6 +927,7 @@
                     <!-- 隐藏文件选择器：供点击画面评论头像更换头像、或点击上传评论照片/表情包 -->
                     <input type="file" id="dy-cmt-avatar-file" accept="image/*" style="display:none;">
                     <input type="file" id="dy-cmt-photo-file" accept="image/*" style="display:none;">
+                    <input type="file" id="dy-cmt-reply-photo-file" accept="image/*" style="display:none;">
                 </div>
 
                 <!-- 专属：竖屏点击全屏观看后的横屏界面 (mode-dy-land) -->
@@ -2228,12 +2274,21 @@
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-random-viral-metrics" title="按上传视频时长规律 (5000~100万) 重新随机生成点赞、评论、收藏、分享与在看人数">🎲 按时长规律随机</button>
                 </div>
                 <div class="form-row">
-                    <label>作者静态头像 (点画面头像或下方按钮可直接联网随机换头像)</label>
-                    <div style="display: flex; gap: 6px;">
+                    <label>作者真实中国风头像 (支持切换男/女/随机更换，或手动填指定头像URL)</label>
+                    <div style="display: flex; gap: 6px; margin-bottom: 6px;">
+                        <select id="sel-author-avatar-gender" style="width: 126px; flex-shrink: 0;" title="选择作者头像性别偏好">
+                            <option value="cn-mixed" selected>🇨🇳 男女随机</option>
+                            <option value="cn-female">👩 中国女生</option>
+                            <option value="cn-male">👦 中国男生</option>
+                        </select>
                         <input type="file" id="dy-avatar-uploader" accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" id="btn-random-author-avatar" title="点击从在线头像接口随机切换头像">🎲 随机换头像</button>
-                        <button type="button" class="btn btn-secondary btn-sm" style="flex: 1;" onclick="document.getElementById('dy-avatar-uploader').click()">📁 上传头像</button>
-                        <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-avatar">恢复官方图</button>
+                        <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" id="btn-random-author-avatar" title="点击从真实中国风图库随机切换头像">🎲 随机换头像</button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('dy-avatar-uploader').click()">📁 上传</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-avatar" title="恢复官方默认头像">恢复</button>
+                    </div>
+                    <div style="display: flex; gap: 6px;">
+                        <input type="text" id="in-dy-avatar-url" placeholder="粘贴或输入指定头像图片 URL (支持 http/https/data:image)" style="flex: 1; font-size: 11px;">
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-apply-author-avatar-url" style="flex-shrink: 0;">应用URL</button>
                     </div>
                 </div>
                 <div class="form-grid-2">
@@ -2274,8 +2329,17 @@
                     </div>
                 </div>
                 <div class="form-row">
-                    <label>未读消息数量 (留空则隐藏)</label>
-                    <input type="text" id="in-dy-msg-count" value="1">
+                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                        <label style="margin-bottom: 0;">🔴 底部消息角标 (超过99自动显示 "99+"，可开关显隐)</label>
+                        <label class="ios-toggle" title="开关底部消息角标显隐">
+                            <input type="checkbox" id="sw-dy-msg-badge" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="input-with-dice">
+                        <input type="text" id="in-dy-msg-count" value="99+" placeholder="输入数字或 99+ (超过99自动显示 99+)">
+                        <button type="button" class="btn-inline-dice" id="btn-random-dy-msg-count" title="点击随机切换消息角标数字 (含 99+ 样式)">🎲</button>
+                    </div>
                 </div>
                 <div class="form-row">
                     <label>作品文案说明 (右侧简体编辑，左侧画面自动显示繁体)</label>
@@ -2350,16 +2414,56 @@
                 </div>
 
                 <div class="form-row">
-                    <label>👤 头像风格 (亚洲美女/帅哥为主 + 卡通萌宠趣味头像)</label>
-                    <select id="sel-cmt-avatar-api">
-                        <option value="real-human" selected>🌸 亚洲美女/帅哥为主 + 卡通萌宠搞笑混合 (推荐)</option>
-                        <option value="asian-beauty">👩 纯亚洲美女头像库 (高颜值小姐姐自拍/生活照)</option>
-                        <option value="asian-guy">👦 纯亚洲男生头像库 (清爽帅哥/生活照)</option>
-                        <option value="cn-fun">🐱 国内网友好玩头像 (柴犬猫咪/卡通潮玩/搞笑表情包)</option>
-                        <option value="lorelei">✨ 二次元动漫头像 (动漫少女/少年)</option>
-                        <option value="adventurer">🎭 潮流手绘插画头像 (DiceBear)</option>
-                        <option value="picsum">🌆 氛围感风景/意境头像</option>
-                    </select>
+                    <label>👤 评论区真实中国风头像库 (拒绝欧美脸/假人，支持换男/女/随机及单条改URL)</label>
+                    <div style="display: flex; gap: 6px;">
+                        <select id="sel-cmt-avatar-api" style="flex: 1;">
+                            <option value="cn-mixed" selected>🇨🇳 真实中国风 · 男女混合随机 (推荐)</option>
+                            <option value="cn-female">👩 真实中国风 · 纯女生头像 (自然生活照/自拍)</option>
+                            <option value="cn-male">👦 真实中国风 · 纯男生头像 (清爽阳光生活照)</option>
+                        </select>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-switch-female" title="一键将所有评论换成真实中国女生头像">换女头</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-switch-male" title="一键将所有评论换成真实中国男生头像">换男头</button>
+                    </div>
+                </div>
+
+                <!-- 评论回复与跟评后台控制栏 (CMS 可显隐) -->
+                <div class="form-row" style="background:rgba(15, 23, 42, 0.65); border:1px solid rgba(254, 44, 85, 0.35); border-radius:8px; padding:8px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer;" id="btn-toggle-cmt-reply-cms" title="点击展开/收起回复权限与规则配置">
+                        <span style="font-size:12px; font-weight:700; color:#fda4af;">⚙️ 评论回复与跟评后台控制 (CMS)</span>
+                        <span id="txt-toggle-cmt-reply-cms" style="font-size:11px; color:#94a3b8;">▼ 收起配置</span>
+                    </div>
+                    <div id="cmt-reply-cms-body" style="margin-top:8px; display:flex; flex-direction:column; gap:6px;">
+                        <div class="switch-grid">
+                            <div class="switch-tile">
+                                <span>允许回复评论</span>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="sw-cmt-allow-reply" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="switch-tile">
+                                <span>允许回复发图</span>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="sw-cmt-allow-img" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="switch-tile">
+                                <span>显示跟评回复区</span>
+                                <label class="ios-toggle">
+                                    <input type="checkbox" id="sw-cmt-show-replies" checked>
+                                    <span class="slider-round"></span>
+                                </label>
+                            </div>
+                            <div class="switch-tile" style="display:flex; align-items:center; justify-content:space-between; gap:4px;">
+                                <span>回复字数上限</span>
+                                <input type="number" id="in-cmt-reply-maxlen" value="100" min="5" max="500" style="width:62px; padding:3px 6px; text-align:center; font-size:12px;">
+                            </div>
+                        </div>
+                        <div style="font-size:11px; color:#94a3b8; line-height:1.4;">
+                            💡 提示：点击画面任意评论的「回覆」可直接弹窗发作者回复或用户跟评（支持纯文字、纯图片、文字+图片），二级回复采用小头像+小字号样式。
+                        </div>
+                    </div>
                 </div>
 
                 <div class="form-grid-2">
@@ -2442,6 +2546,37 @@
                         <span id="icon-dm-motion">⏸️</span>
                         <span id="txt-dm-motion">原地定格弹幕 (方便预览/截图)</span>
                     </button>
+                </div>
+
+                <div class="form-row" style="background:rgba(15, 23, 42, 0.6); border:1px solid rgba(93, 173, 226, 0.3); border-radius:7px; padding:7px 9px; font-size:11px; color:#cbd5e1; line-height:1.5;">
+                    <div style="font-weight:700; color:#5dade2; margin-bottom:2px;">🖱️ 画面弹幕鼠标快捷交互：</div>
+                    <div>• <b>鼠标左键拖动</b>：直接在画面上自由拖动弹幕位置</div>
+                    <div>• <b>鼠标滚轮缩放</b>：在弹幕上滚动滚轮直接放大/缩小文字</div>
+                    <div>• <b>鼠标右键点击</b>：在弹幕上按右键循环调节弹幕滚动速度</div>
+                    <div>• <b>默认样式</b>：最基础白字黑边（可在下方轨道单独改色）</div>
+                </div>
+
+                <div class="form-row" style="margin-top: 4px; background:rgba(15, 23, 42, 0.55); border:1px solid rgba(16, 185, 129, 0.3); border-radius:7px; padding:8px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                        <label style="margin-bottom:0; color:#6ee7b7; font-weight:700;">📱 竖屏弹幕显示区域范围 (默认 1/5 ~ 3/5 即 20%~60%)</label>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-dm-port-range" style="padding:2px 6px; font-size:10px;" title="恢复竖屏默认 20% ~ 60% 区域">恢复20%~60%</button>
+                    </div>
+                    <div class="form-grid-2" style="gap:8px;">
+                        <div>
+                            <div class="range-box">
+                                <label style="font-size:11px;">上边界 (距顶部)</label>
+                                <span class="range-value" id="txt-dm-port-min">20%</span>
+                            </div>
+                            <input type="range" id="in-dm-port-min" min="5" max="80" value="20">
+                        </div>
+                        <div>
+                            <div class="range-box">
+                                <label style="font-size:11px;">下边界 (距顶部)</label>
+                                <span class="range-value" id="txt-dm-port-max">60%</span>
+                            </div>
+                            <input type="range" id="in-dm-port-max" min="20" max="90" value="60">
+                        </div>
+                    </div>
                 </div>
 
                 <div class="form-row" style="margin-top: 4px;">

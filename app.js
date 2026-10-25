@@ -836,43 +836,37 @@ window.switchRightTab = function (mode) {
         return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
     }
 
-    // 直连外部网站接口的在线亚洲人像、萌宠与动漫头像库 (支持 CORS 跨域直连与导出)
-    const ONLINE_ASIAN_BEAUTIES = [
-        'https://images.unsplash.com/photo-1526631189662-734f65edd957?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1631947430066-48c30d57b943?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1633307458354-292dd679a763?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1525672716948-1f0bb9c49883?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1502823403499-6ccfcf4fb453?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1519699047748-de8e457a634e?auto=format&fit=crop&w=180&h=180&q=80'
+    // 真实中国风人像头像库（彻底剔除欧美脸、假人与卡通图，采用真实中国人审美的生活照/自拍，支持换男/女/随机及后台指定URL）
+    const CN_REAL_FEMALE_URLS = [
+        'https://images.unsplash.com/photo-1526631189662-734f65edd957?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1631947430066-48c30d57b943?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1633307458354-292dd679a763?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1525672716948-1f0bb9c49883?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1515077678510-ce3bdf418862?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1535295972055-1c762f4483e5?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1524250502761-1ac6f2e30d43?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1548142813-c348350df52b?auto=format&fit=crop&w=200&h=200&q=82'
     ];
-    const ONLINE_ASIAN_GUYS = [
-        'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1501196354995-cbb51c65aaea?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=180&h=180&q=80'
+    const CN_REAL_MALE_URLS = [
+        'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1507081323647-4d250478b919?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1542909168-82c3e7fdca5c?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1534030347209-467a5b0ad3e6?auto=format&fit=crop&w=200&h=200&q=82',
+        'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=200&h=200&q=82'
     ];
-    const ONLINE_FUN_PETS = [
-        'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1583511655857-d19b40a7a54e?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1612536057832-2ff7cc8486ba?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1425082661705-1834bfd09dca?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1529778873920-4da4926a72c2?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1543852786-1cf6624b9987?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1537151608828-ea2b11777ee8?auto=format&fit=crop&w=180&h=180&q=80',
-        'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=180&h=180&q=80'
-    ];
-    const ONLINE_FOREIGN_RARE = [
-        'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=180&h=180&q=80'
-    ];
+
+    function getChineseFemalePool() {
+        const db = window.LAYA_ASIAN_AVATARS || {};
+        // 优先使用内置真实亚洲/中国女生生活照 (Base64 秒开零跨域) + 在线中国女生人像
+        return [...(db.beauties || []), ...CN_REAL_FEMALE_URLS];
+    }
+
+    function getChineseMalePool() {
+        const db = window.LAYA_ASIAN_AVATARS || {};
+        // 优先使用内置真实亚洲/中国男生生活照 (Base64 秒开零跨域) + 在线中国男生人像
+        return [...(db.guys || []), ...CN_REAL_MALE_URLS];
+    }
 
     let __avatarCycleCounter = Math.floor(Math.random() * 100);
 
@@ -885,86 +879,42 @@ window.switchRightTab = function (mode) {
         return activePool[idx];
     }
 
-    // 实时生成在线网站头像接口 URL（DiceBear v7 / RoboHash 喵星人 / Cataas / Unsplash 在线人像与萌宠）
+    // 生成真实中国风头像（支持男/女/男女混合随机，绝不出现欧美脸或卡通假人）
     function buildOnlineAvatarUrl(seed, apiMode, avoidSet = null) {
-        const rawStr = String(seed || Math.random().toString(36).slice(2, 9));
-        const cleanSeed = encodeURIComponent(rawStr);
-        const db = window.LAYA_ASIAN_AVATARS || {};
-        // 优先使用外部在线接口 URL，本地内置头像仅作为兜底补充
-        const beauties = [...ONLINE_ASIAN_BEAUTIES, ...(db.beauties || [])];
-        const guys = [...ONLINE_ASIAN_GUYS, ...(db.guys || [])];
-        const pets = [...ONLINE_FUN_PETS, ...(db.pets || [])];
-        const liveOnlineCartoonUrls = [
-            `https://api.dicebear.com/7.x/lorelei/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`,
-            `https://api.dicebear.com/7.x/adventurer/svg?seed=${cleanSeed}&skinColor=f2d3b1,ecad80&hairColor=0e0e0e,2c1b18,4a312c&backgroundColor=b6e3f4,c0aede,ffd5dc,ffdfbf`,
-            `https://api.dicebear.com/7.x/avataaars/svg?seed=${cleanSeed}&skinColor=f8d25c,ffdbb4,edb98a&hairColor=2c1b18,000000,4a312c&backgroundColor=b6e3f4,c0aede,ffd5dc`,
-            `https://api.dicebear.com/7.x/big-smile/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`,
-            `https://api.dicebear.com/7.x/fun-emoji/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`,
-            `https://robohash.org/${cleanSeed}.png?set=set4&size=160x160`
-        ];
+        const females = getChineseFemalePool();
+        const males = getChineseMalePool();
+        const mode = apiMode || 'cn-mixed';
 
-        const mode = apiMode || 'real-human';
-
-        if (mode === 'asian-beauty') {
-            return pickFromPoolAvoiding(beauties, avoidSet);
+        if (mode === 'cn-female' || mode === 'asian-beauty') {
+            return pickFromPoolAvoiding(females, avoidSet);
         }
-        if (mode === 'asian-guy') {
-            return pickFromPoolAvoiding(guys.length ? guys : beauties, avoidSet);
-        }
-        if (mode === 'live-cat-dog') {
-            // 先返回在线萌宠/喵星人接口图，随后由 fetchLiveOnlineAvatar 异步拉取 TheCatAPI / DogCEO 实时接口照片
-            return Math.random() < 0.55
-                ? pickFromPoolAvoiding(ONLINE_FUN_PETS, avoidSet)
-                : `https://robohash.org/${cleanSeed}.png?set=set4&size=160x160`;
-        }
-        if (mode === 'cn-fun' || mode === 'fun-emoji') {
-            if (Math.random() < 0.65) {
-                return liveOnlineCartoonUrls[Math.floor(Math.random() * liveOnlineCartoonUrls.length)];
-            }
-            return pickFromPoolAvoiding([...ONLINE_FUN_PETS, ...(db.anime || []), ...(db.cartoons || []), ...(db.memes || [])], avoidSet);
-        }
-        if (mode === 'lorelei') {
-            return `https://api.dicebear.com/7.x/lorelei/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
-        }
-        if (mode === 'adventurer' || mode === 'notionists') {
-            return `https://api.dicebear.com/7.x/${mode}/svg?seed=${cleanSeed}&backgroundColor=b6e3f4,c0aede,d1d4f9,ffd5dc,ffdfbf`;
-        }
-        if (mode === 'picsum') {
-            return `https://picsum.photos/seed/${cleanSeed}/150/150`;
+        if (mode === 'cn-male' || mode === 'asian-guy') {
+            return pickFromPoolAvoiding(males.length ? males : females, avoidSet);
         }
 
-        // 默认「real-human / 在线智能混合接口」：亚洲美女(44%) + 亚洲男生(22%) + 在线动漫/萌宠/表情包网站接口(31%) + 外国人头像极少(3%)
-        const r = Math.random();
-        if (r < 0.44) {
-            return pickFromPoolAvoiding(beauties, avoidSet);
+        // 默认 cn-mixed / real-human：真实中国女生 (62%) + 真实中国男生 (38%)
+        if (Math.random() < 0.62) {
+            return pickFromPoolAvoiding(females, avoidSet);
         }
-        if (r < 0.66) {
-            return pickFromPoolAvoiding(guys, avoidSet);
-        }
-        if (r < 0.84) {
-            return liveOnlineCartoonUrls[Math.floor(Math.random() * liveOnlineCartoonUrls.length)];
-        }
-        if (r < 0.97) {
-            return pickFromPoolAvoiding(pets, avoidSet);
-        }
-        return pickFromPoolAvoiding(ONLINE_FOREIGN_RARE, avoidSet);
+        return pickFromPoolAvoiding(males.length ? males : females, avoidSet);
     }
 
-    // 异步直连外部实时头像网站接口 (TheCatAPI 真实猫咪接口 / DogCEO 柴犬柯基接口)
-    async function fetchLivePetApiUrl() {
+    // 异步尝试国内真实头像接口（uomg 随机男女头像 API，带超时与内置中国风人像库兜底）
+    async function fetchDomesticChineseAvatarUrl(genderMode = 'cn-mixed') {
         try {
-            if (Math.random() < 0.62) {
-                const res = await fetch('https://api.thecatapi.com/v1/images/search', { mode: 'cors' });
-                if (res.ok) {
-                    const arr = await res.json();
-                    if (Array.isArray(arr) && arr[0] && arr[0].url) return arr[0].url;
-                }
-            } else {
-                const breed = Math.random() < 0.6 ? 'shiba' : 'pembroke';
-                const res = await fetch(`https://dog.ceo/api/breed/${breed}/images/random`, { mode: 'cors' });
-                if (res.ok) {
-                    const data = await res.json();
-                    if (data && data.message) return data.message;
+            const isMale = genderMode === 'cn-male' || (genderMode === 'cn-mixed' && Math.random() < 0.38);
+            const sortParam = encodeURIComponent(isMale ? '男' : '女');
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timer = controller ? setTimeout(() => controller.abort(), 1800) : null;
+            const res = await fetch(`https://api.uomg.com/api/rand.avatar?sort=${sortParam}&format=json`, {
+                mode: 'cors',
+                signal: controller ? controller.signal : undefined
+            });
+            if (timer) clearTimeout(timer);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.code === 1 && data.imgurl && data.imgurl.startsWith('http')) {
+                    return data.imgurl;
                 }
             }
         } catch (e) {}
@@ -1022,7 +972,7 @@ window.switchRightTab = function (mode) {
     const CommentEngine = {
         isOpen: false,
         isExpanded: false,
-        apiMode: 'real-human',
+        apiMode: 'cn-mixed',
         ipRegion: 'tw-hk-my',
         pubWindowHours: 72,
         colPrefix: '觀看完整合集：',
@@ -1030,25 +980,163 @@ window.switchRightTab = function (mode) {
         headCount: '138',
         tabAiText: 'AI 解析',
         vidTipText: '',
+        allowReply: true,
+        allowImage: true,
+        showReplies: true,
+        maxReplyLength: 100,
+        cmsConfigVisible: true,
         activeUploadIdx: -1,
+        activeUploadReplyIdx: -1,
         activePhotoUploadIdx: -1,
+        activePhotoUploadReplyIdx: -1,
+        replyTargetIdx: -1,
+        replyTargetSubIdx: -1,
+        replyTargetUser: '',
+        replyRole: 'user', // 'user' | 'author'
+        pendingReplyImage: '',
+        pendingStageImage: '',
         list: [],
 
-        initDefaults() {
-            this.list = [
-                { id: 'c1', user: 'Chloe_tw', text: '牛總還是有點大智慧的', dateLoc: randomDateLoc('tw-only', 72), likes: '12.6萬', liked: false, avatar: ONLINE_ASIAN_BEAUTIES[0], image: '', isCustomAvatar: false },
-                { id: 'c2', user: '阿傑Jay', text: '這一段我反反覆覆看了五遍，細節真的拉滿', dateLoc: randomDateLoc('hk-mo', 72), likes: '3.8萬', liked: false, avatar: ONLINE_ASIAN_GUYS[0], image: '', isCustomAvatar: false },
-                { id: 'c3', user: '子瑜✨', text: '哈哈，我先入職花果山再回來應聘，完美閉環', dateLoc: randomDateLoc('tw-only', 72), likes: '5280', liked: false, avatar: ONLINE_ASIAN_BEAUTIES[1], image: '', isCustomAvatar: false },
-                { id: 'c4', user: '半糖去冰🧋', text: '好一招釜底抽薪', dateLoc: randomDateLoc('my-sg', 72), likes: '842', liked: false, avatar: ONLINE_FUN_PETS[0], image: '', isCustomAvatar: false },
-                { id: 'c5', user: 'Jason_HK', text: '表面風平浪靜，實則全員八百個心眼子', dateLoc: randomDateLoc('none', 72), likes: '69', liked: false, avatar: 'https://api.dicebear.com/7.x/lorelei/svg?seed=JasonHK&backgroundColor=b6e3f4,c0aede,ffd5dc', image: '', isCustomAvatar: false },
-                { id: 'c6', user: '林小柔', text: '看似漫不經心的一句話，其實前面早就鋪墊好了', dateLoc: randomDateLoc('overseas-all', 72), likes: '19', liked: false, avatar: ONLINE_ASIAN_BEAUTIES[2], image: '', isCustomAvatar: false }
-            ];
-            this.list.forEach(item => this.prefetchAvatarDataUrl(item));
+        getAuthorNameStage() {
+            const raw = (document.getElementById('in-dy-author')?.value || '@Laya 視頻').replace(/^@/, '').trim() || 'Laya 視頻';
+            return typeof window.toStageTrad === 'function' ? window.toStageTrad(raw) : raw;
         },
 
-        prefetchAvatarDataUrl(item, forceLivePet = false) {
+        getAuthorAvatarSrc() {
+            const avEl = document.getElementById('dy-avatar-img');
+            return (avEl && avEl.src) ? avEl.src : getChineseFemalePool()[0];
+        },
+
+        initDefaults() {
+            const fPool = getChineseFemalePool();
+            const mPool = getChineseMalePool();
+            this.list = [
+                {
+                    id: 'c1',
+                    user: '林小柔',
+                    text: '牛總還是有點大智慧的',
+                    dateLoc: randomDateLoc('tw-only', 72),
+                    likes: '12.6萬',
+                    liked: false,
+                    avatar: fPool[0] || buildOnlineAvatarUrl('c1', 'cn-female'),
+                    image: '',
+                    isCustomAvatar: false,
+                    replies: [
+                        {
+                            id: 'r1_1',
+                            user: this.getAuthorNameStage(),
+                            isAuthor: true,
+                            replyToUser: '',
+                            text: '確實，這一步棋他從三個月前就開始佈局了',
+                            image: '',
+                            dateLoc: randomDateLoc('tw-only', 48),
+                            likes: '1.2萬',
+                            liked: false,
+                            avatar: this.getAuthorAvatarSrc(),
+                            isCustomAvatar: false
+                        },
+                        {
+                            id: 'r1_2',
+                            user: '陳家豪',
+                            isAuthor: false,
+                            replyToUser: '林小柔',
+                            text: '薑還是老的辣，不動聲色就把問題解決了',
+                            image: '',
+                            dateLoc: randomDateLoc('hk-mo', 36),
+                            likes: '326',
+                            liked: false,
+                            avatar: mPool[0] || buildOnlineAvatarUrl('r1_2', 'cn-male'),
+                            isCustomAvatar: false
+                        }
+                    ]
+                },
+                {
+                    id: 'c2',
+                    user: '阿傑Jay',
+                    text: '這一段我反反覆覆看了五遍，細節真的拉滿',
+                    dateLoc: randomDateLoc('hk-mo', 72),
+                    likes: '3.8萬',
+                    liked: false,
+                    avatar: mPool[1] || buildOnlineAvatarUrl('c2', 'cn-male'),
+                    image: '',
+                    isCustomAvatar: false,
+                    replies: [
+                        {
+                            id: 'r2_1',
+                            user: '子瑜✨',
+                            isAuthor: false,
+                            replyToUser: '',
+                            text: '尤其是最後遞茶杯那個眼神，絕了',
+                            image: '',
+                            dateLoc: randomDateLoc('tw-only', 24),
+                            likes: '185',
+                            liked: false,
+                            avatar: fPool[1] || buildOnlineAvatarUrl('r2_1', 'cn-female'),
+                            isCustomAvatar: false
+                        }
+                    ]
+                },
+                {
+                    id: 'c3',
+                    user: '萱萱_tw',
+                    text: '哈哈，我先入職花果山再回來應聘，完美閉環',
+                    dateLoc: randomDateLoc('tw-only', 72),
+                    likes: '5280',
+                    liked: false,
+                    avatar: fPool[2] || buildOnlineAvatarUrl('c3', 'cn-female'),
+                    image: '',
+                    isCustomAvatar: false,
+                    replies: []
+                },
+                {
+                    id: 'c4',
+                    user: '半糖去冰🧋',
+                    text: '好一招釜底抽薪',
+                    dateLoc: randomDateLoc('my-sg', 72),
+                    likes: '842',
+                    liked: false,
+                    avatar: fPool[3] || buildOnlineAvatarUrl('c4', 'cn-female'),
+                    image: '',
+                    isCustomAvatar: false,
+                    replies: []
+                },
+                {
+                    id: 'c5',
+                    user: '建宏_TPE',
+                    text: '表面風平浪靜，實則全員八百個心眼子',
+                    dateLoc: randomDateLoc('none', 72),
+                    likes: '69',
+                    liked: false,
+                    avatar: mPool[2] || buildOnlineAvatarUrl('c5', 'cn-male'),
+                    image: '',
+                    isCustomAvatar: false,
+                    replies: []
+                },
+                {
+                    id: 'c6',
+                    user: '芷晴_hk',
+                    text: '看似漫不經心的一句話，其實前面早就鋪墊好了',
+                    dateLoc: randomDateLoc('overseas-all', 72),
+                    likes: '19',
+                    liked: false,
+                    avatar: fPool[4] || buildOnlineAvatarUrl('c6', 'cn-female'),
+                    image: '',
+                    isCustomAvatar: false,
+                    replies: []
+                }
+            ];
+            this.list.forEach(item => {
+                this.prefetchAvatarDataUrl(item);
+                if (Array.isArray(item.replies)) {
+                    item.replies.forEach(rep => {
+                        if (!rep.isAuthor) this.prefetchAvatarDataUrl(rep);
+                    });
+                }
+            });
+        },
+
+        prefetchAvatarDataUrl(item) {
             if (!item) return;
-            const shouldFetchLivePet = forceLivePet || this.apiMode === 'live-cat-dog' || (this.apiMode === 'real-human' && Math.random() < 0.16);
             const runBlobPrefetch = (urlToFetch) => {
                 if (!urlToFetch || urlToFetch.startsWith('data:')) return;
                 fetch(urlToFetch, { mode: 'cors' })
@@ -1068,20 +1156,137 @@ window.switchRightTab = function (mode) {
                     })
                     .catch(() => {});
             };
-            if (shouldFetchLivePet) {
-                fetchLivePetApiUrl().then(liveUrl => {
-                    if (liveUrl) {
-                        item.avatar = liveUrl;
-                        this.renderStage();
-                        this.renderEditor();
-                        runBlobPrefetch(liveUrl);
-                    } else {
-                        runBlobPrefetch(item.avatar);
-                    }
-                });
-            } else {
-                runBlobPrefetch(item.avatar);
+            runBlobPrefetch(item.avatar);
+        },
+
+        openReplyComposer(commentIdx, subReplyIdx = -1, defaultRole = 'user') {
+            if (!this.allowReply) {
+                window.showToast('⚠️ 后台已关闭评论回复功能（可在右侧「允许回复评论」开启）');
+                return;
             }
+            const item = this.list[commentIdx];
+            if (!item) return;
+            if (!Array.isArray(item.replies)) item.replies = [];
+
+            let targetUser = item.user || '用戶';
+            if (subReplyIdx >= 0 && item.replies[subReplyIdx]) {
+                targetUser = item.replies[subReplyIdx].user || targetUser;
+            }
+
+            this.replyTargetIdx = commentIdx;
+            this.replyTargetSubIdx = subReplyIdx;
+            this.replyTargetUser = targetUser;
+            this.replyRole = defaultRole === 'author' ? 'author' : 'user';
+            this.pendingReplyImage = '';
+
+            const modal = document.getElementById('dy-cmt-reply-modal');
+            const targetLabel = document.getElementById('dy-cmt-reply-target-label');
+            const charHint = document.getElementById('dy-cmt-reply-char-hint');
+            const replyInp = document.getElementById('dy-cmt-reply-input');
+            const btnRoleUser = document.getElementById('dy-reply-role-user');
+            const btnRoleAuthor = document.getElementById('dy-reply-role-author');
+            const imgPrevWrap = document.getElementById('dy-cmt-reply-img-preview-wrap');
+            const btnReplyImg = document.getElementById('dy-cmt-reply-btn-img');
+
+            if (targetLabel) {
+                targetLabel.textContent = `${this.replyRole === 'author' ? '👑 作者回覆' : '👤 回覆'} @${targetUser}：`;
+            }
+            if (btnRoleUser) btnRoleUser.classList.toggle('active', this.replyRole === 'user');
+            if (btnRoleAuthor) btnRoleAuthor.classList.toggle('active', this.replyRole === 'author');
+            if (imgPrevWrap) imgPrevWrap.style.display = 'none';
+            if (btnReplyImg) btnReplyImg.style.display = this.allowImage ? 'inline-flex' : 'none';
+
+            if (replyInp) {
+                replyInp.value = '';
+                replyInp.maxLength = this.maxReplyLength || 100;
+                replyInp.placeholder = this.allowImage
+                    ? `回覆 @${targetUser}（支持純文字、純圖片、文字+圖片，限${this.maxReplyLength}字）...`
+                    : `回覆 @${targetUser}（限${this.maxReplyLength}字）...`;
+            }
+            if (charHint) {
+                charHint.textContent = `0/${this.maxReplyLength || 100}`;
+            }
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+            if (replyInp) {
+                setTimeout(() => replyInp.focus(), 20);
+            }
+        },
+
+        closeReplyComposer() {
+            this.replyTargetIdx = -1;
+            this.replyTargetSubIdx = -1;
+            this.replyTargetUser = '';
+            this.pendingReplyImage = '';
+            const modal = document.getElementById('dy-cmt-reply-modal');
+            const imgPrevWrap = document.getElementById('dy-cmt-reply-img-preview-wrap');
+            const replyInp = document.getElementById('dy-cmt-reply-input');
+            if (modal) modal.style.display = 'none';
+            if (imgPrevWrap) imgPrevWrap.style.display = 'none';
+            if (replyInp) replyInp.value = '';
+        },
+
+        submitReplyFromComposer() {
+            if (!this.allowReply) {
+                window.showToast('⚠️ 后台已关闭评论回复功能');
+                return;
+            }
+            const idx = this.replyTargetIdx;
+            const item = this.list[idx];
+            if (!item) {
+                this.closeReplyComposer();
+                return;
+            }
+            if (!Array.isArray(item.replies)) item.replies = [];
+
+            const replyInp = document.getElementById('dy-cmt-reply-input');
+            let rawTxt = (replyInp ? replyInp.value.trim() : '');
+            const maxLen = Math.max(5, parseInt(this.maxReplyLength, 10) || 100);
+            if (rawTxt.length > maxLen) {
+                rawTxt = rawTxt.slice(0, maxLen);
+            }
+            const imgData = this.allowImage ? (this.pendingReplyImage || '') : '';
+
+            if (!rawTxt && !imgData) {
+                window.showToast('⚠️ 请输入回复文字或上传回复图片');
+                if (replyInp) replyInp.focus();
+                return;
+            }
+
+            const isAuthor = (this.replyRole === 'author');
+            const stageTxt = rawTxt ? (typeof window.toStageTrad === 'function' ? window.toStageTrad(rawTxt) : rawTxt) : '';
+            const loc = pickOverseasIpLocation(this.ipRegion);
+            const seed = `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
+
+            const newReply = {
+                id: seed,
+                user: isAuthor ? this.getAuthorNameStage() : NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
+                isAuthor: isAuthor,
+                replyToUser: (this.replyTargetSubIdx >= 0 && this.replyTargetUser) ? this.replyTargetUser : '',
+                text: stageTxt,
+                image: imgData,
+                dateLoc: loc ? `剛剛 · ${loc}` : '剛剛',
+                likes: isAuthor ? String(Math.floor(Math.random() * 60) + 5) : '1',
+                liked: true,
+                avatar: isAuthor ? this.getAuthorAvatarSrc() : buildOnlineAvatarUrl(seed, this.apiMode, usedAvatars),
+                isCustomAvatar: false
+            };
+
+            if (!isAuthor) {
+                this.prefetchAvatarDataUrl(newReply);
+            }
+            item.replies.push(newReply);
+            this.showReplies = true;
+            const swShowRep = document.getElementById('sw-cmt-show-replies');
+            if (swShowRep) swShowRep.checked = true;
+
+            this.closeReplyComposer();
+            this.renderStage();
+            this.renderEditor();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(isAuthor ? '👑 作者回复已发布！' : '💬 跟评回复已发布！');
         },
 
         setDrawerOpen(flag, showToastMsg = false) {
@@ -1109,12 +1314,12 @@ window.switchRightTab = function (mode) {
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
         },
 
-        // 单独随机某一条评论的头像（自动避开当前已显示的头像）
-        randomizeSingleAvatar(idx) {
+        // 单独随机某一条评论的头像（支持指定男/女/随机，自动避开当前已显示的头像）
+        randomizeSingleAvatar(idx, forceGenderMode = null) {
             const item = this.list[idx];
             if (!item) return;
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
-            this.apiMode = mode;
+            const mode = forceGenderMode || document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
+            if (!forceGenderMode) this.apiMode = mode;
             const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
             const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 8)}`;
             item.avatar = buildOnlineAvatarUrl(seed, mode, usedAvatars);
@@ -1123,7 +1328,7 @@ window.switchRightTab = function (mode) {
             this.renderStage();
             this.renderEditor();
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-            window.showToast('已随机切换评论头像');
+            window.showToast('已随机切换真实中国风头像');
         },
 
         // 单独随机某一条评论的昵称（英文或繁体中文）
@@ -1169,7 +1374,7 @@ window.switchRightTab = function (mode) {
         randomizeSingleItem(idx) {
             const item = this.list[idx];
             if (!item) return;
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
+            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
             this.apiMode = mode;
             const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
             const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 8)}`;
@@ -1192,8 +1397,8 @@ window.switchRightTab = function (mode) {
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
         },
 
-        randomizeAll(includeText = true) {
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
+        randomizeAll(includeText = true, overrideAvatarMode = null) {
+            const mode = overrideAvatarMode || document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
             const ipReg = document.getElementById('sel-cmt-ip-region')?.value || this.ipRegion || 'tw-hk-my';
             const pubWin = parseFloat(document.getElementById('sel-cmt-pub-window')?.value) || this.pubWindowHours || 72;
             this.apiMode = mode;
@@ -1204,7 +1409,7 @@ window.switchRightTab = function (mode) {
             const usedAvatars = new Set();
             this.list.forEach((item, idx) => {
                 const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 7)}`;
-                if (!item.isCustomAvatar || includeText) {
+                if (!item.isCustomAvatar || includeText || overrideAvatarMode) {
                     const nextAv = buildOnlineAvatarUrl(seed, mode, usedAvatars);
                     usedAvatars.add(nextAv);
                     item.avatar = nextAv;
@@ -1220,6 +1425,20 @@ window.switchRightTab = function (mode) {
                 item.user = nick;
                 item.dateLoc = randomDateLoc(ipReg, pubWin);
                 item.likes = randomCommentLikes();
+
+                if (Array.isArray(item.replies)) {
+                    item.replies.forEach((rep, rIdx) => {
+                        if (rep.isAuthor) {
+                            rep.user = this.getAuthorNameStage();
+                            if (!rep.isCustomAvatar) rep.avatar = this.getAuthorAvatarSrc();
+                        } else if (!rep.isCustomAvatar || overrideAvatarMode) {
+                            const rAv = buildOnlineAvatarUrl(`${seed}_r_${rIdx}`, mode, usedAvatars);
+                            usedAvatars.add(rAv);
+                            rep.avatar = rAv;
+                            this.prefetchAvatarDataUrl(rep);
+                        }
+                    });
+                }
 
                 if (includeText) {
                     let txt = COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)];
@@ -1244,7 +1463,6 @@ window.switchRightTab = function (mode) {
             const rawFeat = (document.getElementById('in-dy-featured-title')?.value || '').trim();
             const rawCol = (document.getElementById('in-cmt-col-title')?.value || this.colTitle || '').trim();
 
-            // 提取画面/标题中的核心关键词
             const combined = [rawDesc, rawTags, rawHot, rawFeat, rawCol].join(' ');
             const cleanTokens = combined
                 .replace(/#[\S]+/g, (m) => ' ' + m.slice(1) + ' ')
@@ -1271,13 +1489,12 @@ window.switchRightTab = function (mode) {
                 `建議把這個系列一口氣看完，前後呼應得太巧妙了`
             ];
 
-            // 打乱并转换繁体
             const shuffled = sceneTemplates
                 .sort(() => Math.random() - 0.5)
                 .map(t => typeof window.toStageTrad === 'function' ? window.toStageTrad(t) : t);
 
             const targetCount = Math.max(6, this.list.length);
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
+            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
             const ipReg = document.getElementById('sel-cmt-ip-region')?.value || this.ipRegion || 'tw-hk-my';
             const pubWin = parseFloat(document.getElementById('sel-cmt-pub-window')?.value) || this.pubWindowHours || 72;
 
@@ -1304,7 +1521,8 @@ window.switchRightTab = function (mode) {
                     liked: false,
                     avatar: av,
                     image: '',
-                    isCustomAvatar: false
+                    isCustomAvatar: false,
+                    replies: []
                 };
                 newList.push(item);
                 this.prefetchAvatarDataUrl(item);
@@ -1330,7 +1548,7 @@ window.switchRightTab = function (mode) {
                 return 0;
             }
 
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'real-human';
+            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
             const ipReg = document.getElementById('sel-cmt-ip-region')?.value || this.ipRegion || 'tw-hk-my';
             const pubWin = parseFloat(document.getElementById('sel-cmt-pub-window')?.value) || this.pubWindowHours || 72;
 
@@ -1357,7 +1575,8 @@ window.switchRightTab = function (mode) {
                     liked: false,
                     avatar: av,
                     image: '',
-                    isCustomAvatar: false
+                    isCustomAvatar: false,
+                    replies: []
                 };
                 this.prefetchAvatarDataUrl(item);
                 return item;
@@ -1407,6 +1626,10 @@ window.switchRightTab = function (mode) {
             }
             if (inColTitle && document.activeElement !== inColTitle) inColTitle.value = simpColTitle;
             if (inHeadCount && document.activeElement !== inHeadCount) inHeadCount.value = simpHeadCount;
+
+            // 同步底部发图按钮显隐状态
+            const btnSendImg = document.getElementById('dy-cmt-btn-send-img');
+            if (btnSendImg) btnSendImg.style.display = this.allowImage ? 'inline-flex' : 'none';
         },
 
         renderStage() {
@@ -1416,6 +1639,7 @@ window.switchRightTab = function (mode) {
             container.innerHTML = '';
 
             this.list.forEach((item, idx) => {
+                if (!Array.isArray(item.replies)) item.replies = [];
                 const row = document.createElement('div');
                 row.className = 'dy-cmt-item';
 
@@ -1440,6 +1664,7 @@ window.switchRightTab = function (mode) {
                     e.preventDefault();
                     e.stopPropagation();
                     this.activeUploadIdx = idx;
+                    this.activeUploadReplyIdx = -1;
                     const fileInp = document.getElementById('dy-cmt-avatar-file');
                     if (fileInp) {
                         fileInp.value = '';
@@ -1488,6 +1713,16 @@ window.switchRightTab = function (mode) {
                 const qTools = document.createElement('div');
                 qTools.className = 'dy-cmt-stage-QuickTools';
 
+                const btnAuthorRep = document.createElement('button');
+                btnAuthorRep.type = 'button';
+                btnAuthorRep.className = 'dy-cmt-qbtn';
+                btnAuthorRep.textContent = '👑作者回';
+                btnAuthorRep.title = '以作者身份回复此条评论';
+                btnAuthorRep.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openReplyComposer(idx, -1, 'author');
+                });
+
                 const btnRandAv = document.createElement('button');
                 btnRandAv.type = 'button';
                 btnRandAv.className = 'dy-cmt-qbtn';
@@ -1505,7 +1740,12 @@ window.switchRightTab = function (mode) {
                 btnUpImg.title = '為此條評論上傳照片/表情包';
                 btnUpImg.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    if (!this.allowImage) {
+                        window.showToast('⚠️ 后台已关闭评论发图权限');
+                        return;
+                    }
                     this.activePhotoUploadIdx = idx;
+                    this.activePhotoUploadReplyIdx = -1;
                     const pInp = document.getElementById('dy-cmt-photo-file');
                     if (pInp) {
                         pInp.value = '';
@@ -1526,6 +1766,7 @@ window.switchRightTab = function (mode) {
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                 });
 
+                qTools.appendChild(btnAuthorRep);
                 qTools.appendChild(btnRandAv);
                 qTools.appendChild(btnUpImg);
                 qTools.appendChild(btnDel);
@@ -1547,7 +1788,7 @@ window.switchRightTab = function (mode) {
                 });
                 main.appendChild(txtDiv);
 
-                // 评论区上传的照片 / 表情包 (如图2第5条)
+                // 评论区上传的照片 / 表情包
                 if (item.image) {
                     const photoBox = document.createElement('div');
                     photoBox.className = 'dy-cmt-photo-box interactive-elem';
@@ -1558,6 +1799,7 @@ window.switchRightTab = function (mode) {
                     pImg.addEventListener('click', (e) => {
                         e.stopPropagation();
                         this.activePhotoUploadIdx = idx;
+                        this.activePhotoUploadReplyIdx = -1;
                         const pInp = document.getElementById('dy-cmt-photo-file');
                         if (pInp) {
                             pInp.value = '';
@@ -1606,12 +1848,11 @@ window.switchRightTab = function (mode) {
                 const replySpan = document.createElement('span');
                 replySpan.className = 'dy-cmt-reply-btn interactive-elem';
                 replySpan.textContent = '回覆';
-                replySpan.addEventListener('click', () => {
-                    const stageInp = document.getElementById('dy-cmt-stage-input');
-                    if (stageInp) {
-                        stageInp.placeholder = `回覆 @${item.user}：`;
-                        stageInp.focus();
-                    }
+                replySpan.style.display = this.allowReply ? 'inline' : 'none';
+                replySpan.title = '点击弹出回复输入框（支持普通用户跟评 / 作者回复）';
+                replySpan.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.openReplyComposer(idx, -1, 'user');
                 });
 
                 const btnDateDice = document.createElement('button');
@@ -1640,7 +1881,7 @@ window.switchRightTab = function (mode) {
                 likeNum.className = 'dy-cmt-like-num interactive-elem';
                 likeNum.contentEditable = 'true';
                 likeNum.spellcheck = false;
-                likeNum.title = '点击数字可直接修改点赞数，点击旁边的🎲可随机切换（几个到几十万不等）';
+                likeNum.title = '点击数字可直接修改点赞数，点击旁边的🎲可随机切换';
                 const stageLikesTxt = typeof window.toStageTrad === 'function' ? window.toStageTrad(item.likes || '1') : (item.likes || '1');
                 likeNum.textContent = stageLikesTxt;
                 likeNum.addEventListener('click', (e) => e.stopPropagation());
@@ -1668,7 +1909,7 @@ window.switchRightTab = function (mode) {
                 btnLikeDice.type = 'button';
                 btnLikeDice.className = 'dy-cmt-inline-dice interactive-elem';
                 btnLikeDice.textContent = '🎲';
-                btnLikeDice.title = '点击随机切换评论点赞数（几个到几十万不等）';
+                btnLikeDice.title = '点击随机切换评论点赞数';
                 btnLikeDice.addEventListener('click', (e) => {
                     e.stopPropagation();
                     this.randomizeSingleLikes(idx);
@@ -1682,8 +1923,191 @@ window.switchRightTab = function (mode) {
                 actions.appendChild(btnLikeDice);
                 actions.appendChild(dislikeBtn);
                 metaRow.appendChild(actions);
-
                 main.appendChild(metaRow);
+
+                // ★ 二级回复列表（作者回复 + 普通用户跟评：头像 19px、字号 11.5px，明显小于一级评论）
+                if (this.showReplies && Array.isArray(item.replies) && item.replies.length > 0) {
+                    const repListEl = document.createElement('div');
+                    repListEl.className = 'dy-cmt-replies-list';
+
+                    item.replies.forEach((rep, rIdx) => {
+                        const repRow = document.createElement('div');
+                        repRow.className = 'dy-cmt-reply-item';
+
+                        const rAvWrap = document.createElement('div');
+                        rAvWrap.className = 'dy-cmt-reply-avatar-wrap interactive-elem';
+                        rAvWrap.title = '点击切换此条回复头像';
+                        const rAvImg = document.createElement('img');
+                        rAvImg.className = 'dy-cmt-reply-avatar';
+                        rAvImg.crossOrigin = 'anonymous';
+                        const fallbackAuthorAv = rep.isAuthor ? this.getAuthorAvatarSrc() : '';
+                        rAvImg.src = (rep.isAuthor && !rep.isCustomAvatar) ? fallbackAuthorAv : (rep.avatar || makeFallbackAvatarSvg(rep.id, rep.user));
+                        rAvImg.onerror = () => {
+                            const fb = makeFallbackAvatarSvg(rep.id + '_' + rIdx, rep.user);
+                            if (rAvImg.src !== fb) rAvImg.src = fb;
+                        };
+                        rAvWrap.appendChild(rAvImg);
+                        rAvWrap.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
+                            rep.avatar = buildOnlineAvatarUrl(`rep_${Date.now()}_${rIdx}`, this.apiMode, usedAvatars);
+                            rep.isCustomAvatar = true;
+                            this.prefetchAvatarDataUrl(rep);
+                            this.renderStage();
+                            this.renderEditor();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+                        repRow.appendChild(rAvWrap);
+
+                        const rBody = document.createElement('div');
+                        rBody.className = 'dy-cmt-reply-body';
+
+                        const rUserRow = document.createElement('div');
+                        rUserRow.className = 'dy-cmt-reply-user-row';
+
+                        const rUserSpan = document.createElement('span');
+                        rUserSpan.className = 'dy-cmt-reply-user interactive-elem';
+                        rUserSpan.contentEditable = 'true';
+                        rUserSpan.spellcheck = false;
+                        rUserSpan.textContent = rep.isAuthor ? (rep.user || this.getAuthorNameStage()) : (rep.user || '用戶');
+                        rUserSpan.addEventListener('input', () => {
+                            rep.user = rUserSpan.textContent.trim();
+                            this.renderEditor();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+                        rUserRow.appendChild(rUserSpan);
+
+                        if (rep.isAuthor) {
+                            const authorBadge = document.createElement('span');
+                            authorBadge.className = 'dy-cmt-author-badge';
+                            authorBadge.textContent = '作者';
+                            rUserRow.appendChild(authorBadge);
+                        }
+
+                        if (rep.replyToUser) {
+                            const toTag = document.createElement('span');
+                            toTag.className = 'dy-cmt-reply-to-tag';
+                            toTag.textContent = `▸ ${rep.replyToUser}`;
+                            rUserRow.appendChild(toTag);
+                        }
+
+                        const rDelBtn = document.createElement('button');
+                        rDelBtn.type = 'button';
+                        rDelBtn.className = 'dy-cmt-qbtn interactive-elem';
+                        rDelBtn.style.cssText = 'margin-left:auto; padding:0 4px; font-size:9px;';
+                        rDelBtn.textContent = '✕';
+                        rDelBtn.title = '删除此条回复';
+                        rDelBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            item.replies.splice(rIdx, 1);
+                            this.renderStage();
+                            this.renderEditor();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+                        rUserRow.appendChild(rDelBtn);
+                        rBody.appendChild(rUserRow);
+
+                        if (rep.text || !rep.image) {
+                            const rTxt = document.createElement('div');
+                            rTxt.className = 'dy-cmt-reply-text interactive-elem';
+                            rTxt.contentEditable = 'true';
+                            rTxt.spellcheck = false;
+                            rTxt.textContent = rep.text || '';
+                            rTxt.addEventListener('input', () => {
+                                rep.text = rTxt.textContent;
+                                this.renderEditor();
+                                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                            });
+                            rBody.appendChild(rTxt);
+                        }
+
+                        if (rep.image) {
+                            const rPhotoBox = document.createElement('div');
+                            rPhotoBox.className = 'dy-cmt-reply-photo-box interactive-elem';
+                            const rPhotoImg = document.createElement('img');
+                            rPhotoImg.className = 'dy-cmt-reply-photo-img';
+                            rPhotoImg.src = rep.image;
+                            const rPhotoDel = document.createElement('button');
+                            rPhotoDel.type = 'button';
+                            rPhotoDel.className = 'dy-cmt-photo-del';
+                            rPhotoDel.textContent = '✕';
+                            rPhotoDel.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                rep.image = '';
+                                if (!rep.text) rep.text = '👍';
+                                this.renderStage();
+                                this.renderEditor();
+                                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                            });
+                            rPhotoBox.appendChild(rPhotoImg);
+                            rPhotoBox.appendChild(rPhotoDel);
+                            rBody.appendChild(rPhotoBox);
+                        }
+
+                        const rMetaRow = document.createElement('div');
+                        rMetaRow.className = 'dy-cmt-reply-meta-row';
+
+                        const rMetaLeft = document.createElement('div');
+                        rMetaLeft.className = 'dy-cmt-reply-meta-left';
+
+                        const rDateSpan = document.createElement('span');
+                        rDateSpan.className = 'dy-cmt-date-loc interactive-elem';
+                        rDateSpan.contentEditable = 'true';
+                        rDateSpan.spellcheck = false;
+                        rDateSpan.textContent = rep.dateLoc || '剛剛 · 台灣';
+                        rDateSpan.addEventListener('input', () => {
+                            rep.dateLoc = rDateSpan.textContent.trim();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+                        rMetaLeft.appendChild(rDateSpan);
+
+                        if (this.allowReply) {
+                            const rReplyBtn = document.createElement('span');
+                            rReplyBtn.className = 'dy-cmt-reply-btn interactive-elem';
+                            rReplyBtn.style.fontSize = '10px';
+                            rReplyBtn.textContent = '回覆';
+                            rReplyBtn.addEventListener('click', (e) => {
+                                e.stopPropagation();
+                                this.openReplyComposer(idx, rIdx, 'user');
+                            });
+                            rMetaLeft.appendChild(rReplyBtn);
+                        }
+                        rMetaRow.appendChild(rMetaLeft);
+
+                        const rLikeBtn = document.createElement('div');
+                        rLikeBtn.className = 'dy-cmt-reply-like-btn interactive-elem' + (rep.liked ? ' liked' : '');
+                        rLikeBtn.innerHTML = `<svg width="11.5" height="11.5" viewBox="0 0 24 24" fill="${rep.liked ? '#fe2c55' : 'none'}" stroke="${rep.liked ? '#fe2c55' : '#8a8b91'}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>`;
+                        const rLikeNum = document.createElement('span');
+                        rLikeNum.className = 'dy-cmt-like-num interactive-elem';
+                        rLikeNum.contentEditable = 'true';
+                        rLikeNum.spellcheck = false;
+                        rLikeNum.textContent = typeof window.toStageTrad === 'function' ? window.toStageTrad(rep.likes || '1') : (rep.likes || '1');
+                        rLikeNum.addEventListener('click', (e) => e.stopPropagation());
+                        rLikeNum.addEventListener('input', () => {
+                            rep.likes = rLikeNum.textContent.trim();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+                        rLikeBtn.addEventListener('click', () => {
+                            rep.liked = !rep.liked;
+                            if (!String(rep.likes).includes('萬') && !String(rep.likes).includes('万')) {
+                                const n = parseInt(rep.likes, 10);
+                                if (!isNaN(n)) rep.likes = String(rep.liked ? n + 1 : Math.max(0, n - 1));
+                            }
+                            this.renderStage();
+                            this.renderEditor();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+                        rLikeBtn.appendChild(rLikeNum);
+                        rMetaRow.appendChild(rLikeBtn);
+
+                        rBody.appendChild(rMetaRow);
+                        repRow.appendChild(rBody);
+                        repListEl.appendChild(repRow);
+                    });
+
+                    main.appendChild(repListEl);
+                }
+
                 row.appendChild(main);
                 container.appendChild(row);
             });
@@ -1700,10 +2124,14 @@ window.switchRightTab = function (mode) {
             const inDate = card.querySelector('.ed-in-date');
             const inLikes = card.querySelector('.ed-in-likes');
             const inText = card.querySelector('.ed-in-text');
+            const inAvUrl = card.querySelector('.ed-in-avatar-url');
             if (inUser && document.activeElement !== inUser) inUser.value = item.user || '';
             if (inDate && document.activeElement !== inDate) inDate.value = item.dateLoc || '';
             if (inLikes && document.activeElement !== inLikes) inLikes.value = item.likes || '';
             if (inText && document.activeElement !== inText) inText.value = item.text || '';
+            if (inAvUrl && document.activeElement !== inAvUrl) {
+                inAvUrl.value = (item.avatar && !item.avatar.startsWith('data:')) ? item.avatar : '';
+            }
         },
 
         renderEditor() {
@@ -1712,6 +2140,7 @@ window.switchRightTab = function (mode) {
             edList.innerHTML = '';
 
             this.list.forEach((item, idx) => {
+                if (!Array.isArray(item.replies)) item.replies = [];
                 const card = document.createElement('div');
                 card.className = 'dy-cmt-ed-card';
 
@@ -1722,13 +2151,14 @@ window.switchRightTab = function (mode) {
                 avImg.className = 'dy-cmt-ed-avatar';
                 avImg.crossOrigin = 'anonymous';
                 avImg.src = item.avatar || makeFallbackAvatarSvg(item.id, item.user);
-                avImg.title = '点击上传自定义头像';
+                avImg.title = '点击上传本地头像';
                 avImg.onerror = () => {
                     const fb = makeFallbackAvatarSvg(item.id + '_' + idx, item.user);
                     if (avImg.src !== fb) avImg.src = fb;
                 };
                 avImg.addEventListener('click', () => {
                     this.activeUploadIdx = idx;
+                    this.activeUploadReplyIdx = -1;
                     const fileInp = document.getElementById('dy-cmt-avatar-file');
                     if (fileInp) {
                         fileInp.value = '';
@@ -1740,16 +2170,34 @@ window.switchRightTab = function (mode) {
                 btnRandAv.type = 'button';
                 btnRandAv.className = 'dy-cmt-ed-btn';
                 btnRandAv.textContent = '🎲';
-                btnRandAv.title = '随机换头像';
+                btnRandAv.title = '随机换真实中国风头像';
                 btnRandAv.addEventListener('click', () => {
                     this.randomizeSingleAvatar(idx);
+                });
+
+                const btnFemaleAv = document.createElement('button');
+                btnFemaleAv.type = 'button';
+                btnFemaleAv.className = 'dy-cmt-ed-btn';
+                btnFemaleAv.textContent = '女';
+                btnFemaleAv.title = '换成中国女生头像';
+                btnFemaleAv.addEventListener('click', () => {
+                    this.randomizeSingleAvatar(idx, 'cn-female');
+                });
+
+                const btnMaleAv = document.createElement('button');
+                btnMaleAv.type = 'button';
+                btnMaleAv.className = 'dy-cmt-ed-btn';
+                btnMaleAv.textContent = '男';
+                btnMaleAv.title = '换成中国男生头像';
+                btnMaleAv.addEventListener('click', () => {
+                    this.randomizeSingleAvatar(idx, 'cn-male');
                 });
 
                 const inUser = document.createElement('input');
                 inUser.type = 'text';
                 inUser.className = 'dy-cmt-ed-inp ed-in-user';
                 inUser.style.flex = '1';
-                inUser.style.minWidth = '64px';
+                inUser.style.minWidth = '56px';
                 inUser.placeholder = '繁体/英文昵称';
                 inUser.value = item.user || '';
                 inUser.addEventListener('input', (e) => {
@@ -1762,7 +2210,7 @@ window.switchRightTab = function (mode) {
                 btnRandNick.type = 'button';
                 btnRandNick.className = 'dy-cmt-ed-btn';
                 btnRandNick.textContent = '🎲';
-                btnRandNick.title = '随机换昵称（英文或繁体中文）';
+                btnRandNick.title = '随机换昵称';
                 btnRandNick.addEventListener('click', () => {
                     this.randomizeSingleNickname(idx);
                 });
@@ -1770,7 +2218,7 @@ window.switchRightTab = function (mode) {
                 const inDate = document.createElement('input');
                 inDate.type = 'text';
                 inDate.className = 'dy-cmt-ed-inp ed-in-date';
-                inDate.style.width = '78px';
+                inDate.style.width = '72px';
                 inDate.placeholder = '时间·IP';
                 inDate.value = item.dateLoc || '';
                 inDate.addEventListener('input', (e) => {
@@ -1779,36 +2227,17 @@ window.switchRightTab = function (mode) {
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
                 });
 
-                const btnRandDate = document.createElement('button');
-                btnRandDate.type = 'button';
-                btnRandDate.className = 'dy-cmt-ed-btn';
-                btnRandDate.textContent = '🎲';
-                btnRandDate.title = '随机换时间与海外IP';
-                btnRandDate.addEventListener('click', () => {
-                    this.randomizeSingleDateLoc(idx);
-                });
-
                 const inLikes = document.createElement('input');
                 inLikes.type = 'text';
                 inLikes.className = 'dy-cmt-ed-inp ed-in-likes';
-                inLikes.style.width = '46px';
+                inLikes.style.width = '44px';
                 inLikes.placeholder = '赞数';
-                inLikes.title = '评论点赞数（几个到几十万不等）';
                 const simpLikes = typeof window.toEditorSimp === 'function' ? window.toEditorSimp(item.likes || '') : (item.likes || '');
                 inLikes.value = simpLikes;
                 inLikes.addEventListener('input', (e) => {
                     item.likes = typeof window.toStageTrad === 'function' ? window.toStageTrad(e.target.value) : e.target.value;
                     this.renderStage();
                     if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-                });
-
-                const btnRandLikes = document.createElement('button');
-                btnRandLikes.type = 'button';
-                btnRandLikes.className = 'dy-cmt-ed-btn';
-                btnRandLikes.textContent = '🎲';
-                btnRandLikes.title = '随机换评论点赞数（几个到几十万不等）';
-                btnRandLikes.addEventListener('click', () => {
-                    this.randomizeSingleLikes(idx);
                 });
 
                 const btnDel = document.createElement('button');
@@ -1825,13 +2254,37 @@ window.switchRightTab = function (mode) {
 
                 topRow.appendChild(avImg);
                 topRow.appendChild(btnRandAv);
+                topRow.appendChild(btnFemaleAv);
+                topRow.appendChild(btnMaleAv);
                 topRow.appendChild(inUser);
                 topRow.appendChild(btnRandNick);
                 topRow.appendChild(inDate);
-                topRow.appendChild(btnRandDate);
                 topRow.appendChild(inLikes);
-                topRow.appendChild(btnRandLikes);
                 topRow.appendChild(btnDel);
+
+                // 手动指定单条评论头像 URL 行
+                const urlRow = document.createElement('div');
+                urlRow.style.cssText = 'display:flex; align-items:center; gap:5px;';
+                const inAvUrl = document.createElement('input');
+                inAvUrl.type = 'text';
+                inAvUrl.className = 'dy-cmt-ed-inp ed-in-avatar-url';
+                inAvUrl.style.flex = '1';
+                inAvUrl.style.fontSize = '10px';
+                inAvUrl.placeholder = '🔗 手动粘贴指定头像图片 URL (支持 http/https/data:image)...';
+                inAvUrl.value = (item.avatar && !item.avatar.startsWith('data:')) ? item.avatar : '';
+                inAvUrl.addEventListener('change', (e) => {
+                    const u = e.target.value.trim();
+                    if (u) {
+                        item.avatar = u;
+                        item.isCustomAvatar = true;
+                        this.prefetchAvatarDataUrl(item);
+                        this.renderStage();
+                        this.renderEditor();
+                        if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        window.showToast('已应用自定义头像 URL');
+                    }
+                });
+                urlRow.appendChild(inAvUrl);
 
                 const botRow = document.createElement('div');
                 botRow.style.cssText = 'display:flex; align-items:center; gap:5px;';
@@ -1840,7 +2293,7 @@ window.switchRightTab = function (mode) {
                 inText.type = 'text';
                 inText.className = 'dy-cmt-ed-inp ed-in-text';
                 inText.style.flex = '1';
-                inText.placeholder = '输入评论文字（可留空仅发图片/表情包）...';
+                inText.placeholder = '输入评论文字（可留空仅发图片）...';
                 inText.value = item.text || '';
                 inText.addEventListener('input', (e) => {
                     item.text = e.target.value;
@@ -1855,7 +2308,12 @@ window.switchRightTab = function (mode) {
                 btnPhoto.textContent = item.image ? '🖼️换图' : '🖼️配图';
                 btnPhoto.title = '上传照片或表情包到此条评论';
                 btnPhoto.addEventListener('click', () => {
+                    if (!this.allowImage) {
+                        window.showToast('⚠️ 后台已关闭评论发图权限');
+                        return;
+                    }
                     this.activePhotoUploadIdx = idx;
+                    this.activePhotoUploadReplyIdx = -1;
                     const pInp = document.getElementById('dy-cmt-photo-file');
                     if (pInp) {
                         pInp.value = '';
@@ -1863,8 +2321,31 @@ window.switchRightTab = function (mode) {
                     }
                 });
 
+                const btnAddAuthorRep = document.createElement('button');
+                btnAddAuthorRep.type = 'button';
+                btnAddAuthorRep.className = 'dy-cmt-ed-btn';
+                btnAddAuthorRep.style.color = '#fda4af';
+                btnAddAuthorRep.textContent = '+作者回';
+                btnAddAuthorRep.title = '添加一条作者回复';
+                btnAddAuthorRep.addEventListener('click', () => {
+                    if (!this.isOpen) this.setDrawerOpen(true, false);
+                    this.openReplyComposer(idx, -1, 'author');
+                });
+
+                const btnAddUserRep = document.createElement('button');
+                btnAddUserRep.type = 'button';
+                btnAddUserRep.className = 'dy-cmt-ed-btn';
+                btnAddUserRep.textContent = '+跟评';
+                btnAddUserRep.title = '添加一条普通用户跟评回复';
+                btnAddUserRep.addEventListener('click', () => {
+                    if (!this.isOpen) this.setDrawerOpen(true, false);
+                    this.openReplyComposer(idx, -1, 'user');
+                });
+
                 botRow.appendChild(inText);
                 botRow.appendChild(btnPhoto);
+                botRow.appendChild(btnAddAuthorRep);
+                botRow.appendChild(btnAddUserRep);
 
                 if (item.image) {
                     const btnClearPhoto = document.createElement('button');
@@ -1882,7 +2363,105 @@ window.switchRightTab = function (mode) {
                 }
 
                 card.appendChild(topRow);
+                card.appendChild(urlRow);
                 card.appendChild(botRow);
+
+                // 二级回复后台管理列表
+                if (item.replies.length > 0) {
+                    const repWrap = document.createElement('div');
+                    repWrap.className = 'dy-cmt-ed-replies-wrap';
+
+                    item.replies.forEach((rep, rIdx) => {
+                        const rRow = document.createElement('div');
+                        rRow.className = 'dy-cmt-ed-reply-row';
+
+                        const rTop = document.createElement('div');
+                        rTop.style.cssText = 'display:flex; align-items:center; gap:4px;';
+
+                        const rRoleBtn = document.createElement('button');
+                        rRoleBtn.type = 'button';
+                        rRoleBtn.className = 'dy-cmt-ed-btn';
+                        rRoleBtn.style.cssText = rep.isAuthor
+                            ? 'background:#fe2c55; color:#fff; border-color:#fe2c55; font-size:10px; padding:1px 5px;'
+                            : 'font-size:10px; padding:1px 5px;';
+                        rRoleBtn.textContent = rep.isAuthor ? '👑作者' : '👤用户';
+                        rRoleBtn.title = '点击切换「作者回复 / 普通用户跟评」身份';
+                        rRoleBtn.addEventListener('click', () => {
+                            rep.isAuthor = !rep.isAuthor;
+                            if (rep.isAuthor) {
+                                rep.user = this.getAuthorNameStage();
+                                rep.avatar = this.getAuthorAvatarSrc();
+                            }
+                            this.renderStage();
+                            this.renderEditor();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+
+                        const rUserInp = document.createElement('input');
+                        rUserInp.type = 'text';
+                        rUserInp.className = 'dy-cmt-ed-inp';
+                        rUserInp.style.width = '72px';
+                        rUserInp.value = rep.user || '';
+                        rUserInp.addEventListener('input', (e) => {
+                            rep.user = e.target.value;
+                            this.renderStage();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+
+                        const rTxtInp = document.createElement('input');
+                        rTxtInp.type = 'text';
+                        rTxtInp.className = 'dy-cmt-ed-inp';
+                        rTxtInp.style.flex = '1';
+                        rTxtInp.placeholder = '回复内容...';
+                        rTxtInp.value = rep.text || '';
+                        rTxtInp.addEventListener('input', (e) => {
+                            rep.text = e.target.value;
+                            this.renderStage();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+
+                        const rImgBtn = document.createElement('button');
+                        rImgBtn.type = 'button';
+                        rImgBtn.className = 'dy-cmt-ed-btn';
+                        rImgBtn.textContent = rep.image ? '🖼️换' : '🖼️图';
+                        rImgBtn.title = '为此条二级回复上传或更换图片';
+                        rImgBtn.addEventListener('click', () => {
+                            if (!this.allowImage) {
+                                window.showToast('⚠️ 后台已关闭回复发图权限');
+                                return;
+                            }
+                            this.activePhotoUploadIdx = idx;
+                            this.activePhotoUploadReplyIdx = rIdx;
+                            const pInp = document.getElementById('dy-cmt-photo-file');
+                            if (pInp) {
+                                pInp.value = '';
+                                pInp.click();
+                            }
+                        });
+
+                        const rDelBtn = document.createElement('button');
+                        rDelBtn.type = 'button';
+                        rDelBtn.className = 'sub-cue-del';
+                        rDelBtn.textContent = '✕';
+                        rDelBtn.addEventListener('click', () => {
+                            item.replies.splice(rIdx, 1);
+                            this.renderStage();
+                            this.renderEditor();
+                            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                        });
+
+                        rTop.appendChild(rRoleBtn);
+                        rTop.appendChild(rUserInp);
+                        rTop.appendChild(rTxtInp);
+                        rTop.appendChild(rImgBtn);
+                        rTop.appendChild(rDelBtn);
+                        rRow.appendChild(rTop);
+                        repWrap.appendChild(rRow);
+                    });
+
+                    card.appendChild(repWrap);
+                }
+
                 edList.appendChild(card);
             });
         }
@@ -1943,8 +2522,181 @@ window.switchRightTab = function (mode) {
     if (selCmtAvatarApi) {
         selCmtAvatarApi.addEventListener('change', (e) => {
             CommentEngine.apiMode = e.target.value;
-            CommentEngine.randomizeAll(false);
-            window.showToast('已更新评论头像风格与随机资料');
+            CommentEngine.randomizeAll(false, e.target.value);
+            window.showToast('已更新评论区真实中国风头像风格');
+        });
+    }
+
+    const btnCmtSwitchFemale = document.getElementById('btn-cmt-switch-female');
+    if (btnCmtSwitchFemale) {
+        btnCmtSwitchFemale.addEventListener('click', () => {
+            if (selCmtAvatarApi) selCmtAvatarApi.value = 'cn-female';
+            CommentEngine.apiMode = 'cn-female';
+            CommentEngine.randomizeAll(false, 'cn-female');
+            window.showToast('👩 已将所有评论切换为真实中国女生头像');
+        });
+    }
+
+    const btnCmtSwitchMale = document.getElementById('btn-cmt-switch-male');
+    if (btnCmtSwitchMale) {
+        btnCmtSwitchMale.addEventListener('click', () => {
+            if (selCmtAvatarApi) selCmtAvatarApi.value = 'cn-male';
+            CommentEngine.apiMode = 'cn-male';
+            CommentEngine.randomizeAll(false, 'cn-male');
+            window.showToast('👦 已将所有评论切换为真实中国男生头像');
+        });
+    }
+
+    // 绑定评论区回复与跟评后台控制栏 (CMS 可显隐、允许回复、允许发图、回复字数上限、显示跟评区)
+    const btnToggleCmtReplyCms = document.getElementById('btn-toggle-cmt-reply-cms');
+    const cmtReplyCmsBody = document.getElementById('cmt-reply-cms-body');
+    const txtToggleCmtReplyCms = document.getElementById('txt-toggle-cmt-reply-cms');
+    if (btnToggleCmtReplyCms && cmtReplyCmsBody) {
+        btnToggleCmtReplyCms.addEventListener('click', () => {
+            CommentEngine.cmsConfigVisible = !CommentEngine.cmsConfigVisible;
+            cmtReplyCmsBody.style.display = CommentEngine.cmsConfigVisible ? 'flex' : 'none';
+            if (txtToggleCmtReplyCms) {
+                txtToggleCmtReplyCms.textContent = CommentEngine.cmsConfigVisible ? '▼ 收起配置' : '▶ 展开配置';
+            }
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+
+    const swCmtAllowReply = document.getElementById('sw-cmt-allow-reply');
+    if (swCmtAllowReply) {
+        swCmtAllowReply.addEventListener('change', (e) => {
+            CommentEngine.allowReply = e.target.checked;
+            if (!e.target.checked) CommentEngine.closeReplyComposer();
+            CommentEngine.renderStage();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(e.target.checked ? '✅ 已允许评论区回复' : '🚫 已禁止评论区回复');
+        });
+    }
+
+    const swCmtAllowImg = document.getElementById('sw-cmt-allow-img');
+    if (swCmtAllowImg) {
+        swCmtAllowImg.addEventListener('change', (e) => {
+            CommentEngine.allowImage = e.target.checked;
+            const btnReplyImg = document.getElementById('dy-cmt-reply-btn-img');
+            if (btnReplyImg) btnReplyImg.style.display = e.target.checked ? 'inline-flex' : 'none';
+            if (!e.target.checked) {
+                CommentEngine.pendingReplyImage = '';
+                const imgPrevWrap = document.getElementById('dy-cmt-reply-img-preview-wrap');
+                if (imgPrevWrap) imgPrevWrap.style.display = 'none';
+            }
+            CommentEngine.syncHeaderDOM();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(e.target.checked ? '🖼️ 已允许评论/回复带图发送' : '🚫 已关闭评论/回复发图功能');
+        });
+    }
+
+    const swCmtShowReplies = document.getElementById('sw-cmt-show-replies');
+    if (swCmtShowReplies) {
+        swCmtShowReplies.addEventListener('change', (e) => {
+            CommentEngine.showReplies = e.target.checked;
+            CommentEngine.renderStage();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(e.target.checked ? '💬 已显示二级跟评回复区' : '🙈 已隐藏二级跟评回复区');
+        });
+    }
+
+    const inCmtReplyMaxlen = document.getElementById('in-cmt-reply-maxlen');
+    if (inCmtReplyMaxlen) {
+        inCmtReplyMaxlen.addEventListener('input', (e) => {
+            const val = Math.min(500, Math.max(5, parseInt(e.target.value, 10) || 100));
+            CommentEngine.maxReplyLength = val;
+            const replyInp = document.getElementById('dy-cmt-reply-input');
+            const charHint = document.getElementById('dy-cmt-reply-char-hint');
+            if (replyInp) replyInp.maxLength = val;
+            if (charHint && replyInp) charHint.textContent = `${replyInp.value.length}/${val}`;
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+
+    // 绑定弹出式回复输入框 (角色切换、字数统计、图片附件、回车或点确定发送)
+    const btnRoleUser = document.getElementById('dy-reply-role-user');
+    const btnRoleAuthor = document.getElementById('dy-reply-role-author');
+    const btnReplyCancel = document.getElementById('dy-reply-modal-cancel');
+    const dyCmtReplyInput = document.getElementById('dy-cmt-reply-input');
+    const dyCmtReplyCharHint = document.getElementById('dy-cmt-reply-char-hint');
+    const dyCmtReplyBtnImg = document.getElementById('dy-cmt-reply-btn-img');
+    const dyCmtReplyPhotoFile = document.getElementById('dy-cmt-reply-photo-file');
+    const dyCmtReplyImgPreviewWrap = document.getElementById('dy-cmt-reply-img-preview-wrap');
+    const dyCmtReplyImgPreview = document.getElementById('dy-cmt-reply-img-preview');
+    const dyCmtReplyImgRemove = document.getElementById('dy-cmt-reply-img-remove');
+    const dyCmtReplySubmit = document.getElementById('dy-cmt-reply-submit');
+
+    function updateReplyRoleButtons(role) {
+        CommentEngine.replyRole = role;
+        if (btnRoleUser) btnRoleUser.classList.toggle('active', role === 'user');
+        if (btnRoleAuthor) btnRoleAuthor.classList.toggle('active', role === 'author');
+        const targetLabel = document.getElementById('dy-cmt-reply-target-label');
+        if (targetLabel && CommentEngine.replyTargetUser) {
+            targetLabel.textContent = `${role === 'author' ? '👑 作者回覆' : '👤 回覆'} @${CommentEngine.replyTargetUser}：`;
+        }
+        if (dyCmtReplyInput) dyCmtReplyInput.focus();
+    }
+
+    if (btnRoleUser) btnRoleUser.addEventListener('click', () => updateReplyRoleButtons('user'));
+    if (btnRoleAuthor) btnRoleAuthor.addEventListener('click', () => updateReplyRoleButtons('author'));
+    if (btnReplyCancel) btnReplyCancel.addEventListener('click', () => CommentEngine.closeReplyComposer());
+
+    if (dyCmtReplyInput) {
+        dyCmtReplyInput.addEventListener('input', () => {
+            const maxL = CommentEngine.maxReplyLength || 100;
+            if (dyCmtReplyInput.value.length > maxL) {
+                dyCmtReplyInput.value = dyCmtReplyInput.value.slice(0, maxL);
+            }
+            if (dyCmtReplyCharHint) {
+                dyCmtReplyCharHint.textContent = `${dyCmtReplyInput.value.length}/${maxL}`;
+            }
+        });
+        dyCmtReplyInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                CommentEngine.submitReplyFromComposer();
+            } else if (e.key === 'Escape') {
+                CommentEngine.closeReplyComposer();
+            }
+        });
+    }
+
+    if (dyCmtReplyBtnImg && dyCmtReplyPhotoFile) {
+        dyCmtReplyBtnImg.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!CommentEngine.allowImage) {
+                window.showToast('⚠️ 后台已关闭回复发图功能');
+                return;
+            }
+            dyCmtReplyPhotoFile.value = '';
+            dyCmtReplyPhotoFile.click();
+        });
+        dyCmtReplyPhotoFile.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                CommentEngine.pendingReplyImage = evt.target.result;
+                if (dyCmtReplyImgPreview) dyCmtReplyImgPreview.src = evt.target.result;
+                if (dyCmtReplyImgPreviewWrap) dyCmtReplyImgPreviewWrap.style.display = 'flex';
+                if (dyCmtReplyInput) dyCmtReplyInput.focus();
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+
+    if (dyCmtReplyImgRemove) {
+        dyCmtReplyImgRemove.addEventListener('click', () => {
+            CommentEngine.pendingReplyImage = '';
+            if (dyCmtReplyImgPreview) dyCmtReplyImgPreview.src = '';
+            if (dyCmtReplyImgPreviewWrap) dyCmtReplyImgPreviewWrap.style.display = 'none';
+        });
+    }
+
+    if (dyCmtReplySubmit) {
+        dyCmtReplySubmit.addEventListener('click', (e) => {
+            e.stopPropagation();
+            CommentEngine.submitReplyFromComposer();
         });
     }
 
@@ -2097,8 +2849,20 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // 上传评论照片 / 表情包处理 (支持给已有评论配图，也支持直接发一条新图片/表情包评论)
+    // 上传评论照片 / 表情包处理 (支持给已有评论/二级回复配图，也支持底部输入框待发图预览以便纯图或文字+图片一起发)
     const dyCmtPhotoFile = document.getElementById('dy-cmt-photo-file');
+    const dyCmtStageImgBar = document.getElementById('dy-cmt-stage-img-bar');
+    const dyCmtStageImgPreview = document.getElementById('dy-cmt-stage-img-preview');
+    const dyCmtStageImgRemove = document.getElementById('dy-cmt-stage-img-remove');
+
+    if (dyCmtStageImgRemove) {
+        dyCmtStageImgRemove.addEventListener('click', () => {
+            CommentEngine.pendingStageImage = '';
+            if (dyCmtStageImgPreview) dyCmtStageImgPreview.src = '';
+            if (dyCmtStageImgBar) dyCmtStageImgBar.style.display = 'none';
+        });
+    }
+
     if (dyCmtPhotoFile) {
         dyCmtPhotoFile.addEventListener('change', (e) => {
             const file = e.target.files && e.target.files[0];
@@ -2107,8 +2871,28 @@ window.switchRightTab = function (mode) {
             reader.onload = (evt) => {
                 const dataUrl = evt.target.result;
                 const idx = CommentEngine.activePhotoUploadIdx;
+                const repIdx = CommentEngine.activePhotoUploadReplyIdx;
                 if (idx >= 0 && CommentEngine.list[idx]) {
-                    CommentEngine.list[idx].image = dataUrl;
+                    if (repIdx >= 0 && Array.isArray(CommentEngine.list[idx].replies) && CommentEngine.list[idx].replies[repIdx]) {
+                        CommentEngine.list[idx].replies[repIdx].image = dataUrl;
+                    } else {
+                        CommentEngine.list[idx].image = dataUrl;
+                    }
+                    CommentEngine.activePhotoUploadIdx = -1;
+                    CommentEngine.activePhotoUploadReplyIdx = -1;
+                    CommentEngine.renderStage();
+                    CommentEngine.renderEditor();
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                    window.showToast('图片已更新');
+                } else if (CommentEngine.activePhotoUploadIdx === -2) {
+                    // 底部评论栏点击图片图标：挂载到待发图片预览条，可继续打字一起发或直接点确定发纯图
+                    CommentEngine.pendingStageImage = dataUrl;
+                    if (dyCmtStageImgPreview) dyCmtStageImgPreview.src = dataUrl;
+                    if (dyCmtStageImgBar) dyCmtStageImgBar.style.display = 'flex';
+                    const stageInp = document.getElementById('dy-cmt-stage-input');
+                    if (stageInp) stageInp.focus();
+                    CommentEngine.activePhotoUploadIdx = -1;
+                    window.showToast('🖼️ 图片已就绪，可输入文字一起发，或直接点「確定」发送纯图片');
                 } else {
                     const seed = `img_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
                     const stageInp = document.getElementById('dy-cmt-stage-input');
@@ -2117,27 +2901,24 @@ window.switchRightTab = function (mode) {
                     const newItem = {
                         id: seed,
                         user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
-                        text: typedTxt,
+                        text: typedTxt ? (typeof window.toStageTrad === 'function' ? window.toStageTrad(typedTxt) : typedTxt) : '',
                         dateLoc: randomDateLoc(CommentEngine.ipRegion, CommentEngine.pubWindowHours),
                         likes: String(Math.floor(Math.random() * 50) + 1),
                         liked: false,
                         avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
                         image: dataUrl,
-                        isCustomAvatar: false
+                        isCustomAvatar: false,
+                        replies: []
                     };
                     CommentEngine.prefetchAvatarDataUrl(newItem);
-                    CommentEngine.list.push(newItem);
-                    setTimeout(() => {
-                        const listEl = document.getElementById('dy-comment-list');
-                        if (listEl) listEl.scrollTop = listEl.scrollHeight;
-                    }, 50);
+                    CommentEngine.list.unshift(newItem);
+                    CommentEngine.activePhotoUploadIdx = -1;
+                    CommentEngine.renderStage();
+                    CommentEngine.renderEditor();
+                    if (!CommentEngine.isOpen) CommentEngine.setDrawerOpen(true, false);
+                    if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+                    window.showToast('图片/表情包已添加到评论区');
                 }
-                CommentEngine.activePhotoUploadIdx = -1;
-                CommentEngine.renderStage();
-                CommentEngine.renderEditor();
-                if (!CommentEngine.isOpen) CommentEngine.setDrawerOpen(true, false);
-                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-                window.showToast('图片/表情包已添加到评论区');
             };
             reader.readAsDataURL(file);
         });
@@ -2146,7 +2927,12 @@ window.switchRightTab = function (mode) {
     const btnCmtAddPhoto = document.getElementById('btn-cmt-add-photo');
     if (btnCmtAddPhoto && dyCmtPhotoFile) {
         btnCmtAddPhoto.addEventListener('click', () => {
+            if (!CommentEngine.allowImage) {
+                window.showToast('⚠️ 后台已关闭评论发图权限');
+                return;
+            }
             CommentEngine.activePhotoUploadIdx = -1;
+            CommentEngine.activePhotoUploadReplyIdx = -1;
             dyCmtPhotoFile.value = '';
             dyCmtPhotoFile.click();
         });
@@ -2156,43 +2942,72 @@ window.switchRightTab = function (mode) {
     if (dyCmtBtnSendImg && dyCmtPhotoFile) {
         dyCmtBtnSendImg.addEventListener('click', (e) => {
             e.stopPropagation();
-            CommentEngine.activePhotoUploadIdx = -1;
+            if (!CommentEngine.allowImage) {
+                window.showToast('⚠️ 后台已关闭评论发图权限');
+                return;
+            }
+            CommentEngine.activePhotoUploadIdx = -2;
+            CommentEngine.activePhotoUploadReplyIdx = -1;
             dyCmtPhotoFile.value = '';
             dyCmtPhotoFile.click();
         });
     }
 
-    // 底部输入框回车直接发评论 + @与表情快捷按钮
+    // 底部输入框回车或点「確定」直接发评论（支持纯文字、纯图片、文字+图片）
     const dyCmtStageInput = document.getElementById('dy-cmt-stage-input');
+    const dyCmtBtnStageSubmit = document.getElementById('dy-cmt-btn-stage-submit');
+
+    function submitStageComment() {
+        const rawVal = dyCmtStageInput ? dyCmtStageInput.value.trim() : '';
+        const imgData = CommentEngine.allowImage ? (CommentEngine.pendingStageImage || '') : '';
+        if (!rawVal && !imgData) {
+            window.showToast('请输入评论内容或上传图片');
+            return;
+        }
+        const seed = `post_${Date.now()}`;
+        const loc = pickOverseasIpLocation(CommentEngine.ipRegion);
+        const stageTxt = rawVal ? (typeof window.toStageTrad === 'function' ? window.toStageTrad(rawVal) : rawVal) : '';
+        const newItem = {
+            id: seed,
+            user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
+            text: stageTxt,
+            dateLoc: loc ? `剛剛 · ${loc}` : '剛剛',
+            likes: '1',
+            liked: true,
+            avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
+            image: imgData,
+            isCustomAvatar: false,
+            replies: []
+        };
+        CommentEngine.prefetchAvatarDataUrl(newItem);
+        CommentEngine.list.unshift(newItem);
+        if (dyCmtStageInput) {
+            dyCmtStageInput.value = '';
+            dyCmtStageInput.placeholder = '期待你的評論';
+        }
+        CommentEngine.pendingStageImage = '';
+        if (dyCmtStageImgPreview) dyCmtStageImgPreview.src = '';
+        if (dyCmtStageImgBar) dyCmtStageImgBar.style.display = 'none';
+        CommentEngine.renderStage();
+        CommentEngine.renderEditor();
+        const listEl = document.getElementById('dy-comment-list');
+        if (listEl) listEl.scrollTop = 0;
+        if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        window.showToast('评论已发布');
+    }
+
     if (dyCmtStageInput) {
         dyCmtStageInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                const val = dyCmtStageInput.value.trim();
-                if (!val) return;
-                const seed = `post_${Date.now()}`;
-                const loc = pickOverseasIpLocation(CommentEngine.ipRegion);
-                const newItem = {
-                    id: seed,
-                    user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
-                    text: val,
-                    dateLoc: loc ? `剛剛 · ${loc}` : '剛剛',
-                    likes: '1',
-                    liked: true,
-                    avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
-                    image: '',
-                    isCustomAvatar: false
-                };
-                CommentEngine.prefetchAvatarDataUrl(newItem);
-                CommentEngine.list.unshift(newItem);
-                dyCmtStageInput.value = '';
-                dyCmtStageInput.placeholder = '期待你的評論';
-                CommentEngine.renderStage();
-                CommentEngine.renderEditor();
-                const listEl = document.getElementById('dy-comment-list');
-                if (listEl) listEl.scrollTop = 0;
-                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-                window.showToast('评论已发布');
+                e.preventDefault();
+                submitStageComment();
             }
+        });
+    }
+    if (dyCmtBtnStageSubmit) {
+        dyCmtBtnStageSubmit.addEventListener('click', (e) => {
+            e.stopPropagation();
+            submitStageComment();
         });
     }
 
@@ -4430,19 +5245,64 @@ window.switchRightTab = function (mode) {
     }
 
     const inDyMsgCount = document.getElementById('in-dy-msg-count');
+    const swDyMsgBadge = document.getElementById('sw-dy-msg-badge');
+    const btnRandomDyMsgCount = document.getElementById('btn-random-dy-msg-count');
     const dyDispMsgBubble = document.getElementById('dy-disp-msg-bubble');
-    if (inDyMsgCount && dyDispMsgBubble) {
-        inDyMsgCount.addEventListener('input', (e) => {
-            const val = e.target.value.trim();
-            if (val) {
-                dyDispMsgBubble.textContent = val;
-                dyDispMsgBubble.style.display = 'inline-flex';
+    const layaDispMsgBadge = document.getElementById('laya-disp-msg-badge');
+    const layaAppDispMsgBadge = document.getElementById('laya-app-disp-msg-badge');
+
+    function formatBadgeDisplayText(rawVal) {
+        const s = String(rawVal == null ? '' : rawVal).trim();
+        if (!s) return '';
+        if (s === '99+') return '99+';
+        const n = parseInt(s, 10);
+        if (!isNaN(n) && String(n) === s) {
+            if (n <= 0) return '';
+            if (n > 99) return '99+';
+            return String(n);
+        }
+        return s;
+    }
+
+    function syncAllMsgBadges(shouldSave = true) {
+        const showBadge = !swDyMsgBadge || swDyMsgBadge.checked;
+        const rawVal = inDyMsgCount ? inDyMsgCount.value : '99+';
+        const dispText = formatBadgeDisplayText(rawVal);
+        const visible = showBadge && !!dispText;
+        const isPlus = dispText === '99+' || dispText.length >= 3;
+
+        [dyDispMsgBubble, layaDispMsgBadge, layaAppDispMsgBadge].forEach(el => {
+            if (!el) return;
+            if (visible) {
+                el.textContent = dispText;
+                el.style.display = 'inline-flex';
+                el.classList.toggle('is-99plus', isPlus);
             } else {
-                dyDispMsgBubble.style.display = 'none';
+                el.style.display = 'none';
             }
-            triggerSaveStorage();
+        });
+        if (shouldSave && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+    }
+
+    if (inDyMsgCount) {
+        inDyMsgCount.addEventListener('input', () => syncAllMsgBadges(true));
+    }
+    if (swDyMsgBadge) {
+        swDyMsgBadge.addEventListener('change', () => syncAllMsgBadges(true));
+    }
+    if (btnRandomDyMsgCount && inDyMsgCount) {
+        btnRandomDyMsgCount.addEventListener('click', () => {
+            const presets = ['99+', '1', '3', '8', '12', '26', '58', '88', '99', '128', '99+'];
+            const current = inDyMsgCount.value.trim();
+            const candidates = presets.filter(v => v !== current);
+            const nextVal = candidates[Math.floor(Math.random() * candidates.length)] || '99+';
+            inDyMsgCount.value = nextVal;
+            if (swDyMsgBadge && !swDyMsgBadge.checked) swDyMsgBadge.checked = true;
+            syncAllMsgBadges(true);
+            window.showToast(`🎲 消息角标已切换为：${formatBadgeDisplayText(nextVal)}`);
         });
     }
+    syncAllMsgBadges(false);
 
     const selDmPreset = document.getElementById('sel-dm-preset');
     const inDmPlaceholder = document.getElementById('in-dm-placeholder');
@@ -4462,6 +5322,9 @@ window.switchRightTab = function (mode) {
 
     const dyAvatarUploader = document.getElementById('dy-avatar-uploader');
     const btnResetAvatar = document.getElementById('btn-reset-avatar');
+    const selAuthorAvatarGender = document.getElementById('sel-author-avatar-gender');
+    const inDyAvatarUrl = document.getElementById('in-dy-avatar-url');
+    const btnApplyAuthorAvatarUrl = document.getElementById('btn-apply-author-avatar-url');
 
     if (dyAvatarUploader && dyAvatarImg) {
         dyAvatarUploader.addEventListener('change', (e) => {
@@ -4470,6 +5333,7 @@ window.switchRightTab = function (mode) {
             const reader = new FileReader();
             reader.onload = (evt) => {
                 syncAuthorAvatarEverywhere(evt.target.result, true);
+                if (inDyAvatarUrl) inDyAvatarUrl.value = '';
                 window.showToast('头像已成功更换（下方唱片头像已同步更新）！');
                 triggerSaveStorage();
             };
@@ -4482,23 +5346,66 @@ window.switchRightTab = function (mode) {
             const currentLogo = selLogoVersion ? selLogoVersion.value : 'Laya.png';
             const logoSrc = getActiveLogoSrc(currentLogo);
             syncAuthorAvatarEverywhere(logoSrc, false);
+            if (inDyAvatarUrl) inDyAvatarUrl.value = '';
             window.showToast('已恢复官方 Logo 头像（下方唱片头像已同步）');
             triggerSaveStorage();
         });
     }
 
+    async function randomizeAuthorChineseAvatar(showNotice = true) {
+        if (!dyAvatarImg) return;
+        const seed = 'author_' + Math.random().toString(36).slice(2, 9);
+        const genderMode = selAuthorAvatarGender ? selAuthorAvatarGender.value : 'real-human';
+        const avoidSet = new Set([dyAvatarImg.src]);
+        const onlineUrl = buildOnlineAvatarUrl(seed, genderMode, avoidSet);
+        syncAuthorAvatarEverywhere(onlineUrl, true);
+        if (inDyAvatarUrl) inDyAvatarUrl.value = onlineUrl;
+        triggerSaveStorage();
+        if (showNotice) {
+            const label = genderMode === 'cn-female' ? '中国女头' : (genderMode === 'cn-male' ? '中国男头' : '中国风真人头像');
+            window.showToast(`🎲 已随机切换${label}（主页与底部唱片已同步）`);
+        }
+        try {
+            const resp = await fetch(onlineUrl, { mode: 'cors' });
+            if (resp.ok) {
+                const blob = await resp.blob();
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    if (typeof reader.result === 'string') {
+                        syncAuthorAvatarEverywhere(reader.result, true);
+                        triggerSaveStorage();
+                    }
+                };
+                reader.readAsDataURL(blob);
+            }
+        } catch (err) {
+            triggerSaveStorage();
+        }
+    }
+
     const btnRandomAuthorAvatar = document.getElementById('btn-random-author-avatar');
     if (btnRandomAuthorAvatar && dyAvatarImg) {
-        btnRandomAuthorAvatar.addEventListener('click', async () => {
-            const seed = 'author_' + Math.random().toString(36).slice(2, 9);
-            const apiMode = (window.CommentEngine && window.CommentEngine.apiMode) ? window.CommentEngine.apiMode : 'real-human';
-            const avoidSet = new Set([dyAvatarImg.src]);
-            const onlineUrl = buildOnlineAvatarUrl(seed, apiMode, avoidSet);
-            syncAuthorAvatarEverywhere(onlineUrl, true);
+        btnRandomAuthorAvatar.addEventListener('click', () => {
+            randomizeAuthorChineseAvatar(true);
+        });
+    }
+    if (selAuthorAvatarGender) {
+        selAuthorAvatarGender.addEventListener('change', () => {
+            randomizeAuthorChineseAvatar(true);
+        });
+    }
+    if (btnApplyAuthorAvatarUrl && inDyAvatarUrl) {
+        const applyCustomAuthorUrl = async () => {
+            const urlVal = inDyAvatarUrl.value.trim();
+            if (!urlVal) {
+                window.showToast('⚠️ 请输入有效的头像图片 URL');
+                return;
+            }
+            syncAuthorAvatarEverywhere(urlVal, true);
             triggerSaveStorage();
-            window.showToast('已随机切换头像（中间与底部头像已同步）');
+            window.showToast('✅ 已应用指定头像 URL');
             try {
-                const resp = await fetch(onlineUrl, { mode: 'cors' });
+                const resp = await fetch(urlVal, { mode: 'cors' });
                 if (resp.ok) {
                     const blob = await resp.blob();
                     const reader = new FileReader();
@@ -4510,8 +5417,13 @@ window.switchRightTab = function (mode) {
                     };
                     reader.readAsDataURL(blob);
                 }
-            } catch (err) {
-                triggerSaveStorage();
+            } catch (e) {}
+        };
+        btnApplyAuthorAvatarUrl.addEventListener('click', applyCustomAuthorUrl);
+        inDyAvatarUrl.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                applyCustomAuthorUrl();
             }
         });
     }
@@ -4695,6 +5607,8 @@ window.switchRightTab = function (mode) {
                 avatarIsCustom: document.getElementById('dy-avatar-img')?.dataset.custom === 'true',
                 danmakuList: window.DanmakuEngine ? window.DanmakuEngine.list : [],
                 danmakuMode: window.DanmakuEngine ? window.DanmakuEngine.mode : 'scroll',
+                dmPortAreaMin: window.DanmakuEngine ? window.DanmakuEngine.portAreaMin : 20,
+                dmPortAreaMax: window.DanmakuEngine ? window.DanmakuEngine.portAreaMax : 60,
                 skin: document.getElementById('sel-mobile-skin')?.value || 'laya-app',
                 viewportMode: (window.PlayerEngine && window.PlayerEngine.currentMode) ? window.PlayerEngine.currentMode : 'mode-pc',
                 layaAppTopIdx: Array.from(document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item')).findIndex(el => el.classList.contains('active')),
@@ -4711,6 +5625,10 @@ window.switchRightTab = function (mode) {
                     apiMode: window.CommentEngine.apiMode,
                     ipRegion: window.CommentEngine.ipRegion,
                     pubWindowHours: window.CommentEngine.pubWindowHours,
+                    allowReply: window.CommentEngine.allowReply,
+                    allowImage: window.CommentEngine.allowImage,
+                    showReplies: window.CommentEngine.showReplies,
+                    replyMaxLen: window.CommentEngine.replyMaxLen,
                     colPrefix: window.CommentEngine.colPrefix,
                     colTitle: window.CommentEngine.colTitle,
                     headCount: window.CommentEngine.headCount,
@@ -4740,14 +5658,10 @@ window.switchRightTab = function (mode) {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) {
-                applyLogoVersion('Laya.png');
-                return;
-            }
-            if (!raw) {
                 applyLogoVersion('Laya.png', false);
-                applyMobileSkin('laya-app');
-                syncAllPhoneClockTimes(getCurrentRealClockTime(), false);
-                localStorage.setItem('LAYA_V13_DEFAULTS_MIGRATED', '1');
+                randomizeAuthorChineseAvatar(false);
+                syncAllMsgBadges(false);
+                localStorage.setItem('LAYA_V18_FIVE_MODULES_MIGRATED', '1');
                 return;
             }
             const data = JSON.parse(raw);
@@ -4780,6 +5694,27 @@ window.switchRightTab = function (mode) {
                     }
                 });
                 localStorage.setItem('LAYA_V15_CAMPAIGN_SIMP_MIGRATED', '1');
+            }
+
+            // V18 迁移：5大改造模块（评论回复、中国风真实头像、消息角标 99+、弹幕默认白字黑边 + 竖屏 20%~60% 区域）
+            const isV18Migrated = localStorage.getItem('LAYA_V18_FIVE_MODULES_MIGRATED') === '1';
+            if (!isV18Migrated) {
+                if (!data.inputs) data.inputs = {};
+                if (!data.checkboxes) data.checkboxes = {};
+                if (!data.selects) data.selects = {};
+                data.inputs['in-dy-msg-count'] = '99+';
+                data.checkboxes['sw-dy-msg-badge'] = true;
+                data.inputs['in-dm-port-min'] = '20';
+                data.inputs['in-dm-port-max'] = '60';
+                data.dmPortAreaMin = 20;
+                data.dmPortAreaMax = 60;
+                if (Array.isArray(data.danmakuList)) {
+                    data.danmakuList.forEach(dm => {
+                        dm.color = '#ffffff';
+                    });
+                }
+                data.avatarIsCustom = false;
+                localStorage.setItem('LAYA_V18_FIVE_MODULES_MIGRATED', '1');
             }
 
             window.__isRestoringStorage = true;
@@ -4828,12 +5763,14 @@ window.switchRightTab = function (mode) {
                     const el = document.getElementById(id);
                     if (el) {
                         el.value = val;
-                        if (id !== 'sel-dy-phone-model') {
+                        if (id !== 'sel-dy-phone-model' && id !== 'sel-author-avatar-gender') {
                             el.dispatchEvent(new Event('change'));
                         }
                     }
                 });
             }
+
+            syncAllMsgBadges(false);
 
             if (typeof renderDyStatusBar === 'function') {
                 renderDyStatusBar();
@@ -4846,10 +5783,10 @@ window.switchRightTab = function (mode) {
                 applyLogoVersion('Laya.png');
             }
 
-            if (data.avatar && dyAvatarImg && data.avatarIsCustom) {
+            if (data.avatar && dyAvatarImg && data.avatarIsCustom && !data.avatar.includes('pravatar.cc') && !data.avatar.includes('dicebear.com')) {
                 syncAuthorAvatarEverywhere(data.avatar, true);
-            } else if (dyAvatarImg && dyAvatarImg.src) {
-                syncAuthorAvatarEverywhere(dyAvatarImg.src, false);
+            } else {
+                randomizeAuthorChineseAvatar(false);
             }
 
             if (data.skin && selMobileSkin) {
@@ -4873,13 +5810,16 @@ window.switchRightTab = function (mode) {
             if (data.viewportMode && window.PlayerEngine && typeof window.PlayerEngine.activateViewportMode === 'function') {
                 window.PlayerEngine.activateViewportMode(data.viewportMode);
             }
-            if (true) {
-            }
 
-            if (data.danmakuList && window.DanmakuEngine) {
-                window.DanmakuEngine.list = data.danmakuList;
-                if (data.danmakuMode) window.DanmakuEngine.mode = data.danmakuMode;
+            if (window.DanmakuEngine) {
+                if (typeof data.dmPortAreaMin === 'number') window.DanmakuEngine.portAreaMin = data.dmPortAreaMin;
+                if (typeof data.dmPortAreaMax === 'number') window.DanmakuEngine.portAreaMax = data.dmPortAreaMax;
+                if (data.danmakuList) {
+                    window.DanmakuEngine.list = data.danmakuList;
+                    if (data.danmakuMode) window.DanmakuEngine.mode = data.danmakuMode;
+                }
                 window.DanmakuEngine.refresh();
+                window.DanmakuEngine.renderEditorList();
             }
 
             if (window.SubtitleEngine) {
@@ -4899,14 +5839,17 @@ window.switchRightTab = function (mode) {
             if (data.cmtData && window.CommentEngine) {
                 const cd = data.cmtData;
                 const migratedV17 = localStorage.getItem('LAYA_V17_NATURAL_CMT_MIGRATED') === '1';
-                if (!migratedV17) {
+                if (!migratedV17 || !isV18Migrated) {
                     localStorage.setItem('LAYA_V17_NATURAL_CMT_MIGRATED', '1');
                     localStorage.setItem('LAYA_V16_ASIAN_AVATAR_MIGRATED', '1');
-                    localStorage.setItem('LAYA_V14_OVERSEAS_CMT_MIGRATED', '1');
                     localStorage.setItem('LAYA_V14_OVERSEAS_CMT_MIGRATED', '1');
                     window.CommentEngine.apiMode = 'real-human';
                     window.CommentEngine.ipRegion = 'tw-hk-my';
                     window.CommentEngine.pubWindowHours = 72;
+                    window.CommentEngine.allowReply = true;
+                    window.CommentEngine.allowImage = true;
+                    window.CommentEngine.showReplies = true;
+                    window.CommentEngine.replyMaxLen = 120;
                     window.CommentEngine.colPrefix = '觀看完整合集：';
                     window.CommentEngine.colTitle = '人情與世故';
                     window.CommentEngine.vidTipText = '';
@@ -4919,6 +5862,10 @@ window.switchRightTab = function (mode) {
                     if (cd.apiMode) window.CommentEngine.apiMode = cd.apiMode;
                     if (cd.ipRegion) window.CommentEngine.ipRegion = cd.ipRegion;
                     if (cd.pubWindowHours) window.CommentEngine.pubWindowHours = cd.pubWindowHours;
+                    if (typeof cd.allowReply === 'boolean') window.CommentEngine.allowReply = cd.allowReply;
+                    if (typeof cd.allowImage === 'boolean') window.CommentEngine.allowImage = cd.allowImage;
+                    if (typeof cd.showReplies === 'boolean') window.CommentEngine.showReplies = cd.showReplies;
+                    if (typeof cd.replyMaxLen === 'number') window.CommentEngine.replyMaxLen = cd.replyMaxLen;
                     if (typeof cd.colPrefix === 'string') window.CommentEngine.colPrefix = cd.colPrefix;
                     if (typeof cd.colTitle === 'string') window.CommentEngine.colTitle = cd.colTitle;
                     if (typeof cd.headCount === 'string') window.CommentEngine.headCount = cd.headCount;
@@ -4930,12 +5877,21 @@ window.switchRightTab = function (mode) {
                             if (it.dateLoc && mainlandProvs.some(p => it.dateLoc.includes(p))) {
                                 it.dateLoc = randomDateLoc(window.CommentEngine.ipRegion, window.CommentEngine.pubWindowHours);
                             }
-                            if (!it.avatar) {
+                            if (!it.avatar || it.avatar.includes('pravatar.cc') || it.avatar.includes('dicebear.com')) {
                                 it.avatar = buildOnlineAvatarUrl(`mig_${idx}`, window.CommentEngine.apiMode);
+                                it.avatarDataUrl = '';
+                            }
+                            if (!Array.isArray(it.replies)) {
+                                it.replies = [];
                             }
                         });
                         window.CommentEngine.list = cd.list;
-                        window.CommentEngine.list.forEach(it => window.CommentEngine.prefetchAvatarDataUrl(it));
+                        window.CommentEngine.list.forEach(it => {
+                            window.CommentEngine.prefetchAvatarDataUrl(it);
+                            if (Array.isArray(it.replies)) {
+                                it.replies.forEach(rep => window.CommentEngine.prefetchAvatarDataUrl(rep));
+                            }
+                        });
                     }
                 }
                 window.CommentEngine.isExpanded = !!cd.isExpanded;
@@ -5414,9 +6370,8 @@ window.switchRightTab = function (mode) {
             }
 
             // 计算录制起点与时长：
-            // 1. 若用户主动拖动过底部剪映裁剪区间手柄（或切换过顶部录制秒数），则严格按选定的 [start, end] 导出
-            // 2. 若用户未动过裁剪手柄，则从当前位置录制顶部选定的秒数（若剩余不足则自动前移起点保证录满秒数）
-            const vidTotalDur = (previewVideo.duration && isFinite(previewVideo.duration))
+            // 严格限制导出时长不超过源视频有效区间（防止 3 秒视频循环录制成 5~10 秒或帧率错乱变慢）
+            const vidTotalDur = (previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
                 ? previewVideo.duration
                 : (window.PlayerEngine.videoDuration || 10);
             const trimRange = window.PlayerEngine.getTrimRange
@@ -5430,12 +6385,12 @@ window.switchRightTab = function (mode) {
                     : (parseFloat(selRecSecEl.value) || 5);
             }
 
-            let exportStartSec = trimRange.start;
+            let exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.5)));
             let recordSeconds = trimRange.duration;
 
             if (window.PlayerEngine.userHasTrimmed) {
-                exportStartSec = trimRange.start;
-                recordSeconds = Math.max(1.0, trimRange.duration);
+                exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.5)));
+                recordSeconds = Math.max(0.5, Math.min(trimRange.duration, vidTotalDur - exportStartSec));
             } else {
                 const curPos = previewVideo.currentTime || 0;
                 if (vidTotalDur <= 15 && curPos < 0.8) {
@@ -5452,16 +6407,19 @@ window.switchRightTab = function (mode) {
                     }
                 }
             }
-            recordSeconds = Math.max(1.0, Number(recordSeconds.toFixed(2)));
+            // ★ 绝不超出源视频剩余时长（3秒视频严格只导出3秒）
+            recordSeconds = Math.min(recordSeconds, Math.max(0.5, vidTotalDur - exportStartSec));
+            recordSeconds = Math.max(0.5, Number(recordSeconds.toFixed(2)));
 
             const origPlaybackRate = previewVideo.playbackRate || 1.0;
+            const origLoopState = previewVideo.loop;
 
             origVidBtnText = '🎥 录屏导出视频';
-            btnSaveVid.textContent = `⏳ 正在构建 1080P 超清覆层...`;
+            btnSaveVid.textContent = `⏳ 正在构建 1080P 手机硬解覆层...`;
             window.__isExportRecording = true;
 
-            // ★ 关键修复：在 html2canvas 构建超清 UI 覆层期间（耗时约 2~6 秒），先暂停视频并锁定在裁剪起点，
-            // 绝不能让视频在 html2canvas 等待期间提前偷跑（否则 10 秒片段被消耗掉 7 秒，真正开始录制时只剩 3 秒！）
+            // 在 html2canvas 构建 UI 覆层期间，暂停视频并锁定在裁剪起点，同时关闭 loop 防止 3 秒视频重播
+            previewVideo.loop = false;
             previewVideo.muted = false;
             previewVideo.volume = 1.0;
             const jyMuteBtn = document.getElementById('jy-btn-mute');
@@ -5484,7 +6442,7 @@ window.switchRightTab = function (mode) {
                 const isLand = renderTarget.classList.contains('mode-mobile-land');
                 const isDyLand = renderTarget.classList.contains('mode-dy-land');
 
-                // ★ 升级为 Full HD 1080P 真机级超清分辨率（16:9 为 1920x1080，9:16 竖屏为 1080x1920）
+                // ★ 竖屏分辨率严格控制在 1080x1920，横屏 1920x1080（偶数对齐，全手机硬解友好）
                 let outW = 1920, outH = 1080;
                 if (isPort) {
                     outW = 1080;
@@ -5492,7 +6450,7 @@ window.switchRightTab = function (mode) {
                 }
                 offCanvas.width = outW;
                 offCanvas.height = outH;
-                const ctx = offCanvas.getContext('2d');
+                const ctx = offCanvas.getContext('2d', { alpha: false });
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
 
@@ -5577,7 +6535,7 @@ window.switchRightTab = function (mode) {
                     }
                 });
 
-                // 预合成 1:1 尺寸的 UI 覆层画布（先用原生 Canvas 2D 绘制无缝顶/底渐变蒙层，再叠加 UI 快照，彻底消除分界黑线）
+                // 预合成 1:1 尺寸的 UI 覆层画布
                 const uiOverlayCanvas = document.createElement('canvas');
                 uiOverlayCanvas.width = outW;
                 uiOverlayCanvas.height = outH;
@@ -5587,7 +6545,6 @@ window.switchRightTab = function (mode) {
                 drawSeamlessHudGradients(uiOverlayCtx, outW, outH);
                 uiOverlayCtx.drawImage(uiSnapshotCanvas, -4, -6, outW + 8, outH + 12);
 
-                // 预先缓存所有配置与构图矩阵，录制循环中 0 DOM 查询，彻底告别卡顿
                 const cachedCropRect = window.getPlayerCropRect
                     ? window.getPlayerCropRect(mediaWrapBox.w, mediaWrapBox.h)
                     : { renderW: mediaWrapBox.w + 12, renderH: mediaWrapBox.h + 12, offX: -6, offY: -6 };
@@ -5600,25 +6557,36 @@ window.switchRightTab = function (mode) {
                 const syncTimeChecked = !swSyncVideoTime || swSyncVideoTime.checked;
 
                 const isFixedDm = (window.DanmakuEngine && window.DanmakuEngine.mode === 'fixed');
-                const danmakuParticles = (window.DanmakuEngine ? window.DanmakuEngine.getActiveList() : []).map((dm, idx) => ({
-                    text: dm.text,
-                    color: (isPort || isDyLand) ? '#ffffff' : dm.color,
-                    size: Math.round((dm.size || 16) * scaleRatioX),
-                    y: (outH * dm.top) / 100,
-                    x: isFixedDm ? ((outW * (dm.left || 20)) / 100) : ((outW * ((idx * 27) % 85)) / 100),
-                    speed: isFixedDm ? 0 : ((dm.speed ? (22 - dm.speed) : 9) * 0.85 * (window.DanmakuEngine.speedFactor || 1) * (scaleRatioX / 1.5))
-                }));
+                const danmakuParticles = (window.DanmakuEngine ? window.DanmakuEngine.getActiveList() : []).map((dm, idx) => {
+                    const effTop = (window.DanmakuEngine && typeof window.DanmakuEngine.getEffectiveTop === 'function')
+                        ? window.DanmakuEngine.getEffectiveTop(dm.top)
+                        : dm.top;
+                    return {
+                        text: dm.text,
+                        color: dm.color || '#ffffff',
+                        size: Math.round((dm.size || 16) * scaleRatioX),
+                        y: (outH * effTop) / 100,
+                        x: (typeof dm.customX === 'number')
+                            ? ((outW * dm.customX) / 100)
+                            : (isFixedDm ? ((outW * (dm.left || 20)) / 100) : ((outW * ((idx * 27) % 85)) / 100)),
+                        lockedX: (!isFixedDm && typeof dm.customX === 'number'),
+                        speed: isFixedDm ? 0 : ((dm.speed ? (22 - dm.speed) : 9) * 0.85 * (window.DanmakuEngine.speedFactor || 1) * (scaleRatioX / 1.5))
+                    };
+                });
 
                 const baseStartSec = window.PlayerEngine.timeToSec(inStartTime.value);
                 const totalVideoSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 1125;
                 const bufferPct = Math.min(100, Math.max(0, parseFloat(inBuffer.value) || 68)) / 100;
 
-                // ★ 录制期间强制使用 1.0x 标准原速，确保选定 10 秒片段精确录制 10 秒内容（录制结束后恢复原倍速）
+                // ★ 恒定 30fps (CFR) 参数与手机硬解码率（4.5 Mbps H.264 Main/Baseline Profile 8-bit + AAC 128kbps）
+                const TARGET_FPS = 30;
+                const TARGET_VIDEO_BITRATE = 4_500_000;
+                const TARGET_AUDIO_BITRATE = 128_000;
+
                 previewVideo.playbackRate = 1.0;
                 previewVideo.defaultPlaybackRate = 1.0;
 
-                // ★ 在 html2canvas 完成后、真正启动 MediaRecorder 前，精确校验并锁定视频起点到 exportStartSec
-                if (Math.abs((previewVideo.currentTime || 0) - exportStartSec) > 0.08) {
+                if (Math.abs((previewVideo.currentTime || 0) - exportStartSec) > 0.05) {
                     try { previewVideo.currentTime = exportStartSec; } catch (e) {}
                 }
                 if (previewVideo.seeking || previewVideo.readyState < 2) {
@@ -5637,9 +6605,11 @@ window.switchRightTab = function (mode) {
                 let recordStartStamp = performance.now();
                 let lastFrameStamp = recordStartStamp;
 
-                // 封装单帧绘制函数（零 DOM 查询、60FPS 丝滑渲染、外扩出血彻底消除上下白边）
-                const renderSingleFrame = (nowStamp) => {
-                    const dtRatio = Math.min(2.5, Math.max(0.2, (nowStamp - lastFrameStamp) / 33.33));
+                // 单帧合成函数（支持按精确相对秒数 elapsedSec 渲染，确保恒定 30fps 每一帧时间轴 100% 精准）
+                const renderSingleFrame = (nowStamp, forcedElapsedSec = null) => {
+                    const dtRatio = forcedElapsedSec !== null
+                        ? 1.0
+                        : Math.min(2.5, Math.max(0.2, (nowStamp - lastFrameStamp) / (1000 / TARGET_FPS)));
                     lastFrameStamp = nowStamp;
 
                     ctx.fillStyle = '#000000';
@@ -5664,14 +6634,14 @@ window.switchRightTab = function (mode) {
                         ctx.restore();
                     }
 
-                    // 2. 绘制弹幕
+                    // 2. 绘制弹幕（默认基础白字黑边）
                     if (showDanmaku && danmakuParticles.length > 0) {
                         ctx.save();
                         ctx.textBaseline = 'top';
                         for (let i = 0; i < danmakuParticles.length; i++) {
                             const p = danmakuParticles[i];
                             ctx.font = `bold ${p.size}px -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif`;
-                            if (!isFixedDm) {
+                            if (!isFixedDm && !p.lockedX) {
                                 p.x -= p.speed * dtRatio;
                                 const tw = ctx.measureText(p.text).width;
                                 if (p.x < -tw - 40) {
@@ -5679,15 +6649,15 @@ window.switchRightTab = function (mode) {
                                 }
                             }
                             ctx.lineWidth = 3.5;
-                            ctx.strokeStyle = 'rgba(0,0,0,0.85)';
+                            ctx.strokeStyle = 'rgba(0,0,0,0.92)';
                             ctx.strokeText(p.text, p.x, p.y);
-                            ctx.fillStyle = p.color;
+                            ctx.fillStyle = p.color || '#ffffff';
                             ctx.fillText(p.text, p.x, p.y);
                         }
                         ctx.restore();
                     }
 
-                    // 3. 叠加预合成的 1080P UI 覆层（1:1 极速贴图）
+                    // 3. 叠加预合成的 1080P UI 覆层
                     ctx.drawImage(uiOverlayCanvas, 0, 0);
 
                     // 3.5 动态绘制随时间变化的画面字幕（若开启了字幕）
@@ -5735,7 +6705,8 @@ window.switchRightTab = function (mode) {
                     }
 
                     // 4. 动态绘制进度条与时间码
-                    const elapsedSec = syncTimeChecked ? ((nowStamp - recordStartStamp) / 1000) : 0;
+                    const rawElapsed = forcedElapsedSec !== null ? forcedElapsedSec : ((nowStamp - recordStartStamp) / 1000);
+                    const elapsedSec = syncTimeChecked ? rawElapsed : 0;
                     const curSec = baseStartSec + elapsedSec;
                     const curPct = Math.min(1, Math.max(0, curSec / totalVideoSec));
 
@@ -5790,7 +6761,7 @@ window.switchRightTab = function (mode) {
                         const realVidDur = (previewVideo && previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
                             ? previewVideo.duration
                             : (recordSeconds || 10);
-                        const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : elapsedSec;
+                        const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : rawElapsed;
                         const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
                         if (showDylBot && dylBarBox) {
                             ctx.fillStyle = 'rgba(255,255,255,0.28)';
@@ -5815,7 +6786,7 @@ window.switchRightTab = function (mode) {
                         const realVidDur = (previewVideo && previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
                             ? previewVideo.duration
                             : (recordSeconds || 10);
-                        const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : elapsedSec;
+                        const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : rawElapsed;
                         const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
                         const barH = Math.max(3.5 * scaleRatioY, dyBarBox.h);
                         ctx.fillStyle = 'rgba(255,255,255,0.50)';
@@ -5832,13 +6803,277 @@ window.switchRightTab = function (mode) {
                 };
 
                 // 先绘制首帧激活画布缓存
-                renderSingleFrame(performance.now());
+                renderSingleFrame(performance.now(), 0);
 
-                // ★ 60FPS 高帧率画布流采集
-                const canvasStream = offCanvas.captureStream(60);
+                // =========================================================================
+                // ★ 优先方案：WebCodecs (H.264 Main/Baseline + AAC) + Mp4Muxer (fastStart 前置 moov + 恒定 30fps CFR)
+                // 彻底解决手机端播放卡顿、3秒视频变好几秒、VFR 可变帧率失速、无 faststart 需下载完才能播的问题
+                // =========================================================================
+                let webCodecsSupported = false;
+                let selectedVideoCodecConfig = null;
+                let selectedAudioCodecConfig = null;
+                let decodedAudioBuffer = null;
+
+                if (window.Mp4Muxer && typeof window.VideoEncoder === 'function' && typeof window.VideoFrame === 'function') {
+                    // 严格选用手机 100% 硬件解码支持的 8-bit H.264 Main Profile / Baseline Profile (Level 4.0)
+                    const h264Candidates = [
+                        'avc1.4d0028', // H.264 Main Profile Level 4.0 (首选手机硬解)
+                        'avc1.42e028', // H.264 Constrained Baseline Level 4.0
+                        'avc1.420028', // H.264 Baseline Level 4.0
+                        'avc1.4d4028'  // H.264 Main Profile (Constrained) Level 4.0
+                    ];
+                    for (const codecStr of h264Candidates) {
+                        try {
+                            const cfg = {
+                                codec: codecStr,
+                                width: outW,
+                                height: outH,
+                                bitrate: TARGET_VIDEO_BITRATE,
+                                framerate: TARGET_FPS,
+                                latencyMode: 'quality',
+                                avc: { format: 'avc' }
+                            };
+                            const sup = await VideoEncoder.isConfigSupported(cfg);
+                            if (sup && sup.supported) {
+                                selectedVideoCodecConfig = sup.config || cfg;
+                                webCodecsSupported = true;
+                                break;
+                            }
+                        } catch (e) {}
+                    }
+                }
+
+                // 尝试解码源视频音轨并以 AAC (mp4a.40.2) 编码混流
+                if (webCodecsSupported && typeof window.AudioEncoder === 'function' && typeof window.AudioData === 'function' && previewVideo.src) {
+                    try {
+                        const resp = await fetch(previewVideo.src);
+                        if (resp.ok) {
+                            const arrBuf = await resp.arrayBuffer();
+                            const decCtx = new (window.AudioContext || window.webkitAudioContext)();
+                            try {
+                                decodedAudioBuffer = await decCtx.decodeAudioData(arrBuf);
+                            } catch (decErr) {
+                                decodedAudioBuffer = null;
+                            } finally {
+                                if (decCtx.close) decCtx.close().catch(() => {});
+                            }
+                        }
+                        if (decodedAudioBuffer) {
+                            const sampleRate = decodedAudioBuffer.sampleRate || 48000;
+                            const numCh = Math.min(2, Math.max(1, decodedAudioBuffer.numberOfChannels || 2));
+                            const aCfg = {
+                                codec: 'mp4a.40.2', // AAC-LC 标准音频
+                                sampleRate: sampleRate,
+                                numberOfChannels: numCh,
+                                bitrate: TARGET_AUDIO_BITRATE
+                            };
+                            const aSup = await AudioEncoder.isConfigSupported(aCfg);
+                            if (aSup && aSup.supported) {
+                                selectedAudioCodecConfig = aSup.config || aCfg;
+                            } else {
+                                decodedAudioBuffer = null;
+                            }
+                        }
+                    } catch (audPreErr) {
+                        decodedAudioBuffer = null;
+                        selectedAudioCodecConfig = null;
+                    }
+                }
+
+                if (webCodecsSupported && selectedVideoCodecConfig) {
+                    const totalFrames = Math.max(1, Math.round(recordSeconds * TARGET_FPS));
+                    const frameDurationUs = Math.round(1_000_000 / TARGET_FPS);
+
+                    const muxerOpts = {
+                        target: new window.Mp4Muxer.ArrayBufferTarget(),
+                        video: {
+                            codec: 'avc',
+                            width: outW,
+                            height: outH,
+                            frameRate: TARGET_FPS
+                        },
+                        // ★ 开启 faststart（moov atom 前置），手机无需等待下载完即可秒开硬解播放
+                        fastStart: 'in-memory',
+                        firstTimestampBehavior: 'offset'
+                    };
+                    if (selectedAudioCodecConfig && decodedAudioBuffer) {
+                        muxerOpts.audio = {
+                            codec: 'aac',
+                            numberOfChannels: selectedAudioCodecConfig.numberOfChannels,
+                            sampleRate: selectedAudioCodecConfig.sampleRate
+                        };
+                    }
+
+                    const muxer = new window.Mp4Muxer.Muxer(muxerOpts);
+                    let muxerEncoderError = null;
+
+                    const videoEncoder = new VideoEncoder({
+                        output: (chunk, meta) => {
+                            try { muxer.addVideoChunk(chunk, meta); } catch (e) { muxerEncoderError = e; }
+                        },
+                        error: (e) => {
+                            muxerEncoderError = e;
+                        }
+                    });
+                    videoEncoder.configure(selectedVideoCodecConfig);
+
+                    let audioEncoder = null;
+                    if (selectedAudioCodecConfig && decodedAudioBuffer) {
+                        audioEncoder = new AudioEncoder({
+                            output: (chunk, meta) => {
+                                try { muxer.addAudioChunk(chunk, meta); } catch (e) {}
+                            },
+                            error: (e) => {
+                                console.warn('AudioEncoder warning:', e);
+                            }
+                        });
+                        audioEncoder.configure(selectedAudioCodecConfig);
+                    }
+
+                    // 预先将对应时间段 [exportStartSec, exportStartSec + recordSeconds] 的 PCM 音频送入 AAC 编码器
+                    if (audioEncoder && decodedAudioBuffer) {
+                        try {
+                            const sr = selectedAudioCodecConfig.sampleRate;
+                            const nCh = selectedAudioCodecConfig.numberOfChannels;
+                            const startSample = Math.max(0, Math.floor(exportStartSec * sr));
+                            const totalSamples = Math.min(
+                                Math.floor(recordSeconds * sr),
+                                Math.max(0, decodedAudioBuffer.length - startSample)
+                            );
+                            const chunkFrames = 1024;
+                            for (let offset = 0; offset < totalSamples; offset += chunkFrames) {
+                                const curFrames = Math.min(chunkFrames, totalSamples - offset);
+                                if (curFrames <= 0) break;
+                                const planarBuf = new Float32Array(curFrames * nCh);
+                                for (let ch = 0; ch < nCh; ch++) {
+                                    const srcCh = decodedAudioBuffer.getChannelData(Math.min(ch, decodedAudioBuffer.numberOfChannels - 1));
+                                    planarBuf.set(srcCh.subarray(startSample + offset, startSample + offset + curFrames), ch * curFrames);
+                                }
+                                const timestampUs = Math.round((offset / sr) * 1_000_000);
+                                const audioData = new AudioData({
+                                    format: 'f32-planar',
+                                    sampleRate: sr,
+                                    numberOfFrames: curFrames,
+                                    numberOfChannels: nCh,
+                                    timestamp: timestampUs,
+                                    data: planarBuf
+                                });
+                                audioEncoder.encode(audioData);
+                                audioData.close();
+                            }
+                        } catch (audEncErr) {
+                            console.warn('AAC encode note:', audEncErr);
+                        }
+                    }
+
+                    let isRecording = true;
+                    let encodedFrameCount = 0;
+                    let intervalId = null;
+
+                    const finalizeWebCodecsExport = async () => {
+                        if (!isRecording) return;
+                        isRecording = false;
+                        window.__stopActiveExport = null;
+                        if (intervalId) clearInterval(intervalId);
+
+                        try {
+                            btnSaveVid.textContent = `⏳ 正在封装 H.264 + faststart MP4...`;
+                            await videoEncoder.flush();
+                            videoEncoder.close();
+                            if (audioEncoder) {
+                                await audioEncoder.flush();
+                                audioEncoder.close();
+                            }
+                            muxer.finalize();
+
+                            if (muxerEncoderError) throw muxerEncoderError;
+
+                            const { buffer } = muxer.target;
+                            const blob = new Blob([buffer], { type: 'video/mp4' });
+                            const downloadUrl = URL.createObjectURL(blob);
+                            const link = document.createElement('a');
+                            link.style.display = 'none';
+                            const modeTag = isPort ? 'MobilePort' : (isDyLand ? 'DouyinFullLand' : (isLand ? 'MobileCinema' : 'WebPC'));
+                            link.download = `Laya_${modeTag}_H264_30fps_${Date.now()}.mp4`;
+                            link.href = downloadUrl;
+                            document.body.appendChild(link);
+                            link.click();
+                            setTimeout(() => {
+                                if (link.parentNode) link.parentNode.removeChild(link);
+                                URL.revokeObjectURL(downloadUrl);
+                            }, 800);
+
+                            const actualSec = Math.max(0.5, encodedFrameCount / TARGET_FPS).toFixed(1);
+                            window.showToast(`🎉 手机硬解 MP4 (H.264+AAC · 恒定30fps · faststart · ${actualSec}s) 导出成功！`);
+                        } catch (encFinalErr) {
+                            console.error('WebCodecs finalize error:', encFinalErr);
+                            window.showToast(`❌ MP4 封装失败：${encFinalErr.message || '请重试'}`);
+                        } finally {
+                            window.__isExportRecording = false;
+                            window.__stopActiveExport = null;
+                            previewVideo.loop = origLoopState;
+                            previewVideo.playbackRate = origPlaybackRate;
+                            previewVideo.defaultPlaybackRate = origPlaybackRate;
+                            if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
+                            btnSaveVid.textContent = origVidBtnText;
+                            btnSaveVid.disabled = false;
+                        }
+                    };
+
+                    window.__stopActiveExport = finalizeWebCodecsExport;
+
+                    await previewVideo.play().catch(() => {
+                        previewVideo.muted = true;
+                        return previewVideo.play().catch(() => {});
+                    });
+
+                    recordStartStamp = performance.now();
+                    lastFrameStamp = recordStartStamp;
+
+                    // ★ 严格按 30fps (每 33.33ms 一帧) 恒定帧率 (CFR) 采样并赋予固定步进时间戳，杜绝 VFR 导致手机播放变慢
+                    intervalId = setInterval(() => {
+                        if (!isRecording) return;
+                        if (encodedFrameCount >= totalFrames || previewVideo.ended || (previewVideo.currentTime >= exportStartSec + recordSeconds + 0.05)) {
+                            finalizeWebCodecsExport();
+                            return;
+                        }
+
+                        const exactElapsedSec = encodedFrameCount / TARGET_FPS;
+                        const now = performance.now();
+                        renderSingleFrame(now, exactElapsedSec);
+
+                        try {
+                            const timestampUs = Math.round(encodedFrameCount * (1_000_000 / TARGET_FPS));
+                            const frame = new VideoFrame(offCanvas, {
+                                timestamp: timestampUs,
+                                duration: frameDurationUs
+                            });
+                            // 每 30 帧（1秒）插入一个关键帧 I-Frame，保证手机拖动与硬解秒开
+                            videoEncoder.encode(frame, { keyFrame: (encodedFrameCount % TARGET_FPS === 0) });
+                            frame.close();
+                            encodedFrameCount++;
+                        } catch (frameErr) {
+                            console.warn('Frame encode warning:', frameErr);
+                        }
+
+                        const remain = Math.max(0, recordSeconds - exactElapsedSec);
+                        const pct = Math.min(99, Math.round((encodedFrameCount / totalFrames) * 100));
+                        btnSaveVid.textContent = `🔴 导出中 ${pct}% (剩 ${remain.toFixed(1)}s · 点击立即保存)`;
+
+                        if (encodedFrameCount >= totalFrames) {
+                            finalizeWebCodecsExport();
+                        }
+                    }, Math.round(1000 / TARGET_FPS));
+
+                    return;
+                }
+
+                // =========================================================================
+                // ★ 兼容降级方案（当旧浏览器不支持 WebCodecs 时）：恒定 30fps H.264 Baseline/Main + AAC MP4
+                // =========================================================================
+                const canvasStream = offCanvas.captureStream(TARGET_FPS);
                 const videoTrack = canvasStream.getVideoTracks()[0];
 
-                // ★ 提取稳定音轨：优先使用常驻 WebAudio 双路桥接节点（即使视频刚才暂停截图过也始终保持 live 状态）
                 let audioTracks = [];
                 try {
                     if (!window._audioCtx) {
@@ -5874,13 +7109,11 @@ window.switchRightTab = function (mode) {
                     } catch (e) {}
                 }
 
-                // ★ 在启动录制器前一刻开始播放视频，确保录制的每一秒都完整对应所选区间 [exportStartSec, exportStartSec + recordSeconds]
                 await previewVideo.play().catch(() => {
                     previewVideo.muted = true;
                     return previewVideo.play().catch(() => {});
                 });
 
-                // ★ 多级容错构建并启动 MediaRecorder（18Mbps 超清码率，优先采用支持 1080P@60fps 的 H.264 High/Baseline Level 4.2 编码）
                 const streamWithAudio = new MediaStream([
                     ...canvasStream.getVideoTracks(),
                     ...audioTracks
@@ -5889,20 +7122,21 @@ window.switchRightTab = function (mode) {
                     ...canvasStream.getVideoTracks()
                 ]);
 
+                // 严格优先 H.264 Baseline/Main Profile + AAC MP4（不使用 VP9/AV1）
                 const tryConfigs = [
-                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.64002A, mp4a.40.2"', ext: 'mp4' },
-                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E02A, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E01F, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.4D401F, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E028, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.4D4028, mp4a.40.2"', ext: 'mp4' },
                     { stream: streamWithAudio, mime: 'video/mp4', ext: 'mp4' },
-                    { stream: streamWithAudio, mime: 'video/webm;codecs="vp9,opus"', ext: 'webm' },
-                    { stream: streamWithAudio, mime: 'video/webm;codecs="vp8,opus"', ext: 'webm' },
-                    { stream: streamWithAudio, mime: 'video/webm', ext: 'webm' },
+                    { stream: streamVideoOnly, mime: 'video/mp4;codecs="avc1.42E01F"', ext: 'mp4' },
                     { stream: streamVideoOnly, mime: 'video/mp4', ext: 'mp4' },
-                    { stream: streamVideoOnly, mime: 'video/webm', ext: 'webm' },
-                    { stream: streamVideoOnly, mime: '', ext: 'webm' }
+                    { stream: streamWithAudio, mime: 'video/webm;codecs="h264,opus"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/webm', ext: 'webm' }
                 ];
 
                 let recorder = null;
-                let selectedFormat = { mime: 'video/webm', ext: 'webm' };
+                let selectedFormat = { mime: 'video/mp4', ext: 'mp4' };
                 const chunks = [];
 
                 for (const cfg of tryConfigs) {
@@ -5910,7 +7144,10 @@ window.switchRightTab = function (mode) {
                         continue;
                     }
                     try {
-                        const opts = { videoBitsPerSecond: 18000000 };
+                        const opts = {
+                            videoBitsPerSecond: TARGET_VIDEO_BITRATE,
+                            audioBitsPerSecond: TARGET_AUDIO_BITRATE
+                        };
                         if (cfg.mime) opts.mimeType = cfg.mime;
                         const candidate = new MediaRecorder(cfg.stream, opts);
                         candidate.ondataavailable = (e) => {
@@ -5918,7 +7155,7 @@ window.switchRightTab = function (mode) {
                         };
                         candidate.start(200);
                         recorder = candidate;
-                        selectedFormat = { mime: cfg.mime || candidate.mimeType || 'video/webm', ext: cfg.ext };
+                        selectedFormat = { mime: cfg.mime || candidate.mimeType || 'video/mp4', ext: cfg.ext };
                         break;
                     } catch (recErr) {
                         console.warn('MediaRecorder fallback:', cfg.mime, recErr);
@@ -5930,7 +7167,6 @@ window.switchRightTab = function (mode) {
                 }
 
                 let isRecording = true;
-                let rafId = null;
                 let bgTimerId = null;
                 let stopTimeoutId = null;
 
@@ -5938,7 +7174,6 @@ window.switchRightTab = function (mode) {
                     if (!isRecording) return;
                     isRecording = false;
                     window.__stopActiveExport = null;
-                    if (rafId) cancelAnimationFrame(rafId);
                     if (bgTimerId) clearInterval(bgTimerId);
                     if (stopTimeoutId) clearTimeout(stopTimeoutId);
                     try {
@@ -5952,6 +7187,7 @@ window.switchRightTab = function (mode) {
                 recorder.onstop = () => {
                     window.__isExportRecording = false;
                     window.__stopActiveExport = null;
+                    previewVideo.loop = origLoopState;
                     previewVideo.playbackRate = origPlaybackRate;
                     previewVideo.defaultPlaybackRate = origPlaybackRate;
                     if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
@@ -5963,12 +7199,12 @@ window.switchRightTab = function (mode) {
                         return;
                     }
 
-                    const blob = new Blob(chunks, { type: selectedFormat.mime || 'video/webm' });
+                    const blob = new Blob(chunks, { type: selectedFormat.mime || 'video/mp4' });
                     const downloadUrl = URL.createObjectURL(blob);
                     const link = document.createElement('a');
                     link.style.display = 'none';
                     const modeTag = isPort ? 'MobilePort' : (isDyLand ? 'DouyinFullLand' : (isLand ? 'MobileCinema' : 'WebPC'));
-                    link.download = `Laya_${modeTag}_1080P_${Date.now()}.${selectedFormat.ext}`;
+                    link.download = `Laya_${modeTag}_1080P_30fps_${Date.now()}.${selectedFormat.ext}`;
                     link.href = downloadUrl;
                     document.body.appendChild(link);
                     link.click();
@@ -5977,53 +7213,37 @@ window.switchRightTab = function (mode) {
                         URL.revokeObjectURL(downloadUrl);
                     }, 800);
 
-                    const actualSec = Math.max(0.5, ((performance.now() - recordStartStamp) / 1000)).toFixed(1);
-                    window.showToast(`🎉 1080P 60帧超清视频 (.${selectedFormat.ext}，${actualSec}s，无白边) 导出成功！`);
+                    const actualSec = Math.min(recordSeconds, Math.max(0.5, ((performance.now() - recordStartStamp) / 1000))).toFixed(1);
+                    window.showToast(`🎉 1080P 30fps 手机兼容视频 (.${selectedFormat.ext}，${actualSec}s) 导出成功！`);
                 };
 
                 recordStartStamp = performance.now();
                 lastFrameStamp = recordStartStamp;
 
-                // ★ 60FPS requestAnimationFrame 丝滑渲染循环 + 实时进度百分比显示
-                const tickFrame = (now) => {
+                // ★ 恒定 30fps (33.33ms) 定时渲染循环
+                bgTimerId = setInterval(() => {
                     if (!isRecording) return;
+                    const now = performance.now();
                     const elapsed = (now - recordStartStamp) / 1000;
-                    if (previewVideo.paused && !previewVideo.ended && elapsed < recordSeconds - 0.1) {
-                        previewVideo.play().catch(() => {});
+                    if (elapsed >= recordSeconds || previewVideo.ended || (previewVideo.currentTime >= exportStartSec + recordSeconds + 0.05)) {
+                        finishRecording();
+                        return;
                     }
-                    renderSingleFrame(now);
+                    renderSingleFrame(now, elapsed);
                     if (videoTrack && typeof videoTrack.requestFrame === 'function') {
                         try { videoTrack.requestFrame(); } catch (e) {}
                     }
                     const remain = Math.max(0, recordSeconds - elapsed);
                     const pct = Math.min(99, Math.round((elapsed / recordSeconds) * 100));
                     btnSaveVid.textContent = `🔴 导出中 ${pct}% (剩 ${remain.toFixed(1)}s · 点击立即保存)`;
+                }, Math.round(1000 / TARGET_FPS));
 
-                    if (elapsed >= recordSeconds) {
-                        finishRecording();
-                        return;
-                    }
-                    rafId = requestAnimationFrame(tickFrame);
-                };
-                rafId = requestAnimationFrame(tickFrame);
-
-                // 后台标签页防休眠补偿定时器
-                bgTimerId = setInterval(() => {
-                    if (!isRecording) return;
-                    if (document.hidden) {
-                        const now = performance.now();
-                        renderSingleFrame(now);
-                        if ((now - recordStartStamp) / 1000 >= recordSeconds) {
-                            finishRecording();
-                        }
-                    }
-                }, 33);
-
-                stopTimeoutId = setTimeout(finishRecording, recordSeconds * 1000 + 150);
+                stopTimeoutId = setTimeout(finishRecording, recordSeconds * 1000 + 80);
 
             } catch (err) {
                 window.__isExportRecording = false;
                 window.__stopActiveExport = null;
+                previewVideo.loop = origLoopState;
                 previewVideo.playbackRate = origPlaybackRate;
                 previewVideo.defaultPlaybackRate = origPlaybackRate;
                 if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);

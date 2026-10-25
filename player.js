@@ -510,6 +510,10 @@ window.PlayerEngine = {
             window.PlayerEngine.userHasTrimmed = false;
             window.PlayerEngine._allowPlayOutsideTrim = false;
 
+            if (dur > 0 && dur <= 15) {
+                syncTopDurationControl(dur);
+            }
+
             renderJianyingRuler(dur);
             renderJianyingWaveform();
             updateJianyingTrimUI();

@@ -11,6 +11,23 @@ window.DanmakuEngine = {
     mode: 'scroll', // 'scroll' (动态滚动) | 'fixed' (静态坐标排布)
     isPaused: false,
     speedFactor: 1.0,
+    portAreaMin: 20, // 竖屏默认显示区域上边界：五分之一 (20%)
+    portAreaMax: 60, // 竖屏默认显示区域下边界：五分之三 (60%)
+
+    isPortraitStage() {
+        const stg = document.getElementById('capture-stage');
+        return !!(stg && stg.classList.contains('mode-mobile-port'));
+    },
+
+    getEffectiveTop(rawTop) {
+        const t = Number.isFinite(Number(rawTop)) ? Number(rawTop) : 25;
+        if (this.isPortraitStage()) {
+            const minV = Math.min(this.portAreaMin, this.portAreaMax - 5);
+            const maxV = Math.max(this.portAreaMax, minV + 5);
+            return Math.min(maxV, Math.max(minV, t));
+        }
+        return Math.min(92, Math.max(5, t));
+    },
 
     getActiveList() {
         return this.list.filter(item => item.visible !== false);
@@ -34,7 +51,7 @@ window.DanmakuEngine = {
         syncPauseButtonUI(this.isPaused);
 
         if (typeof window.showToast === 'function') {
-            window.showToast(this.isPaused ? '⏸️ 弹幕已原地定格 (便于预览位置与截图)' : '▶ 弹幕已恢复正常飘动');
+            window.showToast(this.isPaused ? '⏸️ 弹幕已原地定格 (可直接鼠标拖动/滚轮缩放/右键调速)' : '▶ 弹幕已恢复正常飘动');
         }
     },
 
@@ -44,20 +61,22 @@ window.DanmakuEngine = {
         this.refresh();
         if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
         if (typeof window.showToast === 'function') {
-            window.showToast(`已载入预设案例：${presetNames[presetKey]}`);
+            window.showToast(`已载入预设案例：${presetNames[presetKey]}（默认白字黑边）`);
         }
     },
 
     fireLive(text, color = '#ffffff') {
         if (!text || !text.trim()) return;
+        const minTop = this.isPortraitStage() ? this.portAreaMin : 15;
+        const maxTop = this.isPortraitStage() ? this.portAreaMax : 65;
         const newTrack = {
             id: 'dm_live_' + Date.now(),
             text: text.trim(),
-            top: Math.floor(Math.random() * 55) + 14,
-            left: 45,
-            color: color,
+            top: Math.floor(Math.random() * Math.max(5, maxTop - minTop)) + minTop,
+            left: 35,
+            color: color || '#ffffff',
             size: parseInt(document.getElementById('in-danmaku-size')?.value) || 16,
-            speed: 8,
+            speed: 9,
             visible: true
         };
         this.list.unshift(newTrack);
@@ -72,27 +91,28 @@ const presetNames = {
     traffic: '👑 Laya暗号引流组'
 };
 
+// 默认全部采用最基础白字黑边 (#ffffff)，不带花里胡哨颜色，且默认高度分布在 20%~58% (1/5 ~ 3/5)
 const presetsDB = {
     driver: [
-        { id: 'd1', text: '這身材太頂了吧！純欲天花板', top: 15, left: 14, color: '#ffffff', size: 17, speed: 9, visible: true },
-        { id: 'd2', text: '這腰臀比是真實存在的嗎？我好了', top: 28, left: 45, color: '#f39c12', size: 16, speed: 11, visible: true },
-        { id: 'd3', text: '極品尤物，營養快線徹底跟不上了！', top: 46, left: 10, color: '#fe2c55', size: 19, speed: 8, visible: true },
-        { id: 'd4', text: '4K 無碼原畫就是香，毛孔都看得清', top: 62, left: 52, color: '#00d2d3', size: 16, speed: 12, visible: true },
-        { id: 'd5', text: '已截圖珍藏，感謝樓主好人一生平安！', top: 78, left: 22, color: '#2ecc71', size: 15, speed: 10, visible: true }
+        { id: 'd1', text: '這身材太頂了吧！純欲天花板', top: 22, left: 14, color: '#ffffff', size: 16, speed: 9, visible: true },
+        { id: 'd2', text: '這腰臀比是真實存在的嗎？我好了', top: 30, left: 45, color: '#ffffff', size: 16, speed: 11, visible: true },
+        { id: 'd3', text: '極品尤物，營養快線徹底跟不上了！', top: 38, left: 10, color: '#ffffff', size: 17, speed: 8, visible: true },
+        { id: 'd4', text: '4K 無碼原畫就是香，細節都看得清', top: 47, left: 52, color: '#ffffff', size: 16, speed: 12, visible: true },
+        { id: 'd5', text: '已截圖珍藏，感謝樓主好人一生平安！', top: 56, left: 22, color: '#ffffff', size: 15, speed: 10, visible: true }
     ],
     climax: [
-        { id: 'c1', text: '前方高能！3分20秒直接起飛預警！', top: 16, left: 20, color: '#fe2c55', size: 20, speed: 7, visible: true },
-        { id: 'c2', text: '衛生紙已經用掉半包了，這誰頂得住', top: 32, left: 48, color: '#ff7675', size: 17, speed: 9, visible: true },
-        { id: 'c3', text: '兄弟們我先衝為敬，後面跟上！', top: 52, left: 12, color: '#f1c40f', size: 18, speed: 8, visible: true },
-        { id: 'c4', text: '求女主番號！這聲音聽得骨頭都酥了', top: 68, left: 58, color: '#ffffff', size: 16, speed: 10, visible: true },
-        { id: 'c5', text: '刺激！這劇情反轉直接戳中XP了', top: 82, left: 28, color: '#a29bfe', size: 16, speed: 12, visible: true }
+        { id: 'c1', text: '前方高能！直接起飛預警！', top: 22, left: 20, color: '#ffffff', size: 17, speed: 8, visible: true },
+        { id: 'c2', text: '衛生紙已經用掉半包了，這誰頂得住', top: 31, left: 48, color: '#ffffff', size: 16, speed: 9, visible: true },
+        { id: 'c3', text: '兄弟們我先衝為敬，後面跟上！', top: 40, left: 12, color: '#ffffff', size: 16, speed: 8, visible: true },
+        { id: 'c4', text: '求女主番號！這聲音聽得骨頭都酥了', top: 49, left: 58, color: '#ffffff', size: 16, speed: 10, visible: true },
+        { id: 'c5', text: '刺激！這劇情反轉直接戳中XP了', top: 57, left: 28, color: '#ffffff', size: 16, speed: 11, visible: true }
     ],
     traffic: [
-        { id: 't1', text: 'Laya 暗號 1896 真的能看！已解鎖未刪減版', top: 16, left: 15, color: '#f39c12', size: 18, speed: 9, visible: true },
-        { id: 't2', text: '免費通道竟然一點都不卡，太良心了', top: 30, left: 46, color: '#ffffff', size: 16, speed: 11, visible: true },
-        { id: 't3', text: '來 Laya 語音廳，親自演給你看，懂的都懂！', top: 48, left: 8, color: '#2ecc71', size: 19, speed: 8, visible: true },
-        { id: 't4', text: '私密群已上車，高清完整無水印爽翻', top: 66, left: 52, color: '#00d2d3', size: 16, speed: 10, visible: true },
-        { id: 't5', text: '原畫質連線就是爽，今晚不用睡了', top: 80, left: 20, color: '#ff9ff3', size: 16, speed: 12, visible: true }
+        { id: 't1', text: 'Laya 暗號 1896 真的能看！已解鎖未刪減版', top: 22, left: 15, color: '#ffffff', size: 17, speed: 9, visible: true },
+        { id: 't2', text: '免費通道竟然一點都不卡，太良心了', top: 31, left: 46, color: '#ffffff', size: 16, speed: 11, visible: true },
+        { id: 't3', text: '來 Laya 語音廳，親自演給你看，懂的都懂！', top: 40, left: 8, color: '#ffffff', size: 17, speed: 8, visible: true },
+        { id: 't4', text: '私密群已上車，高清完整無水印爽翻', top: 49, left: 52, color: '#ffffff', size: 16, speed: 10, visible: true },
+        { id: 't5', text: '原畫質連線就是爽，今晚不用睡了', top: 57, left: 20, color: '#ffffff', size: 16, speed: 12, visible: true }
     ]
 };
 
@@ -125,6 +145,11 @@ function syncPauseButtonUI(isPaused) {
     const btnToggleDmMotion = document.getElementById('btn-toggle-dm-motion');
     const inDmGlobalSpeed = document.getElementById('in-dm-global-speed');
     const txtDmGlobalSpeed = document.getElementById('txt-dm-global-speed');
+    const inDmPortMin = document.getElementById('in-dm-port-min');
+    const txtDmPortMin = document.getElementById('txt-dm-port-min');
+    const inDmPortMax = document.getElementById('in-dm-port-max');
+    const txtDmPortMax = document.getElementById('txt-dm-port-max');
+    const btnResetDmPortRange = document.getElementById('btn-reset-dm-port-range');
 
     window.DanmakuEngine.container = danmakuContainer;
     window.DanmakuEngine.trackListUI = danmakuTrackList;
@@ -135,8 +160,156 @@ function syncPauseButtonUI(isPaused) {
     };
 
     /* ==========================================================================
-       1. 舞台弹幕渲染 (首屏负延时预分布技术，开启即见全屏飘字)
+       1. 舞台弹幕渲染 + 鼠标拖拽位置 / 滚轮缩放字号 / 右键调节速度
        ========================================================================== */
+    function bindDanmakuItemInteractions(el, dm, idx) {
+        el.title = '左键拖动位置 | 滚轮缩放字号 | 右键调节滚动速度';
+
+        // 1) 鼠标左键拖动弹幕位置 (X / Y)
+        el.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // 仅响应左键拖动
+            e.preventDefault();
+            e.stopPropagation();
+            if (!danmakuContainer) return;
+
+            const containerRect = danmakuContainer.getBoundingClientRect();
+            const itemRect = el.getBoundingClientRect();
+            const offsetX = e.clientX - itemRect.left;
+            const offsetY = e.clientY - itemRect.top;
+
+            // 拖动开始：锁定在当前视觉坐标，暂停动画跳变
+            const startLeftPct = ((itemRect.left - containerRect.left) / Math.max(1, containerRect.width)) * 100;
+            const startTopPct = ((itemRect.top - containerRect.top) / Math.max(1, containerRect.height)) * 100;
+
+            el.classList.add('is-dragging');
+            el.style.animation = 'none';
+            el.style.transform = 'none';
+            el.style.left = startLeftPct.toFixed(1) + '%';
+            el.style.top = startTopPct.toFixed(1) + '%';
+
+            let finalLeftPct = startLeftPct;
+            let finalTopPct = startTopPct;
+
+            const onMouseMove = (moveEvt) => {
+                moveEvt.preventDefault();
+                const cRect = danmakuContainer.getBoundingClientRect();
+                const rawLeft = ((moveEvt.clientX - offsetX - cRect.left) / Math.max(1, cRect.width)) * 100;
+                const rawTop = ((moveEvt.clientY - offsetY - cRect.top) / Math.max(1, cRect.height)) * 100;
+
+                const minTop = window.DanmakuEngine.isPortraitStage() ? window.DanmakuEngine.portAreaMin : 4;
+                const maxTop = window.DanmakuEngine.isPortraitStage() ? window.DanmakuEngine.portAreaMax : 92;
+
+                finalLeftPct = Math.min(92, Math.max(-10, rawLeft));
+                finalTopPct = Math.min(maxTop, Math.max(minTop, rawTop));
+
+                el.style.left = finalLeftPct.toFixed(1) + '%';
+                el.style.top = finalTopPct.toFixed(1) + '%';
+            };
+
+            const onMouseUp = () => {
+                window.removeEventListener('mousemove', onMouseMove);
+                window.removeEventListener('mouseup', onMouseUp);
+                el.classList.remove('is-dragging');
+
+                dm.top = Math.round(finalTopPct);
+                dm.left = Math.round(Math.min(90, Math.max(2, finalLeftPct)));
+
+                if (window.DanmakuEngine.mode === 'fixed') {
+                    el.style.left = dm.left + '%';
+                    el.style.top = dm.top + '%';
+                } else {
+                    // 动态滚动模式：根据松手时的水平位置反推负延时，使弹幕从松手位置丝滑继续滚动
+                    const cWidth = Math.max(1, danmakuContainer.clientWidth);
+                    const iWidth = Math.max(20, el.offsetWidth);
+                    const leftRatio = finalLeftPct / 100;
+                    const progress = Math.min(0.95, Math.max(0.02, (1 - leftRatio) / (1 + iWidth / cWidth)));
+                    dm.customProgress = progress;
+
+                    const baseDuration = Math.max(2, (dm.speed || 8) / window.DanmakuEngine.speedFactor);
+                    el.style.left = '';
+                    el.style.transform = '';
+                    el.style.top = dm.top + '%';
+                    el.style.animation = '';
+                    el.style.animationDuration = baseDuration.toFixed(1) + 's';
+                    el.style.animationDelay = (-progress * baseDuration).toFixed(2) + 's';
+                }
+
+                // 同步右侧轨道面板数值
+                const card = danmakuTrackList?.querySelector(`.dm-track-card[data-id="${dm.id}"]`);
+                if (card) {
+                    const topInp = card.querySelector('.dm-input-top');
+                    if (topInp) topInp.value = dm.top;
+                    const leftInp = card.querySelector('.dm-input-left');
+                    if (leftInp) leftInp.value = dm.left;
+                }
+                if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+            };
+
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('mouseup', onMouseUp);
+        });
+
+        // 2) 鼠标滚轮：放大/缩小弹幕文字大小
+        el.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const delta = e.deltaY < 0 ? 2 : -2;
+            const nextSize = Math.min(44, Math.max(11, (parseInt(dm.size) || 16) + delta));
+            dm.size = nextSize;
+            el.style.fontSize = nextSize + 'px';
+
+            const card = danmakuTrackList?.querySelector(`.dm-track-card[data-id="${dm.id}"]`);
+            if (card) {
+                const sizeInp = card.querySelector('.dm-input-size');
+                if (sizeInp) sizeInp.value = nextSize;
+            }
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+            toast(`🔍 弹幕字号已调为：${nextSize}px`);
+        }, { passive: false });
+
+        // 3) 鼠标右键：循环调节弹幕滚动速度
+        el.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            const speedPresets = [
+                { speed: 10, label: '标准速度 (1.0X)' },
+                { speed: 7, label: '快速滚动 (1.4X)' },
+                { speed: 4.5, label: '极速飙车 (2.2X)' },
+                { speed: 15, label: '慢速飘动 (0.7X)' }
+            ];
+            const curSpeed = Number(dm.speed) || 9;
+            let curIdx = speedPresets.findIndex(p => Math.abs(p.speed - curSpeed) <= 1.2);
+            const nextPreset = speedPresets[(curIdx + 1) % speedPresets.length];
+
+            // 保持当前屏幕水平位置不跳变
+            if (danmakuContainer && window.DanmakuEngine.mode !== 'fixed') {
+                const cRect = danmakuContainer.getBoundingClientRect();
+                const iRect = el.getBoundingClientRect();
+                const cWidth = Math.max(1, cRect.width);
+                const iWidth = Math.max(20, iRect.width);
+                const leftRatio = (iRect.left - cRect.left) / cWidth;
+                dm.customProgress = Math.min(0.95, Math.max(0.02, (1 - leftRatio) / (1 + iWidth / cWidth)));
+            }
+
+            dm.speed = nextPreset.speed;
+            if (window.DanmakuEngine.mode !== 'fixed') {
+                const baseDuration = Math.max(2, dm.speed / window.DanmakuEngine.speedFactor);
+                const prog = dm.customProgress !== undefined ? dm.customProgress : 0.35;
+                el.style.animationDuration = baseDuration.toFixed(1) + 's';
+                el.style.animationDelay = (-prog * baseDuration).toFixed(2) + 's';
+            }
+
+            const card = danmakuTrackList?.querySelector(`.dm-track-card[data-id="${dm.id}"]`);
+            if (card) {
+                const spdInp = card.querySelector('.dm-input-speed');
+                if (spdInp) spdInp.value = dm.speed;
+            }
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+            toast(`⚡ 弹幕滚动速度：${nextPreset.label}`);
+        });
+    }
+
     function renderDanmakuStage() {
         if (!danmakuContainer) return;
         danmakuContainer.innerHTML = '';
@@ -149,8 +322,10 @@ function syncPauseButtonUI(isPaused) {
             el.className = 'danmaku-item' + (isFixed ? ' is-fixed' : '');
             el.id = 'stage_' + dm.id;
             el.textContent = dm.text;
-            el.style.top = dm.top + '%';
-            el.style.color = dm.color;
+
+            const effectiveTop = window.DanmakuEngine.getEffectiveTop(dm.top);
+            el.style.top = effectiveTop + '%';
+            el.style.color = dm.color || '#ffffff';
             el.style.fontSize = (dm.size || 16) + 'px';
 
             if (isFixed) {
@@ -161,11 +336,14 @@ function syncPauseButtonUI(isPaused) {
                 const baseDuration = Math.max(2, (dm.speed || 8) / window.DanmakuEngine.speedFactor);
                 el.style.animationDuration = baseDuration.toFixed(1) + 's';
                 
-                // 交错负延时，使弹幕在初次加载时直接处于屏幕中途位置
-                const staggerDelay = -((idx * 1.9) % baseDuration);
-                el.style.animationDelay = staggerDelay.toFixed(1) + 's';
+                // 如果用户拖动定位过，按拖动位置还原；否则使用交错负延时使初次加载分布在屏幕中段
+                const staggerDelay = (dm.customProgress !== undefined)
+                    ? -(dm.customProgress * baseDuration)
+                    : -(((idx + 0.35) * 1.9) % baseDuration);
+                el.style.animationDelay = staggerDelay.toFixed(2) + 's';
             }
 
+            bindDanmakuItemInteractions(el, dm, idx);
             danmakuContainer.appendChild(el);
         });
 
@@ -202,8 +380,8 @@ function syncPauseButtonUI(isPaused) {
                     ` : `
                         <label>速度: <input type="number" class="dm-input-speed" value="${dm.speed || 8}" min="3" max="25" style="width:36px;">s</label>
                     `}
-                    <label>字号: <input type="number" class="dm-input-size" value="${dm.size || 16}" min="12" max="36" style="width:38px;">px</label>
-                    <label>色: <input type="color" class="dm-input-color" value="${dm.color}"></label>
+                    <label>字号: <input type="number" class="dm-input-size" value="${dm.size || 16}" min="11" max="44" style="width:38px;">px</label>
+                    <label>色: <input type="color" class="dm-input-color" value="${dm.color || '#ffffff'}"></label>
                     <label style="cursor:pointer; display:flex; align-items:center;">
                         <input type="checkbox" class="dm-input-vis" ${dm.visible !== false ? 'checked' : ''}> 显示
                     </label>
@@ -220,7 +398,7 @@ function syncPauseButtonUI(isPaused) {
             card.querySelector('.dm-input-top').addEventListener('input', (e) => {
                 dm.top = Math.min(95, Math.max(5, parseInt(e.target.value) || 20));
                 const stageEl = document.getElementById('stage_' + dm.id);
-                if (stageEl) stageEl.style.top = dm.top + '%';
+                if (stageEl) stageEl.style.top = window.DanmakuEngine.getEffectiveTop(dm.top) + '%';
                 if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
             });
 
@@ -237,7 +415,7 @@ function syncPauseButtonUI(isPaused) {
             const inputSpeed = card.querySelector('.dm-input-speed');
             if (inputSpeed) {
                 inputSpeed.addEventListener('input', (e) => {
-                    dm.speed = Math.min(30, Math.max(3, parseInt(e.target.value) || 8));
+                    dm.speed = Math.min(30, Math.max(3, parseFloat(e.target.value) || 8));
                     const stageEl = document.getElementById('stage_' + dm.id);
                     if (stageEl) {
                         const duration = Math.max(2, dm.speed / window.DanmakuEngine.speedFactor);
@@ -248,7 +426,7 @@ function syncPauseButtonUI(isPaused) {
             }
 
             card.querySelector('.dm-input-size').addEventListener('input', (e) => {
-                dm.size = Math.min(40, Math.max(12, parseInt(e.target.value) || 16));
+                dm.size = Math.min(44, Math.max(11, parseInt(e.target.value) || 16));
                 const stageEl = document.getElementById('stage_' + dm.id);
                 if (stageEl) stageEl.style.fontSize = dm.size + 'px';
                 if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
@@ -329,30 +507,33 @@ function syncPauseButtonUI(isPaused) {
             txtDanmakuSize.textContent = sizeVal;
             window.DanmakuEngine.list.forEach(dm => dm.size = parseInt(e.target.value));
             renderDanmakuStage();
+            renderDanmakuTracksUI();
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
         });
     }
 
     if (btnAddDanmaku) {
         btnAddDanmaku.addEventListener('click', () => {
-            const randomTops = [15, 25, 40, 55, 70, 82];
-            const randomLefts = [10, 25, 45, 60, 20];
-            const colors = ['#ffffff', '#f39c12', '#fe2c55', '#00d2d3', '#2ecc71', '#ff7675'];
+            const minT = window.DanmakuEngine.portAreaMin || 20;
+            const maxT = window.DanmakuEngine.portAreaMax || 60;
+            const span = Math.max(10, maxT - minT);
             const idx = window.DanmakuEngine.list.length + 1;
+            const calcTop = minT + ((idx * 9) % span);
+            const randomLefts = [12, 26, 42, 56, 20];
 
             window.DanmakuEngine.list.push({
                 id: 'dm_custom_' + Date.now(),
                 text: '自定義彈幕 ' + idx,
-                top: randomTops[idx % randomTops.length],
+                top: Math.round(calcTop),
                 left: randomLefts[idx % randomLefts.length],
-                color: colors[idx % colors.length],
-                size: parseInt(inDanmakuSize.value) || 16,
+                color: '#ffffff',
+                size: parseInt(inDanmakuSize?.value) || 16,
                 speed: 8 + (idx % 4) * 2,
                 visible: true
             });
             window.DanmakuEngine.refresh();
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-            toast('已新增 1 条自定义弹幕');
+            toast('已新增 1 条白字黑边弹幕');
         });
     }
 
@@ -366,14 +547,16 @@ function syncPauseButtonUI(isPaused) {
             const segs = raw.split(/[\n,，;；。]+/).map(s => s.trim()).filter(s => s.length > 0);
             if (segs.length === 0) return;
 
-            const colors = ['#ffffff', '#f39c12', '#2ecc71', '#54a0ff', '#fe2c55', '#00d2d3'];
+            const minT = window.DanmakuEngine.portAreaMin || 20;
+            const maxT = window.DanmakuEngine.portAreaMax || 60;
+            const span = Math.max(8, maxT - minT);
             const newTracks = segs.map((txt, i) => ({
                 id: 'dm_b_' + Date.now() + '_' + i,
                 text: txt,
-                top: 14 + (i % 6) * 12,
+                top: Math.round(minT + ((i * 8) % span)),
                 left: 10 + (i % 4) * 18,
-                color: colors[i % colors.length],
-                size: parseInt(inDanmakuSize.value) || 16,
+                color: '#ffffff',
+                size: parseInt(inDanmakuSize?.value) || 16,
                 speed: 8 + (i % 4) * 1.5,
                 visible: true
             }));
@@ -382,7 +565,55 @@ function syncPauseButtonUI(isPaused) {
             window.DanmakuEngine.refresh();
             inBatchDanmaku.value = '';
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-            toast(`已导入 ${segs.length} 条弹幕！`);
+            toast(`已导入 ${segs.length} 条白字黑边弹幕！`);
+        });
+    }
+
+    // 竖屏模式下弹幕显示区域范围控制 (默认 20% ~ 60%，即五分之一到五分之三)
+    function applyPortRangeChange(redistribute = false) {
+        let minVal = parseInt(inDmPortMin?.value);
+        let maxVal = parseInt(inDmPortMax?.value);
+        if (!Number.isFinite(minVal)) minVal = 20;
+        if (!Number.isFinite(maxVal)) maxVal = 60;
+        if (minVal > maxVal - 8) {
+            minVal = Math.max(5, maxVal - 8);
+            if (inDmPortMin) inDmPortMin.value = minVal;
+        }
+        window.DanmakuEngine.portAreaMin = minVal;
+        window.DanmakuEngine.portAreaMax = maxVal;
+        if (txtDmPortMin) txtDmPortMin.textContent = minVal + '%';
+        if (txtDmPortMax) txtDmPortMax.textContent = maxVal + '%';
+
+        if (redistribute && window.DanmakuEngine.list.length > 0) {
+            const count = window.DanmakuEngine.list.length;
+            const step = count > 1 ? (maxVal - minVal) / (count - 1) : 0;
+            window.DanmakuEngine.list.forEach((dm, i) => {
+                dm.top = Math.round(minVal + i * step);
+            });
+            window.DanmakuEngine.refresh();
+        } else {
+            window.DanmakuEngine.list.forEach((dm) => {
+                if (dm.top < minVal || dm.top > maxVal) {
+                    dm.top = Math.min(maxVal, Math.max(minVal, dm.top));
+                }
+            });
+            window.DanmakuEngine.refresh();
+        }
+        if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+    }
+
+    if (inDmPortMin) {
+        inDmPortMin.addEventListener('input', () => applyPortRangeChange(false));
+    }
+    if (inDmPortMax) {
+        inDmPortMax.addEventListener('input', () => applyPortRangeChange(false));
+    }
+    if (btnResetDmPortRange) {
+        btnResetDmPortRange.addEventListener('click', () => {
+            if (inDmPortMin) inDmPortMin.value = 20;
+            if (inDmPortMax) inDmPortMax.value = 60;
+            applyPortRangeChange(true);
+            toast('📱 已恢复竖屏默认弹幕区域：从上到下 1/5 ~ 3/5 (20%~60%)');
         });
     }
 
@@ -434,7 +665,7 @@ function syncPauseButtonUI(isPaused) {
         btnOpenDmInput.addEventListener('click', () => {
             const userDm = prompt('请输入你要发射的实时弹幕：', document.getElementById('disp-dm-placeholder').textContent);
             if (userDm && userDm.trim()) {
-                window.DanmakuEngine.fireLive(userDm.trim(), '#ff7675');
+                window.DanmakuEngine.fireLive(userDm.trim(), '#ffffff');
                 applyDanmakuVisibility(true);
                 toast(`🚀 弹幕已发射：「${userDm.trim()}」`);
             }

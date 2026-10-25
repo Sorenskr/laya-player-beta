@@ -443,8 +443,28 @@ main {
     font-weight: 700;
     font-size: var(--danmaku-size);
     letter-spacing: 0.5px;
-    text-shadow: -1px -1px 0 rgba(0,0,0,0.85), 1px -1px 0 rgba(0,0,0,0.85), -1px 1px 0 rgba(0,0,0,0.85), 1px 1px 0 rgba(0,0,0,0.85);
+    color: #ffffff;
+    text-shadow: -1px -1px 0 #000000, 1px -1px 0 #000000, -1px 1px 0 #000000, 1px 1px 0 #000000, 0 1px 2px rgba(0,0,0,0.9);
     animation: danmakuRoll linear infinite;
+    pointer-events: auto;
+    cursor: grab;
+    user-select: none;
+    padding: 1px 4px;
+    border-radius: 4px;
+    transition: background-color 0.12s ease;
+}
+
+.danmaku-item:hover {
+    background-color: rgba(255, 255, 255, 0.14);
+    outline: 1px dashed rgba(255, 255, 255, 0.65);
+}
+
+.danmaku-item.is-dragging {
+    cursor: grabbing !important;
+    animation-play-state: paused !important;
+    background-color: rgba(56, 189, 248, 0.22);
+    outline: 1.5px solid #38bdf8;
+    z-index: 20;
 }
 
 @keyframes danmakuRoll {
@@ -459,9 +479,8 @@ main {
 .danmaku-item.is-fixed {
     animation: none !important;
     transform: none !important;
-    cursor: default;
+    cursor: grab;
     user-select: none;
-    transition: left 0.1s ease, top 0.1s ease, font-size 0.1s ease;
 }
 
 /* ==========================================================================
@@ -2689,19 +2708,31 @@ main {
 
 .dy-msg-bubble {
     position: absolute;
-    top: -5px;
-    right: -10px;
+    top: -6px;
+    right: -12px;
     min-width: 15px;
     height: 14px;
     background: #FE2C55;
     color: #fff;
-    border-radius: 7px;
-    font-size: 10px;
+    border-radius: 8px;
+    font-size: 9.5px;
     font-weight: 800;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    padding: 0 3.5px;
+    padding: 0 4px;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.dy-msg-bubble.is-99plus,
+.laya-msg-badge.is-99plus,
+.laya-app-msg-badge.is-99plus {
+    padding: 0 4.5px;
+    font-size: 9px;
+    letter-spacing: -0.3px;
+    right: -14px;
 }
 
 /* 风格 2：Laya 原生底部导航栏 */
@@ -2849,6 +2880,27 @@ main {
 .laya-app-tab-item.active .laya-app-tab-label {
     color: #ffffff;
     font-weight: 700;
+}
+
+.laya-app-msg-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    min-width: 15px;
+    height: 14px;
+    background: #FE2C55;
+    color: #ffffff;
+    border-radius: 8px;
+    font-size: 9px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 4px;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    z-index: 3;
 }
 
 .dy-home-bar {
@@ -5281,6 +5333,360 @@ input[type="range"] {
     cursor: pointer;
     color: #8a8b91;
     opacity: 0.85;
+}
+
+/* 二级评论回复区（作者回复 + 普通用户跟评：头像与文字比一级评论更小、紧凑精致） */
+.dy-cmt-replies-list {
+    margin-top: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-left: 2px;
+}
+
+.dy-cmt-reply-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    position: relative;
+}
+
+.dy-cmt-reply-avatar-wrap {
+    width: 19px;
+    height: 19px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    margin-top: 1px;
+    background: #eceef2;
+    cursor: pointer;
+}
+
+.dy-cmt-reply-avatar {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.dy-cmt-reply-body {
+    flex: 1;
+    min-width: 0;
+}
+
+.dy-cmt-reply-user-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-bottom: 1px;
+    flex-wrap: wrap;
+}
+
+.dy-cmt-reply-user {
+    font-size: 10.5px;
+    font-weight: 500;
+    color: #777982;
+    line-height: 1.25;
+    outline: none;
+    cursor: text;
+}
+
+.dy-cmt-author-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fe2c55;
+    color: #ffffff;
+    font-size: 8.5px;
+    font-weight: 700;
+    padding: 0.5px 4px;
+    border-radius: 3px;
+    line-height: 1.2;
+    letter-spacing: 0.2px;
+}
+
+.dy-cmt-reply-to-tag {
+    font-size: 10px;
+    color: #999aa0;
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.dy-cmt-reply-text {
+    font-size: 11.5px;
+    font-weight: 400;
+    color: #161823;
+    line-height: 1.36;
+    margin-bottom: 2px;
+    word-break: break-word;
+    outline: none;
+    cursor: text;
+}
+
+.dy-cmt-reply-photo-box {
+    position: relative;
+    width: fit-content;
+    max-width: 96px;
+    margin: 2px 0 3px 0;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+}
+
+.dy-cmt-reply-photo-img {
+    display: block;
+    max-width: 96px;
+    max-height: 96px;
+    width: auto;
+    height: auto;
+    object-fit: cover;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.dy-cmt-reply-photo-box:hover .dy-cmt-photo-del {
+    display: inline-flex;
+}
+
+.dy-cmt-reply-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 1px;
+}
+
+.dy-cmt-reply-meta-left {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    color: #999aa0;
+    white-space: nowrap;
+}
+
+.dy-cmt-reply-like-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+    font-size: 10.5px;
+    color: #8a8b91;
+    user-select: none;
+}
+
+.dy-cmt-reply-like-btn.liked {
+    color: #fe2c55;
+}
+
+.dy-cmt-reply-like-btn.liked svg {
+    fill: #fe2c55;
+    stroke: #fe2c55;
+}
+
+/* 弹出式回复输入框与待发图片预览 */
+.dy-cmt-reply-modal {
+    background: #f8f9fb;
+    border-top: 1px solid #e5e7eb;
+    padding: 7px 11px 6px 11px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex-shrink: 0;
+    box-shadow: 0 -3px 10px rgba(0, 0, 0, 0.05);
+}
+
+.dy-cmt-reply-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 6px;
+}
+
+.dy-cmt-reply-target-info {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #4b5563;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dy-cmt-reply-char-hint {
+    font-size: 10px;
+    font-weight: 500;
+    color: #9ca3af;
+}
+
+.dy-cmt-reply-role-switch {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.dy-reply-role-btn {
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #4b5563;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.12s;
+}
+
+.dy-reply-role-btn.active {
+    background: #fe2c55;
+    border-color: #fe2c55;
+    color: #ffffff;
+}
+
+.dy-reply-close-btn {
+    border: none;
+    background: transparent;
+    color: #9ca3af;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 1px 4px;
+    line-height: 1;
+}
+
+.dy-cmt-reply-img-preview-wrap,
+.dy-cmt-stage-img-bar {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: #eef0f4;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+
+.dy-cmt-stage-img-bar {
+    margin: 0 12px;
+}
+
+.dy-cmt-reply-img-thumb-box {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 5px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    flex-shrink: 0;
+}
+
+.dy-cmt-reply-img-thumb-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.dy-cmt-reply-img-remove {
+    position: absolute;
+    top: 1px;
+    right: 1px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    border: none;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+}
+
+.dy-cmt-reply-img-tip {
+    font-size: 10.5px;
+    color: #6b7280;
+}
+
+.dy-cmt-reply-input-row {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.dy-cmt-reply-input {
+    flex: 1;
+    min-width: 0;
+    height: 30px;
+    background: #ffffff;
+    border: 1px solid #d1d5db;
+    border-radius: 15px;
+    padding: 0 11px;
+    font-size: 11.5px;
+    color: #161823;
+    outline: none;
+}
+
+.dy-cmt-reply-input:focus {
+    border-color: #fe2c55;
+}
+
+.dy-cmt-reply-Upload-btn {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1px solid #d1d5db;
+    background: #ffffff;
+    color: #4b5563;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.dy-cmt-reply-submit-btn,
+.dy-cmt-stage-send-btn {
+    height: 28px;
+    background: #fe2c55;
+    color: #ffffff;
+    border: none;
+    border-radius: 14px;
+    padding: 0 11px;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.dy-cmt-stage-send-btn {
+    height: 25px;
+    padding: 0 9px;
+    font-size: 11px;
+}
+
+/* CMS 后台二级回复列表样式 */
+.dy-cmt-ed-replies-wrap {
+    margin-top: 3px;
+    padding-left: 10px;
+    border-left: 2px solid rgba(254, 44, 85, 0.45);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.dy-cmt-ed-reply-row {
+    background: rgba(23, 27, 38, 0.85);
+    border: 1px solid #283147;
+    border-radius: 5px;
+    padding: 4px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
 }
 
 /* 4. 底部期待你的评论输入栏 (含图片上传、@、表情图标) */
