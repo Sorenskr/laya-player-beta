@@ -6,6 +6,10 @@
     <title>Laya 播放器 · 全真机录屏与截图工作台</title>
     <!-- 浏览器标签页图标 (上传到 GitHub Pages 后不再显示地球图标) -->
     <link rel="icon" href="favicon.png" type="image/png">
+    <!-- 引入官方原生级字体：思源黑体 (Noto Sans SC/TC = Source Han Sans) + San Francisco 同源西文 (Inter) + 安卓西文 (Roboto) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
     <link rel="stylesheet" href="style.css">
@@ -652,9 +656,11 @@
 
                     <div class="dy-left-info">
                         <div class="dy-left-top-badges">
-                            <div class="dy-dm-round-btn interactive-elem" id="dy-btn-dm-round" title="開關彈幕">
-                                <span class="dy-dm-round-char">彈</span>
-                                <span class="dy-dm-round-slash" id="dy-dm-round-mark">✓</span>
+                            <div class="dy-dm-round-btn interactive-elem" id="dy-btn-dm-round" title="點擊彈出彈幕輸入欄與彈幕開關">
+                                <span class="dy-dm-round-char" id="dy-dm-round-char">彈</span>
+                                <svg class="dy-dm-round-pen" id="dy-dm-round-mark" viewBox="0 0 12 12" width="9" height="9" fill="none">
+                                    <path d="M8.6 1.4L10.6 3.4L4.3 9.7L1.6 10.4L2.3 7.7L8.6 1.4Z" fill="#ffffff" stroke="rgba(28,30,38,0.9)" stroke-width="0.85" stroke-linejoin="round"/>
+                                </svg>
                             </div>
                             <div class="dy-featured-pill interactive-elem" id="dy-wrap-featured" title="點擊在右側自定義 Laya 精選內容文字">
                                 <span class="dy-featured-icon-box">
@@ -798,6 +804,27 @@
                             </div>
                         </div>
                         <div class="dy-home-bar"></div>
+                    </div>
+
+                    <!-- 图2同款：点击左下角「弹✎」弹出的白底弹幕输入栏 (左侧带「弹+红底开关」，右侧输入弹幕，无输入法键盘窗口) -->
+                    <div class="dy-dm-compose-bar" id="dy-dm-compose-bar" style="display: none;">
+                        <button type="button" class="dy-dm-bar-toggle-btn active interactive-elem" id="dy-dm-bar-toggle-btn" title="點擊開關彈幕">
+                            <span class="dy-dm-bar-toggle-char" id="dy-dm-bar-toggle-char">彈</span>
+                            <span class="dy-dm-bar-mini-switch" id="dy-dm-bar-mini-switch">
+                                <span class="dy-dm-bar-mini-knob"></span>
+                            </span>
+                        </button>
+                        <div class="dy-dm-bar-input-pill">
+                            <input type="text" class="dy-dm-bar-input" id="dy-dm-bar-input" placeholder="發一條友好的彈幕吧" maxlength="60" autocomplete="off">
+                            <button type="button" class="dy-dm-bar-emoji-btn interactive-elem" id="dy-dm-bar-emoji-btn" title="插入表情（回車直接發送彈幕）">
+                                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="#161823" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                                    <circle cx="12" cy="12" r="9.5"></circle>
+                                    <circle cx="9" cy="10" r="1.2" fill="#161823" stroke="none"></circle>
+                                    <circle cx="15" cy="10" r="1.2" fill="#161823" stroke="none"></circle>
+                                    <path d="M8.5 14.2c.9 1.5 2.1 2.2 3.5 2.2s2.6-.7 3.5-2.2"></path>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
 
@@ -1816,6 +1843,15 @@
                     </select>
                 </div>
 
+                <div class="form-row">
+                    <label>🔤 原生系统字体渲染 (解决字体失真，还原真机字重)：</label>
+                    <select id="sel-dy-os-font" style="background:#151821; font-weight:700; color:#34d399;">
+                        <option value="auto" selected>🔄 自动跟随手机型号 (iPhone用苹方+SF / 安卓用思源黑体)</option>
+                        <option value="ios">🍎 苹果官方原生字体 (苹方 PingFang SC + San Francisco)</option>
+                        <option value="android">🤖 安卓官方原生字体 (思源黑体 Source Han Sans + Roboto)</option>
+                    </select>
+                </div>
+
                 <div class="form-grid-2">
                     <div class="form-row">
                         <label>屏幕顶部开孔/灵动岛</label>
@@ -2558,23 +2594,23 @@
 
                 <div class="form-row" style="margin-top: 4px; background:rgba(15, 23, 42, 0.55); border:1px solid rgba(16, 185, 129, 0.3); border-radius:7px; padding:8px;">
                     <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-                        <label style="margin-bottom:0; color:#6ee7b7; font-weight:700;">📱 竖屏弹幕显示区域范围 (默认 1/5 ~ 3/5 即 20%~60%)</label>
-                        <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-dm-port-range" style="padding:2px 6px; font-size:10px;" title="恢复竖屏默认 20% ~ 60% 区域">恢复20%~60%</button>
+                        <label style="margin-bottom:0; color:#6ee7b7; font-weight:700;">📱 竖屏弹幕显示区域范围 (默认仅占画面上方区域 10%~24%)</label>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-dm-port-range" style="padding:2px 6px; font-size:10px;" title="恢复竖屏上方区域 10% ~ 24%">恢复上方10%~24%</button>
                     </div>
                     <div class="form-grid-2" style="gap:8px;">
                         <div>
                             <div class="range-box">
                                 <label style="font-size:11px;">上边界 (距顶部)</label>
-                                <span class="range-value" id="txt-dm-port-min">20%</span>
+                                <span class="range-value" id="txt-dm-port-min">10%</span>
                             </div>
-                            <input type="range" id="in-dm-port-min" min="5" max="80" value="20">
+                            <input type="range" id="in-dm-port-min" min="5" max="80" value="10">
                         </div>
                         <div>
                             <div class="range-box">
                                 <label style="font-size:11px;">下边界 (距顶部)</label>
-                                <span class="range-value" id="txt-dm-port-max">60%</span>
+                                <span class="range-value" id="txt-dm-port-max">24%</span>
                             </div>
-                            <input type="range" id="in-dm-port-max" min="20" max="90" value="60">
+                            <input type="range" id="in-dm-port-max" min="14" max="90" value="24">
                         </div>
                     </div>
                 </div>
@@ -2613,9 +2649,9 @@
                 <div class="form-row" style="margin-top: 6px;">
                     <div class="range-box">
                         <label>全局弹幕字号大小</label>
-                        <span class="range-value" id="txt-danmaku-size">16px</span>
+                        <span class="range-value" id="txt-danmaku-size">14px</span>
                     </div>
-                    <input type="range" id="in-danmaku-size" min="12" max="32" value="16">
+                    <input type="range" id="in-danmaku-size" min="12" max="32" value="14">
                 </div>
 
                 <div class="form-row">

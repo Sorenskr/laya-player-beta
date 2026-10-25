@@ -11,7 +11,7 @@
     --card-border: #262c3a;
     --text-main: #f0f2f5;
     --text-muted: #8b93a4;
-    --danmaku-size: 16px;
+    --danmaku-size: 14px;
     --media-pos-x: 50%;
     --media-pos-y: 50%;
     --media-scale: 1;
@@ -22,9 +22,10 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Microsoft JhengHei", "PingFang TC", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "San Francisco", "Inter", "Roboto", "PingFang SC", "PingFang TC", "Source Han Sans SC", "Source Han Sans CN", "Noto Sans SC", "Noto Sans TC", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
 body {
@@ -440,11 +441,11 @@ main {
 .danmaku-item {
     position: absolute;
     white-space: nowrap;
-    font-weight: 700;
+    font-weight: 400;
     font-size: var(--danmaku-size);
-    letter-spacing: 0.5px;
-    color: #ffffff;
-    text-shadow: -1px -1px 0 #000000, 1px -1px 0 #000000, -1px 1px 0 #000000, 1px 1px 0 #000000, 0 1px 2px rgba(0,0,0,0.9);
+    letter-spacing: 0.2px;
+    color: rgba(255, 255, 255, 0.94);
+    text-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.68), 0 0 1px rgba(0, 0, 0, 0.5);
     animation: danmakuRoll linear infinite;
     pointer-events: auto;
     cursor: grab;
@@ -2472,51 +2473,57 @@ main {
     pointer-events: none;
 }
 
-/* 左下角顶部：弹幕圆钮 + Laya 精选内容 > 胶囊徽章 (复刻抖音内容结构 + Laya 专属高定视觉) */
+/* 左下角顶部：弹幕圆钮（弹+小笔，位于上方） + Laya 精选内容 > 胶囊徽章（位于下方，1:1 复刻图1） */
 .dy-left-top-badges {
     display: flex;
-    flex-direction: row;
-    align-items: center;
+    flex-direction: column;
+    align-items: flex-start;
     gap: 6px;
-    margin-bottom: 5px;
+    margin-bottom: 6px;
 }
 
 .dy-dm-round-btn {
     position: relative;
-    width: 28px;
-    height: 28px;
+    width: 30px;
+    height: 30px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.14);
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(40, 42, 50, 0.72);
+    border: 0.5px solid rgba(255, 255, 255, 0.15);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     user-select: none;
-    transition: transform 0.15s ease, background 0.15s ease;
+    transition: transform 0.15s ease, background 0.15s ease, opacity 0.15s ease;
 }
 
 .dy-dm-round-btn:hover {
     transform: scale(1.06);
-    background: rgba(255, 255, 255, 0.22);
+    background: rgba(55, 58, 68, 0.85);
 }
 
 .dy-dm-round-char {
-    font-size: 11.5px;
-    font-weight: 800;
-    color: #ffffff;
+    font-size: 13px;
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.95);
     line-height: 1;
-    margin-right: 1px;
+    transform: translate(-1.5px, -0.5px);
 }
 
-.dy-dm-round-slash {
+.dy-dm-round-pen {
     position: absolute;
-    right: 3px;
-    bottom: 3px;
-    font-size: 7.5px;
-    font-weight: 900;
-    color: #25F4EE;
-    line-height: 1;
+    right: 3.5px;
+    bottom: 3.5px;
+    width: 9px;
+    height: 9px;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+.dy-dm-round-btn.dm-off .dy-dm-round-char {
+    opacity: 0.65;
 }
 
 .dy-featured-pill {
@@ -6195,4 +6202,240 @@ input[type="range"] {
     opacity: 1;
     background: rgba(24, 119, 242, 0.2);
     transform: scale(1.08);
+}
+
+/* ==========================================================================
+   9. 图2同款：点击「弹✎」弹出的白底弹幕输入栏 (左侧带「弹+红底开关」，无输入法键盘窗口)
+   ========================================================================== */
+.dy-dm-compose-bar {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 52px;
+    background: #ffffff;
+    padding: 8px 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 85;
+    box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.15);
+    pointer-events: auto;
+}
+
+.dy-dm-bar-toggle-btn {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: #f2f3f5;
+    border: none;
+    outline: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    padding: 0;
+    transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.dy-dm-bar-toggle-btn:hover {
+    background: #e6e8ec;
+}
+
+.dy-dm-bar-toggle-btn:active {
+    transform: scale(0.94);
+}
+
+.dy-dm-bar-toggle-char {
+    font-size: 14.5px;
+    font-weight: 600;
+    color: #161823;
+    line-height: 1;
+    transform: translate(-1.5px, -1px);
+    user-select: none;
+}
+
+.dy-dm-bar-toggle-btn:not(.active) .dy-dm-bar-toggle-char {
+    color: #8b8e99;
+}
+
+/* 弹字右下角的迷你胶囊开关：开启时红底白点在右，关闭时灰底白点在左 (1:1 复刻图2) */
+.dy-dm-bar-mini-switch {
+    position: absolute;
+    right: 3px;
+    bottom: 4.5px;
+    width: 13.5px;
+    height: 7.5px;
+    border-radius: 999px;
+    background: #c5c7ce;
+    border: 1px solid #ffffff;
+    display: inline-flex;
+    align-items: center;
+    padding: 0 1px;
+    box-sizing: border-box;
+    transition: background 0.18s ease;
+}
+
+.dy-dm-bar-toggle-btn.active .dy-dm-bar-mini-switch {
+    background: #fe2c55;
+}
+
+.dy-dm-bar-mini-knob {
+    width: 4.5px;
+    height: 4.5px;
+    border-radius: 50%;
+    background: #ffffff;
+    transform: translateX(0);
+    transition: transform 0.18s ease;
+}
+
+.dy-dm-bar-toggle-btn.active .dy-dm-bar-mini-knob {
+    transform: translateX(5px);
+}
+
+.dy-dm-bar-input-pill {
+    flex: 1;
+    height: 36px;
+    border-radius: 999px;
+    background: #f2f3f5;
+    display: flex;
+    align-items: center;
+    padding: 0 9px 0 14px;
+    gap: 6px;
+    min-width: 0;
+}
+
+.dy-dm-bar-input {
+    flex: 1;
+    min-width: 0;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13.5px;
+    font-weight: 400;
+    color: #161823;
+    caret-color: #fe2c55;
+    line-height: 1.3;
+}
+
+.dy-dm-bar-input::placeholder {
+    color: #8b8e99;
+    font-weight: 400;
+}
+
+.dy-dm-bar-emoji-btn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    outline: none;
+    background: transparent;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    border-radius: 50%;
+    transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.dy-dm-bar-emoji-btn:hover {
+    background: rgba(0, 0, 0, 0.05);
+    transform: scale(1.06);
+}
+
+/* ==========================================================================
+   10. 原生苹果 iOS (苹方 PingFang SC + San Francisco) 与 原生安卓 (思源黑体 + Roboto) 真实字重与渲染优化
+   ========================================================================== */
+/* 苹果官方原生字体栈：西文/数字优先 San Francisco (SF Pro / Inter)，中文优先 苹方 (PingFang SC/TC)，兜底思源黑体 */
+#render-target.font-os-ios,
+#render-target.font-os-ios * {
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "San Francisco", "Inter", "PingFang SC", "PingFang TC", "Heiti SC", "Source Han Sans SC", "Noto Sans SC", "Noto Sans TC", sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 安卓官方原生字体栈：西文/数字优先 Roboto，中文优先 思源黑体 (Source Han Sans SC / Noto Sans SC/TC) */
+#render-target.font-os-android,
+#render-target.font-os-android * {
+    font-family: "Roboto", "Source Han Sans SC", "Source Han Sans CN", "Source Han Sans TC", "Noto Sans CJK SC", "Noto Sans SC", "Noto Sans TC", "HarmonyOS Sans SC", "MiSans", sans-serif !important;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* 还原真机原生字重与柔和阴影（去除 Windows 假粗体与生硬黑边，UI 布局完全不变） */
+#render-target .dy-sb-time {
+    font-weight: 600;
+    letter-spacing: -0.2px;
+    font-variant-numeric: tabular-nums;
+}
+#render-target.font-os-android .dy-sb-time {
+    font-weight: 500;
+    letter-spacing: 0px;
+}
+
+#render-target .dy-top-nav {
+    font-weight: 500;
+    color: rgba(255, 255, 255, 0.78);
+}
+#render-target .dy-nav-tabs > span.active {
+    font-weight: 600;
+    color: #ffffff;
+}
+
+#render-target .dy-action-txt {
+    font-weight: 500 !important;
+    font-size: 11.5px;
+    color: rgba(255, 255, 255, 0.92);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45) !important;
+    font-variant-numeric: tabular-nums;
+}
+
+#render-target .dy-featured-text {
+    font-weight: 500;
+    letter-spacing: 0px;
+}
+
+#render-target .dy-author-name {
+    font-weight: 600 !important;
+    letter-spacing: 0px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.45) !important;
+}
+
+#render-target .dy-desc-row {
+    font-weight: 400 !important;
+    color: rgba(255, 255, 255, 0.92);
+    line-height: 1.42;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.42) !important;
+}
+
+#render-target .dy-tags-inline {
+    font-weight: 500 !important;
+    color: rgba(255, 255, 255, 0.96);
+}
+
+#render-target .dy-hot-tag,
+#render-target .dy-hot-title,
+#render-target .dy-hot-views {
+    font-weight: 500 !important;
+}
+
+#render-target .dy-tab-item {
+    font-weight: 500 !important;
+}
+#render-target .dy-tab-item.active {
+    font-weight: 600 !important;
+}
+
+#render-target .dy-cmt-user {
+    font-weight: 500;
+}
+#render-target .dy-cmt-text,
+#render-target .dy-cmt-reply-text {
+    font-weight: 400;
+}
+#render-target .dy-cmt-like-num {
+    font-variant-numeric: tabular-nums;
 }

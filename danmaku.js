@@ -11,8 +11,8 @@ window.DanmakuEngine = {
     mode: 'scroll', // 'scroll' (动态滚动) | 'fixed' (静态坐标排布)
     isPaused: false,
     speedFactor: 1.0,
-    portAreaMin: 20, // 竖屏默认显示区域上边界：五分之一 (20%)
-    portAreaMax: 60, // 竖屏默认显示区域下边界：五分之三 (60%)
+    portAreaMin: 10, // 竖屏默认显示区域上边界：仅占画面上方区域 (10%)
+    portAreaMax: 24, // 竖屏默认显示区域下边界：仅占画面上方区域 (24%)
 
     isPortraitStage() {
         const stg = document.getElementById('capture-stage');
@@ -20,10 +20,10 @@ window.DanmakuEngine = {
     },
 
     getEffectiveTop(rawTop) {
-        const t = Number.isFinite(Number(rawTop)) ? Number(rawTop) : 25;
+        const t = Number.isFinite(Number(rawTop)) ? Number(rawTop) : 14;
         if (this.isPortraitStage()) {
-            const minV = Math.min(this.portAreaMin, this.portAreaMax - 5);
-            const maxV = Math.max(this.portAreaMax, minV + 5);
+            const minV = Math.min(this.portAreaMin, this.portAreaMax - 4);
+            const maxV = Math.max(this.portAreaMax, minV + 4);
             return Math.min(maxV, Math.max(minV, t));
         }
         return Math.min(92, Math.max(5, t));
@@ -67,15 +67,15 @@ window.DanmakuEngine = {
 
     fireLive(text, color = '#ffffff') {
         if (!text || !text.trim()) return;
-        const minTop = this.isPortraitStage() ? this.portAreaMin : 15;
-        const maxTop = this.isPortraitStage() ? this.portAreaMax : 65;
+        const minTop = this.isPortraitStage() ? this.portAreaMin : 12;
+        const maxTop = this.isPortraitStage() ? this.portAreaMax : 55;
         const newTrack = {
             id: 'dm_live_' + Date.now(),
             text: text.trim(),
-            top: Math.floor(Math.random() * Math.max(5, maxTop - minTop)) + minTop,
+            top: Math.floor(Math.random() * Math.max(4, maxTop - minTop)) + minTop,
             left: 35,
             color: color || '#ffffff',
-            size: parseInt(document.getElementById('in-danmaku-size')?.value) || 16,
+            size: parseInt(document.getElementById('in-danmaku-size')?.value) || 14,
             speed: 9,
             visible: true
         };
@@ -91,28 +91,28 @@ const presetNames = {
     traffic: '👑 Laya暗号引流组'
 };
 
-// 默认全部采用最基础白字黑边 (#ffffff)，不带花里胡哨颜色，且默认高度分布在 20%~58% (1/5 ~ 3/5)
+// 默认全部采用原生洁净白字 (#ffffff)，且竖屏默认高度分布在画面上方 10%~23% 区域
 const presetsDB = {
     driver: [
-        { id: 'd1', text: '這身材太頂了吧！純欲天花板', top: 22, left: 14, color: '#ffffff', size: 16, speed: 9, visible: true },
-        { id: 'd2', text: '這腰臀比是真實存在的嗎？我好了', top: 30, left: 45, color: '#ffffff', size: 16, speed: 11, visible: true },
-        { id: 'd3', text: '極品尤物，營養快線徹底跟不上了！', top: 38, left: 10, color: '#ffffff', size: 17, speed: 8, visible: true },
-        { id: 'd4', text: '4K 無碼原畫就是香，細節都看得清', top: 47, left: 52, color: '#ffffff', size: 16, speed: 12, visible: true },
-        { id: 'd5', text: '已截圖珍藏，感謝樓主好人一生平安！', top: 56, left: 22, color: '#ffffff', size: 15, speed: 10, visible: true }
+        { id: 'd1', text: '這身材太頂了吧！純欲天花板', top: 10, left: 14, color: '#ffffff', size: 14, speed: 9, visible: true },
+        { id: 'd2', text: '這腰臀比是真實存在的嗎？我好了', top: 13, left: 45, color: '#ffffff', size: 14, speed: 11, visible: true },
+        { id: 'd3', text: '極品尤物，營養快線徹底跟不上了！', top: 16, left: 10, color: '#ffffff', size: 14, speed: 8, visible: true },
+        { id: 'd4', text: '4K 無碼原畫就是香，細節都看得清', top: 19, left: 52, color: '#ffffff', size: 14, speed: 12, visible: true },
+        { id: 'd5', text: '已截圖珍藏，感謝樓主好人一生平安！', top: 22, left: 22, color: '#ffffff', size: 14, speed: 10, visible: true }
     ],
     climax: [
-        { id: 'c1', text: '前方高能！直接起飛預警！', top: 22, left: 20, color: '#ffffff', size: 17, speed: 8, visible: true },
-        { id: 'c2', text: '衛生紙已經用掉半包了，這誰頂得住', top: 31, left: 48, color: '#ffffff', size: 16, speed: 9, visible: true },
-        { id: 'c3', text: '兄弟們我先衝為敬，後面跟上！', top: 40, left: 12, color: '#ffffff', size: 16, speed: 8, visible: true },
-        { id: 'c4', text: '求女主番號！這聲音聽得骨頭都酥了', top: 49, left: 58, color: '#ffffff', size: 16, speed: 10, visible: true },
-        { id: 'c5', text: '刺激！這劇情反轉直接戳中XP了', top: 57, left: 28, color: '#ffffff', size: 16, speed: 11, visible: true }
+        { id: 'c1', text: '前方高能！直接起飛預警！', top: 10, left: 20, color: '#ffffff', size: 14, speed: 8, visible: true },
+        { id: 'c2', text: '衛生紙已經用掉半包了，這誰頂得住', top: 13, left: 48, color: '#ffffff', size: 14, speed: 9, visible: true },
+        { id: 'c3', text: '兄弟們我先衝為敬，後面跟上！', top: 16, left: 12, color: '#ffffff', size: 14, speed: 8, visible: true },
+        { id: 'c4', text: '求女主番號！這聲音聽得骨頭都酥了', top: 19, left: 58, color: '#ffffff', size: 14, speed: 10, visible: true },
+        { id: 'c5', text: '刺激！這劇情反轉直接戳中XP了', top: 22, left: 28, color: '#ffffff', size: 14, speed: 11, visible: true }
     ],
     traffic: [
-        { id: 't1', text: 'Laya 暗號 1896 真的能看！已解鎖未刪減版', top: 22, left: 15, color: '#ffffff', size: 17, speed: 9, visible: true },
-        { id: 't2', text: '免費通道竟然一點都不卡，太良心了', top: 31, left: 46, color: '#ffffff', size: 16, speed: 11, visible: true },
-        { id: 't3', text: '來 Laya 語音廳，親自演給你看，懂的都懂！', top: 40, left: 8, color: '#ffffff', size: 17, speed: 8, visible: true },
-        { id: 't4', text: '私密群已上車，高清完整無水印爽翻', top: 49, left: 52, color: '#ffffff', size: 16, speed: 10, visible: true },
-        { id: 't5', text: '原畫質連線就是爽，今晚不用睡了', top: 57, left: 20, color: '#ffffff', size: 16, speed: 12, visible: true }
+        { id: 't1', text: 'Laya 暗號 1896 真的能看！已解鎖未刪減版', top: 10, left: 15, color: '#ffffff', size: 14, speed: 9, visible: true },
+        { id: 't2', text: '免費通道竟然一點都不卡，太良心了', top: 13, left: 46, color: '#ffffff', size: 14, speed: 11, visible: true },
+        { id: 't3', text: '來 Laya 語音廳，親自演給你看，懂的都懂！', top: 16, left: 8, color: '#ffffff', size: 14, speed: 8, visible: true },
+        { id: 't4', text: '私密群已上車，高清完整無水印爽翻', top: 19, left: 52, color: '#ffffff', size: 14, speed: 10, visible: true },
+        { id: 't5', text: '原畫質連線就是爽，今晚不用睡了', top: 22, left: 20, color: '#ffffff', size: 14, speed: 12, visible: true }
     ]
 };
 
@@ -514,11 +514,11 @@ function syncPauseButtonUI(isPaused) {
 
     if (btnAddDanmaku) {
         btnAddDanmaku.addEventListener('click', () => {
-            const minT = window.DanmakuEngine.portAreaMin || 20;
-            const maxT = window.DanmakuEngine.portAreaMax || 60;
-            const span = Math.max(10, maxT - minT);
+            const minT = window.DanmakuEngine.portAreaMin || 10;
+            const maxT = window.DanmakuEngine.portAreaMax || 24;
+            const span = Math.max(6, maxT - minT);
             const idx = window.DanmakuEngine.list.length + 1;
-            const calcTop = minT + ((idx * 9) % span);
+            const calcTop = minT + ((idx * 3) % span);
             const randomLefts = [12, 26, 42, 56, 20];
 
             window.DanmakuEngine.list.push({
@@ -527,13 +527,13 @@ function syncPauseButtonUI(isPaused) {
                 top: Math.round(calcTop),
                 left: randomLefts[idx % randomLefts.length],
                 color: '#ffffff',
-                size: parseInt(inDanmakuSize?.value) || 16,
+                size: parseInt(inDanmakuSize?.value) || 14,
                 speed: 8 + (idx % 4) * 2,
                 visible: true
             });
             window.DanmakuEngine.refresh();
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-            toast('已新增 1 条白字黑边弹幕');
+            toast('已新增 1 条弹幕');
         });
     }
 
@@ -547,16 +547,16 @@ function syncPauseButtonUI(isPaused) {
             const segs = raw.split(/[\n,，;；。]+/).map(s => s.trim()).filter(s => s.length > 0);
             if (segs.length === 0) return;
 
-            const minT = window.DanmakuEngine.portAreaMin || 20;
-            const maxT = window.DanmakuEngine.portAreaMax || 60;
-            const span = Math.max(8, maxT - minT);
+            const minT = window.DanmakuEngine.portAreaMin || 10;
+            const maxT = window.DanmakuEngine.portAreaMax || 24;
+            const span = Math.max(6, maxT - minT);
             const newTracks = segs.map((txt, i) => ({
                 id: 'dm_b_' + Date.now() + '_' + i,
                 text: txt,
-                top: Math.round(minT + ((i * 8) % span)),
+                top: Math.round(minT + ((i * 3) % span)),
                 left: 10 + (i % 4) * 18,
                 color: '#ffffff',
-                size: parseInt(inDanmakuSize?.value) || 16,
+                size: parseInt(inDanmakuSize?.value) || 14,
                 speed: 8 + (i % 4) * 1.5,
                 visible: true
             }));
@@ -565,18 +565,18 @@ function syncPauseButtonUI(isPaused) {
             window.DanmakuEngine.refresh();
             inBatchDanmaku.value = '';
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-            toast(`已导入 ${segs.length} 条白字黑边弹幕！`);
+            toast(`已导入 ${segs.length} 条弹幕！`);
         });
     }
 
-    // 竖屏模式下弹幕显示区域范围控制 (默认 20% ~ 60%，即五分之一到五分之三)
+    // 竖屏模式下弹幕显示区域范围控制 (默认仅占画面上方区域 10% ~ 24%)
     function applyPortRangeChange(redistribute = false) {
         let minVal = parseInt(inDmPortMin?.value);
         let maxVal = parseInt(inDmPortMax?.value);
-        if (!Number.isFinite(minVal)) minVal = 20;
-        if (!Number.isFinite(maxVal)) maxVal = 60;
-        if (minVal > maxVal - 8) {
-            minVal = Math.max(5, maxVal - 8);
+        if (!Number.isFinite(minVal)) minVal = 10;
+        if (!Number.isFinite(maxVal)) maxVal = 24;
+        if (minVal > maxVal - 6) {
+            minVal = Math.max(5, maxVal - 6);
             if (inDmPortMin) inDmPortMin.value = minVal;
         }
         window.DanmakuEngine.portAreaMin = minVal;
@@ -610,10 +610,10 @@ function syncPauseButtonUI(isPaused) {
     }
     if (btnResetDmPortRange) {
         btnResetDmPortRange.addEventListener('click', () => {
-            if (inDmPortMin) inDmPortMin.value = 20;
-            if (inDmPortMax) inDmPortMax.value = 60;
+            if (inDmPortMin) inDmPortMin.value = 10;
+            if (inDmPortMax) inDmPortMax.value = 24;
             applyPortRangeChange(true);
-            toast('📱 已恢复竖屏默认弹幕区域：从上到下 1/5 ~ 3/5 (20%~60%)');
+            toast('📱 已恢复竖屏默认弹幕区域：画面上方区域 (10%~24%)');
         });
     }
 
@@ -631,7 +631,16 @@ function syncPauseButtonUI(isPaused) {
         if (dyBtnDmToggle) {
             dyBtnDmToggle.classList.toggle('active', isVisible);
         }
+        const dyDmBarToggleBtn = document.getElementById('dy-dm-bar-toggle-btn');
+        if (dyDmBarToggleBtn) {
+            dyDmBarToggleBtn.classList.toggle('active', isVisible);
+        }
+        const dyBtnDmRound = document.getElementById('dy-btn-dm-round');
+        if (dyBtnDmRound) {
+            dyBtnDmRound.classList.toggle('dm-off', !isVisible);
+        }
     }
+    window.applyDanmakuVisibility = applyDanmakuVisibility;
 
     applyDanmakuVisibility(false);
 

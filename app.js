@@ -4014,11 +4014,53 @@ window.switchRightTab = function (mode) {
         if (swDySbBatPct) swDySbBatPct.checked = !!preset.batPct;
 
         renderDyStatusBar();
+        if (typeof applyOsFontMode === 'function') applyOsFontMode(false);
         triggerSaveStorage();
         if (showToastMsg) {
             window.showToast(`📱 已切换手机状态栏型号：${preset.name}`);
         }
     }
+
+    const selDyOsFont = document.getElementById('sel-dy-os-font');
+    function getEffectiveOsFontType() {
+        const fontMode = selDyOsFont ? selDyOsFont.value : 'auto';
+        if (fontMode === 'ios' || fontMode === 'android') return fontMode;
+        const modelVal = selDyPhoneModel ? selDyPhoneModel.value : 'iphone16';
+        if (modelVal && (modelVal.startsWith('iphone') || modelVal === 'pure-ios')) {
+            return 'ios';
+        }
+        return 'android';
+    }
+
+    function getActiveOsFontStack() {
+        const osType = getEffectiveOsFontType();
+        if (osType === 'android') {
+            return '"Roboto", "Source Han Sans SC", "Source Han Sans CN", "Source Han Sans TC", "Noto Sans CJK SC", "Noto Sans SC", "Noto Sans TC", sans-serif';
+        }
+        return '-apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "San Francisco", "Inter", "PingFang SC", "PingFang TC", "Source Han Sans SC", "Noto Sans SC", "Noto Sans TC", sans-serif';
+    }
+    window.getActiveOsFontStack = getActiveOsFontStack;
+
+    function applyOsFontMode(showNotice = false) {
+        if (!renderTarget) return;
+        const osType = getEffectiveOsFontType();
+        renderTarget.classList.toggle('font-os-ios', osType === 'ios');
+        renderTarget.classList.toggle('font-os-android', osType === 'android');
+        if (showNotice) {
+            window.showToast(osType === 'ios'
+                ? '🍎 已切换为苹果官方原生字体：苹方 (PingFang SC) + San Francisco'
+                : '🤖 已切换为安卓官方原生字体：思源黑体 (Source Han Sans) + Roboto');
+        }
+    }
+    window.applyOsFontMode = applyOsFontMode;
+
+    if (selDyOsFont) {
+        selDyOsFont.addEventListener('change', () => {
+            applyOsFontMode(true);
+            triggerSaveStorage();
+        });
+    }
+    applyOsFontMode(false);
 
     if (selDyPhoneModel) {
         selDyPhoneModel.addEventListener('change', (e) => {
@@ -4436,20 +4478,110 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // 绑定左下角圆形「彈✓」按钮开关弹幕
+    // 绑定左下角圆形「彈✎」按钮：点击弹出/收起图2同款白底弹幕输入栏（左侧带「彈+红底开关」，右侧输入弹幕，无输入法键盘窗口）
     const dyBtnDmRound = document.getElementById('dy-btn-dm-round');
-    const dyDmRoundMark = document.getElementById('dy-dm-round-mark');
+    const dyDmComposeBar = document.getElementById('dy-dm-compose-bar');
+    const dyDmBarToggleBtn = document.getElementById('dy-dm-bar-toggle-btn');
+    const dyDmBarInput = document.getElementById('dy-dm-bar-input');
+    const dyDmBarEmojiBtn = document.getElementById('dy-dm-bar-emoji-btn');
+
+    function syncDmBarSwitchUI() {
+        const swDm = document.getElementById('sw-danmaku');
+        const isOn = !!(swDm && swDm.checked);
+        if (dyDmBarToggleBtn) {
+            dyDmBarToggleBtn.classList.toggle('active', isOn);
+        }
+        if (dyBtnDmRound) {
+            dyBtnDmRound.classList.toggle('dm-off', !isOn);
+        }
+    }
+
+    function setDmComposeBarOpen(openState) {
+        if (!dyDmComposeBar) return;
+        dyDmComposeBar.style.display = openState ? 'flex' : 'none';
+        syncDmBarSwitchUI();
+        if (openState && dyDmBarInput) {
+            setTimeout(() => dyDmBarInput.focus(), 30);
+        }
+    }
+
     if (dyBtnDmRound) {
-        dyBtnDmRound.addEventListener('click', () => {
+        dyBtnDmRound.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (!dyDmComposeBar) return;
+            const isCurrentlyOpen = dyDmComposeBar.style.display !== 'none';
+            setDmComposeBarOpen(!isCurrentlyOpen);
+        });
+    }
+
+    if (dyDmBarToggleBtn) {
+        dyDmBarToggleBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
             const swDm = document.getElementById('sw-danmaku');
             if (swDm) {
                 swDm.checked = !swDm.checked;
                 swDm.dispatchEvent(new Event('change'));
-                if (dyDmRoundMark) {
-                    dyDmRoundMark.textContent = swDm.checked ? '✓' : '✕';
-                    dyDmRoundMark.style.color = swDm.checked ? '#25F4EE' : 'rgba(255,255,255,0.45)';
+                syncDmBarSwitchUI();
+                window.showToast(swDm.checked ? '💬 弹幕开关已开启' : '💬 弹幕开关已关闭');
+            }
+        });
+    }
+
+    if (dyDmBarInput) {
+        dyDmBarInput.addEventListener('click', (e) => e.stopPropagation());
+        dyDmBarInput.addEventListener('keydown', (e) => {
+            e.stopPropagation();
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                const rawTxt = dyDmBarInput.value.trim();
+                if (!rawTxt) {
+                    setDmComposeBarOpen(false);
+                    return;
                 }
-                window.showToast(swDm.checked ? '💬 已开启画面弹幕' : '💬 已关闭画面弹幕');
+                const finalTxt = (typeof toStageTrad === 'function') ? toStageTrad(rawTxt) : rawTxt;
+                if (window.DanmakuEngine && typeof window.DanmakuEngine.fireLive === 'function') {
+                    window.DanmakuEngine.fireLive(finalTxt, '#ffffff');
+                }
+                if (typeof window.applyDanmakuVisibility === 'function') {
+                    window.applyDanmakuVisibility(true);
+                } else {
+                    const swDm = document.getElementById('sw-danmaku');
+                    if (swDm && !swDm.checked) {
+                        swDm.checked = true;
+                        swDm.dispatchEvent(new Event('change'));
+                    }
+                }
+                syncDmBarSwitchUI();
+                dyDmBarInput.value = '';
+                setDmComposeBarOpen(false);
+                window.showToast(`🚀 已发送弹幕：「${finalTxt}」`);
+            } else if (e.key === 'Escape') {
+                setDmComposeBarOpen(false);
+            }
+        });
+    }
+
+    if (dyDmBarEmojiBtn && dyDmBarInput) {
+        const dmQuickEmojis = ['😂', '🔥', '😍', '👍', '🤣', '❤️', '✨'];
+        let dmEmojiIdx = 0;
+        dyDmBarEmojiBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const em = dmQuickEmojis[dmEmojiIdx % dmQuickEmojis.length];
+            dmEmojiIdx++;
+            dyDmBarInput.value += em;
+            dyDmBarInput.focus();
+        });
+    }
+
+    if (dyDmComposeBar) {
+        dyDmComposeBar.addEventListener('click', (e) => e.stopPropagation());
+    }
+    if (renderTarget) {
+        renderTarget.addEventListener('click', (e) => {
+            if (dyDmComposeBar && dyDmComposeBar.style.display !== 'none') {
+                if (!dyDmComposeBar.contains(e.target) && (!dyBtnDmRound || !dyBtnDmRound.contains(e.target))) {
+                    setDmComposeBarOpen(false);
+                }
             }
         });
     }
@@ -6141,8 +6273,8 @@ window.switchRightTab = function (mode) {
                 avatarIsCustom: document.getElementById('dy-avatar-img')?.dataset.custom === 'true',
                 danmakuList: window.DanmakuEngine ? window.DanmakuEngine.list : [],
                 danmakuMode: window.DanmakuEngine ? window.DanmakuEngine.mode : 'scroll',
-                dmPortAreaMin: window.DanmakuEngine ? window.DanmakuEngine.portAreaMin : 20,
-                dmPortAreaMax: window.DanmakuEngine ? window.DanmakuEngine.portAreaMax : 60,
+                dmPortAreaMin: window.DanmakuEngine ? window.DanmakuEngine.portAreaMin : 10,
+                dmPortAreaMax: window.DanmakuEngine ? window.DanmakuEngine.portAreaMax : 24,
                 skin: document.getElementById('sel-mobile-skin')?.value || 'laya-app',
                 viewportMode: (window.PlayerEngine && window.PlayerEngine.currentMode) ? window.PlayerEngine.currentMode : 'mode-pc',
                 layaAppTopIdx: Array.from(document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item')).findIndex(el => el.classList.contains('active')),
@@ -6251,6 +6383,29 @@ window.switchRightTab = function (mode) {
                 localStorage.setItem('LAYA_V18_FIVE_MODULES_MIGRATED', '1');
             }
 
+            // V19 迁移：竖屏弹幕默认只占画面上方区域一點點 (10% ~ 24%) + 原生苹果苹方/安卓思源黑体字重优化
+            if (localStorage.getItem('LAYA_V19_DANMAKU_TOP_FONT_MIGRATED') !== '1') {
+                if (!data.inputs) data.inputs = {};
+                if (!data.selects) data.selects = {};
+                data.inputs['in-dm-port-min'] = '10';
+                data.inputs['in-dm-port-max'] = '24';
+                data.inputs['in-danmaku-size'] = '14';
+                data.dmPortAreaMin = 10;
+                data.dmPortAreaMax = 24;
+                if (!data.selects['sel-dy-os-font']) {
+                    data.selects['sel-dy-os-font'] = 'auto';
+                }
+                if (Array.isArray(data.danmakuList) && data.danmakuList.length > 0) {
+                    const topLanes = [10, 13, 16, 19, 22];
+                    data.danmakuList.forEach((dm, i) => {
+                        dm.top = topLanes[i % topLanes.length];
+                        dm.size = 14;
+                        dm.color = '#ffffff';
+                    });
+                }
+                localStorage.setItem('LAYA_V19_DANMAKU_TOP_FONT_MIGRATED', '1');
+            }
+
             window.__isRestoringStorage = true;
 
             if (data.inputs) {
@@ -6308,6 +6463,9 @@ window.switchRightTab = function (mode) {
 
             if (typeof renderDyStatusBar === 'function') {
                 renderDyStatusBar();
+            }
+            if (typeof applyOsFontMode === 'function') {
+                applyOsFontMode(false);
             }
 
             if (data.logoVersion && selLogoVersion) {
@@ -7168,13 +7326,20 @@ window.switchRightTab = function (mode) {
                         ctx.restore();
                     }
 
-                    // 2. 绘制弹幕（默认基础白字黑边）
+                    // 2. 绘制弹幕（原生苹果苹方 / 安卓思源黑体 + 柔和阴影，无生硬粗黑边）
+                    const activeExportFont = (typeof getActiveOsFontStack === 'function')
+                        ? getActiveOsFontStack()
+                        : '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", sans-serif';
                     if (showDanmaku && danmakuParticles.length > 0) {
                         ctx.save();
                         ctx.textBaseline = 'top';
+                        ctx.shadowColor = 'rgba(0, 0, 0, 0.68)';
+                        ctx.shadowBlur = 2.5 * scaleRatioX;
+                        ctx.shadowOffsetX = 0;
+                        ctx.shadowOffsetY = 1 * scaleRatioY;
                         for (let i = 0; i < danmakuParticles.length; i++) {
                             const p = danmakuParticles[i];
-                            ctx.font = `bold ${p.size}px -apple-system, BlinkMacSystemFont, "Microsoft YaHei", sans-serif`;
+                            ctx.font = `400 ${p.size}px ${activeExportFont}`;
                             if (!isFixedDm && !p.lockedX) {
                                 p.x -= p.speed * dtRatio;
                                 const tw = ctx.measureText(p.text).width;
@@ -7182,10 +7347,7 @@ window.switchRightTab = function (mode) {
                                     p.x = outW + Math.random() * 80;
                                 }
                             }
-                            ctx.lineWidth = 3.5;
-                            ctx.strokeStyle = 'rgba(0,0,0,0.92)';
-                            ctx.strokeText(p.text, p.x, p.y);
-                            ctx.fillStyle = p.color || '#ffffff';
+                            ctx.fillStyle = p.color || 'rgba(255, 255, 255, 0.94)';
                             ctx.fillText(p.text, p.x, p.y);
                         }
                         ctx.restore();
@@ -7200,7 +7362,7 @@ window.switchRightTab = function (mode) {
                         if (subTxt) {
                             ctx.save();
                             const fontPx = Math.round((window.SubtitleEngine.size || 16) * scaleRatioX);
-                            ctx.font = `800 ${fontPx}px -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif`;
+                            ctx.font = `600 ${fontPx}px ${activeExportFont}`;
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'middle';
                             const subX = outW / 2;
@@ -7261,7 +7423,7 @@ window.switchRightTab = function (mode) {
                         }
                         if (showPcBot && pcTimeBox) {
                             const timeText = `${window.PlayerEngine.secToTime(Math.floor(curSec))} / ${window.PlayerEngine.secToTime(totalVideoSec)}`;
-                            ctx.font = `500 ${Math.round(11.5 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                            ctx.font = `500 ${Math.round(11.5 * scaleRatioX)}px ${activeExportFont}`;
                             ctx.fillStyle = '#d0d4dc';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(timeText, pcTimeBox.x, pcTimeBox.y + pcTimeBox.h / 2);
@@ -7286,7 +7448,7 @@ window.switchRightTab = function (mode) {
                         }
                         if (showMBot && mTimeBox) {
                             const shortTime = `${window.PlayerEngine.secToShortTime(Math.floor(curSec))} / ${window.PlayerEngine.secToShortTime(totalVideoSec)}`;
-                            ctx.font = `600 ${Math.round(12.5 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                            ctx.font = `500 ${Math.round(12.5 * scaleRatioX)}px ${activeExportFont}`;
                             ctx.fillStyle = '#ffffff';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(shortTime, mTimeBox.x, mTimeBox.y + mTimeBox.h / 2);
@@ -7311,7 +7473,7 @@ window.switchRightTab = function (mode) {
                         if (showDylBot && showDylTime && dylTimeBox) {
                             const tLeft = window.PlayerEngine.secToMinSec(Math.floor(realVidCur), false);
                             const tRight = window.PlayerEngine.secToMinSec(Math.floor(realVidDur), false);
-                            ctx.font = `700 ${Math.round(12 * scaleRatioX)}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
+                            ctx.font = `600 ${Math.round(12 * scaleRatioX)}px ${activeExportFont}`;
                             ctx.fillStyle = 'rgba(255,255,255,0.92)';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(`${tLeft} / ${tRight}`, dylTimeBox.x, dylTimeBox.y + dylTimeBox.h / 2);
