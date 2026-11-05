@@ -840,6 +840,11 @@
                 <div class="dy-cmt-vid-tip" id="dy-cmt-vid-tip" style="display: none !important;"></div>
 
                 <div class="dy-comment-drawer" id="dy-comment-drawer">
+                    <!-- 顶部可拖拽高度调节把手（按住上下拖拽，评论区与上方视频实时等比联动） -->
+                    <div class="dy-cmt-drag-handle interactive-elem" id="dy-cmt-drag-handle" title="按住上下拖动调节评论区高度，上方视频自动等比缩放">
+                        <div class="dy-cmt-drag-pill"></div>
+                        <span class="dy-cmt-drag-hint">↕ 按住上下拖动调节高度</span>
+                    </div>
                     <!-- 顶部合集栏 -->
                     <div class="dy-cmt-collection-bar" id="dy-cmt-collection-bar">
                         <div class="dy-cmt-col-left">
@@ -926,24 +931,24 @@
                             <input type="text" class="dy-cmt-stage-input interactive-elem" id="dy-cmt-stage-input" placeholder="期待你的評論" title="输入内容按回车或点确定直接发布评论">
                             <div class="dy-cmt-input-icons">
                                 <button type="button" class="dy-cmt-icon-btn interactive-elem" id="dy-cmt-btn-send-img" title="点击上传照片/表情包（支持纯图或配文字一起发）">
-                                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
                                         <rect x="3" y="3" width="18" height="18" rx="3" ry="3"></rect>
                                         <circle cx="8.5" cy="8.5" r="1.5"></circle>
                                         <polyline points="21 15 16 10 5 21"></polyline>
                                     </svg>
                                 </button>
                                 <button type="button" class="dy-cmt-icon-btn interactive-elem" id="dy-cmt-btn-at" title="点击插入 @ 提及">
-                                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-                                        <circle cx="12" cy="12" r="4"></circle>
-                                        <path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"></path>
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="3.6"></circle>
+                                        <path d="M15.6 8.4v4.5a2.7 2.7 0 0 0 5.4 0v-.9a9 9 0 1 0-3.53 7.15"></path>
                                     </svg>
                                 </button>
                                 <button type="button" class="dy-cmt-icon-btn interactive-elem" id="dy-cmt-btn-emoji" title="点击随机插入热门表情">
-                                    <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-                                        <circle cx="12" cy="12" r="9.5"></circle>
+                                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#5a5b63" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="12" cy="12" r="9"></circle>
                                         <path d="M8.5 14.5s1.5 2 3.5 2 3.5-2 3.5-2"></path>
-                                        <line x1="9" y1="9.5" x2="9.01" y2="9.5" stroke-width="2.5"></line>
-                                        <line x1="15" y1="9.5" x2="15.01" y2="9.5" stroke-width="2.5"></line>
+                                        <line x1="9" y1="9.5" x2="9.01" y2="9.5" stroke-width="2.4"></line>
+                                        <line x1="15" y1="9.5" x2="15.01" y2="9.5" stroke-width="2.4"></line>
                                     </svg>
                                 </button>
                                 <button type="button" class="dy-cmt-stage-send-btn interactive-elem" id="dy-cmt-btn-stage-submit" title="发送评论">確定</button>
@@ -2447,6 +2452,17 @@
                         <input type="checkbox" id="sw-dy-cmt-open-card">
                         <span class="slider-round"></span>
                     </label>
+                </div>
+
+                <div class="form-row" style="margin-top: 4px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(254, 44, 85, 0.32); border-radius: 7px; padding: 7px 9px;">
+                    <div class="range-box" style="margin-bottom: 4px;">
+                        <label style="color: #fda4af; font-weight: 700;">🔠 评论区字号 (0.8x ~ 1.5x · 头像同步缩放)</label>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <span class="range-value" id="txt-dy-cmt-font-scale">1.0x</span>
+                            <button type="button" class="sub-mini-act" id="btn-reset-cmt-font-scale" title="恢复默认 1.0x 字号与默认评论区高度" style="padding: 1px 6px; font-size: 10px;">重置</button>
+                        </div>
+                    </div>
+                    <input type="range" id="in-dy-cmt-font-scale" min="0.8" max="1.5" step="0.05" value="1.0">
                 </div>
 
                 <div class="form-row">

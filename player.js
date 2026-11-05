@@ -316,8 +316,11 @@ window.PlayerEngine = {
 
             if (isVideo) {
                 window.PlayerEngine.isVideoMode = true;
+                window.PlayerEngine._userExplicitlyPaused = false;
                 previewImg.style.display = 'none';
                 previewVideo.style.display = 'block';
+                previewVideo.loop = true;
+                previewVideo.playsInline = true;
                 setVideoSoundMuted(false, false);
                 const curSpeed = selPreviewSpeed ? (parseFloat(selPreviewSpeed.value) || 1.0) : 1.0;
                 if (previewVideo.src && previewVideo.src.startsWith('blob:')) {
@@ -330,7 +333,13 @@ window.PlayerEngine = {
                 previewVideo.play().then(() => {
                     updatePlayStateUI(true);
                 }).catch(() => {
-                    updatePlayStateUI(false);
+                    // 若浏览器有声自动播放策略拦截，自动降级为静音播放，确保视频绝不卡在暂停态
+                    setVideoSoundMuted(true, false);
+                    previewVideo.play().then(() => {
+                        updatePlayStateUI(true);
+                    }).catch(() => {
+                        updatePlayStateUI(false);
+                    });
                 });
 
                 if (jyTrimmerPanel) jyTrimmerPanel.style.display = 'flex';
@@ -338,6 +347,7 @@ window.PlayerEngine = {
                 toast('🎬 视频加载成功！页面原声已开启，右上取景框可自由切换竖框/横框并拖动！');
             } else if (isImage || !isVideo) {
                 window.PlayerEngine.isVideoMode = false;
+                window.PlayerEngine._userExplicitlyPaused = true;
                 previewVideo.pause();
                 previewVideo.style.display = 'none';
                 previewImg.style.display = 'block';
@@ -984,6 +994,29 @@ window.PlayerEngine = {
     }
     window.PlayerEngine.updatePlayStateUI = updatePlayStateUI;
 
+    function ensureVideoPlayingIfActive(forceResume = false) {
+        if (!window.PlayerEngine.isVideoMode || !previewVideo || !previewVideo.src) return;
+        if (window.__isExportRecording || window.__isOcrScanning) return;
+        if (forceResume) {
+            window.PlayerEngine._userExplicitlyPaused = false;
+        }
+        if (window.PlayerEngine._userExplicitlyPaused) return;
+        if (previewVideo.paused) {
+            const range = window.PlayerEngine.getTrimRange();
+            if (previewVideo.currentTime < range.start || previewVideo.currentTime >= range.end - 0.05) {
+                try { previewVideo.currentTime = range.start; } catch (e) {}
+            }
+            previewVideo.play().then(() => {
+                updatePlayStateUI(true);
+            }).catch(() => {
+                previewVideo.muted = true;
+                syncSoundUI(true);
+                previewVideo.play().then(() => updatePlayStateUI(true)).catch(() => {});
+            });
+        }
+    }
+    window.PlayerEngine.ensureVideoPlayingIfActive = ensureVideoPlayingIfActive;
+
     function togglePlayback() {
         if (!window.PlayerEngine.isVideoMode) {
             const currentlyPaused = mIconPlay ? (mIconPlay.style.display !== 'none') : true;
@@ -992,12 +1025,14 @@ window.PlayerEngine = {
             return;
         }
         if (previewVideo.paused) {
+            window.PlayerEngine._userExplicitlyPaused = false;
             const range = window.PlayerEngine.getTrimRange();
             if (previewVideo.currentTime < range.start || previewVideo.currentTime >= range.end - 0.05) {
                 previewVideo.currentTime = range.start;
             }
             previewVideo.play().then(() => updatePlayStateUI(true)).catch(console.warn);
         } else {
+            window.PlayerEngine._userExplicitlyPaused = true;
             previewVideo.pause();
             updatePlayStateUI(false);
         }
@@ -1352,6 +1387,7 @@ window.PlayerEngine = {
     previewVideo.addEventListener('play', () => {
         if (previewProgRafId) cancelAnimationFrame(previewProgRafId);
         previewProgRafId = requestAnimationFrame(tickPreviewProgressRaf);
+        updatePlayStateUI(true);
     });
     previewVideo.addEventListener('pause', () => {
         if (previewProgRafId) {
@@ -1359,6 +1395,20 @@ window.PlayerEngine = {
             previewProgRafId = null;
         }
         syncPreviewVideoProgress();
+        // 若非用户主动点击暂停且非导出/识别过程（例如打开/拖拽评论区弹窗导致容器重排或焦点转移引发浏览器暂停），立即自动恢复播放
+        if (window.PlayerEngine.isVideoMode && !window.PlayerEngine._userExplicitlyPaused && !window.__isExportRecording && !window.__isOcrScanning) {
+            setTimeout(() => {
+                ensureVideoPlayingIfActive(false);
+            }, 16);
+        }
+    });
+    previewVideo.addEventListener('ended', () => {
+        if (!window.PlayerEngine.isVideoMode || window.__isExportRecording || window.__isOcrScanning) return;
+        if (!window.PlayerEngine._userExplicitlyPaused) {
+            const range = window.PlayerEngine.getTrimRange();
+            try { previewVideo.currentTime = range.start; } catch (e) {}
+            ensureVideoPlayingIfActive(false);
+        }
     });
     previewVideo.addEventListener('seeked', syncPreviewVideoProgress);
     previewVideo.addEventListener('timeupdate', syncPreviewVideoProgress);

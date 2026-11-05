@@ -4883,17 +4883,17 @@ input[type="range"] {
     display: none;
 }
 
-/* 当手机竖屏开启评论区 (dy-comment-open) 时：上方显示视频，下方弹出白底评论区 */
+/* 当手机竖屏开启评论区 (dy-comment-open) 时：上方显示视频，下方弹出白底评论区（支持拖拽无级联动，默认高度收敛给视频留足空间） */
 .mode-mobile-port.dy-comment-open .media-container {
-    top: 8.2% !important;
+    top: var(--dy-vid-top, 8.2%) !important;
     left: 0 !important;
     width: 100% !important;
-    height: 26.6% !important;
+    height: var(--dy-vid-height, 36.3%) !important;
     aspect-ratio: auto !important;
 }
 
 .mode-mobile-port.dy-comment-open.dy-comment-expanded .media-container {
-    height: 20.5% !important;
+    height: var(--dy-vid-height, 25.3%) !important;
 }
 
 /* 评论区展开时隐藏原有的竖屏导航栏、右侧栏、左下文案与底栏，仅保留顶部手机状态栏 */
@@ -4912,7 +4912,7 @@ input[type="range"] {
 
 /* 评论区展开时，字幕自动上移到顶部视频框底部中央 (如图2的“对”) */
 .mode-mobile-port.dy-comment-open .dyl-subtitle-overlay {
-    top: 30.8% !important;
+    top: var(--dy-sub-top, 40.5%) !important;
     bottom: auto !important;
     font-size: 13.5px !important;
     z-index: 36 !important;
@@ -4959,10 +4959,12 @@ input[type="range"] {
 
 /* 底部白底圆角评论区主抽屉 */
 .mode-mobile-port.dy-comment-open .dy-comment-drawer {
+    --dy-cmt-font-scale: 1;
+    --dy-cmt-avatar-scale: 1;
     display: flex;
     flex-direction: column;
     position: absolute;
-    top: 34.6%;
+    top: var(--dy-cmt-top, 44.5%) !important;
     left: 0;
     right: 0;
     bottom: 0;
@@ -4977,7 +4979,62 @@ input[type="range"] {
 }
 
 .mode-mobile-port.dy-comment-open.dy-comment-expanded .dy-comment-drawer {
-    top: 28.5%;
+    top: var(--dy-cmt-top, 33.5%) !important;
+}
+
+.mode-mobile-port.dy-comment-open.is-dragging-cmt .dy-comment-drawer,
+.mode-mobile-port.dy-comment-open.is-dragging-cmt .media-container,
+.mode-mobile-port.dy-comment-open.is-dragging-cmt .dyl-subtitle-overlay {
+    transition: none !important;
+}
+
+/* 0. 评论区顶部醒目拖拽把手（支持按住上下拖动调节评论区与上方视频高度） */
+.dy-cmt-drag-handle {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 0 3px;
+    cursor: ns-resize;
+    user-select: none;
+    -webkit-user-select: none;
+    touch-action: none;
+    flex-shrink: 0;
+    background: linear-gradient(180deg, rgba(24, 119, 242, 0.08) 0%, rgba(255, 255, 255, 0) 100%);
+    border-bottom: 1px dashed rgba(24, 119, 242, 0.18);
+    transition: background 0.15s ease;
+}
+
+.dy-cmt-drag-handle:hover,
+.mode-mobile-port.dy-comment-open.is-dragging-cmt .dy-cmt-drag-handle {
+    background: linear-gradient(180deg, rgba(24, 119, 242, 0.18) 0%, rgba(24, 119, 242, 0.04) 100%);
+}
+
+.dy-cmt-drag-pill {
+    width: 48px;
+    height: 5px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #3b82f6, #2563eb);
+    box-shadow: 0 1px 4px rgba(37, 99, 235, 0.35);
+    transition: transform 0.15s ease, width 0.15s ease, background 0.15s ease;
+}
+
+.dy-cmt-drag-handle:hover .dy-cmt-drag-pill,
+.mode-mobile-port.dy-comment-open.is-dragging-cmt .dy-cmt-drag-pill {
+    width: 60px;
+    background: linear-gradient(90deg, #fe2c55, #3b82f6);
+    transform: scaleY(1.15);
+}
+
+.dy-cmt-drag-hint {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #2563eb;
+    letter-spacing: 0.3px;
+    line-height: 1.1;
+    opacity: 0.88;
+    pointer-events: none;
 }
 
 /* 1. 顶部合集栏：观看完整合集：人情与世故 + 放大/关闭圆钮 */
@@ -4985,14 +5042,14 @@ input[type="range"] {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 9px 12px 6px 13px;
+    padding: 3px 12px 4px 12px;
     flex-shrink: 0;
 }
 
 .dy-cmt-col-left {
     display: flex;
     align-items: center;
-    font-size: 12.5px;
+    font-size: calc(11.2px * var(--dy-cmt-font-scale, 1));
     font-weight: 600;
     line-height: 1.2;
     overflow: hidden;
@@ -5014,13 +5071,13 @@ input[type="range"] {
 .dy-cmt-col-actions {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 7px;
     flex-shrink: 0;
 }
 
 .dy-cmt-circle-btn {
-    width: 24px;
-    height: 24px;
+    width: calc(22px * var(--dy-cmt-avatar-scale, 1));
+    height: calc(22px * var(--dy-cmt-avatar-scale, 1));
     border-radius: 50%;
     background: #f2f3f5;
     border: none;
@@ -5040,16 +5097,16 @@ input[type="range"] {
 .dy-cmt-tabs-bar {
     display: flex;
     align-items: center;
-    gap: 20px;
-    padding: 4px 13px 0 13px;
+    gap: 18px;
+    padding: 2px 12px 0 12px;
     border-bottom: 1px solid #f0f0f2;
     flex-shrink: 0;
 }
 
 .dy-cmt-tab-item {
     position: relative;
-    padding-bottom: 7px;
-    font-size: 12.5px;
+    padding-bottom: 5px;
+    font-size: calc(11.2px * var(--dy-cmt-font-scale, 1));
     font-weight: 500;
     color: #8a8b91;
     cursor: pointer;
@@ -5085,7 +5142,7 @@ input[type="range"] {
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 8px 13px 6px 13px;
+    padding: 6px 12px 5px 12px;
     scroll-behavior: smooth;
     user-select: text;
 }
@@ -5102,21 +5159,21 @@ input[type="range"] {
 .dy-cmt-list-inner {
     display: flex;
     flex-direction: column;
-    gap: 13px;
+    gap: calc(9.5px * var(--dy-cmt-avatar-scale, 1));
 }
 
-/* 单条评论项 (精准还原图2布局) */
+/* 单条评论项 (精准还原图2布局，头像与文字随字号倍率同步缩放) */
 .dy-cmt-item {
     display: flex;
     align-items: flex-start;
-    gap: 9px;
+    gap: calc(8px * var(--dy-cmt-avatar-scale, 1));
     position: relative;
 }
 
 .dy-cmt-avatar-wrap {
     position: relative;
-    width: 32px;
-    height: 32px;
+    width: calc(26px * var(--dy-cmt-avatar-scale, 1));
+    height: calc(26px * var(--dy-cmt-avatar-scale, 1));
     border-radius: 50%;
     flex-shrink: 0;
     cursor: pointer;
@@ -5162,18 +5219,26 @@ input[type="range"] {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    gap: 4px;
     margin-bottom: 2px;
+    min-width: 0;
 }
 
 .dy-cmt-user {
-    font-size: 11.5px;
+    font-size: calc(10.5px * var(--dy-cmt-font-scale, 1));
     font-weight: 500;
     color: #8a8b91;
-    line-height: 1.25;
+    line-height: 1.22;
     outline: none;
     cursor: text;
-    max-width: 85%;
-    word-break: break-all;
+    max-width: 100%;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
 }
 
 .dy-cmt-user:focus,
@@ -5212,11 +5277,11 @@ input[type="range"] {
 }
 
 .dy-cmt-text {
-    font-size: 13px;
+    font-size: calc(11.6px * var(--dy-cmt-font-scale, 1));
     font-weight: 400;
     color: #161823;
-    line-height: 1.4;
-    margin-bottom: 4px;
+    line-height: 1.36;
+    margin-bottom: 3px;
     word-break: break-word;
     outline: none;
     cursor: text;
@@ -5278,7 +5343,7 @@ input[type="range"] {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 11px;
+    font-size: calc(9.8px * var(--dy-cmt-font-scale, 1));
     color: #999aa0;
     white-space: nowrap;
     min-width: 0;
@@ -5312,10 +5377,17 @@ input[type="range"] {
     align-items: center;
     gap: 2.5px;
     cursor: pointer;
-    font-size: 11.5px;
+    font-size: calc(10.2px * var(--dy-cmt-font-scale, 1));
     color: #8a8b91;
     user-select: none;
     white-space: nowrap;
+}
+
+.dy-cmt-like-btn svg,
+.dy-cmt-dislike-btn svg {
+    width: calc(12.5px * var(--dy-cmt-avatar-scale, 1));
+    height: calc(12.5px * var(--dy-cmt-avatar-scale, 1));
+    display: block;
 }
 
 .dy-cmt-like-btn.liked {
@@ -5342,25 +5414,25 @@ input[type="range"] {
     opacity: 0.85;
 }
 
-/* 二级评论回复区（作者回复 + 普通用户跟评：头像与文字比一级评论更小、紧凑精致） */
+/* 二级评论回复区（作者回复 + 普通用户跟评：头像与文字比一级评论更小、紧凑精致，同步跟随字号缩放） */
 .dy-cmt-replies-list {
-    margin-top: 6px;
+    margin-top: 5px;
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: calc(5px * var(--dy-cmt-avatar-scale, 1));
     padding-left: 2px;
 }
 
 .dy-cmt-reply-item {
     display: flex;
     align-items: flex-start;
-    gap: 6px;
+    gap: calc(5.5px * var(--dy-cmt-avatar-scale, 1));
     position: relative;
 }
 
 .dy-cmt-reply-avatar-wrap {
-    width: 19px;
-    height: 19px;
+    width: calc(16px * var(--dy-cmt-avatar-scale, 1));
+    height: calc(16px * var(--dy-cmt-avatar-scale, 1));
     border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
@@ -5386,16 +5458,24 @@ input[type="range"] {
     align-items: center;
     gap: 4px;
     margin-bottom: 1px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
 }
 
 .dy-cmt-reply-user {
-    font-size: 10.5px;
+    font-size: calc(9.5px * var(--dy-cmt-font-scale, 1));
     font-weight: 500;
     color: #777982;
-    line-height: 1.25;
+    line-height: 1.22;
     outline: none;
     cursor: text;
+    white-space: nowrap !important;
+    word-break: keep-all !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
 }
 
 .dy-cmt-author-badge {
@@ -5404,27 +5484,33 @@ input[type="range"] {
     justify-content: center;
     background: #fe2c55;
     color: #ffffff;
-    font-size: 8.5px;
+    font-size: calc(8px * var(--dy-cmt-font-scale, 1));
     font-weight: 700;
-    padding: 0.5px 4px;
+    padding: 0.5px 3.5px;
     border-radius: 3px;
     line-height: 1.2;
     letter-spacing: 0.2px;
+    white-space: nowrap !important;
+    flex-shrink: 0;
 }
 
 .dy-cmt-reply-to-tag {
-    font-size: 10px;
+    font-size: calc(9.2px * var(--dy-cmt-font-scale, 1));
     color: #999aa0;
     display: inline-flex;
     align-items: center;
     gap: 2px;
+    white-space: nowrap !important;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
 }
 
 .dy-cmt-reply-text {
-    font-size: 11.5px;
+    font-size: calc(10.5px * var(--dy-cmt-font-scale, 1));
     font-weight: 400;
     color: #161823;
-    line-height: 1.36;
+    line-height: 1.34;
     margin-bottom: 2px;
     word-break: break-word;
     outline: none;
@@ -5467,7 +5553,7 @@ input[type="range"] {
     display: flex;
     align-items: center;
     gap: 4px;
-    font-size: 10px;
+    font-size: calc(9.2px * var(--dy-cmt-font-scale, 1));
     color: #999aa0;
     white-space: nowrap;
 }
@@ -5477,9 +5563,15 @@ input[type="range"] {
     align-items: center;
     gap: 2px;
     cursor: pointer;
-    font-size: 10.5px;
+    font-size: calc(9.5px * var(--dy-cmt-font-scale, 1));
     color: #8a8b91;
     user-select: none;
+}
+
+.dy-cmt-reply-like-btn svg {
+    width: calc(11px * var(--dy-cmt-avatar-scale, 1));
+    height: calc(11px * var(--dy-cmt-avatar-scale, 1));
+    display: block;
 }
 
 .dy-cmt-reply-like-btn.liked {
@@ -5668,12 +5760,20 @@ input[type="range"] {
     cursor: pointer;
     flex-shrink: 0;
     white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+    box-sizing: border-box;
 }
 
 .dy-cmt-stage-send-btn {
-    height: 25px;
-    padding: 0 9px;
+    height: 24px;
+    padding: 0 10px;
+    border-radius: 12px;
     font-size: 11px;
+    line-height: 1;
+    margin: 0;
 }
 
 /* CMS 后台二级回复列表样式 */
@@ -5696,33 +5796,42 @@ input[type="range"] {
     gap: 4px;
 }
 
-/* 4. 底部期待你的评论输入栏 (含图片上传、@、表情图标) */
+/* 4. 底部期待你的评论输入栏 (输入框、图片/@/表情三个图标、红色确定按钮同一水平中轴对齐，间距均匀) */
 .dy-cmt-bottom-bar {
-    padding: 7px 12px 10px 12px;
+    padding: 6px 12px 8px 12px;
     background: #ffffff;
     border-top: 1px solid #f0f0f2;
     flex-shrink: 0;
+    box-sizing: border-box;
 }
 
 .dy-cmt-input-pill {
-    height: 35px;
+    height: 34px;
     background: #f2f3f5;
-    border-radius: 18px;
-    padding: 0 10px 0 14px;
+    border-radius: 17px;
+    padding: 0 7px 0 12px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 6px;
+    gap: 8px;
+    box-sizing: border-box;
 }
 
 .dy-cmt-stage-input {
     flex: 1;
     min-width: 0;
+    height: 100%;
+    margin: 0;
+    padding: 0;
     border: none;
     background: transparent;
-    font-size: 12.5px;
+    font-size: calc(11.5px * var(--dy-cmt-font-scale, 1));
+    line-height: 34px;
     color: #161823;
     outline: none;
+    display: flex;
+    align-items: center;
+    box-sizing: border-box;
 }
 
 .dy-cmt-stage-input::placeholder {
@@ -5732,20 +5841,34 @@ input[type="range"] {
 .dy-cmt-input-icons {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: flex-end;
+    gap: 6px;
+    height: 100%;
     flex-shrink: 0;
 }
 
 .dy-cmt-icon-btn {
+    width: 24px;
+    height: 24px;
+    margin: 0;
+    padding: 0;
     background: transparent;
     border: none;
-    padding: 2px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     cursor: pointer;
     border-radius: 50%;
+    flex-shrink: 0;
+    line-height: 1;
     transition: background 0.15s;
+}
+
+.dy-cmt-icon-btn svg {
+    width: 17px;
+    height: 17px;
+    display: block;
+    flex-shrink: 0;
 }
 
 .dy-cmt-icon-btn:hover {

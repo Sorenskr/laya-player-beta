@@ -15,18 +15,42 @@ window.DanmakuEngine = {
     portAreaMax: 24, // 竖屏默认显示区域下边界：仅占画面上方区域 (24%)
 
     isPortraitStage() {
-        const stg = document.getElementById('capture-stage');
+        const stg = document.getElementById('render-target') || document.getElementById('capture-stage');
         return !!(stg && stg.classList.contains('mode-mobile-port'));
     },
 
     getEffectiveTop(rawTop) {
         const t = Number.isFinite(Number(rawTop)) ? Number(rawTop) : 14;
-        if (this.isPortraitStage()) {
+        const stg = document.getElementById('render-target') || document.getElementById('capture-stage');
+        if (stg && stg.classList.contains('mode-mobile-port')) {
             const minV = Math.min(this.portAreaMin, this.portAreaMax - 4);
             const maxV = Math.max(this.portAreaMax, minV + 4);
-            return Math.min(maxV, Math.max(minV, t));
+            const baseClamped = Math.min(maxV, Math.max(minV, t));
+            // 当竖屏开启评论区时，自动将弹幕轨道等比映射并约束在上方视频可视区内，随评论区拖拽高度实时联动
+            if (stg.classList.contains('dy-comment-open')) {
+                const drawerTop = (window.CommentEngine && typeof window.CommentEngine.getEffectiveDrawerTopPct === 'function')
+                    ? window.CommentEngine.getEffectiveDrawerTopPct()
+                    : (stg.classList.contains('dy-comment-expanded') ? 33.5 : 44.5);
+                const vidTopMin = 8.8;
+                const vidTopMax = Math.max(vidTopMin + 2.5, drawerTop - 3.6);
+                const ratio = (maxV > minV) ? ((baseClamped - minV) / (maxV - minV)) : 0.35;
+                return Number((vidTopMin + ratio * (vidTopMax - vidTopMin)).toFixed(2));
+            }
+            return baseClamped;
         }
         return Math.min(92, Math.max(5, t));
+    },
+
+    syncStageTopPositions() {
+        const container = this.container || document.getElementById('danmaku-container');
+        if (!container) return;
+        const activeItems = this.getActiveList();
+        activeItems.forEach((dm) => {
+            const el = document.getElementById('stage_' + dm.id);
+            if (el) {
+                el.style.top = this.getEffectiveTop(dm.top) + '%';
+            }
+        });
     },
 
     getActiveList() {
@@ -35,6 +59,10 @@ window.DanmakuEngine = {
 
     refresh() {
         renderDanmakuStage();
+        renderDanmakuTracksUI();
+    },
+
+    renderEditorList() {
         renderDanmakuTracksUI();
     },
 
@@ -58,6 +86,9 @@ window.DanmakuEngine = {
     loadPreset(presetKey) {
         if (!presetsDB[presetKey]) return;
         this.list = JSON.parse(JSON.stringify(presetsDB[presetKey]));
+        if (typeof window.applyDanmakuVisibility === 'function') {
+            window.applyDanmakuVisibility(true);
+        }
         this.refresh();
         if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
         if (typeof window.showToast === 'function') {

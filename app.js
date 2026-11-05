@@ -1012,6 +1012,8 @@ window.switchRightTab = function (mode) {
     const CommentEngine = {
         isOpen: false,
         isExpanded: false,
+        drawerTopPct: null, // null 时使用收敛后的默认高度（标准 44.5% / 展开 33.5%），拖拽后记忆精确百分比
+        fontScale: 1.0,     // 评论区整体字号缩放倍率 (0.8x ~ 1.5x，默认 1.0x，头像按比例同步微缩)
         apiMode: 'cn-mixed',
         ipRegion: 'tw-hk-my',
         pubWindowHours: 72,
@@ -1329,22 +1331,82 @@ window.switchRightTab = function (mode) {
             window.showToast(isAuthor ? '👑 作者回复已发布！' : '💬 跟评回复已发布！');
         },
 
+        getEffectiveDrawerTopPct() {
+            if (typeof this.drawerTopPct === 'number' && isFinite(this.drawerTopPct)) {
+                return Math.min(78, Math.max(18, this.drawerTopPct));
+            }
+            return this.isExpanded ? 33.5 : 44.5;
+        },
+
+        applyFontScale(scaleVal, syncUI = true) {
+            const clamped = Number(Math.min(1.5, Math.max(0.8, parseFloat(scaleVal) || 1.0)).toFixed(2));
+            this.fontScale = clamped;
+            // 头像按比例同步稍微缩放一点，避免字小头大或字大头小
+            const avatarScale = Number((1 + (clamped - 1) * 0.85).toFixed(3));
+            const rt = document.getElementById('render-target');
+            const drawer = document.getElementById('dy-comment-drawer');
+            if (rt) {
+                rt.style.setProperty('--dy-cmt-font-scale', String(clamped));
+                rt.style.setProperty('--dy-cmt-avatar-scale', String(avatarScale));
+            }
+            if (drawer) {
+                drawer.style.setProperty('--dy-cmt-font-scale', String(clamped));
+                drawer.style.setProperty('--dy-cmt-avatar-scale', String(avatarScale));
+            }
+            if (syncUI) {
+                const inp = document.getElementById('in-dy-cmt-font-scale');
+                const txt = document.getElementById('txt-dy-cmt-font-scale');
+                if (inp && parseFloat(inp.value) !== clamped) inp.value = String(clamped);
+                if (txt) txt.textContent = clamped.toFixed(2).replace(/0$/, '') + 'x';
+            }
+        },
+
+        applyDrawerLayoutVars() {
+            const rt = document.getElementById('render-target');
+            if (!rt) return;
+            const topPct = this.getEffectiveDrawerTopPct();
+            const vidTop = 8.2;
+            const vidHeight = Math.max(9.8, Number((topPct - vidTop).toFixed(2)));
+            const subTop = Math.max(vidTop + 3.5, Number((topPct - 4.0).toFixed(2)));
+            rt.style.setProperty('--dy-cmt-top', topPct + '%');
+            rt.style.setProperty('--dy-vid-top', vidTop + '%');
+            rt.style.setProperty('--dy-vid-height', vidHeight + '%');
+            rt.style.setProperty('--dy-sub-top', subTop + '%');
+            this.applyFontScale(this.fontScale, true);
+            if (window.DanmakuEngine && typeof window.DanmakuEngine.syncStageTopPositions === 'function') {
+                window.DanmakuEngine.syncStageTopPositions();
+            }
+        },
+
         setDrawerOpen(flag, showToastMsg = false) {
             this.isOpen = !!flag;
             const rt = document.getElementById('render-target');
             if (rt) {
                 rt.classList.toggle('dy-comment-open', this.isOpen);
             }
+            this.applyDrawerLayoutVars();
+
             const sw1 = document.getElementById('sw-dy-comment-drawer');
             const sw2 = document.getElementById('sw-dy-cmt-open-card');
             if (sw1 && sw1.checked !== this.isOpen) sw1.checked = this.isOpen;
             if (sw2 && sw2.checked !== this.isOpen) sw2.checked = this.isOpen;
 
-            if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
-                window.PlayerEngine.updateTransform();
+            if (window.PlayerEngine) {
+                if (typeof window.PlayerEngine.updateTransform === 'function') {
+                    window.PlayerEngine.updateTransform();
+                }
+                if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                    window.PlayerEngine.ensureVideoPlayingIfActive(true);
+                }
                 window.__isRestoringStorage = false;
-                setTimeout(() => window.PlayerEngine.updateTransform(), 60);
-                setTimeout(() => window.PlayerEngine.updateTransform(), 240);
+                setTimeout(() => {
+                    if (typeof window.PlayerEngine.updateTransform === 'function') window.PlayerEngine.updateTransform();
+                    if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                }, 60);
+                setTimeout(() => {
+                    if (typeof window.PlayerEngine.updateTransform === 'function') window.PlayerEngine.updateTransform();
+                    if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                }, 240);
             }
             if (showToastMsg) {
                 window.showToast(this.isOpen
@@ -1832,7 +1894,7 @@ window.switchRightTab = function (mode) {
                 userRow.className = 'dy-cmt-user-row';
 
                 const userLeftWrap = document.createElement('div');
-                userLeftWrap.style.cssText = 'display:inline-flex; align-items:center; gap:3px; min-width:0;';
+                userLeftWrap.style.cssText = 'display:flex; align-items:center; gap:3px; flex:1; min-width:0; max-width:100%; overflow:hidden; white-space:nowrap; flex-wrap:nowrap;';
 
                 const btnAvDice = document.createElement('button');
                 btnAvDice.type = 'button';
@@ -1847,6 +1909,7 @@ window.switchRightTab = function (mode) {
 
                 const userSpan = document.createElement('span');
                 userSpan.className = 'dy-cmt-user interactive-elem';
+                userSpan.style.cssText = 'white-space:nowrap; word-break:keep-all; overflow:hidden; text-overflow:ellipsis; max-width:100%; flex-shrink:1;';
                 userSpan.contentEditable = 'true';
                 userSpan.spellcheck = false;
                 userSpan.title = '点击直接编辑昵称';
@@ -2168,6 +2231,7 @@ window.switchRightTab = function (mode) {
 
                         const rUserRow = document.createElement('div');
                         rUserRow.className = 'dy-cmt-reply-user-row';
+                        rUserRow.style.cssText = 'display:flex; align-items:center; gap:4px; margin-bottom:1px; flex-wrap:nowrap; white-space:nowrap; min-width:0; overflow:hidden;';
 
                         // 1. 回复头像旁专属筛子 🎲
                         const rBtnAvDice = document.createElement('button');
@@ -2185,6 +2249,7 @@ window.switchRightTab = function (mode) {
                         // 2. 回复名字 + 名字旁专属筛子 🎲
                         const rUserSpan = document.createElement('span');
                         rUserSpan.className = 'dy-cmt-reply-user interactive-elem';
+                        rUserSpan.style.cssText = 'white-space:nowrap; word-break:keep-all; overflow:hidden; text-overflow:ellipsis; flex-shrink:1;';
                         rUserSpan.contentEditable = 'true';
                         rUserSpan.spellcheck = false;
                         rUserSpan.title = '点击直接编辑回复名字';
@@ -3011,7 +3076,7 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // 绑定评论区右上角关闭按钮 ✕ 与展开按钮 ⛶
+    // 绑定评论区右上角关闭按钮 ✕ 与展开按钮 ⛶ + 顶部可拖拽高度调节把手 (#dy-cmt-drag-handle)
     const dyCmtBtnClose = document.getElementById('dy-cmt-btn-close');
     if (dyCmtBtnClose) {
         dyCmtBtnClose.addEventListener('click', (e) => {
@@ -3024,17 +3089,140 @@ window.switchRightTab = function (mode) {
         dyCmtBtnExpand.addEventListener('click', (e) => {
             e.stopPropagation();
             CommentEngine.isExpanded = !CommentEngine.isExpanded;
+            CommentEngine.drawerTopPct = CommentEngine.isExpanded ? 33.5 : 44.5;
             const rt = document.getElementById('render-target');
             if (rt) rt.classList.toggle('dy-comment-expanded', CommentEngine.isExpanded);
-            if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
-                window.PlayerEngine.updateTransform();
+            CommentEngine.applyDrawerLayoutVars();
+            if (window.PlayerEngine) {
+                if (typeof window.PlayerEngine.updateTransform === 'function') {
+                    window.PlayerEngine.updateTransform();
+                }
+                if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                    window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                }
                 window.__isRestoringStorage = false;
-                setTimeout(() => window.PlayerEngine.updateTransform(), 230);
+                setTimeout(() => {
+                    if (typeof window.PlayerEngine.updateTransform === 'function') window.PlayerEngine.updateTransform();
+                    if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                }, 230);
+            }
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+
+    // 绑定评论区顶部可拖拽把手 (#dy-cmt-drag-handle) 与抽屉高度实时联动上方视频缩放
+    const dyCmtDragHandle = document.getElementById('dy-cmt-drag-handle');
+    const dyCmtDrawerEl = document.getElementById('dy-comment-drawer');
+    if (dyCmtDrawerEl) {
+        // 确保点击或拖动评论区内部任何位置都不会打断上方视频播放
+        dyCmtDrawerEl.addEventListener('mousedown', () => {
+            if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                window.PlayerEngine.ensureVideoPlayingIfActive(false);
+            }
+        });
+        dyCmtDrawerEl.addEventListener('click', () => {
+            if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                window.PlayerEngine.ensureVideoPlayingIfActive(false);
             }
         });
     }
 
-    // 绑定右侧面板评论区开关、随机按钮、新增文字/表情包评论按钮
+    if (dyCmtDragHandle) {
+        let isDraggingDrawer = false;
+        let dragStartY = 0;
+        let dragStartTopPct = 34.6;
+        const hintSpan = dyCmtDragHandle.querySelector('.dy-cmt-drag-hint');
+
+        const startDrawerDrag = (clientY, evt) => {
+            const rt = document.getElementById('render-target');
+            if (!rt || !CommentEngine.isOpen) return;
+            isDraggingDrawer = true;
+            dragStartY = clientY;
+            dragStartTopPct = CommentEngine.getEffectiveDrawerTopPct();
+            rt.classList.add('is-dragging-cmt');
+            if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                window.PlayerEngine.ensureVideoPlayingIfActive(false);
+            }
+            if (evt && evt.cancelable) evt.preventDefault();
+            if (evt) evt.stopPropagation();
+        };
+
+        const moveDrawerDrag = (clientY) => {
+            if (!isDraggingDrawer) return;
+            const rt = document.getElementById('render-target');
+            if (!rt) return;
+            const rect = rt.getBoundingClientRect();
+            if (!rect.height) return;
+            const deltaPct = ((clientY - dragStartY) / rect.height) * 100;
+            // 支持评论区顶部从 18% (评论区最高占82%，视频自动缩至最小) 到 76% (评论区拉低占24%，视频恢复最大)
+            const nextTopPct = Number(Math.min(76, Math.max(18, dragStartTopPct + deltaPct)).toFixed(2));
+            CommentEngine.drawerTopPct = nextTopPct;
+            CommentEngine.isExpanded = nextTopPct <= 29.5;
+            rt.classList.toggle('dy-comment-expanded', CommentEngine.isExpanded);
+            CommentEngine.applyDrawerLayoutVars();
+
+            if (hintSpan) {
+                const cmtRatio = Math.round(100 - nextTopPct);
+                const vidRatio = Math.round(nextTopPct - 8.2);
+                hintSpan.textContent = `↕ 评论区 ${cmtRatio}% · 视频区 ${vidRatio}%`;
+            }
+
+            if (window.PlayerEngine) {
+                if (typeof window.PlayerEngine.updateTransform === 'function') {
+                    window.PlayerEngine.updateTransform();
+                }
+                if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                    window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                }
+            }
+        };
+
+        const endDrawerDrag = () => {
+            if (!isDraggingDrawer) return;
+            isDraggingDrawer = false;
+            const rt = document.getElementById('render-target');
+            if (rt) rt.classList.remove('is-dragging-cmt');
+            if (hintSpan) {
+                hintSpan.textContent = '↕ 按住上下拖动调节高度';
+            }
+            if (window.PlayerEngine) {
+                if (typeof window.PlayerEngine.updateTransform === 'function') {
+                    window.PlayerEngine.updateTransform();
+                }
+                if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                    window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                }
+            }
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        };
+
+        dyCmtDragHandle.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            startDrawerDrag(e.clientY, e);
+        });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingDrawer) return;
+            moveDrawerDrag(e.clientY);
+        });
+        window.addEventListener('mouseup', () => {
+            endDrawerDrag();
+        });
+
+        dyCmtDragHandle.addEventListener('touchstart', (e) => {
+            if (!e.touches || !e.touches[0]) return;
+            startDrawerDrag(e.touches[0].clientY, e);
+        }, { passive: false });
+        window.addEventListener('touchmove', (e) => {
+            if (!isDraggingDrawer || !e.touches || !e.touches[0]) return;
+            if (e.cancelable) e.preventDefault();
+            moveDrawerDrag(e.touches[0].clientY);
+        }, { passive: false });
+        window.addEventListener('touchend', () => {
+            endDrawerDrag();
+        });
+    }
+
+    // 绑定右侧面板评论区开关、评论区字号滑块、随机按钮、新增文字/表情包评论按钮
     const swDyCommentDrawer = document.getElementById('sw-dy-comment-drawer');
     const swDyCmtOpenCard = document.getElementById('sw-dy-cmt-open-card');
     if (swDyCommentDrawer) {
@@ -3042,6 +3230,34 @@ window.switchRightTab = function (mode) {
     }
     if (swDyCmtOpenCard) {
         swDyCmtOpenCard.addEventListener('change', (e) => CommentEngine.setDrawerOpen(e.target.checked, true));
+    }
+
+    const inDyCmtFontScale = document.getElementById('in-dy-cmt-font-scale');
+    const btnResetCmtFontScale = document.getElementById('btn-reset-cmt-font-scale');
+    if (inDyCmtFontScale) {
+        inDyCmtFontScale.addEventListener('input', (e) => {
+            CommentEngine.applyFontScale(e.target.value, true);
+            if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                window.PlayerEngine.ensureVideoPlayingIfActive(false);
+            }
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (btnResetCmtFontScale) {
+        btnResetCmtFontScale.addEventListener('click', () => {
+            CommentEngine.drawerTopPct = null;
+            CommentEngine.isExpanded = false;
+            const rt = document.getElementById('render-target');
+            if (rt) rt.classList.remove('dy-comment-expanded');
+            CommentEngine.applyFontScale(1.0, true);
+            CommentEngine.applyDrawerLayoutVars();
+            if (window.PlayerEngine) {
+                if (typeof window.PlayerEngine.updateTransform === 'function') window.PlayerEngine.updateTransform();
+                if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') window.PlayerEngine.ensureVideoPlayingIfActive(false);
+            }
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('已恢复评论区默认 1.0x 字号与收敛高度');
+        });
     }
 
     const selCmtAvatarApi = document.getElementById('sel-cmt-avatar-api');
@@ -6288,6 +6504,8 @@ window.switchRightTab = function (mode) {
                 cmtData: window.CommentEngine ? {
                     isOpen: window.CommentEngine.isOpen,
                     isExpanded: window.CommentEngine.isExpanded,
+                    drawerTopPct: window.CommentEngine.drawerTopPct,
+                    fontScale: window.CommentEngine.fontScale,
                     apiMode: window.CommentEngine.apiMode,
                     ipRegion: window.CommentEngine.ipRegion,
                     pubWindowHours: window.CommentEngine.pubWindowHours,
@@ -6327,7 +6545,11 @@ window.switchRightTab = function (mode) {
                 applyLogoVersion('Laya.png', false);
                 randomizeAuthorChineseAvatar(false);
                 syncAllMsgBadges(false);
+                if (window.CommentEngine && typeof window.CommentEngine.applyDrawerLayoutVars === 'function') {
+                    window.CommentEngine.applyDrawerLayoutVars();
+                }
                 localStorage.setItem('LAYA_V18_FIVE_MODULES_MIGRATED', '1');
+                localStorage.setItem('LAYA_V20_CMT_COMPACT_LAYOUT_MIGRATED', '1');
                 return;
             }
             const data = JSON.parse(raw);
@@ -6586,8 +6808,25 @@ window.switchRightTab = function (mode) {
                         });
                     }
                 }
+                if (typeof cd.drawerTopPct === 'number' && !isNaN(cd.drawerTopPct)) {
+                    window.CommentEngine.drawerTopPct = Math.min(76, Math.max(18, cd.drawerTopPct));
+                }
+                if (typeof cd.fontScale === 'number' && !isNaN(cd.fontScale)) {
+                    window.CommentEngine.fontScale = Math.min(1.5, Math.max(0.8, cd.fontScale));
+                }
                 window.CommentEngine.isExpanded = !!cd.isExpanded;
-                if (renderTarget) renderTarget.classList.toggle('dy-comment-expanded', !!cd.isExpanded);
+                // V20 一次性迁移：收敛评论区默认占比高度（top 44.5%，给上方视频留出充足空间）并初始化默认 1.0x 字号
+                if (localStorage.getItem('LAYA_V20_CMT_COMPACT_LAYOUT_MIGRATED') !== '1') {
+                    window.CommentEngine.drawerTopPct = null;
+                    window.CommentEngine.isExpanded = false;
+                    window.CommentEngine.fontScale = 1.0;
+                    const inpScale = document.getElementById('in-dy-cmt-font-scale');
+                    if (inpScale) inpScale.value = '1.0';
+                    localStorage.setItem('LAYA_V20_CMT_COMPACT_LAYOUT_MIGRATED', '1');
+                }
+                if (renderTarget) renderTarget.classList.toggle('dy-comment-expanded', !!window.CommentEngine.isExpanded);
+                window.CommentEngine.applyFontScale(window.CommentEngine.fontScale, true);
+                window.CommentEngine.applyDrawerLayoutVars();
                 window.CommentEngine.renderStage();
                 window.CommentEngine.renderEditor();
                 window.CommentEngine.setDrawerOpen(!!cd.isOpen, false);
@@ -6695,10 +6934,148 @@ window.switchRightTab = function (mode) {
             });
         }
 
-        // 导出截图/视频时隐藏评论区悬停快捷按钮及骰子小按钮，并同步评论列表滚动位置
-        clonedDoc.querySelectorAll('.dy-cmt-stage-QuickTools, .dy-cmt-photo-del, .dy-cmt-inline-dice').forEach(el => {
+        // 导出截图/视频时隐藏评论区悬停快捷按钮、拖拽提示文字及骰子小按钮，并强制用户名单行不换行
+        clonedDoc.querySelectorAll('.dy-cmt-stage-QuickTools, .dy-cmt-photo-del, .dy-cmt-inline-dice, .dy-cmt-drag-hint').forEach(el => {
             el.style.setProperty('display', 'none', 'important');
         });
+        clonedDoc.querySelectorAll('.dy-cmt-user-row, .dy-cmt-reply-user-row').forEach(el => {
+            el.style.setProperty('flex-wrap', 'nowrap', 'important');
+            el.style.setProperty('white-space', 'nowrap', 'important');
+        });
+        clonedDoc.querySelectorAll('.dy-cmt-user, .dy-cmt-reply-user, .dy-cmt-reply-to-tag, .dy-cmt-author-badge').forEach(el => {
+            el.style.setProperty('white-space', 'nowrap', 'important');
+            el.style.setProperty('word-break', 'keep-all', 'important');
+            el.style.setProperty('overflow-wrap', 'normal', 'important');
+            el.style.setProperty('max-width', '100%', 'important');
+            el.style.setProperty('overflow', 'hidden', 'important');
+            el.style.setProperty('text-overflow', 'ellipsis', 'important');
+        });
+
+        // ★ 同步评论区字号与头像缩放计算值到克隆节点，确保 html2canvas 导出画面与预览 1:1 完全一致
+        const origDrawer = document.getElementById('dy-comment-drawer');
+        const clonedDrawer = clonedDoc.getElementById('dy-comment-drawer');
+        if (origDrawer && clonedDrawer) {
+            const scaleSelectorList = [
+                '.dy-cmt-col-left',
+                '.dy-cmt-tab-item',
+                '.dy-cmt-user',
+                '.dy-cmt-text',
+                '.dy-cmt-meta-left',
+                '.dy-cmt-like-btn',
+                '.dy-cmt-reply-user',
+                '.dy-cmt-author-badge',
+                '.dy-cmt-reply-to-tag',
+                '.dy-cmt-reply-text',
+                '.dy-cmt-reply-meta-left',
+                '.dy-cmt-reply-like-btn'
+            ];
+            scaleSelectorList.forEach(sel => {
+                const origNodes = origDrawer.querySelectorAll(sel);
+                const clonedNodes = clonedDrawer.querySelectorAll(sel);
+                origNodes.forEach((oNode, idx) => {
+                    const cNode = clonedNodes[idx];
+                    if (!cNode) return;
+                    const cs = window.getComputedStyle(oNode);
+                    if (cs.fontSize) cNode.style.setProperty('font-size', cs.fontSize, 'important');
+                    if (cs.lineHeight) cNode.style.setProperty('line-height', cs.lineHeight, 'important');
+                });
+            });
+
+            const boxSelectorList = [
+                '.dy-cmt-avatar-wrap',
+                '.dy-cmt-reply-avatar-wrap',
+                '.dy-cmt-circle-btn',
+                '.dy-cmt-like-btn svg',
+                '.dy-cmt-dislike-btn svg',
+                '.dy-cmt-reply-like-btn svg'
+            ];
+            boxSelectorList.forEach(sel => {
+                const origNodes = origDrawer.querySelectorAll(sel);
+                const clonedNodes = clonedDrawer.querySelectorAll(sel);
+                origNodes.forEach((oNode, idx) => {
+                    const cNode = clonedNodes[idx];
+                    if (!cNode) return;
+                    const cs = window.getComputedStyle(oNode);
+                    if (cs.width) cNode.style.setProperty('width', cs.width, 'important');
+                    if (cs.height) cNode.style.setProperty('height', cs.height, 'important');
+                });
+            });
+        }
+
+        // ★ 修复导出画面底部输入栏 ("期待你的評論" + 图片/@/表情 + 確定按钮) 垂直基线居中对齐与均匀间距
+        const origStageInp = document.getElementById('dy-cmt-stage-input');
+        const clonedStageInp = clonedDoc.getElementById('dy-cmt-stage-input');
+        if (origStageInp && clonedStageInp && clonedStageInp.parentNode) {
+            const origCs = window.getComputedStyle(origStageInp);
+            const valTxt = (origStageInp.value || '').trim();
+            const dispTxt = valTxt || origStageInp.getAttribute('placeholder') || '期待你的評論';
+            const fakeInpDiv = clonedDoc.createElement('div');
+            fakeInpDiv.id = 'dy-cmt-stage-input';
+            fakeInpDiv.className = clonedStageInp.className;
+            fakeInpDiv.textContent = dispTxt;
+            fakeInpDiv.style.cssText = [
+                'flex: 1 1 auto !important',
+                'min-width: 0 !important',
+                'height: 34px !important',
+                'display: flex !important',
+                'align-items: center !important',
+                'margin: 0 !important',
+                'padding: 0 !important',
+                `font-size: ${origCs.fontSize || '11.5px'} !important`,
+                'line-height: 1 !important',
+                `color: ${valTxt ? '#161823' : '#999aa0'} !important`,
+                'white-space: nowrap !important',
+                'overflow: hidden !important',
+                'text-overflow: ellipsis !important',
+                'box-sizing: border-box !important'
+            ].join('; ');
+            clonedStageInp.parentNode.replaceChild(fakeInpDiv, clonedStageInp);
+        }
+
+        const clonedInputPill = clonedDoc.querySelector('.dy-cmt-input-pill');
+        if (clonedInputPill) {
+            clonedInputPill.style.setProperty('display', 'flex', 'important');
+            clonedInputPill.style.setProperty('align-items', 'center', 'important');
+            clonedInputPill.style.setProperty('justify-content', 'space-between', 'important');
+            clonedInputPill.style.setProperty('height', '34px', 'important');
+            clonedInputPill.style.setProperty('padding', '0 7px 0 12px', 'important');
+            clonedInputPill.style.setProperty('gap', '8px', 'important');
+            clonedInputPill.style.setProperty('box-sizing', 'border-box', 'important');
+        }
+        const clonedInputIcons = clonedDoc.querySelector('.dy-cmt-input-icons');
+        if (clonedInputIcons) {
+            clonedInputIcons.style.setProperty('display', 'flex', 'important');
+            clonedInputIcons.style.setProperty('align-items', 'center', 'important');
+            clonedInputIcons.style.setProperty('justify-content', 'flex-end', 'important');
+            clonedInputIcons.style.setProperty('height', '34px', 'important');
+            clonedInputIcons.style.setProperty('gap', '6px', 'important');
+        }
+        clonedDoc.querySelectorAll('.dy-cmt-icon-btn').forEach(btn => {
+            btn.style.setProperty('width', '24px', 'important');
+            btn.style.setProperty('height', '24px', 'important');
+            btn.style.setProperty('padding', '0', 'important');
+            btn.style.setProperty('margin', '0', 'important');
+            btn.style.setProperty('display', 'inline-flex', 'important');
+            btn.style.setProperty('align-items', 'center', 'important');
+            btn.style.setProperty('justify-content', 'center', 'important');
+            const svg = btn.querySelector('svg');
+            if (svg) {
+                svg.style.setProperty('width', '17px', 'important');
+                svg.style.setProperty('height', '17px', 'important');
+                svg.style.setProperty('display', 'block', 'important');
+            }
+        });
+        const clonedSendBtn = clonedDoc.getElementById('dy-cmt-btn-stage-submit');
+        if (clonedSendBtn) {
+            clonedSendBtn.style.setProperty('height', '24px', 'important');
+            clonedSendBtn.style.setProperty('padding', '0 10px', 'important');
+            clonedSendBtn.style.setProperty('margin', '0', 'important');
+            clonedSendBtn.style.setProperty('border-radius', '12px', 'important');
+            clonedSendBtn.style.setProperty('display', 'inline-flex', 'important');
+            clonedSendBtn.style.setProperty('align-items', 'center', 'important');
+            clonedSendBtn.style.setProperty('justify-content', 'center', 'important');
+            clonedSendBtn.style.setProperty('line-height', '1', 'important');
+        }
 
         // 强制锁定底部头像与中间头像为静态圆形图片，绝不旋转
         clonedDoc.querySelectorAll('.dy-vinyl-record, .dy-vinyl-avatar, .dy-avatar-img').forEach(el => {
@@ -7241,7 +7618,10 @@ window.switchRightTab = function (mode) {
                     ? window.getPlayerCropRect(mediaWrapBox.w, mediaWrapBox.h)
                     : { renderW: mediaWrapBox.w + 12, renderH: mediaWrapBox.h + 12, offX: -6, offY: -6 };
                 const cachedFilter = (mediaWrapEl && mediaWrapEl.style.filter) ? mediaWrapEl.style.filter : '';
-                const showDanmaku = !!(document.getElementById('sw-danmaku')?.checked);
+                const dmContainerEl = document.getElementById('danmaku-container');
+                const dmSwitchEl = document.getElementById('sw-danmaku');
+                const isDmContainerVisible = !!(dmContainerEl && window.getComputedStyle(dmContainerEl).display !== 'none' && window.getComputedStyle(dmContainerEl).visibility !== 'hidden');
+                const showDanmaku = (dmSwitchEl ? dmSwitchEl.checked : true) || isDmContainerVisible;
                 const showPcBot = !document.getElementById('sw-bottom-bar') || document.getElementById('sw-bottom-bar').checked;
                 const showMBot = !document.getElementById('sw-m-bottom-bar') || document.getElementById('sw-m-bottom-bar').checked;
                 const showDylBot = !document.getElementById('sw-dyl-bottom') || document.getElementById('sw-dyl-bottom').checked;
@@ -7249,22 +7629,91 @@ window.switchRightTab = function (mode) {
                 const syncTimeChecked = !swSyncVideoTime || swSyncVideoTime.checked;
 
                 const isFixedDm = (window.DanmakuEngine && window.DanmakuEngine.mode === 'fixed');
-                const danmakuParticles = (window.DanmakuEngine ? window.DanmakuEngine.getActiveList() : []).map((dm, idx) => {
-                    const effTop = (window.DanmakuEngine && typeof window.DanmakuEngine.getEffectiveTop === 'function')
-                        ? window.DanmakuEngine.getEffectiveTop(dm.top)
-                        : dm.top;
-                    return {
-                        text: dm.text,
-                        color: dm.color || '#ffffff',
-                        size: Math.round((dm.size || 16) * scaleRatioX),
-                        y: (outH * effTop) / 100,
-                        x: (typeof dm.customX === 'number')
-                            ? ((outW * dm.customX) / 100)
-                            : (isFixedDm ? ((outW * (dm.left || 20)) / 100) : ((outW * ((idx * 27) % 85)) / 100)),
-                        lockedX: (!isFixedDm && typeof dm.customX === 'number'),
-                        speed: isFixedDm ? 0 : ((dm.speed ? (22 - dm.speed) : 9) * 0.85 * (window.DanmakuEngine.speedFactor || 1) * (scaleRatioX / 1.5))
-                    };
-                });
+                const isDmPaused = !!(window.DanmakuEngine && window.DanmakuEngine.isPaused);
+                const activeDmSourceList = (window.DanmakuEngine && typeof window.DanmakuEngine.getActiveList === 'function')
+                    ? window.DanmakuEngine.getActiveList()
+                    : [];
+                const liveDmDomNodes = dmContainerEl ? Array.from(dmContainerEl.querySelectorAll('.danmaku-item')) : [];
+
+                const activeExportFont = (typeof getActiveOsFontStack === 'function')
+                    ? getActiveOsFontStack()
+                    : '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", sans-serif';
+
+                const danmakuParticles = [];
+                if (liveDmDomNodes.length > 0) {
+                    liveDmDomNodes.forEach((domEl, idx) => {
+                        const txt = (domEl.textContent || '').trim();
+                        if (!txt) return;
+                        const cs = window.getComputedStyle(domEl);
+                        if (cs.display === 'none' || cs.visibility === 'hidden' || parseFloat(cs.opacity || '1') <= 0.02) return;
+                        const rect = domEl.getBoundingClientRect();
+                        const dmMeta = activeDmSourceList[idx] || {};
+                        const fontPx = Math.max(12, Math.round((parseFloat(cs.fontSize) || dmMeta.size || 15) * scaleRatioX));
+                        ctx.font = `500 ${fontPx}px ${activeExportFont}`;
+                        const tw = Math.max(40, ctx.measureText(txt).width);
+
+                        // 读取当前画面上弹幕的实时精确坐标，确保导出首帧与实时预览看到的弹幕位置一致
+                        let initX = (rect.left - targetRect.left) * scaleRatioX;
+                        let initY = (rect.top - targetRect.top) * scaleRatioY;
+                        const lockedX = domEl.classList.contains('dm-custom-pos') || (!isFixedDm && typeof dmMeta.customX === 'number');
+
+                        // 若弹幕此时正好在屏幕外（尚未进入或刚滚出画布），将其平滑排布进可见区域以便录制时间内能完整看到
+                        if (!isFixedDm && !lockedX && (initX > outW - 15 || initX + tw < 15)) {
+                            initX = outW * (0.08 + ((idx * 0.21) % 0.78));
+                        }
+
+                        // 若手机竖屏评论区打开，确保弹幕 Y 坐标严格落在上方视频可视区域内，不被评论抽屉遮挡
+                        if (isPort && renderTarget.classList.contains('dy-comment-open')) {
+                            const minY = mediaWrapBox.y + 8 * scaleRatioY;
+                            const maxY = Math.max(minY + fontPx, mediaWrapBox.y + mediaWrapBox.h - fontPx - 8 * scaleRatioY);
+                            if (initY < minY || initY > maxY) {
+                                const laneRatio = (idx % 4) / 3.5;
+                                initY = minY + laneRatio * Math.max(4, maxY - minY);
+                            }
+                        }
+
+                        const rawDurSec = parseFloat(cs.animationDuration) || ((dmMeta.speed || 11) / (window.DanmakuEngine?.speedFactor || 1));
+                        const durSec = Math.max(4, rawDurSec);
+                        const pxPerFrame = (isFixedDm || lockedX || isDmPaused)
+                            ? 0
+                            : ((outW + tw) / (durSec * 30));
+
+                        danmakuParticles.push({
+                            text: txt,
+                            color: cs.color || dmMeta.color || '#ffffff',
+                            size: fontPx,
+                            x: initX,
+                            y: initY,
+                            tw: tw,
+                            lockedX: lockedX,
+                            speed: pxPerFrame
+                        });
+                    });
+                } else {
+                    activeDmSourceList.forEach((dm, idx) => {
+                        if (!dm || !dm.text) return;
+                        const effTop = (window.DanmakuEngine && typeof window.DanmakuEngine.getEffectiveTop === 'function')
+                            ? window.DanmakuEngine.getEffectiveTop(dm.top)
+                            : dm.top;
+                        const fontPx = Math.max(12, Math.round((dm.size || 15) * scaleRatioX));
+                        ctx.font = `500 ${fontPx}px ${activeExportFont}`;
+                        const tw = Math.max(40, ctx.measureText(dm.text).width);
+                        const lockedX = (!isFixedDm && typeof dm.customX === 'number');
+                        const durSec = Math.max(4, (dm.speed || 11) / (window.DanmakuEngine?.speedFactor || 1));
+                        danmakuParticles.push({
+                            text: dm.text,
+                            color: dm.color || '#ffffff',
+                            size: fontPx,
+                            y: (outH * effTop) / 100,
+                            x: (typeof dm.customX === 'number')
+                                ? ((outW * dm.customX) / 100)
+                                : (isFixedDm ? ((outW * (dm.left || 20)) / 100) : ((outW * (0.08 + ((idx * 0.21) % 0.78))))),
+                            tw: tw,
+                            lockedX: lockedX,
+                            speed: (isFixedDm || lockedX || isDmPaused) ? 0 : ((outW + tw) / (durSec * 30))
+                        });
+                    });
+                }
 
                 const baseStartSec = window.PlayerEngine.timeToSec(inStartTime.value);
                 const totalVideoSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 1125;
@@ -7326,28 +7775,34 @@ window.switchRightTab = function (mode) {
                         ctx.restore();
                     }
 
-                    // 2. 绘制弹幕（原生苹果苹方 / 安卓思源黑体 + 柔和阴影，无生硬粗黑边）
-                    const activeExportFont = (typeof getActiveOsFontStack === 'function')
-                        ? getActiveOsFontStack()
-                        : '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", sans-serif';
+                    // 2. 绘制实时弹幕层（与预览画面弹幕位置、字号、阴影及滚动速度 1:1 同步，并裁剪在视频区）
                     if (showDanmaku && danmakuParticles.length > 0) {
                         ctx.save();
+                        if (isSpecialSubBox) {
+                            ctx.beginPath();
+                            ctx.rect(mediaWrapBox.x, mediaWrapBox.y, mediaWrapBox.w, mediaWrapBox.h);
+                            ctx.clip();
+                        }
                         ctx.textBaseline = 'top';
-                        ctx.shadowColor = 'rgba(0, 0, 0, 0.68)';
-                        ctx.shadowBlur = 2.5 * scaleRatioX;
+                        ctx.lineJoin = 'round';
+                        ctx.shadowColor = 'rgba(0, 0, 0, 0.78)';
+                        ctx.shadowBlur = 3 * scaleRatioX;
                         ctx.shadowOffsetX = 0;
                         ctx.shadowOffsetY = 1 * scaleRatioY;
                         for (let i = 0; i < danmakuParticles.length; i++) {
                             const p = danmakuParticles[i];
-                            ctx.font = `400 ${p.size}px ${activeExportFont}`;
-                            if (!isFixedDm && !p.lockedX) {
+                            ctx.font = `500 ${p.size}px ${activeExportFont}`;
+                            const tw = p.tw || ctx.measureText(p.text).width;
+                            if (!isFixedDm && !p.lockedX && p.speed > 0 && (forcedElapsedSec === null || forcedElapsedSec > 0)) {
                                 p.x -= p.speed * dtRatio;
-                                const tw = ctx.measureText(p.text).width;
-                                if (p.x < -tw - 40) {
-                                    p.x = outW + Math.random() * 80;
+                                if (p.x + tw < -15) {
+                                    p.x = outW + 18 + (i % 4) * 28;
                                 }
                             }
-                            ctx.fillStyle = p.color || 'rgba(255, 255, 255, 0.94)';
+                            ctx.lineWidth = Math.max(1.5, 2.2 * scaleRatioX);
+                            ctx.strokeStyle = 'rgba(0, 0, 0, 0.72)';
+                            ctx.strokeText(p.text, p.x, p.y);
+                            ctx.fillStyle = p.color || 'rgba(255, 255, 255, 0.96)';
                             ctx.fillText(p.text, p.x, p.y);
                         }
                         ctx.restore();
@@ -7713,6 +8168,9 @@ window.switchRightTab = function (mode) {
                             if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                             btnSaveVid.textContent = origVidBtnText;
                             btnSaveVid.disabled = false;
+                            if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                                window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                            }
                         }
                     };
 
@@ -7889,6 +8347,9 @@ window.switchRightTab = function (mode) {
                     if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                     btnSaveVid.textContent = origVidBtnText;
                     btnSaveVid.disabled = false;
+                    if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                        window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                    }
 
                     if (chunks.length === 0) {
                         window.showToast('❌ 录制数据为空，请重试');
