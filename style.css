@@ -6630,40 +6630,42 @@ input[type="range"] {
 #render-target .laya-app-nav-item {
     position: relative !important;
     display: inline-flex !important;
-    flex-direction: column !important;
     align-items: center !important;
     justify-content: center !important;
     cursor: pointer !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
-    color: #9ca3af !important;
+    font-size: 14.5px !important;
+    font-weight: 600 !important;
+    color: rgba(255, 255, 255, 0.75) !important;
     line-height: 1.2 !important;
-    padding: 2px 2px 6px 2px !important;
+    padding: 2px 3px !important;
     user-select: none !important;
     transition: color 0.15s ease !important;
 }
+#render-target .laya-app-nav-txt {
+    position: relative !important;
+    z-index: 2 !important;
+    white-space: nowrap !important;
+}
 #render-target .laya-app-nav-item .laya-app-nav-glow {
     display: none !important;
+    position: absolute !important;
+    left: 50% !important;
+    top: 50% !important;
+    width: 48px !important;
+    height: 27px !important;
+    margin-left: -24px !important;
+    margin-top: -12px !important;
+    transform: none !important;
+    object-fit: contain !important;
+    pointer-events: none !important;
+    z-index: 1 !important;
 }
 #render-target .laya-app-nav-item.active {
-    color: #a855f7 !important;
-    font-size: 13.8px !important;
+    color: #ffffff !important;
+    font-size: 17.5px !important;
     font-weight: 800 !important;
 }
-#render-target .laya-app-nav-underline {
-    display: none;
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    margin-left: -8px;
-    width: 16px;
-    height: 2.5px;
-    border-radius: 2px;
-    background: #a855f7;
-    box-shadow: 0 1px 6px rgba(168, 85, 247, 0.55);
-    pointer-events: none;
-}
-#render-target .laya-app-nav-item.active .laya-app-nav-underline {
+#render-target .laya-app-nav-item.active .laya-app-nav-glow {
     display: block !important;
 }
 
@@ -6678,14 +6680,14 @@ input[type="range"] {
 #render-target .laya-nav-tabs > span {
     margin: 0 !important;
     padding: 2px 2px 6px 2px !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
+    font-size: 14.5px !important;
+    font-weight: 600 !important;
     color: #9ca3af !important;
     position: relative !important;
 }
 #render-target .laya-nav-tabs > span.active {
     color: #a855f7 !important;
-    font-size: 13.8px !important;
+    font-size: 17px !important;
     font-weight: 800 !important;
 }
 #render-target .laya-nav-tabs > span.active::after {
@@ -6884,19 +6886,22 @@ input[type="range"] {
     background: #161823 !important;
 }
 
-/* 顶部标签栏浅色适配（未选中浅灰 #6b7280，选中加粗 + 品牌紫色 #7c3aed + 下划线） */
+/* 顶部标签栏浅色适配（未选中浅灰 #6b7280，选中加粗 + 彩色流光背景） */
 #render-target.theme-light .laya-app-nav-item,
 #render-target.theme-light .laya-nav-tabs > span,
 #render-target.theme-light .dy-nav-tabs > span {
     color: #6b7280 !important;
 }
-#render-target.theme-light .laya-app-nav-item.active,
+#render-target.theme-light .laya-app-nav-item.active {
+    color: #161823 !important;
+    font-size: 15.5px !important;
+    font-weight: 800 !important;
+}
 #render-target.theme-light .laya-nav-tabs > span.active,
 #render-target.theme-light .dy-nav-tabs > span.active {
     color: #7c3aed !important;
     font-weight: 800 !important;
 }
-#render-target.theme-light .laya-app-nav-underline,
 #render-target.theme-light .laya-nav-tabs > span.active::after,
 #render-target.theme-light .dy-nav-tabs > span.active::after {
     background: #7c3aed !important;
@@ -7263,24 +7268,10 @@ input[type="range"] {
     50% { transform: translateX(-50%) scale(1.04); }
 }
 
-/* 当进入 Laya 直播页面 (.dy-live-open) 时：视频铺满 9:16 竖屏，隐藏短视频 HUD 组件，展示直播间 HUD */
-#render-target.mode-mobile-port.dy-live-open .media-container {
-    top: -2px !important;
-    left: -2px !important;
-    width: calc(100% + 4px) !important;
-    height: calc(100% + 4px) !important;
-    aspect-ratio: auto !important;
-}
-#render-target.mode-mobile-port.dy-live-open .dy-top-nav,
-#render-target.mode-mobile-port.dy-live-open .laya-top-nav,
-#render-target.mode-mobile-port.dy-live-open .laya-app-top-nav,
+/* 当进入 Laya 直播页面 (.dy-live-open) 时：严格保留本软件原有的顶部导航栏、中间视频视窗与底部导航栏格局，仅将短视频文案/右侧栏切换为本软件风格的直播组件 */
 #render-target.mode-mobile-port.dy-live-open .dy-right-bar,
 #render-target.mode-mobile-port.dy-live-open .dy-left-info,
-#render-target.mode-mobile-port.dy-live-open .dy-bottom-wrap,
-#render-target.mode-mobile-port.dy-live-open .laya-bottom-wrap,
-#render-target.mode-mobile-port.dy-live-open .laya-app-bottom-wrap,
 #render-target.mode-mobile-port.dy-live-open .dy-fullscreen-pill,
-#render-target.mode-mobile-port.dy-live-open .dy-land-frame-overlay,
 #render-target.mode-mobile-port.dy-live-open .dy-dm-compose-bar,
 #render-target.mode-mobile-port.dy-live-open .dy-live-armed-tip,
 #render-target.mode-mobile-port.dy-live-open #danmaku-container {
@@ -7290,58 +7281,55 @@ input[type="range"] {
     display: flex !important;
 }
 
-/* Laya 直播间主覆层（结合 Laya 深邃暗紫氛围遮罩，绝不使用廉价粉红大渐变） */
+/* Laya 直播间主覆层（严格按照本软件 9:16 格局：位于顶部标签栏 62px 下方、底部导航栏 56px 上方，不遮挡顶底原生导航栏，无外部渐变遮罩） */
 .laya-live-room-overlay {
     position: absolute;
-    inset: 0;
-    z-index: 24;
+    top: 62px;
+    bottom: 56px;
+    left: 0;
+    right: 0;
+    z-index: 20;
     display: none;
     flex-direction: column;
     justify-content: space-between;
-    padding: 32px 10px 5px 10px;
+    padding: 4px 12px 6px 12px;
     box-sizing: border-box;
     pointer-events: none;
-    background:
-        linear-gradient(180deg, rgba(16, 11, 29, 0.72) 0%, rgba(24, 15, 42, 0.25) 26%, rgba(16, 11, 29, 0) 50%, rgba(19, 12, 34, 0.45) 75%, rgba(12, 9, 22, 0.88) 100%);
-}
-#render-target.theme-light .laya-live-room-overlay {
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(245, 243, 255, 0.25) 25%, rgba(255, 255, 255, 0) 52%, rgba(245, 243, 255, 0.45) 76%, rgba(255, 255, 255, 0.92) 100%);
+    background: transparent !important;
 }
 
-/* 顶部区域：主播卡片 + LIVE 状态行 + 公告 */
+/* 顶部区域（位于 16:9 视频取景框上方的原生黑底区域）：左侧主播胶囊 + 右侧 LIVE 在线人数胶囊 */
 .live-top-section {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
     gap: 6px;
     width: 100%;
     pointer-events: auto;
     z-index: 5;
 }
 .live-host-card {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 8px;
-    padding: 7px 9px;
-    border-radius: 16px;
-    background: linear-gradient(135deg, rgba(31, 21, 53, 0.82) 0%, rgba(18, 15, 30, 0.86) 100%);
-    border: 1px solid rgba(168, 85, 247, 0.36);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.38);
+    gap: 6px;
+    padding: 3px 6px 3px 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    max-width: 62%;
 }
 #render-target.theme-light .live-host-card {
-    background: rgba(255, 255, 255, 0.9);
-    border: 1px solid rgba(124, 58, 237, 0.25);
-    box-shadow: 0 4px 14px rgba(124, 58, 237, 0.12);
+    background: rgba(22, 24, 35, 0.06);
+    border: 1px solid rgba(22, 24, 35, 0.12);
 }
 .live-host-avatar-wrap {
-    width: 36px;
-    height: 36px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    padding: 1.5px;
-    background: linear-gradient(135deg, #a855f7, #ec4899);
+    border: 1.5px solid #a855f7;
     flex-shrink: 0;
     cursor: pointer;
+    overflow: hidden;
 }
 .live-host-avatar {
     width: 100%;
@@ -7352,91 +7340,57 @@ input[type="range"] {
     background: #14161c;
 }
 .live-host-meta {
-    flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
-    gap: 1.5px;
+    justify-content: center;
+    gap: 1px;
 }
 .live-host-name-row {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: 3px;
 }
 .live-host-name {
-    font-size: 12.5px;
+    font-size: 11.5px;
     font-weight: 800;
     color: #ffffff;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    line-height: 1.2;
+    line-height: 1.15;
 }
 #render-target.theme-light .live-host-name {
     color: #161823;
 }
 .live-host-id-row {
-    font-size: 9.5px;
-    color: rgba(233, 213, 255, 0.72);
-    line-height: 1.15;
+    font-size: 9px;
+    color: rgba(255, 255, 255, 0.65);
+    line-height: 1.1;
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: 2px;
+    white-space: nowrap;
 }
 #render-target.theme-light .live-host-id-row {
     color: #6b7280;
 }
-.live-host-tags {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 2px;
-    flex-wrap: nowrap;
-}
-.live-tag-chip {
-    font-size: 8.5px;
-    font-weight: 700;
-    padding: 1px 6px;
-    border-radius: 999px;
-    background: linear-gradient(135deg, rgba(168, 85, 247, 0.32), rgba(236, 72, 153, 0.28));
-    color: #f3e8ff;
-    border: 1px solid rgba(192, 132, 252, 0.35);
-    line-height: 1.3;
-    white-space: nowrap;
-}
-#render-target.theme-light .live-tag-chip {
-    background: rgba(124, 58, 237, 0.12);
-    color: #6d28d9;
-    border-color: rgba(124, 58, 237, 0.25);
-}
 .live-host-right {
     display: flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     flex-shrink: 0;
 }
-.live-rank-medal {
-    width: 20px;
-    height: 20px;
-    border-radius: 6px;
-    background: rgba(251, 191, 36, 0.18);
-    border: 1px solid rgba(251, 191, 36, 0.45);
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-}
 .live-follow-btn {
-    background: #f43f5e;
+    background: #fe2c55;
     color: #ffffff;
     border: none;
     border-radius: 999px;
-    padding: 4px 10px;
-    font-size: 10.5px;
+    padding: 3.5px 8px;
+    font-size: 10px;
     font-weight: 800;
-    line-height: 1.2;
+    line-height: 1.1;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(244, 63, 94, 0.45);
     white-space: nowrap;
     transition: transform 0.15s ease, opacity 0.15s ease;
 }
@@ -7448,45 +7402,25 @@ input[type="range"] {
     border: 1px solid rgba(192, 132, 252, 0.6) !important;
     box-shadow: none !important;
 }
-.live-exit-mini-btn {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    background: rgba(0, 0, 0, 0.35);
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 10px;
-    line-height: 1;
+
+/* 右上角：红色 LIVE 标识 + 在线人数 + 关闭按钮 */
+.live-status-row {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    padding: 0;
-}
-.live-exit-mini-btn:hover {
-    background: rgba(244, 63, 94, 0.8);
-    color: #ffffff;
-}
-
-/* 左上角：红色 LIVE 标识 + 在线人数 + 观众头像叠层 */
-.live-status-row {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding-left: 2px;
+    gap: 5px;
+    flex-shrink: 0;
 }
 .live-badge-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: linear-gradient(135deg, #ef4444 0%, #e11d48 100%);
+    gap: 3.5px;
+    background: #fe2c55;
     color: #ffffff;
     font-size: 9.5px;
     font-weight: 800;
-    padding: 2.5px 7px;
+    padding: 3px 6.5px;
     border-radius: 999px;
-    letter-spacing: 0.4px;
-    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45);
+    letter-spacing: 0.3px;
 }
 .live-badge-dot {
     width: 5px;
@@ -7497,66 +7431,52 @@ input[type="range"] {
 .live-viewer-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: rgba(24, 18, 40, 0.76);
-    border: 1px solid rgba(168, 85, 247, 0.3);
-    color: #f1f5f9;
+    gap: 3px;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: rgba(255, 255, 255, 0.9);
     font-size: 9.5px;
     font-weight: 600;
-    padding: 2.5px 8px;
+    padding: 3px 7px;
     border-radius: 999px;
+    white-space: nowrap;
 }
 #render-target.theme-light .live-viewer-pill {
-    background: rgba(255, 255, 255, 0.88);
-    color: #1f2329;
-    border-color: rgba(124, 58, 237, 0.25);
+    background: rgba(22, 24, 35, 0.06);
+    color: #161823;
+    border-color: rgba(22, 24, 35, 0.12);
 }
-.live-audience-avatars {
-    display: inline-flex;
-    align-items: center;
-    margin-left: 2px;
-}
-.live-aud-circle {
-    width: 17px;
-    height: 17px;
+.live-exit-mini-btn {
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
-    font-size: 8.5px;
-    font-weight: 800;
-    color: #ffffff;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.85);
+    font-size: 10px;
+    line-height: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 1.2px solid rgba(255, 255, 255, 0.85);
-    margin-left: -4px;
+    cursor: pointer;
+    padding: 0;
 }
-.live-aud-circle:first-child {
-    margin-left: 0;
+.live-exit-mini-btn:hover {
+    background: #fe2c55;
+    color: #ffffff;
 }
-.live-aud-circle.c1 { background: #ec4899; }
-.live-aud-circle.c2 { background: #8b5cf6; }
-.live-aud-circle.c3 { background: #3b82f6; }
-.live-aud-circle.c4 { background: #10b981; }
-
-.live-notice-line {
-    font-size: 9.5px;
-    color: rgba(243, 232, 255, 0.88);
-    padding-left: 3px;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.65);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-#render-target.theme-light .live-notice-line {
-    color: #374151;
-    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9);
+#render-target.theme-light .live-exit-mini-btn {
+    background: rgba(22, 24, 35, 0.08);
+    color: #161823;
+    border-color: rgba(22, 24, 35, 0.18);
 }
 
-/* 中间横向飘过直播弹幕层 */
+/* 中间视频画面横向飘过直播弹幕层 */
 .live-floating-dm-stage {
     position: absolute;
     left: 0;
     right: 0;
-    top: 132px;
+    top: 62px;
     height: 185px;
     overflow: hidden;
     pointer-events: none;
@@ -7573,13 +7493,13 @@ input[type="range"] {
     will-change: transform, left;
 }
 
-/* 右侧：点赞飘心动画区 */
+/* 右侧：点赞飘心动画区（贴合软件原有右侧栏位置） */
 .live-floating-hearts {
     position: absolute;
-    right: 12px;
-    bottom: 98px;
-    width: 52px;
-    height: 210px;
+    right: 10px;
+    bottom: 52px;
+    width: 48px;
+    height: 195px;
     pointer-events: none;
     overflow: visible;
     z-index: 6;
@@ -7587,11 +7507,11 @@ input[type="range"] {
 .live-heart-particle {
     position: absolute;
     bottom: 0;
-    right: 10px;
-    font-size: 18px;
+    right: 8px;
+    font-size: 17px;
     line-height: 1;
     pointer-events: none;
-    filter: drop-shadow(0 2px 5px rgba(236, 72, 153, 0.55));
+    filter: drop-shadow(0 2px 5px rgba(254, 44, 85, 0.5));
     animation: liveHeartFloatUp 2.4s ease-out forwards;
 }
 @keyframes liveHeartFloatUp {
@@ -7613,18 +7533,24 @@ input[type="range"] {
     }
 }
 
-/* 底部区域：左下滚动聊天弹幕 + 输入框 + 最底部四图标栏 */
+/* 下方区域（位于 16:9 视频框正下方、底部导航栏正上方，延续本软件 #dy-left-info 的原生深色通透胶囊格局） */
 .live-bottom-section {
     display: flex;
     flex-direction: column;
-    gap: 7px;
+    gap: 6px;
     width: 100%;
     pointer-events: auto;
     z-index: 5;
+    margin-top: auto;
+}
+.live-room-tag-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
 }
 .live-chat-scroll-box {
-    width: 76%;
-    max-height: 148px;
+    width: 82%;
+    max-height: 128px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -7634,51 +7560,69 @@ input[type="range"] {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 5px;
+    gap: 4px;
     transition: transform 0.35s ease;
 }
 .live-chat-bubble {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    background: rgba(22, 16, 38, 0.72);
-    border: 1px solid rgba(168, 85, 247, 0.25);
-    color: #f8fafc;
-    font-size: 10.5px;
-    font-weight: 600;
-    padding: 4px 10px;
-    border-radius: 12px;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.09);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: rgba(255, 255, 255, 0.92);
+    font-size: 11px;
+    font-weight: 500;
+    padding: 3.5px 9px;
+    border-radius: 8px;
     max-width: 100%;
     line-height: 1.25;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.live-chat-user {
+    color: rgba(255, 255, 255, 0.58);
+    font-weight: 700;
+    font-size: 10.5px;
+    flex-shrink: 0;
 }
 #render-target.theme-light .live-chat-bubble {
-    background: rgba(255, 255, 255, 0.88);
-    border-color: rgba(124, 58, 237, 0.22);
-    color: #1f2329;
+    background: rgba(22, 24, 35, 0.06);
+    border-color: rgba(22, 24, 35, 0.1);
+    color: #161823;
+}
+#render-target.theme-light .live-chat-user {
+    color: #6b7280;
 }
 
-/* 输入框「說點什麼...」+ 發送按钮 */
-.live-input-row {
+/* 底部互动行：左侧「說點什麼...」输入胶囊 + 发送，右侧 4 个原生圆形图标按钮（彈幕、禮物、分享、關注） */
+.live-action-row {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     gap: 6px;
     width: 100%;
+    padding-top: 2px;
+}
+.live-input-row {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 5px;
 }
 .live-input-pill {
     flex: 1;
+    min-width: 0;
     height: 30px;
     border-radius: 999px;
-    background: rgba(24, 18, 42, 0.76);
-    border: 1px solid rgba(168, 85, 247, 0.32);
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     display: flex;
     align-items: center;
-    padding: 0 12px;
+    padding: 0 10px;
     box-sizing: border-box;
 }
 #render-target.theme-light .live-input-pill {
-    background: rgba(255, 255, 255, 0.9);
-    border-color: rgba(124, 58, 237, 0.25);
+    background: rgba(22, 24, 35, 0.06);
+    border-color: rgba(22, 24, 35, 0.14);
 }
 .live-chat-input {
     width: 100%;
@@ -7691,7 +7635,7 @@ input[type="range"] {
     margin: 0 !important;
 }
 .live-chat-input::placeholder {
-    color: rgba(226, 232, 240, 0.65) !important;
+    color: rgba(255, 255, 255, 0.55) !important;
 }
 #render-target.theme-light .live-chat-input {
     color: #161823 !important;
@@ -7700,78 +7644,66 @@ input[type="range"] {
     color: #6b7280 !important;
 }
 .live-send-btn {
-    height: 30px;
-    padding: 0 13px;
+    height: 28px;
+    padding: 0 10px;
     border-radius: 999px;
     border: none;
-    background: #f43f5e;
+    background: #fe2c55;
     color: #ffffff;
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 800;
     cursor: pointer;
-    box-shadow: 0 2px 8px rgba(244, 63, 94, 0.42);
     flex-shrink: 0;
 }
 
-/* 最底部：彈幕、禮物、分享、關注 四个图标 */
+/* 右侧 4 个原生圆形小图标（彈幕、禮物、分享、關注） */
 .live-bottom-bar {
     display: flex;
     align-items: center;
-    justify-content: space-around;
-    height: 44px;
-    border-radius: 16px;
-    background: linear-gradient(180deg, rgba(25, 18, 44, 0.88) 0%, rgba(15, 12, 26, 0.94) 100%);
-    border: 1px solid rgba(168, 85, 247, 0.3);
-    padding: 0 8px;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
-}
-#render-target.theme-light .live-bottom-bar {
-    background: rgba(255, 255, 255, 0.94);
-    border-color: rgba(124, 58, 237, 0.22);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    gap: 5px;
+    flex-shrink: 0;
 }
 .live-bot-item {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
+    gap: 1.5px;
     cursor: pointer;
-    color: rgba(241, 245, 249, 0.82);
-    min-width: 44px;
+    color: rgba(255, 255, 255, 0.85);
     user-select: none;
 }
 #render-target.theme-light .live-bot-item {
-    color: #4b5563;
+    color: #374151;
 }
 .live-bot-item.active,
 .live-bot-item:hover {
-    color: #c084fc;
-}
-#render-target.theme-light .live-bot-item.active,
-#render-target.theme-light .live-bot-item:hover {
-    color: #7c3aed;
+    color: #a855f7;
 }
 .live-bot-icon {
-    width: 19px;
-    height: 19px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     display: flex;
     align-items: center;
     justify-content: center;
+}
+#render-target.theme-light .live-bot-icon {
+    background: rgba(22, 24, 35, 0.06);
+    border-color: rgba(22, 24, 35, 0.12);
 }
 .live-bot-icon.gift-icon {
     color: #fbbf24;
 }
 .live-bot-icon.heart-icon {
-    color: #f43f5e;
+    color: #fe2c55;
 }
 .live-bot-txt {
-    font-size: 9.5px;
+    font-size: 8.5px;
     font-weight: 600;
-    line-height: 1.1;
-}
-.live-home-bar {
-    margin-top: 2px !important;
+    line-height: 1;
 }
 
 

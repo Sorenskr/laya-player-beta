@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ==========================================================================
  * app.js - 全局中枢控制、真实蓝/紫双Logo原图无损导出、真机录屏合成与持久化引擎
  * ==========================================================================
@@ -3872,10 +3872,17 @@ window.switchRightTab = function (mode) {
     }
 
     // ★ 1. 顶部标签栏固定高亮「推薦」+ 1秒自动弹回 + 右侧头像关注状态联动 + 底部导航栏固定高亮「視頻」1秒自动弹回
+    // 正式版默认关闭直播入口 (false)，测试版开启直播入口 (true)
+    window.__ENABLE_LAYA_LIVE_ENTRY = true;
     window.__layaLiveTabArmed = false;
     let topNavBounceTimer = null;
     let avatarFollowRestoreTimer = null;
     let botNavBounceTimer = null;
+
+    const liveSettingsCardInit = document.getElementById('card-dy-live-settings');
+    if (liveSettingsCardInit) {
+        liveSettingsCardInit.style.display = window.__ENABLE_LAYA_LIVE_ENTRY ? '' : 'none';
+    }
 
     function setRightAvatarFollowedByTab(isFollowed) {
         const avatarWrap = document.getElementById('dy-avatar-click');
@@ -3931,8 +3938,8 @@ window.switchRightTab = function (mode) {
 
                 const armedTip = document.getElementById('dy-live-armed-tip');
 
-                // 处理「直播」标签待进入状态
-                if (isLiveTab && renderTarget && renderTarget.classList.contains('mode-mobile-port')) {
+                // 处理「直播」标签待进入状态（仅在开启直播入口时生效）
+                if (window.__ENABLE_LAYA_LIVE_ENTRY && isLiveTab && renderTarget && renderTarget.classList.contains('mode-mobile-port')) {
                     window.__layaLiveTabArmed = true;
                     if (armedTip && !renderTarget.classList.contains('dy-live-open')) {
                         armedTip.style.display = 'inline-flex';
@@ -3962,13 +3969,14 @@ window.switchRightTab = function (mode) {
                     }, 1000);
                 }
 
-                // 若点的不是「推薦」，短暂亮 1 秒后自动弹回「推薦」亮灯
+                // 若点的不是「推薦」，短暂亮 1 秒后自动弹回「推薦」亮灯（若已进入直播间则保持「直播」亮灯）
                 if (!isRecommendTab) {
                     topNavBounceTimer = setTimeout(() => {
-                        items.forEach((el, i) => el.classList.toggle('active', i === defaultIndex));
-                        // 同步另一个皮肤的顶部标签栏也回到「推薦」
-                        document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item').forEach((el, i) => el.classList.toggle('active', i === 1));
-                        document.querySelectorAll('.laya-nav-tabs > span').forEach((el, i) => el.classList.toggle('active', i === 1));
+                        const inLiveNow = renderTarget && renderTarget.classList.contains('dy-live-open');
+                        const targetIdx = inLiveNow ? 2 : defaultIndex;
+                        items.forEach((el, i) => el.classList.toggle('active', i === targetIdx));
+                        document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item').forEach((el, i) => el.classList.toggle('active', i === targetIdx));
+                        document.querySelectorAll('.laya-nav-tabs > span').forEach((el, i) => el.classList.toggle('active', i === targetIdx));
                     }, 1000);
                 }
             });
@@ -7355,18 +7363,20 @@ window.switchRightTab = function (mode) {
             clonedFsPill.style.setProperty('transform', 'none', 'important');
         }
 
-        // 精确锁定顶部导航栏短下划线 (.laya-app-nav-underline) 在各自文字正中心，彻底杜绝 html2canvas 百分比偏移
+        // 精确锁定顶部导航栏发光底衬 (.laya-app-nav-glow) 在各自文字正中心，彻底杜绝 html2canvas 百分比偏移
         const origNavItems = document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
         const clonedNavItems = clonedDoc.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
         origNavItems.forEach((origItem, idx) => {
             const clonedItem = clonedNavItems[idx];
             if (!clonedItem) return;
-            const clonedUnderline = clonedItem.querySelector('.laya-app-nav-underline');
-            if (clonedUnderline) {
-                const iw = origItem.offsetWidth || 32;
-                clonedUnderline.style.setProperty('left', Math.max(0, Math.round((iw - 16) / 2)) + 'px', 'important');
-                clonedUnderline.style.setProperty('margin', '0', 'important');
-                clonedUnderline.style.setProperty('transform', 'none', 'important');
+            const clonedGlow = clonedItem.querySelector('.laya-app-nav-glow');
+            if (clonedGlow) {
+                const iw = origItem.offsetWidth || 40;
+                const ih = origItem.offsetHeight || 24;
+                clonedGlow.style.setProperty('left', Math.round((iw - 48) / 2) + 'px', 'important');
+                clonedGlow.style.setProperty('top', Math.round((ih - 27) / 2 + 1) + 'px', 'important');
+                clonedGlow.style.setProperty('margin', '0', 'important');
+                clonedGlow.style.setProperty('transform', 'none', 'important');
             }
         });
         const origCmtList = document.getElementById('dy-comment-list');
@@ -9170,14 +9180,23 @@ window.switchRightTab = function (mode) {
 
     // 进入 Laya 直播页面（满足：1.手机竖屏9:16 + 2.顶部点了「直播」 + 3.下方视频区被点击）
     function enterLayaLiveRoom() {
+        if (!window.__ENABLE_LAYA_LIVE_ENTRY) return;
         if (!renderTarget || !renderTarget.classList.contains('mode-mobile-port')) return;
         window.__layaLiveTabArmed = false;
         if (liveArmedTipEl) liveArmedTipEl.style.display = 'none';
+        if (topNavBounceTimer) {
+            clearTimeout(topNavBounceTimer);
+            topNavBounceTimer = null;
+        }
 
         // 若评论区打开则先收起
         renderTarget.classList.remove('dy-comment-open', 'dy-comment-expanded');
         renderTarget.classList.add('dy-live-open');
         if (liveOverlayEl) liveOverlayEl.style.display = 'flex';
+
+        // 保持本软件原有的顶部标签栏亮在「直播」(index 2)
+        document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item').forEach((el, idx) => el.classList.toggle('active', idx === 2));
+        document.querySelectorAll('.laya-nav-tabs > span').forEach((el, idx) => el.classList.toggle('active', idx === 2));
 
         if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
             setTimeout(() => window.PlayerEngine.updateTransform(), 25);
@@ -9517,409 +9536,5 @@ window.switchRightTab = function (mode) {
     // 初始化默认渲染一次直播间聊天列表（确保默认处于短视频状态，不进直播）
     renderLiveChatBubbles(false);
     exitLayaLiveRoom(false);
+})();
 
-    /* ==========================================================================
-       ★ 13. 手机竖屏社区 (9:16) 嵌入 Laya 品牌暗紫直播页面引擎 (三条件触发 + 右侧面板联动 + 导出支持)
-       ========================================================================== */
-    const liveOverlayEl = document.getElementById('laya-live-room-overlay');
-    const liveArmedTipEl = document.getElementById('dy-live-armed-tip');
-    const liveHostAvatarWrap = document.getElementById('live-host-avatar-wrap');
-    const liveHostAvatarImg = document.getElementById('live-host-avatar');
-    const liveDispHostName = document.getElementById('live-disp-host-name');
-    const liveDispHostId = document.getElementById('live-disp-host-id');
-    const liveDispViewers = document.getElementById('live-disp-viewers');
-    const liveBtnFollow = document.getElementById('live-btn-follow');
-    const liveBtnExitTop = document.getElementById('live-btn-exit-top');
-    const liveFloatingDmStage = document.getElementById('live-floating-dm-stage');
-    const liveFloatingHearts = document.getElementById('live-floating-hearts');
-    const liveChatList = document.getElementById('live-chat-list');
-    const liveChatInput = document.getElementById('live-chat-input');
-    const liveBtnSend = document.getElementById('live-btn-send');
-    const liveBotBtnDm = document.getElementById('live-bot-btn-dm');
-    const liveBotBtnGift = document.getElementById('live-bot-btn-gift');
-    const liveBotBtnShare = document.getElementById('live-bot-btn-share');
-    const liveBotBtnLike = document.getElementById('live-bot-btn-like');
-
-    // 右侧控制面板直播专属控件
-    const btnLiveBackToVideo = document.getElementById('btn-live-back-to-video');
-    const inLiveHostName = document.getElementById('in-live-host-name');
-    const btnLiveRandName = document.getElementById('btn-live-rand-name');
-    const btnLiveRandNameBtn = document.getElementById('btn-live-rand-name-btn');
-    const inLiveHostId = document.getElementById('in-live-host-id');
-    const btnLiveRandId = document.getElementById('btn-live-rand-id');
-    const btnLiveRandIdBtn = document.getElementById('btn-live-rand-id-btn');
-    const inLiveViewers = document.getElementById('in-live-viewers');
-    const txtLiveViewers = document.getElementById('txt-live-viewers');
-    const inLiveDanmakuList = document.getElementById('in-live-danmaku-list');
-    const inLiveDmColor = document.getElementById('in-live-dm-color');
-    const inLiveDmColorHex = document.getElementById('in-live-dm-color-hex');
-    const inLiveFollowColor = document.getElementById('in-live-follow-color');
-    const inLiveFollowColorHex = document.getElementById('in-live-follow-color-hex');
-    const inLiveDmSpeed = document.getElementById('in-live-dm-speed');
-    const txtLiveDmSpeed = document.getElementById('txt-live-dm-speed');
-
-    // 同步主播头像与当前竖屏头像
-    if (dyAvatarImg && liveHostAvatarImg) {
-        const syncLiveAvatar = () => {
-            const curSrc = dyAvatarImg.getAttribute('src') || dyAvatarImg.src;
-            if (curSrc && liveHostAvatarImg.getAttribute('src') !== curSrc) {
-                liveHostAvatarImg.src = curSrc;
-            }
-        };
-        syncLiveAvatar();
-        if (typeof MutationObserver !== 'undefined') {
-            const liveAvObs = new MutationObserver(syncLiveAvatar);
-            liveAvObs.observe(dyAvatarImg, { attributes: true, attributeFilter: ['src'] });
-        }
-    }
-    if (liveHostAvatarWrap) {
-        liveHostAvatarWrap.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const rndBtn = document.getElementById('btn-random-author-avatar');
-            if (rndBtn) rndBtn.click();
-        });
-        liveHostAvatarWrap.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const up = document.getElementById('author-avatar-uploader');
-            if (up) up.click();
-        });
-    }
-
-    let liveHeartTimer = null;
-    let liveChatRollTimer = null;
-    let liveFlyDmRaf = null;
-    let liveDmVisible = true;
-    let liveChatCursor = 0;
-    let liveFlyParticles = [];
-
-    function parseLiveDanmakuTexts() {
-        const raw = inLiveDanmakuList ? inLiveDanmakuList.value : '';
-        const list = raw
-            .split(/[,，\n\r]+/)
-            .map(s => s.trim())
-            .filter(Boolean);
-        return list.length > 0
-            ? list
-            : ['前排！', '主播好漂亮', '這首歌絕了', '666', '哈哈哈哈', '關注了', '蹲一個歌單', '已關注 比心', '主播聲音也太好聽了'];
-    }
-
-    function getLiveDmColor() {
-        return (inLiveDmColor && inLiveDmColor.value) ? inLiveDmColor.value : '#f472b6';
-    }
-
-    function getLiveDmSpeedVal() {
-        const v = inLiveDmSpeed ? parseInt(inLiveDmSpeed.value, 10) : 5;
-        return Number.isNaN(v) ? 5 : Math.min(10, Math.max(1, v));
-    }
-
-    // 渲染左下角公屏滚动聊天列表（固定展示最新 5 条）
-    function renderLiveChatBubbles(advance = false) {
-        if (!liveChatList) return;
-        const allTexts = parseLiveDanmakuTexts();
-        if (advance) {
-            liveChatCursor = (liveChatCursor + 1) % allTexts.length;
-        }
-        const count = Math.min(5, allTexts.length);
-        const visibleTexts = [];
-        for (let i = 0; i < count; i++) {
-            visibleTexts.push(allTexts[(liveChatCursor + i) % allTexts.length]);
-        }
-        const dmColor = getLiveDmColor();
-        liveChatList.innerHTML = visibleTexts.map(txt => {
-            const safeTxt = txt.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            return `<div class="live-chat-bubble"><span style="color:${dmColor}; font-weight:700;">${safeTxt}</span></div>`;
-        }).join('');
-    }
-
-    // 初始化/重置中间横向漂浮弹幕粒子
-    function initLiveFlyDanmakuParticles() {
-        if (!liveFloatingDmStage) return;
-        liveFloatingDmStage.innerHTML = '';
-        liveFlyParticles = [];
-        if (!liveDmVisible) return;
-
-        const stageW = liveFloatingDmStage.clientWidth || 320;
-        const allTexts = parseLiveDanmakuTexts();
-        const dmColor = getLiveDmColor();
-        const count = Math.min(4, allTexts.length);
-
-        for (let i = 0; i < count; i++) {
-            const txt = allTexts[i % allTexts.length];
-            const el = document.createElement('div');
-            el.className = 'live-fly-dm-item';
-            el.textContent = txt;
-            el.style.color = dmColor;
-            const laneY = 10 + (i % 4) * 38;
-            const startX = stageW * (0.22 + (i * 0.26) % 0.72);
-            el.style.top = laneY + 'px';
-            el.style.left = Math.round(startX) + 'px';
-            liveFloatingDmStage.appendChild(el);
-            liveFlyParticles.push({
-                el,
-                x: startX,
-                y: laneY,
-                textIdx: i % allTexts.length
-            });
-        }
-    }
-
-    function stepLiveFlyDanmaku() {
-        if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) {
-            liveFlyDmRaf = null;
-            return;
-        }
-        if (liveDmVisible && liveFloatingDmStage && liveFlyParticles.length > 0) {
-            const stageW = liveFloatingDmStage.clientWidth || 320;
-            const speedLv = getLiveDmSpeedVal();
-            const pxPerFrame = 0.45 + speedLv * 0.22;
-            const allTexts = parseLiveDanmakuTexts();
-            const dmColor = getLiveDmColor();
-
-            liveFlyParticles.forEach((p, idx) => {
-                p.x -= pxPerFrame;
-                const w = p.el.offsetWidth || 72;
-                if (p.x + w < -12) {
-                    p.x = stageW + 16 + (idx % 3) * 28;
-                    p.textIdx = (p.textIdx + liveFlyParticles.length) % allTexts.length;
-                    p.el.textContent = allTexts[p.textIdx];
-                }
-                p.el.style.color = dmColor;
-                p.el.style.left = p.x.toFixed(1) + 'px';
-            });
-        }
-        liveFlyDmRaf = requestAnimationFrame(stepLiveFlyDanmaku);
-    }
-
-    // 右侧点赞飘心粒子生成
-    const heartSymbols = ['❤️', '🩷', '💜', '💖', '✨'];
-    function spawnSingleLiveHeart() {
-        if (!liveFloatingHearts || !renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
-        const h = document.createElement('span');
-        h.className = 'live-heart-particle';
-        h.textContent = heartSymbols[Math.floor(Math.random() * heartSymbols.length)];
-        const hx1 = Math.round((Math.random() - 0.5) * 26);
-        const hx2 = Math.round((Math.random() - 0.5) * 28);
-        h.style.setProperty('--hx1', hx1 + 'px');
-        h.style.setProperty('--hx2', hx2 + 'px');
-        h.style.right = Math.round(6 + Math.random() * 14) + 'px';
-        liveFloatingHearts.appendChild(h);
-        setTimeout(() => {
-            if (h.parentNode) h.parentNode.removeChild(h);
-        }, 2350);
-    }
-
-    function restartLiveChatRollTimer() {
-        if (liveChatRollTimer) {
-            clearInterval(liveChatRollTimer);
-            liveChatRollTimer = null;
-        }
-        if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
-        const speedLv = getLiveDmSpeedVal();
-        const intervalMs = Math.max(700, 2600 - speedLv * 180);
-        liveChatRollTimer = setInterval(() => {
-            if (liveDmVisible) {
-                renderLiveChatBubbles(true);
-            }
-        }, intervalMs);
-    }
-
-    function startLiveRoomAnimations() {
-        renderLiveChatBubbles(false);
-        initLiveFlyDanmakuParticles();
-        if (liveFlyDmRaf) cancelAnimationFrame(liveFlyDmRaf);
-        liveFlyDmRaf = requestAnimationFrame(stepLiveFlyDanmaku);
-        restartLiveChatRollTimer();
-
-        if (liveHeartTimer) clearInterval(liveHeartTimer);
-        spawnSingleLiveHeart();
-        setTimeout(spawnSingleLiveHeart, 350);
-        liveHeartTimer = setInterval(spawnSingleLiveHeart, 780);
-    }
-
-    function stopLiveRoomAnimations() {
-        if (liveFlyDmRaf) {
-            cancelAnimationFrame(liveFlyDmRaf);
-            liveFlyDmRaf = null;
-        }
-        if (liveChatRollTimer) {
-            clearInterval(liveChatRollTimer);
-            liveChatRollTimer = null;
-        }
-        if (liveHeartTimer) {
-            clearInterval(liveHeartTimer);
-            liveHeartTimer = null;
-        }
-    }
-
-    // 进入 Laya 直播页面（满足：1.手机竖屏9:16 + 2.顶部点了「直播」 + 3.下方视频区被点击）
-    function enterLayaLiveRoom() {
-        if (!renderTarget || !renderTarget.classList.contains('mode-mobile-port')) return;
-        window.__layaLiveTabArmed = false;
-        if (liveArmedTipEl) liveArmedTipEl.style.display = 'none';
-
-        // 若评论区打开则先收起
-        renderTarget.classList.remove('dy-comment-open', 'dy-comment-expanded');
-        renderTarget.classList.add('dy-live-open');
-        if (liveOverlayEl) liveOverlayEl.style.display = 'flex';
-
-        if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
-            setTimeout(() => window.PlayerEngine.updateTransform(), 25);
-        }
-        startLiveRoomAnimations();
-
-        // 自动展开右侧「竖屏社区」面板并定位到直播设置卡片
-        const dySideTabBtn = document.querySelector('.sidebar-tabs .s-tab[data-target="panel-dy-settings"]');
-        if (dySideTabBtn && !dySideTabBtn.classList.contains('active')) {
-            dySideTabBtn.click();
-        }
-        const liveCard = document.getElementById('card-dy-live-settings');
-        if (liveCard && typeof liveCard.scrollIntoView === 'function') {
-            setTimeout(() => liveCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
-        }
-        window.showToast('🔴 已進入 Laya 直播頁面！可在右側調整直播參數或點擊「切回短視頻」');
-    }
-    window.enterLayaLiveRoom = enterLayaLiveRoom;
-
-    // 切回短视频（推薦）默认状态
-    function exitLayaLiveRoom(showMsg = true) {
-        window.__layaLiveTabArmed = false;
-        if (liveArmedTipEl) liveArmedTipEl.style.display = 'none';
-        if (!renderTarget) return;
-        const wasOpen = renderTarget.classList.contains('dy-live-open');
-        renderTarget.classList.remove('dy-live-open');
-        if (liveOverlayEl) liveOverlayEl.style.display = 'none';
-        stopLiveRoomAnimations();
-
-        // 确保顶部标签回到「推薦」，底部导航回到「視頻」
-        document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item').forEach((el, idx) => el.classList.toggle('active', idx === 1));
-        document.querySelectorAll('.laya-nav-tabs > span').forEach((el, idx) => el.classList.toggle('active', idx === 1));
-        document.querySelectorAll('#laya-app-bottom-tabs .laya-app-tab-item').forEach((el, idx) => el.classList.toggle('active', idx === 2));
-
-        if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
-            setTimeout(() => window.PlayerEngine.updateTransform(), 25);
-        }
-        if (wasOpen && showMsg) {
-            window.showToast('🎬 已切回短視頻（推薦）頁面');
-        }
-    }
-    window.exitLayaLiveRoom = exitLayaLiveRoom;
-
-    // 绑定触发条件 3：当已点过顶部「直播」标签 (window.__layaLiveTabArmed === true) 且处于 9:16 竖屏模式时，点击下方视频区域进入直播页
-    function handleVideoAreaClickForLive(e) {
-        if (!renderTarget || !renderTarget.classList.contains('mode-mobile-port')) return;
-        if (renderTarget.classList.contains('dy-live-open')) return;
-        if (!window.__layaLiveTabArmed) return;
-
-        // 排除点击顶部标签栏、右侧图标列、左下角按钮、底部导航栏或评论区抽屉
-        const t = e.target;
-        if (t && t.closest && t.closest('#laya-app-wrap-top-nav, #laya-wrap-top-nav, #dy-wrap-top-nav, #dy-wrap-right-bar, #laya-app-wrap-bottom-bar, #laya-wrap-bottom-bar, #dy-wrap-bottom-bar, #dy-comment-drawer, #dy-fullscreen-pill, #dy-left-info .interactive-elem')) {
-            return;
-        }
-        e.stopPropagation();
-        enterLayaLiveRoom();
-    }
-
-    if (liveArmedTipEl) {
-        liveArmedTipEl.addEventListener('click', (e) => {
-            e.stopPropagation();
-            enterLayaLiveRoom();
-        });
-    }
-    if (renderTarget) {
-        renderTarget.addEventListener('click', handleVideoAreaClickForLive);
-    }
-
-    // 切换顶部 4 大模式时，若离开 9:16 竖屏则自动退出直播间待命状态
-    document.querySelectorAll('.viewport-tabs .tab-btn').forEach(btn => {
-        btn.addEventListener('click', () => {
-            const mode = btn.getAttribute('data-mode');
-            if (mode !== 'mode-mobile-port') {
-                exitLayaLiveRoom(false);
-            }
-        });
-    });
-
-    // 右侧控制面板直播设置项实时双向绑定
-    if (btnLiveBackToVideo) {
-        btnLiveBackToVideo.addEventListener('click', () => {
-            exitLayaLiveRoom(true);
-        });
-    }
-    if (liveBtnExitTop) {
-        liveBtnExitTop.addEventListener('click', (e) => {
-            e.stopPropagation();
-            exitLayaLiveRoom(true);
-        });
-    }
-
-    const liveHostNamePresets = ['小鹿同學', '蜜桃甜心', '星河少女', '微醺小貓', '晚風溫柔', 'Laya女神', '甜妹小泡芙', '蘇蘇學姐'];
-    function randomizeLiveHostName() {
-        const pick = liveHostNamePresets[Math.floor(Math.random() * liveHostNamePresets.length)];
-        if (inLiveHostName) inLiveHostName.value = pick;
-        if (liveDispHostName) liveDispHostName.textContent = pick;
-        window.showToast(`🎲 主播名已切換為：${pick}`);
-    }
-    if (inLiveHostName && liveDispHostName) {
-        inLiveHostName.addEventListener('input', () => {
-            liveDispHostName.textContent = inLiveHostName.value.trim() || '小鹿同學';
-        });
-    }
-    if (btnLiveRandName) btnLiveRandName.addEventListener('click', randomizeLiveHostName);
-    if (btnLiveRandNameBtn) btnLiveRandNameBtn.addEventListener('click', randomizeLiveHostName);
-
-    function randomizeLiveHostId() {
-        const randId = String(Math.floor(1000 + Math.random() * 90000));
-        if (inLiveHostId) inLiveHostId.value = randId;
-        if (liveDispHostId) liveDispHostId.textContent = randId;
-        window.showToast(`🎲 主播ID已切換為：${randId}`);
-    }
-    if (inLiveHostId && liveDispHostId) {
-        inLiveHostId.addEventListener('input', () => {
-            liveDispHostId.textContent = inLiveHostId.value.trim() || '8888';
-        });
-    }
-    if (btnLiveRandId) btnLiveRandId.addEventListener('click', randomizeLiveHostId);
-    if (btnLiveRandIdBtn) btnLiveRandIdBtn.addEventListener('click', randomizeLiveHostId);
-
-    if (inLiveViewers) {
-        const syncLiveViewers = () => {
-            const val = parseFloat(inLiveViewers.value) || 2.9;
-            const formatted = val.toFixed(1);
-            const isSimp = window.__currentLangMode === 'simp';
-            const unitTxt = isSimp ? `${formatted}万` : `${formatted}萬`;
-            if (txtLiveViewers) txtLiveViewers.textContent = unitTxt;
-            if (liveDispViewers) liveDispViewers.textContent = isSimp ? `${formatted}万 人在线` : `${formatted}萬 人在線`;
-        };
-        inLiveViewers.addEventListener('input', syncLiveViewers);
-    }
-
-    if (inLiveDanmakuList) {
-        inLiveDanmakuList.addEventListener('input', () => {
-            renderLiveChatBubbles(false);
-            if (renderTarget && renderTarget.classList.contains('dy-live-open')) {
-                initLiveFlyDanmakuParticles();
-            }
-        });
-    }
-
-    function applyLiveDmColor(hex) {
-        const c = (hex || '#f472b6').trim();
-        if (inLiveDmColor && inLiveDmColor.value.toLowerCase() !== c.toLowerCase() && /^#[0-9a-fA-F]{6}$/.test(c)) {
-            inLiveDmColor.value = c;
-        }
-        if (inLiveDmColorHex && inLiveDmColorHex.value.toLowerCase() !== c.toLowerCase()) {
-            inLiveDmColorHex.value = c;
-        }
-        renderLiveChatBubbles(false);
-        document.querySelectorAll('.live-fly-dm-item').forEach(el => {
-            el.style.color = c;
-        });
-    }
-    if (inLiveDmColor) {
-        inLiveDmColor.addEventListener('input', (e) => applyLiveDmColor(e.target.value));
-    }
-    if (inLiveDmColorHex) {
-        inLiveDmColorHex.addEventListener('input', (e) => {
-            const v = e.targe
-... [truncated for diff preview]
