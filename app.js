@@ -6877,8 +6877,8 @@ window.switchRightTab = function (mode) {
         '音轨': '音軌', '设置': '設置', '限时特权': '限時特權',
         '已解锁完整无码未删减版，点击任意处播放': '已解鎖完整無碼未刪減版，點擊任意處播放',
         '特权生效中': '特權生效中', '点击继续播放': '點擊繼續播放', '点击暂停播放': '點擊暫停播放', '弹幕': '彈幕',
-        '倍速': '倍速', '精选': '精選', '热点': '熱點', '关注': '關注', '全屏观看': '全屏觀看',
-        '首页': '首頁', '朋友': '朋友', '消息': '消息', '我': '我', '发现': '發現', '瞬间': '瞬間', '视讯': '視訊', '娱乐': '娛樂', '我的': '我的',
+        '倍速': '倍速', '精选': '精選', '热点': '熱點', '关注': '關注', '推荐': '推薦', '直播': '直播', '交友': '交友', '任务': '任務', '合集': '合集', '全屏观看': '全屏觀看',
+        '首页': '首頁', '朋友': '朋友', '消息': '消息', '我': '我', '发现': '發現', '瞬间': '瞬間', '视讯': '視訊', '娱乐': '娛樂', '派对': '派對', '我的': '我的',
         '正在暂停 · 横屏播放': '正在暫停 · 橫屏播放', '正在播放 · 横屏播放': '正在播放 · 橫屏播放',
         '音量': '音量', '投屏': '投屏', '全屏': '全屏', '转发': '轉發', '缩小': '縮小'
     };
@@ -6914,6 +6914,7 @@ window.switchRightTab = function (mode) {
     function injectRealLogosToClonedDoc(clonedDoc) {
         const curKey = selLogoVersion ? selLogoVersion.value : 'Laya.png';
         const activeRealSrc = getActiveLogoSrc(curKey);
+        const isLightMode = !!(renderTarget && renderTarget.classList.contains('theme-light'));
 
         ['header-brand-logo', 'player-mini-logo', 'm-brand-logo', 'dy-lf-wm-logo'].forEach(id => {
             const clonedImg = clonedDoc.getElementById(id);
@@ -6923,6 +6924,8 @@ window.switchRightTab = function (mode) {
         const avatarSrc = (dyAvatarImg && dyAvatarImg.dataset.custom === 'true') ? dyAvatarImg.src : activeRealSrc;
         const clonedAvatar = clonedDoc.getElementById('dy-avatar-img');
         if (clonedAvatar) clonedAvatar.src = avatarSrc;
+        const clonedVinylAvatar = clonedDoc.getElementById('dy-vinyl-img');
+        if (clonedVinylAvatar) clonedVinylAvatar.src = avatarSrc;
         const clonedDylAvatar = clonedDoc.getElementById('dyl-disp-avatar');
         if (clonedDylAvatar) clonedDylAvatar.src = avatarSrc;
         const clonedFeatLogo = clonedDoc.getElementById('dy-featured-logo-img');
@@ -6930,8 +6933,56 @@ window.switchRightTab = function (mode) {
         if (window.LAYA_APP_ASSETS) {
             clonedDoc.querySelectorAll('img[data-laya-asset]').forEach(img => {
                 const key = img.getAttribute('data-laya-asset');
-                if (window.LAYA_APP_ASSETS[key]) img.src = window.LAYA_APP_ASSETS[key];
+                if (isLightMode && window.LAYA_APP_ASSETS_LIGHT && window.LAYA_APP_ASSETS_LIGHT[key]) {
+                    img.src = window.LAYA_APP_ASSETS_LIGHT[key];
+                } else if (window.LAYA_APP_ASSETS[key]) {
+                    img.src = window.LAYA_APP_ASSETS[key];
+                }
             });
+        }
+
+        // ★ 导出联动隐藏：严格按当前右侧图标列与底部提示条开关状态隐藏，确保关掉的图标与数字绝不出现在导出画面中
+        const exportSwitchMap = [
+            ['sw-dy-icon-avatar', 'dy-avatar-click'],
+            ['sw-dy-icon-like', 'dy-btn-like'],
+            ['sw-dy-icon-comment', 'dy-btn-comment'],
+            ['sw-dy-icon-star', 'dy-btn-star'],
+            ['sw-dy-icon-share', 'dy-btn-share'],
+            ['sw-dy-icon-vinyl', 'dy-vinyl-wrap'],
+            ['sw-dy-gold', 'dy-wrap-gold'],
+            ['sw-dy-gold', 'dy-search-bar-row'],
+            ['sw-dy-hotspot', 'dy-wrap-hotspot'],
+            ['sw-dy-right-bar', 'dy-wrap-right-bar'],
+            ['sw-dy-follow-plus', 'dy-btn-follow'],
+            ['sw-dy-featured', 'dy-wrap-featured'],
+            ['sw-dy-campaign', 'dy-wrap-campaign']
+        ];
+        exportSwitchMap.forEach(([swId, targetId]) => {
+            const swEl = document.getElementById(swId);
+            const cEl = clonedDoc.getElementById(targetId);
+            if (swEl && cEl) {
+                if (!swEl.checked) {
+                    cEl.classList.add('dy-item-hidden');
+                    cEl.style.setProperty('display', 'none', 'important');
+                    cEl.style.setProperty('visibility', 'hidden', 'important');
+                }
+            }
+        });
+        const allRightIconSwIds = ['sw-dy-icon-avatar', 'sw-dy-icon-like', 'sw-dy-icon-comment', 'sw-dy-icon-star', 'sw-dy-icon-share', 'sw-dy-icon-vinyl'];
+        const anyRightIconOn = allRightIconSwIds.some(id => {
+            const el = document.getElementById(id);
+            return !el || el.checked;
+        });
+        const clonedRightBar = clonedDoc.getElementById('dy-wrap-right-bar');
+        if (!anyRightIconOn && clonedRightBar) {
+            clonedRightBar.classList.add('dy-item-hidden');
+            clonedRightBar.style.setProperty('display', 'none', 'important');
+        }
+
+        // 同步日间/夜间模式下克隆节点的 SVG 填充/描边色，确保 html2canvas 100% 还原浅色/深色图标
+        if (typeof window.__syncThemeSvgColorsInRoot === 'function') {
+            const clonedTargetRoot = clonedDoc.getElementById('render-target');
+            if (clonedTargetRoot) window.__syncThemeSvgColorsInRoot(clonedTargetRoot, isLightMode);
         }
 
         // 导出截图/视频时隐藏评论区悬停快捷按钮、拖拽提示文字及骰子小按钮，并强制用户名单行不换行
@@ -7023,7 +7074,7 @@ window.switchRightTab = function (mode) {
                 'padding: 0 !important',
                 `font-size: ${origCs.fontSize || '11.5px'} !important`,
                 'line-height: 1 !important',
-                `color: ${valTxt ? '#161823' : '#999aa0'} !important`,
+                `color: ${valTxt ? (isLightMode ? '#161823' : '#f1f5f9') : (isLightMode ? '#999aa0' : '#8b8e99')} !important`,
                 'white-space: nowrap !important',
                 'overflow: hidden !important',
                 'text-overflow: ellipsis !important',
@@ -7077,7 +7128,7 @@ window.switchRightTab = function (mode) {
             clonedSendBtn.style.setProperty('line-height', '1', 'important');
         }
 
-        // 强制锁定底部头像与中间头像为静态圆形图片，绝不旋转
+        // 强制锁定克隆节点中头像与唱片角度，防止 html2canvas CSS 动画截图偏移
         clonedDoc.querySelectorAll('.dy-vinyl-record, .dy-vinyl-avatar, .dy-avatar-img').forEach(el => {
             el.style.setProperty('animation', 'none', 'important');
             el.style.setProperty('transform', 'none', 'important');
@@ -7097,20 +7148,18 @@ window.switchRightTab = function (mode) {
             clonedFsPill.style.setProperty('transform', 'none', 'important');
         }
 
-        // 精确锁定顶部导航栏发光底衬 (.laya-app-nav-glow) 在各自文字正中心，彻底杜绝 html2canvas 百分比偏移
+        // 精确锁定顶部导航栏短下划线 (.laya-app-nav-underline) 在各自文字正中心，彻底杜绝 html2canvas 百分比偏移
         const origNavItems = document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
         const clonedNavItems = clonedDoc.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
         origNavItems.forEach((origItem, idx) => {
             const clonedItem = clonedNavItems[idx];
             if (!clonedItem) return;
-            const clonedGlow = clonedItem.querySelector('.laya-app-nav-glow');
-            if (clonedGlow) {
-                const iw = origItem.offsetWidth || 36;
-                const ih = origItem.offsetHeight || 22;
-                clonedGlow.style.setProperty('left', Math.round((iw - 42) / 2) + 'px', 'important');
-                clonedGlow.style.setProperty('top', Math.round((ih - 24) / 2) + 'px', 'important');
-                clonedGlow.style.setProperty('margin', '0', 'important');
-                clonedGlow.style.setProperty('transform', 'none', 'important');
+            const clonedUnderline = clonedItem.querySelector('.laya-app-nav-underline');
+            if (clonedUnderline) {
+                const iw = origItem.offsetWidth || 32;
+                clonedUnderline.style.setProperty('left', Math.max(0, Math.round((iw - 16) / 2)) + 'px', 'important');
+                clonedUnderline.style.setProperty('margin', '0', 'important');
+                clonedUnderline.style.setProperty('transform', 'none', 'important');
             }
         });
         const origCmtList = document.getElementById('dy-comment-list');
@@ -7141,20 +7190,22 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // 使用原生 Canvas 2D 线性渐变绘制顶/底部暗角蒙层，过渡丝滑自然，100% 杜绝 html2canvas 渐变分界黑线
+    // 使用原生 Canvas 2D 线性渐变绘制顶/底部蒙层（自动适配夜间深色与日间浅色模式）
     function drawSeamlessHudGradients(targetCtx, outW, outH) {
         if (!renderTarget || !targetCtx) return;
         const targetRect = renderTarget.getBoundingClientRect();
         if (!targetRect.height) return;
+        const isLightMode = renderTarget.classList.contains('theme-light');
+        const rgbBase = isLightMode ? '255, 255, 255' : '0, 0, 0';
 
         const topBar = document.getElementById('web-player-top');
         if (topBar && topBar.offsetWidth > 0 && topBar.offsetHeight > 0) {
             const topH = Math.round((topBar.offsetHeight / targetRect.height) * outH * 1.15);
             const gTop = targetCtx.createLinearGradient(0, 0, 0, topH);
-            gTop.addColorStop(0, 'rgba(0, 0, 0, 0.86)');
-            gTop.addColorStop(0.5, 'rgba(0, 0, 0, 0.42)');
-            gTop.addColorStop(0.82, 'rgba(0, 0, 0, 0.08)');
-            gTop.addColorStop(1, 'rgba(0, 0, 0, 0)');
+            gTop.addColorStop(0, `rgba(${rgbBase}, ${isLightMode ? '0.92' : '0.86'})`);
+            gTop.addColorStop(0.5, `rgba(${rgbBase}, ${isLightMode ? '0.52' : '0.42'})`);
+            gTop.addColorStop(0.82, `rgba(${rgbBase}, 0.08)`);
+            gTop.addColorStop(1, `rgba(${rgbBase}, 0)`);
             targetCtx.save();
             targetCtx.fillStyle = gTop;
             targetCtx.fillRect(0, 0, outW, topH);
@@ -7168,10 +7219,10 @@ window.switchRightTab = function (mode) {
                 const isDyl = (id === 'dyl-wrap-bottom');
                 const botH = Math.round((botBar.offsetHeight / targetRect.height) * outH * 1.2);
                 const gBot = targetCtx.createLinearGradient(0, outH, 0, outH - botH);
-                gBot.addColorStop(0, isDyl ? 'rgba(0, 0, 0, 0.72)' : 'rgba(0, 0, 0, 0.90)');
-                gBot.addColorStop(0.5, isDyl ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.44)');
-                gBot.addColorStop(0.82, 'rgba(0, 0, 0, 0.08)');
-                gBot.addColorStop(1, 'rgba(0, 0, 0, 0)');
+                gBot.addColorStop(0, `rgba(${rgbBase}, ${isLightMode ? '0.92' : (isDyl ? '0.72' : '0.90')})`);
+                gBot.addColorStop(0.5, `rgba(${rgbBase}, ${isLightMode ? '0.55' : (isDyl ? '0.25' : '0.44')})`);
+                gBot.addColorStop(0.82, `rgba(${rgbBase}, 0.08)`);
+                gBot.addColorStop(1, `rgba(${rgbBase}, 0)`);
                 targetCtx.save();
                 targetCtx.fillStyle = gBot;
                 targetCtx.fillRect(0, outH - botH, outW, botH);
@@ -7227,8 +7278,9 @@ window.switchRightTab = function (mode) {
                 ctx.imageSmoothingEnabled = true;
                 ctx.imageSmoothingQuality = 'high';
 
-                // 1. 纯黑无白边底色
-                ctx.fillStyle = '#000000';
+                // 1. 按当前日间/夜间模式填充底色
+                const isLightExport = renderTarget.classList.contains('theme-light');
+                ctx.fillStyle = isLightExport ? '#f5f6fa' : '#000000';
                 ctx.fillRect(0, 0, outW, outH);
 
                 // 2. 计算取景框在输出画布中的精确坐标与裁剪参数
@@ -7747,13 +7799,14 @@ window.switchRightTab = function (mode) {
                 let lastFrameStamp = recordStartStamp;
 
                 // 单帧合成函数（支持按精确相对秒数 elapsedSec 渲染，确保恒定 30fps 每一帧时间轴 100% 精准）
+                const isLightRecord = renderTarget.classList.contains('theme-light');
                 const renderSingleFrame = (nowStamp, forcedElapsedSec = null) => {
                     const dtRatio = forcedElapsedSec !== null
                         ? 1.0
                         : Math.min(2.5, Math.max(0.2, (nowStamp - lastFrameStamp) / (1000 / TARGET_FPS)));
                     lastFrameStamp = nowStamp;
 
-                    ctx.fillStyle = '#000000';
+                    ctx.fillStyle = isLightRecord ? '#f5f6fa' : '#000000';
                     ctx.fillRect(0, 0, outW, outH);
 
                     // 1. 绘制底层超清视频画面
@@ -7864,47 +7917,47 @@ window.switchRightTab = function (mode) {
                     ctx.save();
                     if (!isPort && !isLand && !isDyLand) {
                         if (showPcBot && pcBarBox) {
-                            ctx.fillStyle = 'rgba(255,255,255,0.22)';
+                            ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.18)' : 'rgba(255,255,255,0.22)';
                             ctx.fillRect(pcBarBox.x, pcBarBox.y, pcBarBox.w, pcBarBox.h);
-                            ctx.fillStyle = 'rgba(255,255,255,0.42)';
+                            ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.32)' : 'rgba(255,255,255,0.42)';
                             ctx.fillRect(pcBarBox.x, pcBarBox.y, pcBarBox.w * bufferPct, pcBarBox.h);
                             const fillW = pcBarBox.w * curPct;
                             ctx.fillStyle = '#1877F2';
                             ctx.fillRect(pcBarBox.x, pcBarBox.y, fillW, pcBarBox.h);
                             ctx.beginPath();
                             ctx.arc(pcBarBox.x + fillW, pcBarBox.y + pcBarBox.h / 2, 5.5 * scaleRatioX, 0, Math.PI * 2);
-                            ctx.fillStyle = '#ffffff';
+                            ctx.fillStyle = isLightRecord ? '#1877F2' : '#ffffff';
                             ctx.fill();
                         }
                         if (showPcBot && pcTimeBox) {
                             const timeText = `${window.PlayerEngine.secToTime(Math.floor(curSec))} / ${window.PlayerEngine.secToTime(totalVideoSec)}`;
                             ctx.font = `500 ${Math.round(11.5 * scaleRatioX)}px ${activeExportFont}`;
-                            ctx.fillStyle = '#d0d4dc';
+                            ctx.fillStyle = isLightRecord ? '#161823' : '#d0d4dc';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(timeText, pcTimeBox.x, pcTimeBox.y + pcTimeBox.h / 2);
                         }
                     } else if (isLand) {
                         if (showMBot && mBarBox) {
-                            ctx.fillStyle = 'rgba(255,255,255,0.28)';
+                            ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.20)' : 'rgba(255,255,255,0.28)';
                             ctx.fillRect(mBarBox.x, mBarBox.y, mBarBox.w, mBarBox.h);
-                            ctx.fillStyle = 'rgba(255,255,255,0.45)';
+                            ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.35)' : 'rgba(255,255,255,0.45)';
                             ctx.fillRect(mBarBox.x, mBarBox.y, mBarBox.w * bufferPct, mBarBox.h);
                             const fillW = mBarBox.w * curPct;
-                            ctx.fillStyle = '#ffffff';
+                            ctx.fillStyle = isLightRecord ? '#7c3aed' : '#ffffff';
                             ctx.fillRect(mBarBox.x, mBarBox.y, fillW, mBarBox.h);
                             ctx.save();
                             ctx.shadowColor = 'rgba(138, 116, 249, 0.95)';
                             ctx.shadowBlur = 8 * scaleRatioX;
                             ctx.beginPath();
                             ctx.arc(mBarBox.x + fillW, mBarBox.y + mBarBox.h / 2, 6 * scaleRatioX, 0, Math.PI * 2);
-                            ctx.fillStyle = '#ffffff';
+                            ctx.fillStyle = isLightRecord ? '#7c3aed' : '#ffffff';
                             ctx.fill();
                             ctx.restore();
                         }
                         if (showMBot && mTimeBox) {
                             const shortTime = `${window.PlayerEngine.secToShortTime(Math.floor(curSec))} / ${window.PlayerEngine.secToShortTime(totalVideoSec)}`;
                             ctx.font = `500 ${Math.round(12.5 * scaleRatioX)}px ${activeExportFont}`;
-                            ctx.fillStyle = '#ffffff';
+                            ctx.fillStyle = isLightRecord ? '#161823' : '#ffffff';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(shortTime, mTimeBox.x, mTimeBox.y + mTimeBox.h / 2);
                         }
@@ -7915,21 +7968,21 @@ window.switchRightTab = function (mode) {
                         const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : rawElapsed;
                         const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
                         if (showDylBot && dylBarBox) {
-                            ctx.fillStyle = 'rgba(255,255,255,0.28)';
+                            ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.22)' : 'rgba(255,255,255,0.28)';
                             ctx.fillRect(dylBarBox.x, dylBarBox.y, dylBarBox.w, dylBarBox.h);
                             const fillW = dylBarBox.w * realVidPct;
-                            ctx.fillStyle = '#ffffff';
+                            ctx.fillStyle = isLightRecord ? '#7c3aed' : '#ffffff';
                             ctx.fillRect(dylBarBox.x, dylBarBox.y, fillW, dylBarBox.h);
                             ctx.beginPath();
                             ctx.arc(dylBarBox.x + fillW, dylBarBox.y + dylBarBox.h / 2, 5 * scaleRatioX, 0, Math.PI * 2);
-                            ctx.fillStyle = '#ffffff';
+                            ctx.fillStyle = isLightRecord ? '#7c3aed' : '#ffffff';
                             ctx.fill();
                         }
                         if (showDylBot && showDylTime && dylTimeBox) {
                             const tLeft = window.PlayerEngine.secToMinSec(Math.floor(realVidCur), false);
                             const tRight = window.PlayerEngine.secToMinSec(Math.floor(realVidDur), false);
                             ctx.font = `600 ${Math.round(12 * scaleRatioX)}px ${activeExportFont}`;
-                            ctx.fillStyle = 'rgba(255,255,255,0.92)';
+                            ctx.fillStyle = isLightRecord ? '#161823' : 'rgba(255,255,255,0.92)';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(`${tLeft} / ${tRight}`, dylTimeBox.x, dylTimeBox.y + dylTimeBox.h / 2);
                         }
@@ -7940,14 +7993,14 @@ window.switchRightTab = function (mode) {
                         const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : rawElapsed;
                         const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
                         const barH = Math.max(3.5 * scaleRatioY, dyBarBox.h);
-                        ctx.fillStyle = 'rgba(255,255,255,0.50)';
+                        ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.18)' : 'rgba(255,255,255,0.50)';
                         ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w, barH);
                         const fillW = dyBarBox.w * realVidPct;
-                        ctx.fillStyle = '#ffffff';
+                        ctx.fillStyle = isLightRecord ? '#7c3aed' : '#ffffff';
                         ctx.fillRect(dyBarBox.x, dyBarBox.y, fillW, barH);
                         ctx.beginPath();
                         ctx.arc(dyBarBox.x + fillW, dyBarBox.y + barH / 2, 4.2 * scaleRatioX, 0, Math.PI * 2);
-                        ctx.fillStyle = '#ffffff';
+                        ctx.fillStyle = isLightRecord ? '#7c3aed' : '#ffffff';
                         ctx.fill();
                     }
                     ctx.restore();
@@ -8409,6 +8462,260 @@ window.switchRightTab = function (mode) {
                 btnSaveVid.disabled = false;
                 window.showToast(`❌ 视频导出失败：${err.message || '请重试'}`);
             }
+        });
+    }
+
+    /* ==========================================================================
+       ★ 12. 竖屏右侧图标列独立开关 + 唱片头像联动 + 日间/夜间模式 (4模式全生效 + 导出同步)
+       ========================================================================== */
+    const dyVinylImg = document.getElementById('dy-vinyl-img');
+    const dyVinylWrap = document.getElementById('dy-vinyl-wrap');
+    if (dyAvatarImg && dyVinylImg) {
+        const syncVinylFromAvatar = () => {
+            const curSrc = dyAvatarImg.getAttribute('src') || dyAvatarImg.src;
+            if (curSrc && dyVinylImg.getAttribute('src') !== curSrc) {
+                dyVinylImg.src = curSrc;
+            }
+        };
+        syncVinylFromAvatar();
+        if (typeof MutationObserver !== 'undefined') {
+            const vinylObs = new MutationObserver(syncVinylFromAvatar);
+            vinylObs.observe(dyAvatarImg, { attributes: true, attributeFilter: ['src'] });
+        }
+    }
+    if (dyVinylWrap) {
+        dyVinylWrap.addEventListener('click', () => {
+            const rndBtn = document.getElementById('btn-random-author-avatar');
+            if (rndBtn) rndBtn.click();
+        });
+    }
+
+    // 右侧图标列（6项右侧图标 + 底部猜你想搜 + 底部上升热点）独立显隐控制
+    const rightColumnSwitchSpecs = [
+        { swId: 'sw-dy-icon-avatar', targetIds: ['dy-avatar-click'], disp: 'block' },
+        { swId: 'sw-dy-icon-like', targetIds: ['dy-btn-like'], disp: 'flex' },
+        { swId: 'sw-dy-icon-comment', targetIds: ['dy-btn-comment'], disp: 'flex' },
+        { swId: 'sw-dy-icon-star', targetIds: ['dy-btn-star'], disp: 'flex' },
+        { swId: 'sw-dy-icon-share', targetIds: ['dy-btn-share'], disp: 'flex' },
+        { swId: 'sw-dy-icon-vinyl', targetIds: ['dy-vinyl-wrap'], disp: 'flex' },
+        { swId: 'sw-dy-gold', targetIds: ['dy-wrap-gold', 'dy-search-bar-row'], disp: 'flex' },
+        { swId: 'sw-dy-hotspot', targetIds: ['dy-wrap-hotspot'], disp: 'flex' }
+    ];
+
+    function applyRightColumnSwitches() {
+        rightColumnSwitchSpecs.forEach(({ swId, targetIds, disp }) => {
+            const swEl = document.getElementById(swId);
+            const isChecked = !swEl || swEl.checked;
+            targetIds.forEach(tId => {
+                const tEl = document.getElementById(tId);
+                if (!tEl) return;
+                if (isChecked) {
+                    tEl.classList.remove('dy-item-hidden');
+                    tEl.style.display = disp;
+                } else {
+                    tEl.classList.add('dy-item-hidden');
+                    tEl.style.setProperty('display', 'none', 'important');
+                }
+            });
+        });
+
+        const rightOnlyIds = ['sw-dy-icon-avatar', 'sw-dy-icon-like', 'sw-dy-icon-comment', 'sw-dy-icon-star', 'sw-dy-icon-share', 'sw-dy-icon-vinyl'];
+        const anyRightOn = rightOnlyIds.some(id => {
+            const el = document.getElementById(id);
+            return !el || el.checked;
+        });
+        const swRightBarMaster = document.getElementById('sw-dy-right-bar');
+        const rightBarEl = document.getElementById('dy-wrap-right-bar');
+        if (rightBarEl) {
+            const showBar = anyRightOn && (!swRightBarMaster || swRightBarMaster.checked);
+            if (showBar) {
+                rightBarEl.classList.remove('dy-item-hidden');
+                rightBarEl.style.display = 'flex';
+            } else {
+                rightBarEl.classList.add('dy-item-hidden');
+                rightBarEl.style.setProperty('display', 'none', 'important');
+            }
+        }
+    }
+
+    rightColumnSwitchSpecs.forEach(({ swId }) => {
+        const swEl = document.getElementById(swId);
+        if (swEl) {
+            swEl.addEventListener('change', () => {
+                applyRightColumnSwitches();
+                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            });
+        }
+    });
+
+    const btnDyIconsAllOn = document.getElementById('btn-dy-icons-all-on');
+    const btnDyIconsAllOff = document.getElementById('btn-dy-icons-all-off');
+    if (btnDyIconsAllOn) {
+        btnDyIconsAllOn.addEventListener('click', () => {
+            rightColumnSwitchSpecs.forEach(({ swId }) => {
+                const swEl = document.getElementById(swId);
+                if (swEl) swEl.checked = true;
+            });
+            const swRightBarMaster = document.getElementById('sw-dy-right-bar');
+            if (swRightBarMaster) swRightBarMaster.checked = true;
+            const swFollowPlus = document.getElementById('sw-dy-follow-plus');
+            if (swFollowPlus) {
+                swFollowPlus.checked = true;
+                swFollowPlus.dispatchEvent(new Event('change'));
+            }
+            applyRightColumnSwitches();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('✅ 已开启全部右侧图标与底部提示条');
+        });
+    }
+    if (btnDyIconsAllOff) {
+        btnDyIconsAllOff.addEventListener('click', () => {
+            rightColumnSwitchSpecs.forEach(({ swId }) => {
+                const swEl = document.getElementById(swId);
+                if (swEl) swEl.checked = false;
+            });
+            applyRightColumnSwitches();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('✨ 已隐藏全部右侧图标与底部提示条');
+        });
+    }
+
+    // 一次性迁移 V21：确保升级后所有 8 项右侧图标列开关默认开启，且顶部 6 标签默认选中「推薦」
+    setTimeout(() => {
+        if (localStorage.getItem('LAYA_V21_ICONS_AND_TABS_MIGRATED') !== '1') {
+            rightColumnSwitchSpecs.forEach(({ swId }) => {
+                const swEl = document.getElementById(swId);
+                if (swEl) swEl.checked = true;
+            });
+            const swRightBarMaster = document.getElementById('sw-dy-right-bar');
+            if (swRightBarMaster) swRightBarMaster.checked = true;
+            const swFollowPlus = document.getElementById('sw-dy-follow-plus');
+            if (swFollowPlus) {
+                swFollowPlus.checked = true;
+                const fb = document.getElementById('dy-btn-follow');
+                if (fb) fb.classList.remove('follow-hidden');
+            }
+            const topNavItems = document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
+            if (topNavItems.length === 6) {
+                topNavItems.forEach((it, idx) => it.classList.toggle('active', idx === 1));
+            }
+            localStorage.setItem('LAYA_V21_ICONS_AND_TABS_MIGRATED', '1');
+            applyRightColumnSwitches();
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        } else {
+            applyRightColumnSwitches();
+        }
+    }, 180);
+
+    // ================= 全局日间 / 夜间模式切换引擎 (localStorage 持久化 + 导出联动) =================
+    const THEME_STORAGE_KEY = 'LAYA_THEME_MODE_V1';
+    const btnToggleTheme = document.getElementById('btn-toggle-theme');
+    const themeToggleIcon = document.getElementById('theme-toggle-icon');
+    const themeToggleTxt = document.getElementById('theme-toggle-txt');
+    const leftWorkspace = document.getElementById('left-workspace');
+
+    // 预生成日间浅色模式专用的深色 PNG 图标缓存，确保 html2canvas 截图/录屏导出时无需依赖 CSS filter 即可渲染深色图标
+    window.LAYA_APP_ASSETS_LIGHT = {};
+    function buildLightModeAssetsCache() {
+        if (!window.LAYA_APP_ASSETS) return;
+        const tintTargets = {
+            'search': '#1f2329',
+            'tab_1-1': '#6b7280',
+            'tab_2-2': '#6b7280',
+            'tab_3-3': '#6b7280',
+            'tab_4-4': '#6b7280',
+            'tab_5-5': '#6b7280',
+            'tab_6-6': '#6b7280'
+        };
+        Object.entries(tintTargets).forEach(([key, hexColor]) => {
+            const src = window.LAYA_APP_ASSETS[key];
+            if (!src) return;
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const c = document.createElement('canvas');
+                    c.width = img.naturalWidth || 64;
+                    c.height = img.naturalHeight || 64;
+                    const cx = c.getContext('2d');
+                    cx.drawImage(img, 0, 0, c.width, c.height);
+                    cx.globalCompositeOperation = 'source-in';
+                    cx.fillStyle = hexColor;
+                    cx.fillRect(0, 0, c.width, c.height);
+                    window.LAYA_APP_ASSETS_LIGHT[key] = c.toDataURL('image/png');
+                    if (renderTarget && renderTarget.classList.contains('theme-light')) {
+                        document.querySelectorAll(`img[data-laya-asset="${key}"]`).forEach(domImg => {
+                            domImg.src = window.LAYA_APP_ASSETS_LIGHT[key];
+                        });
+                    }
+                } catch (e) {}
+            };
+            img.src = src;
+        });
+    }
+    buildLightModeAssetsCache();
+
+    function syncThemeSvgColorsInRoot(rootEl, isDay) {
+        if (!rootEl) return;
+        const iconColor = isDay ? '#1f2329' : '#ffffff';
+        const svgLike = rootEl.querySelector('#dy-svg-like');
+        if (svgLike) {
+            const curFill = (svgLike.getAttribute('fill') || '').toLowerCase();
+            if (curFill !== '#fe2c55') svgLike.setAttribute('fill', iconColor);
+        }
+        const svgStar = rootEl.querySelector('#dy-svg-star');
+        if (svgStar) {
+            const curFill = (svgStar.getAttribute('fill') || '').toLowerCase();
+            if (curFill !== '#f1c40f') svgStar.setAttribute('fill', iconColor);
+        }
+        const svgComment = rootEl.querySelector('#dy-btn-comment svg');
+        if (svgComment) svgComment.setAttribute('fill', iconColor);
+        const svgShare = rootEl.querySelector('#dy-btn-share svg');
+        if (svgShare) svgShare.setAttribute('fill', iconColor);
+
+        rootEl.querySelectorAll('#dy-wrap-top-nav svg, #laya-wrap-top-nav svg, #dy-fullscreen-pill svg, #dy-cmt-top-search-btn').forEach(svg => {
+            svg.setAttribute('stroke', isDay ? '#161823' : '#ffffff');
+        });
+    }
+    window.__syncThemeSvgColorsInRoot = syncThemeSvgColorsInRoot;
+
+    function applyThemeMode(mode, save = true) {
+        const isDay = (mode === 'day');
+        if (renderTarget) renderTarget.classList.toggle('theme-light', isDay);
+        if (leftWorkspace) leftWorkspace.classList.toggle('theme-light', isDay);
+        document.body.classList.toggle('theme-light', isDay);
+
+        if (btnToggleTheme) btnToggleTheme.classList.toggle('is-day', isDay);
+        if (themeToggleIcon) themeToggleIcon.textContent = isDay ? '☀️' : '🌙';
+        if (themeToggleTxt) themeToggleTxt.textContent = isDay ? '日间模式' : '夜间模式';
+
+        if (window.LAYA_APP_ASSETS) {
+            document.querySelectorAll('img[data-laya-asset]').forEach(img => {
+                const key = img.getAttribute('data-laya-asset');
+                if (isDay && window.LAYA_APP_ASSETS_LIGHT && window.LAYA_APP_ASSETS_LIGHT[key]) {
+                    img.src = window.LAYA_APP_ASSETS_LIGHT[key];
+                } else if (window.LAYA_APP_ASSETS[key]) {
+                    img.src = window.LAYA_APP_ASSETS[key];
+                }
+            });
+        }
+        syncThemeSvgColorsInRoot(renderTarget, isDay);
+
+        if (save) {
+            try { localStorage.setItem(THEME_STORAGE_KEY, isDay ? 'day' : 'night'); } catch (e) {}
+        }
+    }
+    window.applyThemeMode = applyThemeMode;
+
+    // 启动时从 localStorage 读取上次保存的日/夜模式（默认夜间模式）
+    const savedThemeMode = localStorage.getItem(THEME_STORAGE_KEY) || 'night';
+    applyThemeMode(savedThemeMode, false);
+
+    if (btnToggleTheme) {
+        btnToggleTheme.addEventListener('click', () => {
+            const isCurrentlyDay = renderTarget && renderTarget.classList.contains('theme-light');
+            const nextMode = isCurrentlyDay ? 'night' : 'day';
+            applyThemeMode(nextMode, true);
+            window.showToast(nextMode === 'day' ? '☀️ 已切换为：日间浅色模式（全模式与导出生效）' : '🌙 已切换为：夜间深色模式（默认）');
         });
     }
 })();

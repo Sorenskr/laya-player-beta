@@ -198,6 +198,10 @@
             <input type="number" id="in-custom-sec" value="8" min="1" max="120" style="display: none;" title="输入自定义秒数">
         </div>
         <button class="btn btn-save-vid" id="btn-save-vid">🎥 录屏导出视频</button>
+        <button class="btn btn-theme-toggle" id="btn-toggle-theme" title="切换日间/夜间模式（对全部 4 种模式预览与截图/录屏导出生效）">
+            <span class="theme-icon" id="theme-toggle-icon">🌙</span>
+            <span class="theme-txt" id="theme-toggle-txt">日 / 夜</span>
+        </button>
     </div>
 </header>
 
@@ -561,10 +565,11 @@
                     <div class="laya-top-nav laya-skin-elem" id="laya-wrap-top-nav">
                         <div class="laya-nav-tabs">
                             <span class="interactive-elem">關注</span>
-                            <span class="interactive-elem">全部</span>
-                            <span class="active interactive-elem">推薦<i class="laya-recom-sparkle">✨</i></span>
-                            <span class="interactive-elem">小遊戲</span>
-                            <span class="interactive-elem">擴列</span>
+                            <span class="active interactive-elem">推薦</span>
+                            <span class="interactive-elem">直播</span>
+                            <span class="interactive-elem">交友</span>
+                            <span class="interactive-elem">任務</span>
+                            <span class="interactive-elem">合集</span>
                         </div>
                         <div class="laya-top-actions">
                             <span class="laya-trophy-btn interactive-elem">🏆</span>
@@ -575,24 +580,28 @@
                     <div class="laya-app-top-nav laya-app-skin-elem" id="laya-app-wrap-top-nav">
                         <div class="laya-app-nav-tabs" id="laya-app-nav-tabs">
                             <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：關注">
-                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
                                 <span class="laya-app-nav-txt">關注</span>
+                                <span class="laya-app-nav-underline"></span>
                             </span>
                             <span class="laya-app-nav-item active interactive-elem" title="點擊切換亮起：推薦">
-                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
                                 <span class="laya-app-nav-txt">推薦</span>
+                                <span class="laya-app-nav-underline"></span>
                             </span>
-                            <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：虛擬戀人">
-                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
-                                <span class="laya-app-nav-txt">虛擬戀人</span>
+                            <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：直播">
+                                <span class="laya-app-nav-txt">直播</span>
+                                <span class="laya-app-nav-underline"></span>
                             </span>
                             <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：交友">
-                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
                                 <span class="laya-app-nav-txt">交友</span>
+                                <span class="laya-app-nav-underline"></span>
                             </span>
-                            <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：小遊戲">
-                                <img class="laya-app-nav-glow" data-laya-asset="top_glow" alt="">
-                                <span class="laya-app-nav-txt">小遊戲</span>
+                            <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：任務">
+                                <span class="laya-app-nav-txt">任務</span>
+                                <span class="laya-app-nav-underline"></span>
+                            </span>
+                            <span class="laya-app-nav-item interactive-elem" title="點擊切換亮起：合集">
+                                <span class="laya-app-nav-txt">合集</span>
+                                <span class="laya-app-nav-underline"></span>
                             </span>
                         </div>
                         <div class="laya-app-top-actions">
@@ -648,9 +657,15 @@
 
                         <div class="dy-action-item interactive-elem" id="dy-btn-share">
                             <div class="dy-action-icon">
-                                <svg width="23" height="23" viewBox="0 0 24 24" fill="#ffffff"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
+                                <svg width="23" height="23" viewBox="0 0 24 24" fill="#ffffff" id="dy-svg-share"><path d="M10 9V5l-7 7 7 7v-4.1c5 0 8.5 1.6 11 5.1-1-5-4-10-11-11z"/></svg>
                             </div>
                             <span class="dy-action-txt" id="dy-val-shares">2766</span>
+                        </div>
+
+                        <div class="dy-action-item interactive-elem" id="dy-vinyl-wrap">
+                            <div class="dy-vinyl-record" id="dy-vinyl-record">
+                                <img src="Laya.png" class="dy-vinyl-avatar" id="dy-vinyl-img" alt="Vinyl Avatar">
+                            </div>
                         </div>
                     </div>
 
@@ -687,7 +702,7 @@
                             <span id="dy-disp-campaign">作者聲明：虛構演繹，僅供娛樂</span>
                         </div>
 
-                        <div class="dy-search-bar-row">
+                        <div class="dy-search-bar-row" id="dy-search-bar-row">
                             <div class="dy-search-pill interactive-elem" id="dy-wrap-gold">
                                 <div class="dy-search-left">
                                     <svg class="dy-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6">
@@ -2245,29 +2260,84 @@
                 </div>
             </div>
 
-            <div class="panel-card">
+            <!-- 新增：右侧图标列（含底部猜你想搜与上升热点，一行一个独立开关） -->
+            <div class="panel-card" id="card-dy-right-icons" style="border: 1px solid rgba(168, 85, 247, 0.4);">
                 <div class="card-header">
-                    <span>🎛️ 竖屏专属组件显隐开关</span>
+                    <span>📌 右侧图标列</span>
+                    <div style="display:flex; gap:4px;">
+                        <button type="button" class="sub-mini-act" id="btn-dy-icons-all-on" title="一键全部开启显示">全开</button>
+                        <button type="button" class="sub-mini-act" id="btn-dy-icons-all-off" title="一键全部关闭，让右侧与底部干干净净">全关</button>
+                    </div>
                 </div>
-                <div class="switch-grid">
+                <div class="switch-list-vertical" id="dy-right-icon-switch-list">
                     <div class="switch-tile">
-                        <span>热搜搜索条</span>
+                        <span>👤 头像（圆形头像 + 加号）</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-icon-avatar" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>❤️ 点赞（爱心 + 数量）</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-icon-like" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>💬 评论（对话框 + 数量）</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-icon-comment" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>⭐ 收藏（星星 + 数量）</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-icon-star" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>↪️ 转发（箭头 + 数量）</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-icon-share" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>💿 音乐唱片（旋转唱片）</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-icon-vinyl" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>🔍 底部「猜你想搜」提示条</span>
                         <label class="ios-toggle">
                             <input type="checkbox" id="sw-dy-gold" checked>
                             <span class="slider-round"></span>
                         </label>
                     </div>
+                    <div class="switch-tile">
+                        <span>🔥 底部「上升熱點」横幅</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" id="sw-dy-hotspot" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-card" id="card-dy-switches">
+                <div class="card-header">
+                    <span>🎛️ 竖屏专属组件显隐开关</span>
+                </div>
+                <div class="switch-grid">
                     <div class="switch-tile highlight-tile">
                         <span>✨ Laya 精选内容标</span>
                         <label class="ios-toggle">
                             <input type="checkbox" id="sw-dy-featured" checked>
-                            <span class="slider-round"></span>
-                        </label>
-                    </div>
-                    <div class="switch-tile highlight-tile">
-                        <span>🔥 上升热点栏</span>
-                        <label class="ios-toggle">
-                            <input type="checkbox" id="sw-dy-hotspot" checked>
                             <span class="slider-round"></span>
                         </label>
                     </div>
@@ -2279,7 +2349,7 @@
                         </label>
                     </div>
                     <div class="switch-tile">
-                        <span>右侧互动操作栏</span>
+                        <span>右侧互动操作栏总开关</span>
                         <label class="ios-toggle">
                             <input type="checkbox" id="sw-dy-right-bar" checked>
                             <span class="slider-round"></span>
@@ -2299,7 +2369,7 @@
                             <span class="slider-round"></span>
                         </label>
                     </div>
-                    <div class="switch-tile" style="grid-column: span 2;">
+                    <div class="switch-tile">
                         <span>顶部导航栏 (抖音/Laya)</span>
                         <label class="ios-toggle">
                             <input type="checkbox" id="sw-dy-top-nav" checked>

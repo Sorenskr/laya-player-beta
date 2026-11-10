@@ -6562,3 +6562,639 @@ input[type="range"] {
 #render-target .dy-cmt-like-num {
     font-variant-numeric: tabular-nums;
 }
+
+/* ==========================================================================
+   11. 竖屏社区顶部标签栏改版 + 右侧图标列独立开关 + 全局日间/夜间模式 (4模式全适配)
+   ========================================================================== */
+
+/* 顶部工具栏「日 / 夜」切换按钮 */
+.btn-theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(135deg, #1e2436 0%, #151926 100%);
+    color: #e2e8f0;
+    border: 1px solid rgba(168, 85, 247, 0.45);
+    padding: 5px 11px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+.btn-theme-toggle:hover {
+    border-color: #a855f7;
+    background: linear-gradient(135deg, #283048 0%, #1c2234 100%);
+    transform: translateY(-1px);
+}
+.btn-theme-toggle.is-day {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    color: #1e293b;
+    border-color: #f59e0b;
+    box-shadow: 0 2px 10px rgba(245, 158, 11, 0.32);
+}
+
+/* 右侧控制面板：一行一个的垂直开关列表 */
+.sidebar .switch-list-vertical {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 6px !important;
+    width: 100% !important;
+}
+.sidebar .switch-list-vertical .switch-tile {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 6px 10px !important;
+}
+
+/* 通用隐藏辅助类（供右侧图标列与底部提示条独立开关使用，同时兼容导出克隆） */
+.dy-item-hidden {
+    display: none !important;
+}
+
+/* 手机竖屏社区 (9:16) 顶部标签导航栏改版：關注、推薦、直播、交友、任務、合集 */
+#render-target .laya-app-top-nav {
+    padding: 0 10px 0 12px !important;
+}
+#render-target .laya-app-nav-tabs {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 0 4px 0 2px !important;
+    margin-right: 8px !important;
+}
+#render-target .laya-app-nav-item {
+    position: relative !important;
+    display: inline-flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #9ca3af !important;
+    line-height: 1.2 !important;
+    padding: 2px 2px 6px 2px !important;
+    user-select: none !important;
+    transition: color 0.15s ease !important;
+}
+#render-target .laya-app-nav-item .laya-app-nav-glow {
+    display: none !important;
+}
+#render-target .laya-app-nav-item.active {
+    color: #a855f7 !important;
+    font-size: 13.8px !important;
+    font-weight: 800 !important;
+}
+#render-target .laya-app-nav-underline {
+    display: none;
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    margin-left: -8px;
+    width: 16px;
+    height: 2.5px;
+    border-radius: 2px;
+    background: #a855f7;
+    box-shadow: 0 1px 6px rgba(168, 85, 247, 0.55);
+    pointer-events: none;
+}
+#render-target .laya-app-nav-item.active .laya-app-nav-underline {
+    display: block !important;
+}
+
+/* 同步 Laya 原生交友皮肤顶部标签栏 */
+#render-target .laya-nav-tabs {
+    flex: 1 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    margin-right: 10px !important;
+}
+#render-target .laya-nav-tabs > span {
+    margin: 0 !important;
+    padding: 2px 2px 6px 2px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    color: #9ca3af !important;
+    position: relative !important;
+}
+#render-target .laya-nav-tabs > span.active {
+    color: #a855f7 !important;
+    font-size: 13.8px !important;
+    font-weight: 800 !important;
+}
+#render-target .laya-nav-tabs > span.active::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    margin-left: -8px;
+    width: 16px;
+    height: 2.5px;
+    border-radius: 2px;
+    background: #a855f7;
+}
+
+/* 右侧互动图标列与底部旋转音乐唱片还原优化 */
+#render-target .dy-right-bar {
+    bottom: 94px !important;
+}
+#render-target .dy-avatar-wrap {
+    margin-bottom: 9px !important;
+}
+#render-target .dy-action-item {
+    margin-bottom: 6px !important;
+}
+#render-target #dy-btn-share {
+    margin-bottom: 7px !important;
+}
+#render-target #dy-vinyl-wrap:not(.dy-item-hidden) {
+    display: flex !important;
+    margin-bottom: 0 !important;
+}
+#render-target .dy-vinyl-record {
+    width: 36px !important;
+    height: 36px !important;
+    border-radius: 50% !important;
+    background: radial-gradient(circle, #2a2d3a 0%, #111318 62%, #07080b 100%) !important;
+    border: 6px solid #181a22 !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.16) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+    animation: vinylRotate 5s linear infinite !important;
+    cursor: pointer !important;
+    margin-top: 1px !important;
+}
+#render-target .dy-vinyl-avatar {
+    width: 100% !important;
+    height: 100% !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    display: block !important;
+}
+
+/* ================= 夜间模式 (默认) 下的评论区深色适配 ================= */
+#render-target:not(.theme-light) .dy-comment-drawer {
+    background: #161823 !important;
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.65) !important;
+}
+#render-target:not(.theme-light) .dy-cmt-drag-handle {
+    background: linear-gradient(180deg, rgba(168, 85, 247, 0.14) 0%, rgba(22, 24, 35, 0) 100%) !important;
+    border-bottom: 1px dashed rgba(255, 255, 255, 0.1) !important;
+}
+#render-target:not(.theme-light) .dy-cmt-drag-hint {
+    color: #c084fc !important;
+}
+#render-target:not(.theme-light) .dy-cmt-col-prefix {
+    color: #e2e8f0 !important;
+}
+#render-target:not(.theme-light) .dy-cmt-col-title {
+    color: #60a5fa !important;
+}
+#render-target:not(.theme-light) .dy-cmt-circle-btn {
+    background: rgba(255, 255, 255, 0.1) !important;
+    color: #e2e8f0 !important;
+}
+#render-target:not(.theme-light) .dy-cmt-circle-btn svg {
+    stroke: #e2e8f0 !important;
+}
+#render-target:not(.theme-light) .dy-cmt-tabs-bar {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+#render-target:not(.theme-light) .dy-cmt-tab-item {
+    color: #9ca3af !important;
+}
+#render-target:not(.theme-light) .dy-cmt-tab-item.active {
+    color: #ffffff !important;
+}
+#render-target:not(.theme-light) .dy-cmt-tab-item.active::after {
+    background: #a855f7 !important;
+}
+#render-target:not(.theme-light) .dy-cmt-user,
+#render-target:not(.theme-light) .dy-cmt-reply-user {
+    color: #9ca3af !important;
+}
+#render-target:not(.theme-light) .dy-cmt-text,
+#render-target:not(.theme-light) .dy-cmt-reply-text {
+    color: #f1f5f9 !important;
+}
+#render-target:not(.theme-light) .dy-cmt-meta-left,
+#render-target:not(.theme-light) .dy-cmt-reply-meta-left,
+#render-target:not(.theme-light) .dy-cmt-like-btn,
+#render-target:not(.theme-light) .dy-cmt-dislike-btn,
+#render-target:not(.theme-light) .dy-cmt-reply-like-btn {
+    color: #94a3b8 !important;
+}
+#render-target:not(.theme-light) .dy-cmt-bottom-bar {
+    background: #161823 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+#render-target:not(.theme-light) .dy-cmt-input-pill {
+    background: #242736 !important;
+}
+#render-target:not(.theme-light) .dy-cmt-stage-input {
+    color: #f1f5f9 !important;
+}
+#render-target:not(.theme-light) .dy-cmt-stage-input::placeholder {
+    color: #8b8e99 !important;
+}
+#render-target:not(.theme-light) .dy-cmt-icon-btn svg {
+    stroke: #cbd5e1 !important;
+}
+
+/* ================= 日间模式 (theme-light) · 全部 4 种模式浅色适配 ================= */
+/* 视频画面区始终保持不变，仅切换预览界面背景、状态栏、标签栏、图标、文字、评论区、底栏 */
+.workspace.theme-light .player-stage {
+    background: radial-gradient(circle at center, #eef2f6 0%, #dde3ea 100%) !important;
+}
+
+#render-target.theme-light {
+    background: #f5f6fa !important;
+    color: #161823 !important;
+}
+#render-target.theme-light .media-container {
+    /* 视频区保持不变 */
+    background: #000000 !important;
+}
+
+/* --- 模式 3：手机竖屏社区 (9:16) 日间浅色模式 --- */
+/* 当处于非横屏框（全屏竖版视频）时，给顶部和底部加上柔和浅色底衬，确保浅色状态栏/导航栏清晰 */
+#render-target.theme-light.mode-mobile-port:not(.port-land-box):not(.dy-comment-open) .douyin-hud::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 76px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.76) 65%, rgba(255, 255, 255, 0) 100%);
+    z-index: 11;
+    pointer-events: none;
+}
+#render-target.theme-light.mode-mobile-port:not(.port-land-box):not(.dy-comment-open) .douyin-hud::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 52px;
+    height: 190px;
+    background: linear-gradient(0deg, rgba(245, 246, 250, 0.94) 0%, rgba(245, 246, 250, 0.72) 58%, rgba(245, 246, 250, 0) 100%);
+    z-index: 11;
+    pointer-events: none;
+}
+
+/* 顶部手机状态栏浅色适配 */
+#render-target.theme-light .dy-status-bar,
+#render-target.theme-light .dy-sb-time,
+#render-target.theme-light .dy-sb-carrier,
+#render-target.theme-light .dy-sb-netspeed,
+#render-target.theme-light .dy-sb-net-txt,
+#render-target.theme-light .dy-sb-bat-pct,
+#render-target.theme-light .dy-sb-icon,
+#render-target.theme-light .dy-sb-notif-svg,
+#render-target.theme-light .dy-sb-wifi {
+    color: #161823 !important;
+}
+#render-target.theme-light .dy-sig-bar {
+    background: rgba(22, 24, 35, 0.22) !important;
+}
+#render-target.theme-light .dy-sig-bar.active {
+    background: #161823 !important;
+}
+#render-target.theme-light .dy-sb-badge-txt {
+    color: #161823 !important;
+}
+#render-target.theme-light .dy-sb-badge-box {
+    color: #161823 !important;
+    border-color: rgba(22, 24, 35, 0.65) !important;
+}
+#render-target.theme-light .dy-sb-bat-body {
+    border-color: rgba(22, 24, 35, 0.55) !important;
+}
+#render-target.theme-light .dy-sb-bat-cap {
+    background: rgba(22, 24, 35, 0.5) !important;
+}
+#render-target.theme-light .dy-sb-battery:not(.is-charging):not(.is-low) .dy-sb-bat-fill {
+    background: #161823 !important;
+}
+
+/* 顶部标签栏浅色适配（未选中浅灰 #6b7280，选中加粗 + 品牌紫色 #7c3aed + 下划线） */
+#render-target.theme-light .laya-app-nav-item,
+#render-target.theme-light .laya-nav-tabs > span,
+#render-target.theme-light .dy-nav-tabs > span {
+    color: #6b7280 !important;
+}
+#render-target.theme-light .laya-app-nav-item.active,
+#render-target.theme-light .laya-nav-tabs > span.active,
+#render-target.theme-light .dy-nav-tabs > span.active {
+    color: #7c3aed !important;
+    font-weight: 800 !important;
+}
+#render-target.theme-light .laya-app-nav-underline,
+#render-target.theme-light .laya-nav-tabs > span.active::after,
+#render-target.theme-light .dy-nav-tabs > span.active::after {
+    background: #7c3aed !important;
+    box-shadow: 0 1px 5px rgba(124, 58, 237, 0.4) !important;
+}
+#render-target.theme-light .dy-top-nav svg,
+#render-target.theme-light .laya-top-actions svg {
+    stroke: #161823 !important;
+}
+
+/* 全屏观看胶囊浅色适配 */
+#render-target.theme-light .dy-fullscreen-pill {
+    background: rgba(255, 255, 255, 0.92) !important;
+    color: #161823 !important;
+    border: 1px solid rgba(22, 24, 35, 0.14) !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1) !important;
+}
+#render-target.theme-light .dy-fullscreen-pill svg {
+    stroke: #161823 !important;
+}
+
+/* 右侧互动图标列浅色适配 */
+#render-target.theme-light .dy-avatar-img {
+    border-color: #ffffff !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18) !important;
+}
+#render-target.theme-light .dy-action-icon {
+    color: #1f2329 !important;
+    filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.85));
+}
+#render-target.theme-light .dy-action-txt {
+    color: #1f2329 !important;
+    font-weight: 600 !important;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.9) !important;
+}
+#render-target.theme-light .dy-vinyl-record {
+    border-color: #2d313e !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22) !important;
+}
+
+/* 左下角作者信息、文案、搜索条、热点栏、进度条浅色适配 */
+#render-target.theme-light .dy-dm-round-btn {
+    background: rgba(22, 24, 35, 0.08) !important;
+    border-color: rgba(22, 24, 35, 0.16) !important;
+}
+#render-target.theme-light .dy-dm-round-char {
+    color: #161823 !important;
+}
+#render-target.theme-light .dy-featured-pill {
+    background: rgba(22, 24, 35, 0.07) !important;
+    border-color: rgba(22, 24, 35, 0.1) !important;
+}
+#render-target.theme-light .dy-featured-text {
+    color: #161823 !important;
+}
+#render-target.theme-light .dy-featured-arrow {
+    color: #6b7280 !important;
+}
+#render-target.theme-light .dy-author-name {
+    color: #161823 !important;
+    text-shadow: none !important;
+}
+#render-target.theme-light .dy-desc-row {
+    color: #262936 !important;
+    text-shadow: none !important;
+}
+#render-target.theme-light .dy-tags-inline {
+    color: #6d28d9 !important;
+}
+#render-target.theme-light .dy-disclaimer-pill {
+    color: #6b7280 !important;
+}
+#render-target.theme-light .dy-search-pill {
+    background: rgba(22, 24, 35, 0.06) !important;
+    border: 1px solid rgba(22, 24, 35, 0.1) !important;
+}
+#render-target.theme-light .dy-search-icon {
+    color: #4b5563 !important;
+}
+#render-target.theme-light .dy-search-text {
+    color: #1f2329 !important;
+}
+#render-target.theme-light .dy-search-arrow {
+    color: #6b7280 !important;
+}
+#render-target.theme-light .dy-hotspot-bar {
+    background: rgba(245, 158, 11, 0.12) !important;
+    border: 1px solid rgba(245, 158, 11, 0.28) !important;
+}
+#render-target.theme-light .dy-hot-tag,
+#render-target.theme-light .dy-hot-dot {
+    color: #d97706 !important;
+}
+#render-target.theme-light .dy-hot-title {
+    color: #92400e !important;
+}
+#render-target.theme-light .dy-hot-views,
+#render-target.theme-light .dy-hot-arrow {
+    color: #b45309 !important;
+}
+#render-target.theme-light .dy-tiny-progressbar {
+    background: rgba(22, 24, 35, 0.16) !important;
+}
+#render-target.theme-light .dy-tiny-buffer {
+    background: rgba(22, 24, 35, 0.28) !important;
+}
+#render-target.theme-light .dy-tiny-fill {
+    background: #7c3aed !important;
+}
+#render-target.theme-light .dy-tiny-scrubber {
+    background: #7c3aed !important;
+}
+
+/* 底部导航栏浅色适配 (抖音 / Laya / Laya App 三皮肤全覆盖) */
+#render-target.theme-light .dy-bottom-wrap,
+#render-target.theme-light .laya-bottom-wrap,
+#render-target.theme-light .laya-app-bottom-wrap {
+    background: #ffffff !important;
+    border-top: 1px solid rgba(22, 24, 35, 0.09) !important;
+}
+#render-target.theme-light .dy-bottom-tabs,
+#render-target.theme-light .laya-bottom-tabs,
+#render-target.theme-light .laya-app-tab-label {
+    color: #6b7280 !important;
+}
+#render-target.theme-light .dy-tab-item.active,
+#render-target.theme-light .laya-tab-item.active,
+#render-target.theme-light .laya-tab-item.active span:last-child,
+#render-target.theme-light .laya-app-tab-item.active .laya-app-tab-label {
+    color: #7c3aed !important;
+    font-weight: 700 !important;
+}
+#render-target.theme-light .dy-plus-btn-core {
+    background: #161823 !important;
+}
+#render-target.theme-light .dy-plus-btn-core svg {
+    stroke: #ffffff !important;
+}
+#render-target.theme-light .dy-home-bar {
+    background: rgba(22, 24, 35, 0.78) !important;
+}
+
+/* 评论区展开时顶部搜索栏浅色适配 */
+#render-target.theme-light.mode-mobile-port.dy-comment-open .dy-cmt-top-search-bar {
+    background: #ffffff !important;
+    border-bottom: 1px solid rgba(22, 24, 35, 0.06) !important;
+}
+#render-target.theme-light .dy-cmt-top-search-icon {
+    stroke: #161823 !important;
+}
+
+/* --- 模式 1：电脑网页端 (16:9) 日间浅色模式 --- */
+#render-target.theme-light .player-top {
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.55) 68%, rgba(255, 255, 255, 0) 100%) !important;
+}
+#render-target.theme-light .player-bottom {
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.62) 65%, rgba(255, 255, 255, 0) 100%) !important;
+}
+#render-target.theme-light .video-title,
+#render-target.theme-light .top-right-group,
+#render-target.theme-light .bottom-ctrl-row,
+#render-target.theme-light .time-label {
+    color: #161823 !important;
+    text-shadow: none !important;
+}
+#render-target.theme-light .back-icon svg,
+#render-target.theme-light #btn-toggle-fs svg {
+    stroke: #161823 !important;
+}
+#render-target.theme-light #icon-bot-play,
+#render-target.theme-light #icon-bot-pause,
+#render-target.theme-light #btn-bot-next svg {
+    fill: #161823 !important;
+}
+#render-target.theme-light #btn-bot-next svg line {
+    stroke: #161823 !important;
+}
+#render-target.theme-light .viewer-pill,
+#render-target.theme-light .live-tag-btn,
+#render-target.theme-light .res-tag,
+#render-target.theme-light .fake-dm-bar,
+#render-target.theme-light .dm-switch-capsule {
+    background: rgba(22, 24, 35, 0.08) !important;
+    border-color: rgba(22, 24, 35, 0.16) !important;
+    color: #161823 !important;
+}
+#render-target.theme-light .fake-dm-txt,
+#render-target.theme-light .dm-capsule-text,
+#render-target.theme-light .dm-capsule-icon {
+    color: #374151 !important;
+}
+#render-target.theme-light .notice-banner {
+    background: rgba(255, 255, 255, 0.9) !important;
+    border-color: rgba(124, 58, 237, 0.28) !important;
+    color: #161823 !important;
+}
+#render-target.theme-light .banner-text {
+    color: #1f2329 !important;
+}
+#render-target.theme-light .progress-bar-wrap {
+    background: rgba(22, 24, 35, 0.18) !important;
+}
+#render-target.theme-light .progress-bar-buffer {
+    background: rgba(22, 24, 35, 0.32) !important;
+}
+
+/* --- 模式 2：手机横屏影音 (16:9) 日间浅色模式 --- */
+#render-target.theme-light .m-status-bar {
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0) 100%) !important;
+    color: #161823 !important;
+}
+#render-target.theme-light .m-status-time,
+#render-target.theme-light .m-main-title,
+#render-target.theme-light .m-sub-title,
+#render-target.theme-light .m-time-text,
+#render-target.theme-light .m-action-item {
+    color: #161823 !important;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85) !important;
+}
+#render-target.theme-light .m-sig-bar {
+    background: rgba(22, 24, 35, 0.25) !important;
+}
+#render-target.theme-light .m-sig-bar.active {
+    background: #161823 !important;
+}
+#render-target.theme-light .m-battery-body {
+    border-color: #161823 !important;
+}
+#render-target.theme-light .m-battery-fill,
+#render-target.theme-light .m-battery-tip {
+    background: #161823 !important;
+}
+#render-target.theme-light .m-bottom-bar {
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.62) 65%, rgba(255, 255, 255, 0) 100%) !important;
+}
+#render-target.theme-light .m-play-circle-btn {
+    background: #161823 !important;
+}
+#render-target.theme-light .m-play-triangle {
+    border-left-color: #ffffff !important;
+}
+#render-target.theme-light .m-pause-bars span {
+    background: #ffffff !important;
+}
+#render-target.theme-light .m-progress-track {
+    background: rgba(22, 24, 35, 0.2) !important;
+}
+#render-target.theme-light .m-progress-buffer {
+    background: rgba(22, 24, 35, 0.35) !important;
+}
+#render-target.theme-light .m-progress-fill,
+#render-target.theme-light .m-scrubber-dot {
+    background: #7c3aed !important;
+}
+
+/* --- 模式 4：竖屏全屏观看 (16:9) 日间浅色模式 --- */
+#render-target.theme-light .dyl-status-bar,
+#render-target.theme-light .dyl-top-bar {
+    background: linear-gradient(to bottom, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0) 100%) !important;
+}
+#render-target.theme-light .dyl-bottom-bar {
+    background: linear-gradient(to top, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.58) 65%, rgba(255, 255, 255, 0) 100%) !important;
+}
+#render-target.theme-light .dyl-sb-center,
+#render-target.theme-light .dyl-sb-pct,
+#render-target.theme-light .dyl-title-text,
+#render-target.theme-light .dyl-title-expand,
+#render-target.theme-light .dyl-author-name,
+#render-target.theme-light .dyl-time-row,
+#render-target.theme-light .dyl-social-item,
+#render-target.theme-light .dyl-opt-btn {
+    color: #161823 !important;
+    text-shadow: 0 1px 2px rgba(255, 255, 255, 0.85) !important;
+}
+#render-target.theme-light .dyl-sb-left svg {
+    fill: #161823 !important;
+}
+#render-target.theme-light .dyl-sb-bat-body {
+    border-color: #161823 !important;
+}
+#render-target.theme-light .dyl-sb-bat-fill,
+#render-target.theme-light .dyl-sb-bat-cap {
+    background: #161823 !important;
+}
+#render-target.theme-light .dyl-author-pill,
+#render-target.theme-light .dyl-dm-pill {
+    background: rgba(22, 24, 35, 0.1) !important;
+    border-color: rgba(22, 24, 35, 0.18) !important;
+}
+#render-target.theme-light .dyl-dm-char,
+#render-target.theme-light .dyl-dm-input {
+    color: #161823 !important;
+}
+#render-target.theme-light .dyl-progress-track {
+    background: rgba(22, 24, 35, 0.22) !important;
+}
+#render-target.theme-light .dyl-progress-fill,
+#render-target.theme-light .dyl-progress-thumb {
+    background: #7c3aed !important;
+}
+
