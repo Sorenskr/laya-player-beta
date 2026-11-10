@@ -841,6 +841,131 @@
                             </button>
                         </div>
                     </div>
+
+                    <!-- 點擊頂部「直播」標籤後的待進入提示膠囊（點擊下方視頻畫面即進入直播間，導出時自動隱藏） -->
+                    <div class="dy-live-armed-tip interactive-elem" id="dy-live-armed-tip" style="display: none;" title="點擊視頻畫面立即進入 Laya 直播間">
+                        <span class="dy-live-armed-dot"></span>
+                        <span id="dy-live-armed-txt">已選「直播」· 點擊下方視頻進入直播間</span>
+                    </div>
+
+                    <!-- ★ 嵌入直播頁面 (Laya 品牌深色紫風格，滿足：1.手機豎屏9:16 + 2.點頂部「直播」 + 3.點下方視頻區 才顯示) -->
+                    <div class="laya-live-room-overlay" id="laya-live-room-overlay" style="display: none;">
+                        <!-- 頂部：主播頭像 + 主播名 + 主播ID + 標籤 + 「關注」按鈕（粉色默認） -->
+                        <div class="live-top-section">
+                            <div class="live-host-card">
+                                <div class="live-host-avatar-wrap interactive-elem" id="live-host-avatar-wrap" title="點擊隨機切換頭像（右鍵可上傳本地圖片）">
+                                    <img src="Laya.png" class="live-host-avatar" id="live-host-avatar" alt="Host">
+                                </div>
+                                <div class="live-host-meta">
+                                    <div class="live-host-name-row">
+                                        <span class="live-host-name" id="live-disp-host-name">小鹿同學</span>
+                                    </div>
+                                    <div class="live-host-id-row">
+                                        <span id="live-disp-id-prefix">主播ID:</span>
+                                        <span id="live-disp-host-id">8888</span>
+                                    </div>
+                                    <div class="live-host-tags" id="live-disp-tags">
+                                        <span class="live-tag-chip">聊天</span>
+                                        <span class="live-tag-chip">反差</span>
+                                        <span class="live-tag-chip">熱舞</span>
+                                    </div>
+                                </div>
+                                <div class="live-host-right">
+                                    <span class="live-rank-medal" title="Laya 認證主播">👑</span>
+                                    <button type="button" class="live-follow-btn interactive-elem" id="live-btn-follow">+ 關注</button>
+                                    <button type="button" class="live-exit-mini-btn interactive-elem" id="live-btn-exit-top" title="切回短視頻">✕</button>
+                                </div>
+                            </div>
+
+                            <!-- 左上角：紅色 LIVE 標識 + 在線人數 + 觀眾頭像組 -->
+                            <div class="live-status-row">
+                                <div class="live-badge-pill">
+                                    <span class="live-badge-dot"></span>
+                                    <span class="live-badge-txt">LIVE</span>
+                                </div>
+                                <div class="live-viewer-pill">
+                                    <svg class="live-eye-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2">
+                                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"></path>
+                                        <circle cx="12" cy="12" r="3"></circle>
+                                    </svg>
+                                    <span id="live-disp-viewers">2.9萬 人在線</span>
+                                </div>
+                                <div class="live-audience-avatars">
+                                    <span class="live-aud-circle c1">A</span>
+                                    <span class="live-aud-circle c2">B</span>
+                                    <span class="live-aud-circle c3">C</span>
+                                    <span class="live-aud-circle c4">D</span>
+                                </div>
+                            </div>
+
+                            <!-- 直播公告小字 -->
+                            <div class="live-notice-line" id="live-disp-notice">每天晚上 8 點準時開播，聊聊生活與好物，歡迎來玩~</div>
+                        </div>
+
+                        <!-- 中間橫向飄過彈幕層 -->
+                        <div class="live-floating-dm-stage" id="live-floating-dm-stage"></div>
+
+                        <!-- 右側：點贊飄心動畫區 -->
+                        <div class="live-floating-hearts" id="live-floating-hearts"></div>
+
+                        <!-- 底部區域：左下滾動聊天彈幕 + 輸入框「說點什麼...」+ 發送按鈕 + 最底部四個圖標 -->
+                        <div class="live-bottom-section">
+                            <!-- 左下滾動聊天彈幕氣泡區 -->
+                            <div class="live-chat-scroll-box" id="live-chat-scroll-box">
+                                <div class="live-chat-list" id="live-chat-list"></div>
+                            </div>
+
+                            <!-- 輸入框「說點什麼...」+ 發送按鈕 -->
+                            <div class="live-input-row">
+                                <div class="live-input-pill">
+                                    <input type="text" class="live-chat-input interactive-elem" id="live-chat-input" placeholder="說點什麼..." maxlength="50" autocomplete="off">
+                                </div>
+                                <button type="button" class="live-send-btn interactive-elem" id="live-btn-send">發送</button>
+                            </div>
+
+                            <!-- 最底部：彈幕、禮物、分享、關注 四個圖標 -->
+                            <div class="live-bottom-bar" id="live-bottom-bar">
+                                <div class="live-bot-item interactive-elem active" id="live-bot-btn-dm" title="開關直播彈幕">
+                                    <div class="live-bot-icon">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M20 2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h14l4 4V4c0-1.1-.9-2-2-2zm-3 9H7V9h10v2zm-4 3H7v-2h6v2zm4-6H7V6h10v2z"/>
+                                        </svg>
+                                    </div>
+                                    <span class="live-bot-txt" id="live-bot-txt-dm">彈幕</span>
+                                </div>
+                                <div class="live-bot-item interactive-elem" id="live-bot-btn-gift" title="發送直播禮物特效">
+                                    <div class="live-bot-icon gift-icon">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <polyline points="20 12 20 22 4 22 4 12"></polyline>
+                                            <rect x="2" y="7" width="20" height="5" rx="1"></rect>
+                                            <line x1="12" y1="22" x2="12" y2="7"></line>
+                                            <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path>
+                                            <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path>
+                                        </svg>
+                                    </div>
+                                    <span class="live-bot-txt" id="live-bot-txt-gift">禮物</span>
+                                </div>
+                                <div class="live-bot-item interactive-elem" id="live-bot-btn-share" title="分享直播間">
+                                    <div class="live-bot-icon">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                                            <line x1="7" y1="17" x2="17" y2="7"></line>
+                                            <polyline points="7 7 17 7 17 17"></polyline>
+                                        </svg>
+                                    </div>
+                                    <span class="live-bot-txt" id="live-bot-txt-share">分享</span>
+                                </div>
+                                <div class="live-bot-item interactive-elem" id="live-bot-btn-like" title="點擊連發飄心點贊">
+                                    <div class="live-bot-icon heart-icon">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+                                            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                                        </svg>
+                                    </div>
+                                    <span class="live-bot-txt" id="live-bot-txt-like">關注</span>
+                                </div>
+                            </div>
+                            <div class="dy-home-bar live-home-bar"></div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 竖屏评论区开启时顶部暗黑搜索栏与底部白底评论抽屉 (图2同款：上方视频 + 下方评论区) -->
@@ -2257,6 +2382,69 @@
                             <span class="slider-round"></span>
                         </label>
                     </div>
+                </div>
+            </div>
+
+            <!-- ★ 新增：竖屏嵌入直播间专属设置 (Laya 深色紫色品牌风格) -->
+            <div class="panel-card" id="card-dy-live-settings" style="border: 1px solid rgba(236, 72, 153, 0.45); background: linear-gradient(180deg, rgba(88, 28, 135, 0.14) 0%, rgba(21, 24, 33, 0.95) 100%);">
+                <div class="card-header">
+                    <span>🔴 直播间专属设置 (点「直播」+点视频进入)</span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-live-back-to-video" style="background: rgba(168, 85, 247, 0.22); border-color: rgba(168, 85, 247, 0.55); color: #e9d5ff; font-weight: 700;" title="立即退出直播页面，切回默认短视频（推薦）界面">🎬 切回短視頻</button>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>主播名 <a href="javascript:void(0)" id="btn-live-rand-name" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-live-host-name" value="小鹿同學" placeholder="输入主播昵称">
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-name-btn" title="随机切换主播名">🎲</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>主播ID <a href="javascript:void(0)" id="btn-live-rand-id" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-live-host-id" value="8888" placeholder="输入主播ID">
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-id-btn" title="随机切换主播ID">🎲</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="range-box">
+                        <label>🔥 在线人数滑块 (实时联动左上角)</label>
+                        <span class="range-value" id="txt-live-viewers">2.9萬</span>
+                    </div>
+                    <input type="range" id="in-live-viewers" min="0.1" max="50.0" step="0.1" value="2.9">
+                </div>
+
+                <div class="form-row">
+                    <label>💬 直播弹幕内容批量编辑 (逗号或换行分隔)</label>
+                    <textarea id="in-live-danmaku-list" rows="3" style="width:100%; background:#0f1219; color:#f1f5f9; border:1px solid #2b3142; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.45; resize:vertical;">前排！, 主播好漂亮, 這首歌絕了, 666, 哈哈哈哈, 關注了, 求歌名, 聲音好甜, 打卡, 蹲一個歌單, 太治癒了, 主播加油, 已關注 比心, 主播聲音也太好聽了</textarea>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <label>🎨 弹幕颜色 (即时生效)</label>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <input type="color" id="in-live-dm-color" value="#f472b6" style="width:34px; height:28px; padding:0; border:1px solid #334155; border-radius:5px; background:transparent; cursor:pointer;">
+                            <input type="text" id="in-live-dm-color-hex" value="#f472b6" style="flex:1; font-family:monospace; font-size:11.5px;">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>💗 关注按钮颜色 (粉色默认)</label>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <input type="color" id="in-live-follow-color" value="#f43f5e" style="width:34px; height:28px; padding:0; border:1px solid #334155; border-radius:5px; background:transparent; cursor:pointer;">
+                            <input type="text" id="in-live-follow-color-hex" value="#f43f5e" style="flex:1; font-family:monospace; font-size:11.5px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="range-box">
+                        <label>⚡ 弹幕滚动速度</label>
+                        <span class="range-value" id="txt-live-dm-speed">5 (标准)</span>
+                    </div>
+                    <input type="range" id="in-live-dm-speed" min="1" max="10" step="1" value="5">
                 </div>
             </div>
 
