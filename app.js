@@ -3938,15 +3938,17 @@ window.switchRightTab = function (mode) {
 
                 const armedTip = document.getElementById('dy-live-armed-tip');
 
-                // 处理「直播」标签待进入状态（仅在开启直播入口时生效）
+                // 处理「直播」标签待进入预览状态（状态一：未进入直播间前，展示动态音波「點擊進入直播間」与左下「直播中」角标）
                 if (window.__ENABLE_LAYA_LIVE_ENTRY && isLiveTab && renderTarget && renderTarget.classList.contains('mode-mobile-port')) {
                     window.__layaLiveTabArmed = true;
-                    if (armedTip && !renderTarget.classList.contains('dy-live-open')) {
-                        armedTip.style.display = 'inline-flex';
+                    if (!renderTarget.classList.contains('dy-live-open')) {
+                        renderTarget.classList.add('dy-live-preview');
+                        if (armedTip) armedTip.style.display = 'inline-flex';
                     }
-                    window.showToast('🟣 已點選「直播」，點擊下方視頻畫面即可進入直播間');
+                    window.showToast('🟣 已切換至直播預覽流，點擊「點擊進入直播間」或視頻畫面即可進入直播間');
                 } else {
                     window.__layaLiveTabArmed = false;
+                    if (renderTarget) renderTarget.classList.remove('dy-live-preview');
                     if (armedTip) armedTip.style.display = 'none';
                     if (renderTarget && renderTarget.classList.contains('dy-live-open') && typeof window.exitLayaLiveRoom === 'function') {
                         window.exitLayaLiveRoom(false);
@@ -7056,11 +7058,25 @@ window.switchRightTab = function (mode) {
         const clonedFeatLogo = clonedDoc.getElementById('dy-featured-logo-img');
         if (clonedFeatLogo) clonedFeatLogo.src = activeRealSrc;
 
-        // 导出时隐藏「待进入直播提示胶囊」与直播间右上角辅助关闭按钮
+        // 精确锁定「點擊進入直播間」胶囊与「你的關注▾」胶囊在导出画布中的水平正中坐标
+        const origArmedTip = document.getElementById('dy-live-armed-tip');
         const clonedArmedTip = clonedDoc.getElementById('dy-live-armed-tip');
-        if (clonedArmedTip) clonedArmedTip.style.setProperty('display', 'none', 'important');
-        const clonedLiveExitBtn = clonedDoc.getElementById('live-btn-exit-top');
-        if (clonedLiveExitBtn) clonedLiveExitBtn.style.setProperty('display', 'none', 'important');
+        if (origArmedTip && clonedArmedTip && origRenderTarget && origRenderTarget.classList.contains('dy-live-preview')) {
+            const targetW = origRenderTarget.offsetWidth || 360;
+            const tipW = origArmedTip.offsetWidth || 138;
+            clonedArmedTip.style.setProperty('left', Math.max(0, Math.round((targetW - tipW) / 2)) + 'px', 'important');
+            clonedArmedTip.style.setProperty('right', 'auto', 'important');
+            clonedArmedTip.style.setProperty('margin', '0', 'important');
+        }
+        const origFollowDrop = document.getElementById('dy-live-follow-drop');
+        const clonedFollowDrop = clonedDoc.getElementById('dy-live-follow-drop');
+        if (origFollowDrop && clonedFollowDrop && origRenderTarget && origRenderTarget.classList.contains('dy-live-preview')) {
+            const targetW = origRenderTarget.offsetWidth || 360;
+            const dropW = origFollowDrop.offsetWidth || 86;
+            clonedFollowDrop.style.setProperty('left', Math.max(0, Math.round((targetW - dropW) / 2)) + 'px', 'important');
+            clonedFollowDrop.style.setProperty('right', 'auto', 'important');
+            clonedFollowDrop.style.setProperty('margin', '0', 'important');
+        }
 
         // ★ 同步右侧头像「已关注」状态（点击顶部「關注」标签后：头像紫色边框，无红色 + 号）到导出画布
         const origAvatarWrap = document.getElementById('dy-avatar-click');
@@ -8984,12 +9000,29 @@ window.switchRightTab = function (mode) {
     const inLiveDmSpeed = document.getElementById('in-live-dm-speed');
     const txtLiveDmSpeed = document.getElementById('txt-live-dm-speed');
 
-    // 同步主播头像与当前竖屏头像
+    // 同步主播头像、顶部「你的關注」小头像与右上角 3 个真实观众头像
+    const liveFollowMiniAv = document.getElementById('dy-live-follow-mini-av');
+    const liveAudImgs = document.querySelectorAll('#live-aud-avatars .live-aud-img');
+    function syncLiveAudienceAvatars() {
+        const pool = (typeof COMMENT_AVATAR_POOL !== 'undefined' && Array.isArray(COMMENT_AVATAR_POOL) && COMMENT_AVATAR_POOL.length >= 3)
+            ? COMMENT_AVATAR_POOL
+            : [];
+        if (pool.length > 0 && liveAudImgs.length > 0) {
+            liveAudImgs.forEach((img, idx) => {
+                img.src = pool[(idx * 3 + 1) % pool.length];
+            });
+        }
+    }
+    syncLiveAudienceAvatars();
+
     if (dyAvatarImg && liveHostAvatarImg) {
         const syncLiveAvatar = () => {
             const curSrc = dyAvatarImg.getAttribute('src') || dyAvatarImg.src;
             if (curSrc && liveHostAvatarImg.getAttribute('src') !== curSrc) {
                 liveHostAvatarImg.src = curSrc;
+            }
+            if (curSrc && liveFollowMiniAv && liveFollowMiniAv.getAttribute('src') !== curSrc) {
+                liveFollowMiniAv.src = curSrc;
             }
         };
         syncLiveAvatar();
@@ -9003,6 +9036,7 @@ window.switchRightTab = function (mode) {
             e.stopPropagation();
             const rndBtn = document.getElementById('btn-random-author-avatar');
             if (rndBtn) rndBtn.click();
+            syncLiveAudienceAvatars();
         });
         liveHostAvatarWrap.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -9019,19 +9053,31 @@ window.switchRightTab = function (mode) {
     let liveChatCursor = 0;
     let liveFlyParticles = [];
 
+    const defaultLiveChatLines = [
+        '羊🐑：這牌也不咋地嘛',
+        '🌈七月初五🐟🐳：除了小王和絲滑姐',
+        '蒙蒙：昨天的牌有節目效果',
+        '風止何安 來了',
+        'is阿靜 來了',
+        '微醺小貓：主播今天狀態超好！',
+        '阿傑：666 這把太秀了',
+        '晚風溫柔 來了'
+    ];
+    const presetLevels = [19, 12, 21, 21, 2, 28, 16, 9, 32, 14];
+    const presetFanLevels = [10, 10, 10, 0, 0, 12, 8, 0, 15, 6];
+    const fallbackNicknames = ['羊🐑', '🌈七月初五🐟🐳', '蒙蒙', '風止何安', 'is阿靜', '微醺小貓', '阿傑', '晚風溫柔'];
+
     function parseLiveDanmakuTexts() {
         const raw = inLiveDanmakuList ? inLiveDanmakuList.value : '';
         const list = raw
-            .split(/[,，\n\r]+/)
+            .split(/[\n\r]+/)
             .map(s => s.trim())
             .filter(Boolean);
-        return list.length > 0
-            ? list
-            : ['前排！', '主播好漂亮', '這首歌絕了', '666', '哈哈哈哈', '關注了', '蹲一個歌單', '已關注 比心', '主播聲音也太好聽了'];
+        return list.length > 0 ? list : defaultLiveChatLines;
     }
 
     function getLiveDmColor() {
-        return (inLiveDmColor && inLiveDmColor.value) ? inLiveDmColor.value : '#f472b6';
+        return (inLiveDmColor && inLiveDmColor.value) ? inLiveDmColor.value : '#ffffff';
     }
 
     function getLiveDmSpeedVal() {
@@ -9039,23 +9085,59 @@ window.switchRightTab = function (mode) {
         return Number.isNaN(v) ? 5 : Math.min(10, Math.max(1, v));
     }
 
-    // 渲染左下角公屏滚动聊天列表（固定展示最新 5 条）
+    function escapeHtmlSafe(str) {
+        return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // 渲染左下角公屏滚动聊天列表（还原抖音真实等级图标 💎19、粉丝团勋章 🏅10、房管标「管」、浅蓝昵称与「來了」进场提示）
     function renderLiveChatBubbles(advance = false) {
         if (!liveChatList) return;
-        const allTexts = parseLiveDanmakuTexts();
+        const allLines = parseLiveDanmakuTexts();
         if (advance) {
-            liveChatCursor = (liveChatCursor + 1) % allTexts.length;
+            liveChatCursor = (liveChatCursor + 1) % allLines.length;
         }
-        const count = Math.min(5, allTexts.length);
-        const visibleTexts = [];
+        const count = Math.min(5, allLines.length);
+        const rowsHtml = [];
+
         for (let i = 0; i < count; i++) {
-            visibleTexts.push(allTexts[(liveChatCursor + i) % allTexts.length]);
+            const globalIdx = (liveChatCursor + i) % allLines.length;
+            const rawLine = allLines[globalIdx];
+            const lv = presetLevels[globalIdx % presetLevels.length];
+            const fanLv = presetFanLevels[globalIdx % presetFanLevels.length];
+            const lvClass = lv <= 5 ? 'live-lv-badge lv-low' : 'live-lv-badge';
+            const lvBadgeHtml = `<span class="${lvClass}"><span class="live-lv-icon">💎</span>${lv}</span>`;
+
+            // 判断是否为「xxx 來了 / 来了」进场消息
+            const joinMatch = rawLine.match(/^(.+?)\s+(來了|来了)$/);
+            if (joinMatch) {
+                const nick = escapeHtmlSafe(joinMatch[1].trim());
+                const joinWord = escapeHtmlSafe(joinMatch[2]);
+                rowsHtml.push(
+                    `<div class="live-chat-bubble">${lvBadgeHtml}<span class="live-chat-nick">${nick}</span><span class="live-chat-msg is-join">${joinWord}</span></div>`
+                );
+                continue;
+            }
+
+            // 判断是否为「昵称：内容」格式
+            const colonIdx = rawLine.indexOf('：') !== -1 ? rawLine.indexOf('：') : rawLine.indexOf(':');
+            let nick = '';
+            let msg = '';
+            if (colonIdx > 0) {
+                nick = rawLine.slice(0, colonIdx).trim();
+                msg = rawLine.slice(colonIdx + 1).trim();
+            } else {
+                nick = fallbackNicknames[globalIdx % fallbackNicknames.length];
+                msg = rawLine;
+            }
+
+            const fanBadgeHtml = fanLv > 0 ? `<span class="live-fan-badge">🏅 ${fanLv}</span>` : '';
+            const adminBadgeHtml = (globalIdx === 0 || nick.includes('羊')) ? `<span class="live-admin-badge">管</span>` : '';
+            rowsHtml.push(
+                `<div class="live-chat-bubble">${lvBadgeHtml}${fanBadgeHtml}${adminBadgeHtml}<span class="live-chat-nick">${escapeHtmlSafe(nick)}：</span><span class="live-chat-msg">${escapeHtmlSafe(msg)}</span></div>`
+            );
         }
-        const dmColor = getLiveDmColor();
-        liveChatList.innerHTML = visibleTexts.map(txt => {
-            const safeTxt = txt.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            return `<div class="live-chat-bubble"><span style="color:${dmColor}; font-weight:700;">${safeTxt}</span></div>`;
-        }).join('');
+
+        liveChatList.innerHTML = rowsHtml.join('');
     }
 
     // 初始化/重置中间横向漂浮弹幕粒子
@@ -9127,21 +9209,7 @@ window.switchRightTab = function (mode) {
         const hx1 = Math.round((Math.random() - 0.5) * 26);
         const hx2 = Math.round((Math.random() - 0.5) * 28);
         h.style.setProperty('--hx1', hx1 + 'px');
-        h.style.setProperty('--hx2', hx2 + 'px');
-        h.style.right = Math.round(6 + Math.random() * 14) + 'px';
-        liveFloatingHearts.appendChild(h);
-        setTimeout(() => {
-            if (h.parentNode) h.parentNode.removeChild(h);
-        }, 2350);
-    }
-
-    function restartLiveChatRollTimer() {
-        if (liveChatRollTimer) {
-            clearInterval(liveChatRollTimer);
-            liveChatRollTimer = null;
-        }
-        if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
-        const speedLv = getLiveDmSpeedVal();
+ 
         const intervalMs = Math.max(700, 2600 - speedLv * 180);
         liveChatRollTimer = setInterval(() => {
             if (liveDmVisible) {
@@ -9178,7 +9246,7 @@ window.switchRightTab = function (mode) {
         }
     }
 
-    // 进入 Laya 直播页面（满足：1.手机竖屏9:16 + 2.顶部点了「直播」 + 3.下方视频区被点击）
+    // 进入 Laya 直播页面（满足：1.手机竖屏9:16 + 2.顶部点了「直播」 + 3.下方视频区或「點擊進入直播間」被点击）
     function enterLayaLiveRoom() {
         if (!window.__ENABLE_LAYA_LIVE_ENTRY) return;
         if (!renderTarget || !renderTarget.classList.contains('mode-mobile-port')) return;
@@ -9189,10 +9257,11 @@ window.switchRightTab = function (mode) {
             topNavBounceTimer = null;
         }
 
-        // 若评论区打开则先收起
-        renderTarget.classList.remove('dy-comment-open', 'dy-comment-expanded');
+        // 若评论区打开则先收起，并从预览态切换为直播间内页态
+        renderTarget.classList.remove('dy-comment-open', 'dy-comment-expanded', 'dy-live-preview');
         renderTarget.classList.add('dy-live-open');
         if (liveOverlayEl) liveOverlayEl.style.display = 'flex';
+        syncLiveAudienceAvatars();
 
         // 保持本软件原有的顶部标签栏亮在「直播」(index 2)
         document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item').forEach((el, idx) => el.classList.toggle('active', idx === 2));
@@ -9212,7 +9281,7 @@ window.switchRightTab = function (mode) {
         if (liveCard && typeof liveCard.scrollIntoView === 'function') {
             setTimeout(() => liveCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
         }
-        window.showToast('🔴 已進入 Laya 直播頁面！可在右側調整直播參數或點擊「切回短視頻」');
+        window.showToast('🔴 已進入直播間！可在右側調整主播、等級彈幕或點擊右上角「✕」退出');
     }
     window.enterLayaLiveRoom = enterLayaLiveRoom;
 
@@ -9221,8 +9290,8 @@ window.switchRightTab = function (mode) {
         window.__layaLiveTabArmed = false;
         if (liveArmedTipEl) liveArmedTipEl.style.display = 'none';
         if (!renderTarget) return;
-        const wasOpen = renderTarget.classList.contains('dy-live-open');
-        renderTarget.classList.remove('dy-live-open');
+        const wasOpen = renderTarget.classList.contains('dy-live-open') || renderTarget.classList.contains('dy-live-preview');
+        renderTarget.classList.remove('dy-live-open', 'dy-live-preview');
         if (liveOverlayEl) liveOverlayEl.style.display = 'none';
         stopLiveRoomAnimations();
 
@@ -9288,7 +9357,7 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    const liveHostNamePresets = ['小鹿同學', '蜜桃甜心', '星河少女', '微醺小貓', '晚風溫柔', 'Laya女神', '甜妹小泡芙', '蘇蘇學姐'];
+    const liveHostNamePresets = ['小王小王', '小鹿同學', '蜜桃甜心', '星河少女', '微醺小貓', '晚風溫柔', 'Laya女神', '蘇蘇學姐'];
     function randomizeLiveHostName() {
         const pick = liveHostNamePresets[Math.floor(Math.random() * liveHostNamePresets.length)];
         if (inLiveHostName) inLiveHostName.value = pick;
@@ -9297,21 +9366,22 @@ window.switchRightTab = function (mode) {
     }
     if (inLiveHostName && liveDispHostName) {
         inLiveHostName.addEventListener('input', () => {
-            liveDispHostName.textContent = inLiveHostName.value.trim() || '小鹿同學';
+            liveDispHostName.textContent = inLiveHostName.value.trim() || '小王小王';
         });
     }
     if (btnLiveRandName) btnLiveRandName.addEventListener('click', randomizeLiveHostName);
     if (btnLiveRandNameBtn) btnLiveRandNameBtn.addEventListener('click', randomizeLiveHostName);
 
+    const liveLikesPresets = ['1.8萬', '3.2萬', '5.6萬', '9280', '12.4萬', '2.5萬', '8.1萬'];
     function randomizeLiveHostId() {
-        const randId = String(Math.floor(1000 + Math.random() * 90000));
-        if (inLiveHostId) inLiveHostId.value = randId;
-        if (liveDispHostId) liveDispHostId.textContent = randId;
-        window.showToast(`🎲 主播ID已切換為：${randId}`);
+        const randLikes = liveLikesPresets[Math.floor(Math.random() * liveLikesPresets.length)];
+        if (inLiveHostId) inLiveHostId.value = randLikes;
+        if (liveDispHostId) liveDispHostId.textContent = randLikes;
+        window.showToast(`🎲 本場點讚已切換為：${randLikes}`);
     }
     if (inLiveHostId && liveDispHostId) {
         inLiveHostId.addEventListener('input', () => {
-            liveDispHostId.textContent = inLiveHostId.value.trim() || '8888';
+            liveDispHostId.textContent = inLiveHostId.value.trim() || '1.8萬';
         });
     }
     if (btnLiveRandId) btnLiveRandId.addEventListener('click', randomizeLiveHostId);
@@ -9319,12 +9389,10 @@ window.switchRightTab = function (mode) {
 
     if (inLiveViewers) {
         const syncLiveViewers = () => {
-            const val = parseFloat(inLiveViewers.value) || 2.9;
-            const formatted = val.toFixed(1);
-            const isSimp = window.__currentLangMode === 'simp';
-            const unitTxt = isSimp ? `${formatted}万` : `${formatted}萬`;
-            if (txtLiveViewers) txtLiveViewers.textContent = unitTxt;
-            if (liveDispViewers) liveDispViewers.textContent = isSimp ? `${formatted}万 人在线` : `${formatted}萬 人在線`;
+            const val = parseInt(inLiveViewers.value, 10) || 293;
+            const txt = val >= 10000 ? (val / 10000).toFixed(1) + (window.__currentLangMode === 'simp' ? '万' : '萬') : String(val);
+            if (txtLiveViewers) txtLiveViewers.textContent = txt;
+            if (liveDispViewers) liveDispViewers.textContent = txt;
         };
         inLiveViewers.addEventListener('input', syncLiveViewers);
     }
