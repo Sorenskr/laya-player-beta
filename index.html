@@ -925,16 +925,16 @@
 
                         <!-- 下方公屏區域：紫色漸變禮物進場提示條 + 滾動彈幕列表 + 底部輸入欄與四圓形按鈕 -->
                         <div class="live-bottom-section">
-                            <!-- 三、禮物進場提示條：左側 Laya 小圓頭像 + 用戶名（如「皓哥」）+ 小字「送 小心心」+ 粉色愛心圖標 + 大號數字「5」 -->
+                            <!-- 三、禮物進場提示條：左側真人圓頭像 + 用戶名 + 送禮文案 + 專屬禮物圖標 + 大號連擊數字（每次彈出不同頭像/禮物/主題） -->
                             <div class="live-gift-combo-slot">
-                                <div class="live-gift-combo-banner interactive-elem" id="live-gift-combo-banner" title="點擊隨機切換下一條禮物提示">
-                                    <img src="Laya.png" class="live-gift-sender-av" id="live-gift-sender-av" alt="Laya">
+                                <div class="live-gift-combo-banner interactive-elem" id="live-gift-combo-banner" title="單擊隨機切換下一位真人送禮 · 雙擊原地編輯禮物彈窗內容">
+                                    <img src="Laya.png" class="live-gift-sender-av" id="live-gift-sender-av" alt="送禮頭像" title="點擊更換送禮真人頭像">
                                     <div class="live-gift-meta">
                                         <span class="live-gift-sender" id="live-gift-sender-name">皓哥</span>
-                                        <span class="live-gift-desc" id="live-gift-desc-txt">送 小心心</span>
+                                        <span class="live-gift-desc" id="live-gift-desc-txt">送 嘉年華</span>
                                     </div>
-                                    <span class="live-gift-heart-ico" id="live-gift-item-icon">💗</span>
-                                    <span class="live-gift-combo-num" id="live-gift-combo-num">5</span>
+                                    <span class="live-gift-heart-ico" id="live-gift-item-icon">🎠</span>
+                                    <span class="live-gift-combo-num" id="live-gift-combo-num">x9</span>
                                 </div>
                             </div>
 
@@ -2505,39 +2505,61 @@
 
                 <!-- 三、礼物进场提示条专属设置 -->
                 <div style="margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(168, 85, 247, 0.35);">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:6px;">
-                        <span style="font-size:12px; font-weight:700; color:#e9d5ff;">🎁 礼物进场提示条 (Laya圆头像 + 紫色渐变胶囊)</span>
-                        <button type="button" class="sub-mini-act" id="btn-live-rand-gift-all" style="background:rgba(168,85,247,0.3); color:#f3e8ff; border-color:rgba(192,132,252,0.5);">🎲 全部随机</button>
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                        <span style="font-size:12px; font-weight:700; color:#e9d5ff;">🎁 礼物进场小弹窗 (真人头像 + 多款礼物图标 + 百变配色，双击画面可改)</span>
+                        <div style="display:flex; gap:4px;">
+                            <button type="button" class="sub-mini-act" id="btn-live-rand-gift-av" title="随机更换送礼人的真人头像">👤 换真人头像</button>
+                            <button type="button" class="sub-mini-act" id="btn-live-rand-gift-all" style="background:rgba(168,85,247,0.3); color:#f3e8ff; border-color:rgba(192,132,252,0.5);">🎲 随机换一条</button>
+                        </div>
                     </div>
                     <div class="form-grid-2">
                         <div class="form-row">
                             <label>送礼用户名 <a href="javascript:void(0)" id="btn-live-rand-gift-user" style="color:#c084fc; text-decoration:none;">🎲</a></label>
                             <div class="input-with-dice">
                                 <input type="text" id="in-live-gift-user" value="皓哥" placeholder="如 皓哥">
-                                <button type="button" class="btn-inline-dice" id="btn-live-rand-gift-user-btn" title="随机送礼用户名">🎲</button>
+                                <button type="button" class="btn-inline-dice" id="btn-live-rand-gift-user-btn" title="随机送礼用户名与真人头像">🎲</button>
                             </div>
                         </div>
                         <div class="form-row">
                             <label>礼物名称 <a href="javascript:void(0)" id="btn-live-rand-gift-name" style="color:#c084fc; text-decoration:none;">🎲</a></label>
                             <div class="input-with-dice">
-                                <input type="text" id="in-live-gift-name" value="送 小心心" placeholder="如 送 小心心">
-                                <button type="button" class="btn-inline-dice" id="btn-live-rand-gift-name-btn" title="随机礼物名称">🎲</button>
+                                <input type="text" id="in-live-gift-name" value="送 嘉年華" placeholder="如 送 嘉年華、送 超級火箭">
+                                <button type="button" class="btn-inline-dice" id="btn-live-rand-gift-name-btn" title="随机切换礼物与对应图标">🎲</button>
                             </div>
                         </div>
                     </div>
                     <div class="form-grid-2" style="margin-top:4px;">
                         <div class="form-row">
-                            <label>连击大号数字 <a href="javascript:void(0)" id="btn-live-rand-gift-count" style="color:#c084fc; text-decoration:none;">🎲</a></label>
-                            <div class="input-with-dice">
-                                <input type="text" id="in-live-gift-count" value="5" placeholder="如 5、66、520">
-                                <button type="button" class="btn-inline-dice" id="btn-live-rand-gift-count-btn" title="随机连击数字">🎲</button>
+                            <label>礼物图标 (自动匹配或任选) <a href="javascript:void(0)" id="btn-live-rand-gift-icon" style="color:#c084fc; text-decoration:none;">🎲</a></label>
+                            <div class="input-with-dice" style="gap:4px;">
+                                <select id="sel-live-gift-preset" style="flex:1; min-width:0;">
+                                    <option value="🎠|送 嘉年華|#9333ea" selected>🎠 嘉年華 (皇室紫金)</option>
+                                    <option value="🚀|豪刷 超級火箭|#dc2626">🚀 超級火箭 (烈焰赤金)</option>
+                                    <option value="🏎️|空降 至尊跑車|#2563eb">🏎️ 至尊跑車 (电光蓝紫)</option>
+                                    <option value="🛩️|送出 私人飛機|#4f46e5">🛩️ 私人飛機 (深空靛紫)</option>
+                                    <option value="🏰|點亮 夢幻城堡|#7c3aed">🏰 夢幻城堡 (梦幻星紫)</option>
+                                    <option value="👑|加冕 紫金皇冠|#b45309">👑 紫金皇冠 (鎏金琥珀)</option>
+                                    <option value="💎|贈送 璀璨鑽石|#0284c7">💎 璀璨鑽石 (冰晶蓝紫)</option>
+                                    <option value="🎆|綻放 浪漫煙花|#db2777">🎆 浪漫煙花 (霓虹玫紫)</option>
+                                    <option value="🌌|送出 浪漫星河|#6d28d9">🌌 浪漫星河 (星河蓝紫)</option>
+                                    <option value="🌹|贈送 99朵玫瑰|#e11d48">🌹 99朵玫瑰 (魅惑玫瑰)</option>
+                                    <option value="🎈|送 告白氣球|#ec4899">🎈 告白氣球 (甜心粉紫)</option>
+                                    <option value="🍭|投餵 彩虹棒棒糖|#a855f7">🍭 彩虹棒棒糖 (糖果幻彩)</option>
+                                    <option value="🕶️|送 酷炫墨鏡|#0f766e">🕶️ 酷炫墨鏡 (潮酷暗青)</option>
+                                    <option value="🪄|揮舞 粉絲螢光棒|#8b5cf6">🪄 粉絲螢光棒 (应援霓虹)</option>
+                                    <option value="🍾|開啟 皇家香檳|#ca8a04">🍾 皇家香檳 (香槟流金)</option>
+                                    <option value="💗|送 小心心|#7c3aed">💗 小心心 (经典粉紫)</option>
+                                </select>
+                                <input type="text" id="in-live-gift-icon" value="🎠" title="可自定义输入任意礼物 Emoji 图标" style="width:38px; text-align:center; padding:4px 2px;">
                             </div>
                         </div>
                         <div class="form-row">
-                            <label>胶囊渐变色 <a href="javascript:void(0)" id="btn-live-rand-gift-color" style="color:#c084fc; text-decoration:none;">🎲随机</a></label>
+                            <label>连击数字与弹窗底色 <a href="javascript:void(0)" id="btn-live-rand-gift-count" style="color:#c084fc; text-decoration:none;">🎲数字</a> · <a href="javascript:void(0)" id="btn-live-rand-gift-color" style="color:#c084fc; text-decoration:none;">🎲底色</a></label>
                             <div style="display:flex; align-items:center; gap:5px;">
-                                <input type="color" id="in-live-gift-color" value="#7c3aed" style="width:32px; height:28px; padding:0; border:1px solid #334155; border-radius:5px; background:transparent; cursor:pointer;">
-                                <input type="text" id="in-live-gift-color-hex" value="#7c3aed" style="flex:1; font-family:monospace; font-size:11.5px;">
+                                <input type="text" id="in-live-gift-count" value="x9" placeholder="如 x9、66、520" style="width:52%;">
+                                <button type="button" class="btn-inline-dice" id="btn-live-rand-gift-count-btn" title="随机连击数字">🎲</button>
+                                <input type="color" id="in-live-gift-color" value="#9333ea" style="width:30px; height:28px; padding:0; border:1px solid #334155; border-radius:5px; background:transparent; cursor:pointer; flex-shrink:0;">
+                                <input type="text" id="in-live-gift-color-hex" value="#9333ea" style="display:none;">
                             </div>
                         </div>
                     </div>
@@ -2545,7 +2567,7 @@
 
                 <div class="form-row">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
-                        <label style="margin:0;">💬 滚动弹幕列表 (每行一条，支持「昵称：弹幕」或纯文字自动配彩名)</label>
+                        <label style="margin:0;">💬 滚动弹幕列表 (双击手机画面上任意一条弹幕，即可单独修改它的等级/管字标/昵称/内容)</label>
                         <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
                             <button type="button" class="sub-mini-act" id="btn-live-ai-match-dm" style="background:linear-gradient(90deg,#7c3aed,#ec4899); color:#fff; border:none; font-weight:700; padding:3px 8px;">🤖 AI 識別視頻自動配彈幕</button>
                             <button type="button" class="sub-mini-act" id="btn-live-rand-dm-batch" title="从多场景弹幕库随机换一批分行弹幕">🎲 換一批</button>
