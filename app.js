@@ -1745,9 +1745,30 @@ window.switchRightTab = function (mode) {
             this.list = newList;
             this.renderStage();
             this.renderEditor();
-            if (!this.isOpen) this.setDrawerOpen(true, false);
+            if (!this.isOpen && !(renderTarget && renderTarget.classList.contains('dy-live-open'))) {
+                this.setDrawerOpen(true, false);
+            }
+            // ★ 同步更新直播间公屏滚动评论池（自然穿插「名字：文案」与「名字 来了」），并触发直播间 AI 画面匹配
+            const liveDmTextarea = document.getElementById('in-live-danmaku-list');
+            if (liveDmTextarea && newList.length > 0) {
+                const syncedLiveLines = [];
+                const isSimpMode = window.__currentLangMode === 'simp';
+                const joinWord = isSimpMode ? '来了' : '來了';
+                newList.forEach((item, idx) => {
+                    syncedLiveLines.push(`${item.user}：${item.text}`);
+                    if (idx % 3 === 1) {
+                        const jNick = NICKNAME_POOL[(idx * 7 + 3) % NICKNAME_POOL.length] || '輕輕吹風';
+                        syncedLiveLines.push(`${jNick} ${joinWord}`);
+                    }
+                });
+                liveDmTextarea.value = syncedLiveLines.join('\n');
+                liveDmTextarea.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            if (typeof window.autoMatchLiveDanmakuByVideoAI === 'function') {
+                window.autoMatchLiveDanmakuByVideoAI(false, null);
+            }
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-            window.showToast(`已根据画面与标题智能生成 ${newList.length} 条自然评论`);
+            window.showToast(`🎬 已根据画面同步生成短视频评论与直播间滚动弹幕（共 ${newList.length} 条）`);
         },
 
         // 📋 批量换行识别导入评论（每行自动识别为一条独立评论，支持覆盖或追加）
@@ -3940,14 +3961,13 @@ window.switchRightTab = function (mode) {
 
                 const armedTip = document.getElementById('dy-live-armed-tip');
 
-                // 处理「直播」标签待进入预览状态（状态一：未进入直播间前，展示动态音波「點擊進入直播間」与左下「直播中」角标）
+                // 处理「直播」标签：点击顶部「直播」立即进入直播间，同时右侧编辑栏瞬间跳转到【🔴 直播间专属设置】
                 if (window.__ENABLE_LAYA_LIVE_ENTRY && isLiveTab && renderTarget && renderTarget.classList.contains('mode-mobile-port')) {
-                    window.__layaLiveTabArmed = true;
-                    if (!renderTarget.classList.contains('dy-live-open')) {
-                        renderTarget.classList.add('dy-live-preview');
-                        if (armedTip) armedTip.style.display = 'inline-flex';
+                    window.__layaLiveTabArmed = false;
+                    if (armedTip) armedTip.style.display = 'none';
+                    if (typeof window.enterLayaLiveRoom === 'function') {
+                        window.enterLayaLiveRoom();
                     }
-                    window.showToast('🟣 已切換至直播預覽流，點擊「點擊進入直播間」或視頻畫面即可進入直播間');
                 } else {
                     window.__layaLiveTabArmed = false;
                     if (renderTarget) renderTarget.classList.remove('dy-live-preview');
@@ -3973,8 +3993,8 @@ window.switchRightTab = function (mode) {
                     }, 1000);
                 }
 
-                // 若点的不是「推薦」，短暂亮 1 秒后自动弹回「推薦」亮灯（若已进入直播间则保持「直播」亮灯）
-                if (!isRecommendTab) {
+                // 若点的不是「推薦」也不是「直播」，短暂亮 1 秒后自动弹回「推薦」亮灯（若已进入直播间则保持「直播」亮灯）
+                if (!isRecommendTab && !isLiveTab) {
                     topNavBounceTimer = setTimeout(() => {
                         const inLiveNow = renderTarget && renderTarget.classList.contains('dy-live-open');
                         const targetIdx = inLiveNow ? 2 : defaultIndex;
@@ -5999,8 +6019,11 @@ window.switchRightTab = function (mode) {
             this.activeIdx = 0;
             this.renderCueList();
             this.syncStageDisplay();
+            if (typeof window.autoMatchLiveDanmakuByVideoAI === 'function') {
+                window.autoMatchLiveDanmakuByVideoAI(false, null);
+            }
             triggerSaveStorage();
-            window.showToast(`🎉 已识别提取 ${newCues.length} 条画面字幕！可在下方列表逐条编辑或切换简/繁体`);
+            window.showToast(`🎉 已识别提取 ${newCues.length} 条画面字幕并同步更新直播间评论！`);
 
             setTimeout(() => {
                 if (subOcrProgressWrap) subOcrProgressWrap.style.display = 'none';
@@ -6609,7 +6632,14 @@ window.switchRightTab = function (mode) {
     window.triggerSaveStorage = triggerSaveStorage;
 
     function saveAllToStorage() {
+        if (window.__isResettingAll) return;
         try {
+            const liveOverlayNode = document.getElementById('laya-live-room-overlay');
+            const isLiveNow = !!(renderTarget && renderTarget.classList.contains('dy-live-open')) || !!(liveOverlayNode && liveOverlayNode.style.display === 'flex');
+            const isLiveZoomNow = !!(document.querySelector('.live-bottom-section.is-zoom-editing'));
+            const rightSideEl = document.getElementById('right-sidebar');
+            const activeQaEl = document.querySelector('#qa-rail-list .qa-item.active');
+
             const data = {
                 inputs: {},
                 checkboxes: {},
@@ -6622,6 +6652,10 @@ window.switchRightTab = function (mode) {
                 dmPortAreaMax: window.DanmakuEngine ? window.DanmakuEngine.portAreaMax : 24,
                 skin: document.getElementById('sel-mobile-skin')?.value || 'laya-app',
                 viewportMode: (window.PlayerEngine && window.PlayerEngine.currentMode) ? window.PlayerEngine.currentMode : 'mode-pc',
+                liveRoomOpen: isLiveNow,
+                liveZoomEditing: isLiveZoomNow,
+                activeQaCardId: activeQaEl ? (activeQaEl.getAttribute('data-target-card') || '') : '',
+                rightSidebarScrollTop: rightSideEl ? Math.round(rightSideEl.scrollTop) : 0,
                 layaAppTopIdx: Array.from(document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item')).findIndex(el => el.classList.contains('active')),
                 layaAppBotIdx: Array.from(document.querySelectorAll('#laya-app-bottom-tabs .laya-app-tab-item')).findIndex(el => el.classList.contains('active')),
                 logoVersion: document.getElementById('sel-logo-version')?.value || 'Laya.png',
@@ -6666,6 +6700,16 @@ window.switchRightTab = function (mode) {
             console.warn('Storage save:', e);
         }
     }
+
+    // 刷新或关闭页面瞬间立即同步保存最后所在的页面、直播间状态、滚动条位置与视频播放时间点
+    window.addEventListener('beforeunload', () => {
+        if (!window.__isResettingAll) {
+            saveAllToStorage();
+            if (window.PlayerEngine && typeof window.PlayerEngine.saveMediaPlayStateNow === 'function') {
+                window.PlayerEngine.saveMediaPlayStateNow();
+            }
+        }
+    });
 
     function loadAllFromStorage() {
         try {
@@ -6781,6 +6825,14 @@ window.switchRightTab = function (mode) {
                     // 防止旧版直播间 8888 或 29/1000 缓存覆盖新版 1000~200万 点赞与在线人数
                     if (id === 'in-live-host-id' && (val === '8888' || val === '1.8萬')) return;
                     if (id === 'in-live-viewers' && (Number(val) <= 1000)) return;
+                    // 防止旧版缺少「來了」进场行或不足 6 行的残缺弹幕缓存覆盖新版自然混排直播弹幕
+                    if (id === 'in-live-danmaku-list') {
+                        const sVal = String(val || '').trim();
+                        const lineArr = sVal.split(/[\r\n]+/).filter(Boolean);
+                        if (lineArr.length < 6 || (!sVal.includes('來了') && !sVal.includes('来了'))) {
+                            return;
+                        }
+                    }
                     const el = document.getElementById(id);
                     if (el) {
                         el.value = val;
@@ -6793,9 +6845,13 @@ window.switchRightTab = function (mode) {
                 Object.entries(data.checkboxes).forEach(([id, checked]) => {
                     const el = document.getElementById(id);
                     if (!el) return;
-                    // 每次打开页面始终默认开启直播间公屏弹幕自动滚动，防止旧缓存 false 导致评论卡住不动
-                    if (id === 'sw-live-auto-roll-dm') {
+                    // 每次打开页面始终默认开启直播间公屏弹幕自动滚动与礼物弹窗自动轮播跳动，并默认关闭每行末尾假紫心
+                    if (id === 'sw-live-auto-roll-dm' || id === 'sw-live-auto-cycle-gift') {
                         el.checked = true;
+                        return;
+                    }
+                    if (id === 'sw-live-dm-row-heart') {
+                        el.checked = false;
                         return;
                     }
                     el.checked = checked;
@@ -6843,17 +6899,19 @@ window.switchRightTab = function (mode) {
                 selMobileSkin.value = data.skin;
                 applyMobileSkin(data.skin);
             }
-            // 强制确保页面加载时：顶部标签栏默认停在「推薦」(idx=1)，底部导航默认停在「視頻」(idx=2)，且右侧头像默认未关注带红色 + 号
+            // 恢复刷新前所在的顶部/底部导航标签、画幅模式与直播间状态
+            const savedTopIdx = (typeof data.layaAppTopIdx === 'number' && data.layaAppTopIdx >= 0) ? data.layaAppTopIdx : 1;
+            const savedBotIdx = (typeof data.layaAppBotIdx === 'number' && data.layaAppBotIdx >= 0) ? data.layaAppBotIdx : 2;
             const topItems = document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
             if (topItems.length) {
-                topItems.forEach((el, idx) => el.classList.toggle('active', idx === 1));
+                topItems.forEach((el, idx) => el.classList.toggle('active', idx === savedTopIdx));
             }
             const botItems = document.querySelectorAll('#laya-app-bottom-tabs .laya-app-tab-item');
             if (botItems.length) {
-                botItems.forEach((el, idx) => el.classList.toggle('active', idx === 2));
+                botItems.forEach((el, idx) => el.classList.toggle('active', idx === savedBotIdx));
             }
             if (typeof setRightAvatarFollowedByTab === 'function') {
-                setRightAvatarFollowedByTab(false);
+                setRightAvatarFollowedByTab(savedTopIdx === 0);
             }
             if (data.viewportMode && window.PlayerEngine && typeof window.PlayerEngine.activateViewportMode === 'function') {
                 window.PlayerEngine.activateViewportMode(data.viewportMode);
@@ -6963,7 +7021,30 @@ window.switchRightTab = function (mode) {
                 window.CommentEngine.applyDrawerLayoutVars();
                 window.CommentEngine.renderStage();
                 window.CommentEngine.renderEditor();
-                window.CommentEngine.setDrawerOpen(!!cd.isOpen, false);
+                if (!data.liveRoomOpen) {
+                    window.CommentEngine.setDrawerOpen(!!cd.isOpen, false);
+                }
+            }
+
+            // 若刷新前用户正在直播间内，刷新后自动停留在直播间页面并恢复放大查看状态与右侧滚动位置
+            if (data.viewportMode === 'mode-mobile-port' && data.liveRoomOpen) {
+                if (typeof window.enterLayaLiveRoom === 'function') {
+                    window.enterLayaLiveRoom({ silentToast: true, preserveScroll: true });
+                }
+                if (data.liveZoomEditing && typeof window.syncLiveZoomEditingUI === 'function') {
+                    window.syncLiveZoomEditingUI(true);
+                }
+            }
+            if (data.activeQaCardId && typeof setActiveQuickAccessItem === 'function') {
+                setActiveQuickAccessItem(data.activeQaCardId, true);
+            }
+            if (typeof data.rightSidebarScrollTop === 'number' && data.rightSidebarScrollTop > 0) {
+                const rightSideEl = document.getElementById('right-sidebar');
+                if (rightSideEl) {
+                    setTimeout(() => {
+                        rightSideEl.scrollTop = data.rightSidebarScrollTop;
+                    }, 90);
+                }
             }
 
             if (window.PlayerEngine && typeof window.PlayerEngine.checkMediaAspect === 'function') {
@@ -6981,24 +7062,34 @@ window.switchRightTab = function (mode) {
 
     const btnGlobalReset = document.getElementById('btn-global-reset');
     if (btnGlobalReset) {
-        btnGlobalReset.addEventListener('click', () => {
-            if (confirm('确认要一键清除所有本地修改并恢复出厂默认设置吗？')) {
+        btnGlobalReset.addEventListener('click', async () => {
+            if (confirm('确认要一键清除所有本地修改（包括已上传的视频/图片素材）并回到最开始的初始状态吗？')) {
+                window.__isResettingAll = true;
+                if (saveTimeout) clearTimeout(saveTimeout);
                 localStorage.removeItem(STORAGE_KEY);
+                localStorage.removeItem('LAYA_LAST_MEDIA_STATE');
+                if (window.LayaMediaPersistDB && typeof window.LayaMediaPersistDB.clearMedia === 'function') {
+                    try {
+                        await window.LayaMediaPersistDB.clearMedia();
+                    } catch (e) {}
+                }
                 location.reload();
             }
         });
     }
 
     setTimeout(() => {
+        const hadSavedState = !!localStorage.getItem(STORAGE_KEY);
         loadAllFromStorage();
         // ★ 每次打开或刷新网站，所有板块的手机状态栏时间始终同步为打开/刷新时的真实时间
         syncAllPhoneClockTimes(getCurrentRealClockTime(), false);
-        // ★ 每次打开页面读取完配置后，自动重新在 1:20:00 ~ 2:30:00 之间随机生成总片长
-        if (window.PlayerEngine && typeof window.PlayerEngine.randomizeDuration === 'function') {
-            window.PlayerEngine.randomizeDuration(false);
+        // ★ 仅在首次打开（或点击「一键重置」清空缓存后）才随机生成初始片长与点赞数据；日常刷新页面时保留用户当前所在的页面与修改过的数值！
+        if (!hadSavedState) {
+            if (window.PlayerEngine && typeof window.PlayerEngine.randomizeDuration === 'function') {
+                window.PlayerEngine.randomizeDuration(false);
+            }
+            randomizeViralMetricsByDuration(null, false);
         }
-        // ★ 每次打开或刷新页面，严格按图3时长规律自动随机生成新的点赞(5000~100万)、评论、收藏、分享与热点在看人数(15万~200万)
-        randomizeViralMetricsByDuration(null, false);
     }, 100);
 
     /* ==========================================================================
@@ -7894,10 +7985,12 @@ window.switchRightTab = function (mode) {
                 const liveChatListBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-chat-list')) : null;
                 const liveJoinTickerBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-join-ticker-row')) : null;
                 const liveScrollBoxRect = isLiveOpenVid ? measureRelBox(document.getElementById('live-chat-scroll-box')) : null;
+                const liveGiftSlotBox = isLiveOpenVid ? measureRelBox(document.querySelector('.live-gift-combo-slot') || document.getElementById('live-gift-combo-banner')) : null;
                 window.__liveExportLayout = isLiveOpenVid ? {
                     chatBox: liveChatListBox,
                     joinBox: liveJoinTickerBox,
-                    scrollBox: liveScrollBoxRect
+                    scrollBox: liveScrollBoxRect,
+                    giftBox: liveGiftSlotBox
                 } : null;
 
                 // 抓取静态透明 UI 覆层（通过 ignoreElements 完全跳过媒体与弹幕节点，并强制移除容器黑色背景）
@@ -7937,8 +8030,10 @@ window.switchRightTab = function (mode) {
                             const el = clonedDoc.getElementById(id);
                             if (el) el.style.visibility = 'hidden';
                         });
-                        // 若处于直播间模式导出视频，隐藏静态快照中的评论列表与底部进场条，改由 30fps 动态画布逐帧滚动绘制
+                        // 若处于直播间模式导出视频，隐藏静态快照中的礼物横幅、评论列表与底部进场条，改由 30fps 动态画布逐帧绘制
                         if (isLiveOpenVid) {
+                            const clonedGiftEl = clonedDoc.getElementById('live-gift-combo-banner');
+                            if (clonedGiftEl) clonedGiftEl.style.visibility = 'hidden';
                             const clonedChatList = clonedDoc.getElementById('live-chat-list');
                             if (clonedChatList) clonedChatList.style.visibility = 'hidden';
                             const clonedJoinRow = clonedDoc.getElementById('live-join-ticker-row');
@@ -9560,6 +9655,7 @@ window.switchRightTab = function (mode) {
     let liveChatRollTimer = null;
     let liveJoinTickerTimer = null;
     let liveGiftComboTimer = null;
+    let liveGiftComboBounceTimer = null;
     let liveHeaderFlipTimer = null;
     let liveFlyDmRaf = null;
     let liveDmVisible = true;
@@ -9567,6 +9663,17 @@ window.switchRightTab = function (mode) {
     let liveJoinCursor = 0;
     let liveRollTickCount = 0;
     let liveFlyParticles = [];
+    let lastLiveVideoSyncTime = -1;
+
+    // ★ 自愈式检测当前是否处于直播间：若 #laya-live-room-overlay 正在显示但 renderTarget 的 dy-live-open 类意外丢失，立即自动补回，确保评论/礼物/点赞动画永不假死！
+    function isLiveRoomOpenNow() {
+        if (!renderTarget || !renderTarget.classList.contains('mode-mobile-port')) return false;
+        const overlayVisible = !!(liveOverlayEl && liveOverlayEl.style.display === 'flex');
+        if (overlayVisible && !renderTarget.classList.contains('dy-live-open')) {
+            renderTarget.classList.add('dy-live-open');
+        }
+        return renderTarget.classList.contains('dy-live-open') || overlayVisible;
+    }
 
     const defaultLiveChatLines = [
         '微醺小貓：主播今天狀態太好了吧',
@@ -9898,7 +10005,7 @@ window.switchRightTab = function (mode) {
 
     function applyLiveDmScaleAndArea(triggerRender = false) {
         const scalePct = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
-        const clampedScale = Math.min(155, Math.max(75, scalePct));
+        const clampedScale = Math.min(220, Math.max(75, scalePct));
         const scaleRatio = (clampedScale / 100).toFixed(2);
 
         const widthPct = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
@@ -9910,7 +10017,7 @@ window.switchRightTab = function (mode) {
             liveChatScrollBox.style.setProperty('--live-dm-width', `${clampedWidth}%`);
         }
         if (txtLiveDmScale) {
-            const desc = clampedScale < 95 ? '紧凑' : (clampedScale <= 105 ? '标准' : (clampedScale <= 125 ? '偏大' : '特大'));
+            const desc = clampedScale < 95 ? '紧凑' : (clampedScale <= 105 ? '标准' : (clampedScale <= 135 ? '偏大' : '放大精修'));
             txtLiveDmScale.textContent = `${clampedScale}% (${desc})`;
         }
         if (txtLiveDmArea) {
@@ -10082,38 +10189,63 @@ window.switchRightTab = function (mode) {
         liveFlyParticles = [];
     }
 
-    // ★ 二、右侧竖排爱心飘动画（100% 采用高清矢量彩色渐变 SVG 爱心，彻底杜绝 Windows 下 🩷 缺失字形显示为白色方框 ⮾ 的乱码问题！）
-    const LIVE_SVG_HEARTS = [
+    // ★ 二、右侧竖排开心鲜艳表情与彩心混搭飘动动画（火花✨🔥🌟、开心笑脸🥳🤩😄😍😆、礼花礼炮🎉🎊🎆🎇🎈、点赞彩心💖👍掺和在一起欢快上飘）
+    const LIVE_CHEER_PARTICLES = [
+        '🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩', '🎆',
+        '😍', '🌟', '🎇', '😆', '💖', '🎈', '🥰', '👍',
+        '⚡', '😎', '🧨', '👏', '💥', '❤️‍🔥',
         `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#ff5e97"/><path d="M7.8 5.6c-1.5 0-2.7 1.1-2.9 2.5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/></svg>`,
-        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#a855f7"/><path d="M7.8 5.6c-1.5 0-2.7 1.1-2.9 2.5" stroke="#f3e8ff" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/></svg>`,
-        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#f43f5e"/><circle cx="17.2" cy="6.8" r="1.4" fill="#fde047"/></svg>`,
-        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#ec4899"/><path d="M12 16.8l-.75-.68C8.4 13.55 6.6 11.9 6.6 9.9c0-1.62 1.26-2.88 2.88-2.88.9 0 1.78.42 2.52 1.1.74-.68 1.62-1.1 2.52-1.1 1.62 0 2.88 1.26 2.88 2.88 0 2-1.8 3.65-4.65 6.22L12 16.8z" fill="#fbcfe8" opacity="0.65"/></svg>`
+        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#a855f7"/><circle cx="17.2" cy="6.8" r="1.5" fill="#fde047"/></svg>`
     ];
+    let lastCheerParticleIdx = -1;
     function spawnSingleLiveHeart() {
-        if (!liveFloatingHearts || !renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
+        if (!liveFloatingHearts || !isLiveRoomOpenNow()) return;
         const h = document.createElement('span');
         h.className = 'live-heart-particle';
-        h.innerHTML = LIVE_SVG_HEARTS[Math.floor(Math.random() * LIVE_SVG_HEARTS.length)];
-        const hx1 = Math.round((Math.random() - 0.5) * 26);
-        const hx2 = Math.round((Math.random() - 0.5) * 28);
+        let pickIdx = Math.floor(Math.random() * LIVE_CHEER_PARTICLES.length);
+        if (pickIdx === lastCheerParticleIdx) {
+            pickIdx = (pickIdx + 1 + Math.floor(Math.random() * 5)) % LIVE_CHEER_PARTICLES.length;
+        }
+        lastCheerParticleIdx = pickIdx;
+        const item = LIVE_CHEER_PARTICLES[pickIdx];
+        if (item.startsWith('<svg')) {
+            h.innerHTML = item;
+        } else {
+            h.textContent = item;
+        }
+        const hright = Math.round(4 + Math.random() * 32);
+        const hsize = Math.round(18 + Math.random() * 5);
+        const hx1 = Math.round((Math.random() - 0.5) * 32);
+        const hx2 = Math.round((Math.random() - 0.5) * 34);
+        const hrot1 = Math.round((Math.random() - 0.5) * 28);
+        const hrot2 = Math.round((Math.random() - 0.5) * 28);
+        h.style.setProperty('--hright', hright + 'px');
+        h.style.setProperty('--hsize', hsize + 'px');
         h.style.setProperty('--hx1', hx1 + 'px');
         h.style.setProperty('--hx2', hx2 + 'px');
+        h.style.setProperty('--hrot1', hrot1 + 'deg');
+        h.style.setProperty('--hrot2', hrot2 + 'deg');
         liveFloatingHearts.appendChild(h);
         setTimeout(() => {
             if (h.parentNode) h.parentNode.removeChild(h);
-        }, 2350);
+        }, 2280);
     }
 
     function restartLiveHeartTimer() {
         if (liveHeartTimer) clearInterval(liveHeartTimer);
-        if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
+        if (!isLiveRoomOpenNow()) return;
         const density = getLiveHeartDensityVal();
-        // 密度 1 -> 1300ms 一颗；密度 6 -> 520ms；密度 10 -> 200ms 高密飘心
-        const intervalMs = Math.max(190, Math.round(1450 - density * 125));
+        // 一启动即连发 3 颗不同表情（礼花/火花/笑脸），画面瞬间热闹起来
+        spawnSingleLiveHeart();
+        setTimeout(spawnSingleLiveHeart, 110);
+        setTimeout(spawnSingleLiveHeart, 230);
+        // 密度 1 -> 900ms；默认密度 6 -> 480ms；密度 10 -> 170ms 高频欢快飘动
+        const intervalMs = Math.max(170, Math.round(980 - density * 82));
         liveHeartTimer = setInterval(() => {
+            if (!isLiveRoomOpenNow()) return;
             spawnSingleLiveHeart();
-            if (density >= 8) {
-                setTimeout(spawnSingleLiveHeart, 110);
+            if (density >= 5) {
+                setTimeout(spawnSingleLiveHeart, Math.round(intervalMs * 0.45));
             }
         }, intervalMs);
     }
@@ -10584,19 +10716,6 @@ window.switchRightTab = function (mode) {
             applyLiveDmScaleAndArea(true);
         });
     }
-    if (btnLiveResetDmSize) {
-        btnLiveResetDmSize.addEventListener('click', (e) => {
-            e.preventDefault();
-            if (inLiveDmScale) inLiveDmScale.value = '100';
-            if (inLiveDmAreaWidth) inLiveDmAreaWidth.value = '93';
-            if (inLiveDmMaxRows) inLiveDmMaxRows.value = '5';
-            applyLiveDmScaleAndArea(true);
-            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
-                triggerSaveStorage();
-            }
-            window.showToast('↺ 已復位彈幕文字大小與彈幕區域尺寸');
-        });
-    }
     if (liveDmResizeHandle && liveChatScrollBox) {
         // 1) 鼠标按住拖拽手柄：左右拖动调弹幕区域宽度 (55%~100%)，上下拖动调弹幕区域高度/同屏行数 (2~9行)
         liveDmResizeHandle.addEventListener('mousedown', (e) => {
@@ -10630,21 +10749,149 @@ window.switchRightTab = function (mode) {
             window.addEventListener('mouseup', onUp);
         });
 
-        // 2) 在拖拽手柄上滚动鼠标滚轮：直接缩放整体弹幕文字与徽章大小 (75%~155%)
-        liveDmResizeHandle.addEventListener('wheel', (e) => {
+        // 2) 在拖拽手柄或整个评论区按住滚轮：直接缩放整体弹幕文字与徽章大小 (75%~220%)
+        const handleWheelScale = (e) => {
             e.preventDefault();
             e.stopPropagation();
             const curScale = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
             const delta = e.deltaY < 0 ? 5 : -5;
-            const nextScale = Math.min(155, Math.max(75, curScale + delta));
+            const nextScale = Math.min(220, Math.max(75, curScale + delta));
             if (inLiveDmScale) inLiveDmScale.value = String(nextScale);
             applyLiveDmScaleAndArea(false);
             if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
                 triggerSaveStorage();
             }
+        };
+        liveDmResizeHandle.addEventListener('wheel', handleWheelScale, { passive: false });
+        liveChatScrollBox.addEventListener('wheel', (e) => {
+            if (e.ctrlKey || e.altKey || liveChatScrollBox.closest('.live-bottom-section.is-zoom-editing')) {
+                handleWheelScale(e);
+            }
         }, { passive: false });
     }
     applyLiveDmScaleAndArea(false);
+
+    const liveBottomSectionEl = liveOverlayEl ? liveOverlayEl.querySelector('.live-bottom-section') : null;
+    const btnLiveCanvasZoomEdit = document.getElementById('btn-live-canvas-zoom-edit');
+    const btnLiveCanvasResetSize = document.getElementById('btn-live-canvas-reset-size');
+    const btnLiveHeaderZoomEdit = document.getElementById('btn-live-header-zoom-edit');
+    const btnLiveHeaderResetSize = document.getElementById('btn-live-header-reset-size');
+    const btnLiveDmZoom2 = document.getElementById('btn-live-dm-zoom-2');
+    const btnLiveDmReset2 = document.getElementById('btn-live-dm-reset-2');
+    const btnLiveToggleZoomEdit = document.getElementById('btn-live-toggle-zoom-edit');
+    const btnLiveCanvasSpdDown = document.getElementById('btn-live-canvas-spd-down');
+    const btnLiveCanvasSpdUp = document.getElementById('btn-live-canvas-spd-up');
+    const txtLiveCanvasSpd = document.getElementById('txt-live-canvas-spd');
+    const btnLiveCanvasAiDm = document.getElementById('btn-live-canvas-ai-dm');
+
+    function syncLiveZoomEditingUI(forceState = null) {
+        if (!liveBottomSectionEl) return false;
+        const nextOn = typeof forceState === 'boolean' ? forceState : !liveBottomSectionEl.classList.contains('is-zoom-editing');
+        liveBottomSectionEl.classList.toggle('is-zoom-editing', nextOn);
+        if (btnLiveCanvasZoomEdit) {
+            btnLiveCanvasZoomEdit.classList.toggle('is-active', nextOn);
+            btnLiveCanvasZoomEdit.textContent = nextOn ? '🔍 收起放大' : '🔍 放大查看';
+        }
+        if (btnLiveHeaderZoomEdit) {
+            btnLiveHeaderZoomEdit.textContent = nextOn ? '🔍 收起放大預覽' : '🔍 放大查看調細節';
+            btnLiveHeaderZoomEdit.style.background = nextOn ? 'linear-gradient(90deg, #f59e0b, #ec4899)' : 'linear-gradient(90deg, #0284c7, #7c3aed)';
+        }
+        if (btnLiveDmZoom2) {
+            btnLiveDmZoom2.textContent = nextOn ? '🔍 收起放大' : '🔍 放大查看';
+            btnLiveDmZoom2.style.background = nextOn ? 'linear-gradient(90deg, #f59e0b, #ec4899)' : 'linear-gradient(90deg, #0284c7, #7c3aed)';
+        }
+        if (btnLiveToggleZoomEdit) {
+            btnLiveToggleZoomEdit.textContent = nextOn ? '🔍收起放大' : '🔍放大查看细节';
+            btnLiveToggleZoomEdit.style.background = nextOn ? 'linear-gradient(90deg, #f59e0b, #ec4899)' : 'linear-gradient(90deg, #0284c7, #7c3aed)';
+        }
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+        return nextOn;
+    }
+    window.syncLiveZoomEditingUI = syncLiveZoomEditingUI;
+
+    function resetLiveDmSizeAndZoom(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        syncLiveZoomEditingUI(false);
+        if (inLiveDmScale) inLiveDmScale.value = '100';
+        if (inLiveDmAreaWidth) inLiveDmAreaWidth.value = '93';
+        if (inLiveDmMaxRows) inLiveDmMaxRows.value = '5';
+        applyLiveDmScaleAndArea(true);
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+        window.showToast('↺ 已重置評論區放大狀態與標準尺寸（100% · 寬93% · 5行）');
+    }
+
+    [btnLiveResetDmSize, btnLiveCanvasResetSize, btnLiveHeaderResetSize, btnLiveDmReset2].forEach(rBtn => {
+        if (rBtn) rBtn.addEventListener('click', resetLiveDmSizeAndZoom);
+    });
+
+    const handleToggleZoomClick = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (!isLiveRoomOpenNow() && typeof enterLayaLiveRoom === 'function') {
+            enterLayaLiveRoom();
+        }
+        const isNowZoom = syncLiveZoomEditingUI();
+        window.showToast(isNowZoom ? '🔍 已放大底部禮物與評論區，雙擊任意文字/勳章即可精修細節（點「↺ 重置大小」可一鍵還原）' : '✅ 已還原直播間標準預覽比例');
+    };
+    [btnLiveCanvasZoomEdit, btnLiveHeaderZoomEdit, btnLiveDmZoom2, btnLiveToggleZoomEdit].forEach(zBtn => {
+        if (zBtn) zBtn.addEventListener('click', handleToggleZoomClick);
+    });
+
+    function adjustLiveSpeedByStep(deltaStep) {
+        const cur = getLiveDmSpeedVal();
+        const next = Math.min(10, Math.max(1, cur + deltaStep));
+        if (inLiveDmSpeed) inLiveDmSpeed.value = String(next);
+        if (txtLiveDmSpeed) txtLiveDmSpeed.textContent = formatLiveDmSpeedLabel(next);
+        if (txtLiveCanvasSpd) txtLiveCanvasSpd.textContent = `⚡${next}檔`;
+        if (inLiveGiftSpeed) {
+            const curGiftSpd = getLiveGiftSpeedVal();
+            const nextGiftSpd = Math.min(10, Math.max(1, curGiftSpd + deltaStep));
+            inLiveGiftSpeed.value = String(nextGiftSpd);
+            if (txtLiveGiftSpeed) txtLiveGiftSpeed.textContent = formatLiveGiftSpeedLabel(nextGiftSpd);
+        }
+        if (swLiveAutoRollDm && !swLiveAutoRollDm.checked) swLiveAutoRollDm.checked = true;
+        if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) swLiveAutoCycleGift.checked = true;
+        syncAutoGiftToggleBadgeUI();
+        renderLiveChatBubbles(true);
+        cycleNextGiftBannerWithSlide(true);
+        restartLiveChatRollTimer();
+        restartLiveGiftAutoCycleTimer();
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        window.showToast(`⚡ 直播間評論與禮物速度已調至：${formatLiveDmSpeedLabel(next)}`);
+    }
+
+    if (btnLiveCanvasSpdDown) {
+        btnLiveCanvasSpdDown.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            adjustLiveSpeedByStep(-1);
+        });
+    }
+    if (btnLiveCanvasSpdUp) {
+        btnLiveCanvasSpdUp.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            adjustLiveSpeedByStep(1);
+        });
+    }
+    if (btnLiveCanvasAiDm) {
+        btnLiveCanvasAiDm.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof autoMatchLiveDanmakuByVideoAI === 'function') {
+                autoMatchLiveDanmakuByVideoAI(true, null);
+            }
+        });
+    }
 
     let isHoveringLiveChatBox = false;
     if (liveChatScrollBox) {
@@ -10652,23 +10899,143 @@ window.switchRightTab = function (mode) {
         liveChatScrollBox.addEventListener('mouseleave', () => { isHoveringLiveChatBox = false; });
     }
 
+    // ★ 礼物弹窗连击数字跳动（x1 -> x2 -> x5 -> x9 -> x18 -> x52 -> x66 -> x99）+ 自动轮播下一位真人送礼
+    // ★ 礼物弹窗连击数字跳动（x1 -> x2 -> x5 -> x9 -> x18 -> x52 -> x66 -> x99）+ 自动弹出轮播下一位真人送礼 + 1~10档独立速度调节
+    const inLiveGiftSpeed = document.getElementById('in-live-gift-speed');
+    const txtLiveGiftSpeed = document.getElementById('txt-live-gift-speed');
+    const btnLiveGiftSpdDown = document.getElementById('btn-live-gift-spd-down');
+    const btnLiveGiftSpdUp = document.getElementById('btn-live-gift-spd-up');
+    const txtLiveAutoGiftState = document.getElementById('txt-live-auto-gift-state');
+
+    const GIFT_SWITCH_MS_TABLE = [3500, 2900, 2400, 2000, 1700, 1400, 1100, 850, 680, 520];
+    const GIFT_BOUNCE_MS_TABLE = [820, 690, 580, 480, 400, 330, 270, 220, 180, 150];
+    const GIFT_SPEED_DESC_TABLE = ['悠闲弹出', '慢速弹出', '舒缓轮播', '标准弹出', '热闹送礼', '欢快连发', '高频刷礼', '狂飙刷礼', '大哥屠屏', '满屏暴击'];
+
+    function getLiveGiftSpeedVal() {
+        const raw = inLiveGiftSpeed ? parseInt(inLiveGiftSpeed.value, 10) : 6;
+        return Math.min(10, Math.max(1, isNaN(raw) ? 6 : raw));
+    }
+
+    function formatLiveGiftSpeedLabel(lv) {
+        const idx = Math.min(10, Math.max(1, parseInt(lv, 10) || 6)) - 1;
+        const secStr = (GIFT_SWITCH_MS_TABLE[idx] / 1000).toFixed(1).replace(/\.0$/, '');
+        return `${idx + 1}档 · ${secStr}秒/个 (${GIFT_SPEED_DESC_TABLE[idx]})`;
+    }
+
+    const GIFT_COMBO_STEP_SEQ = ['x1', 'x2', 'x5', 'x9', 'x18', 'x52', 'x66', 'x99', 'x188', 'x520'];
+    function bumpLiveGiftComboOnce() {
+        if (!liveGiftComboNum || isEditingGiftBanner) return;
+        const curTxt = (liveGiftComboNum.textContent || 'x9').trim();
+        const curNum = parseInt(curTxt.replace(/[^\d]/g, ''), 10) || 1;
+        let nextTxt = 'x9';
+        const seqIdx = GIFT_COMBO_STEP_SEQ.indexOf('x' + curNum);
+        if (seqIdx >= 0 && seqIdx < GIFT_COMBO_STEP_SEQ.length - 1) {
+            nextTxt = GIFT_COMBO_STEP_SEQ[seqIdx + 1];
+        } else if (curNum < 99) {
+            nextTxt = 'x' + (curNum + Math.max(1, Math.floor(Math.random() * 5)));
+        } else {
+            nextTxt = GIFT_COMBO_STEP_SEQ[Math.floor(Math.random() * 5)];
+        }
+        liveGiftComboNum.textContent = nextTxt;
+        if (inLiveGiftCount) inLiveGiftCount.value = nextTxt;
+        liveGiftComboNum.classList.remove('is-bouncing');
+        void liveGiftComboNum.offsetWidth;
+        liveGiftComboNum.classList.add('is-bouncing');
+        if (liveGiftItemIcon) {
+            liveGiftItemIcon.classList.remove('is-bouncing');
+            void liveGiftItemIcon.offsetWidth;
+            liveGiftItemIcon.classList.add('is-bouncing');
+        }
+        if (liveGiftComboBanner && !liveGiftComboBanner.classList.contains('gift-slide-out')) {
+            liveGiftComboBanner.classList.remove('gift-slide-in', 'is-combo-pulse');
+            void liveGiftComboBanner.offsetWidth;
+            liveGiftComboBanner.classList.add('is-combo-pulse');
+        }
+    }
+
+    function syncAutoGiftToggleBadgeUI() {
+        const isOn = !swLiveAutoCycleGift || swLiveAutoCycleGift.checked;
+        if (txtLiveAutoGiftState) {
+            txtLiveAutoGiftState.textContent = isOn ? '自动弹出轮播中' : '已暂停(点此开启)';
+        }
+    }
+
     function restartLiveGiftAutoCycleTimer() {
         if (liveGiftComboTimer) {
             clearInterval(liveGiftComboTimer);
             liveGiftComboTimer = null;
         }
-        if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
-        if (swLiveAutoCycleGift && swLiveAutoCycleGift.checked) {
-            liveGiftComboTimer = setInterval(() => {
-                if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
-                cycleNextGiftBannerWithSlide(true);
-            }, 6500);
+        if (liveGiftComboBounceTimer) {
+            clearInterval(liveGiftComboBounceTimer);
+            liveGiftComboBounceTimer = null;
         }
+        const giftSpdLv = getLiveGiftSpeedVal();
+        if (txtLiveGiftSpeed) {
+            txtLiveGiftSpeed.textContent = formatLiveGiftSpeedLabel(giftSpdLv);
+        }
+        syncAutoGiftToggleBadgeUI();
+        if (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) {
+            const idx = giftSpdLv - 1;
+            const switchGiftMs = GIFT_SWITCH_MS_TABLE[idx] || 1400;
+            const bounceComboMs = GIFT_BOUNCE_MS_TABLE[idx] || 330;
+            liveGiftComboBounceTimer = setInterval(() => {
+                if (!isLiveRoomOpenNow() || isEditingGiftBanner) return;
+                if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) return;
+                bumpLiveGiftComboOnce();
+            }, bounceComboMs);
+            liveGiftComboTimer = setInterval(() => {
+                if (!isLiveRoomOpenNow() || isEditingGiftBanner) return;
+                if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) return;
+                cycleNextGiftBannerWithSlide(true);
+            }, switchGiftMs);
+        }
+    }
+
+    function setLiveGiftSpeedLevel(nextLv, showToastMsg = true) {
+        const lv = Math.min(10, Math.max(1, parseInt(nextLv, 10) || 6));
+        if (inLiveGiftSpeed) inLiveGiftSpeed.value = String(lv);
+        if (txtLiveGiftSpeed) txtLiveGiftSpeed.textContent = formatLiveGiftSpeedLabel(lv);
+        if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) {
+            swLiveAutoCycleGift.checked = true;
+        }
+        syncAutoGiftToggleBadgeUI();
+        cycleNextGiftBannerWithSlide(true);
+        restartLiveGiftAutoCycleTimer();
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+        if (showToastMsg) {
+            window.showToast(`🎁 禮物彈出與連擊速度已設為：${formatLiveGiftSpeedLabel(lv)}`);
+        }
+    }
+
+    if (inLiveGiftSpeed) {
+        inLiveGiftSpeed.addEventListener('input', () => {
+            setLiveGiftSpeedLevel(inLiveGiftSpeed.value, false);
+        });
+    }
+    if (btnLiveGiftSpdDown) {
+        btnLiveGiftSpdDown.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setLiveGiftSpeedLevel(getLiveGiftSpeedVal() - 1, true);
+        });
+    }
+    if (btnLiveGiftSpdUp) {
+        btnLiveGiftSpdUp.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setLiveGiftSpeedLevel(getLiveGiftSpeedVal() + 1, true);
+        });
     }
     if (swLiveAutoCycleGift) {
         swLiveAutoCycleGift.addEventListener('change', () => {
+            syncAutoGiftToggleBadgeUI();
             restartLiveGiftAutoCycleTimer();
-            window.showToast(swLiveAutoCycleGift.checked ? '🔄 已開啟禮物彈窗自動輪播' : '⏸️ 已固定當前禮物彈窗（點篩子或手動修改後文字不再自動跳變）');
+            if (swLiveAutoCycleGift.checked) {
+                cycleNextGiftBannerWithSlide(true);
+            }
+            window.showToast(swLiveAutoCycleGift.checked ? '🔄 已開啟禮物彈窗自動輪播與連擊跳動' : '⏸️ 已固定當前禮物彈窗（點篩子或手動修改後文字不再自動跳變）');
         });
     }
 
@@ -10686,11 +11053,14 @@ window.switchRightTab = function (mode) {
         if (txtLiveDmSpeed) {
             txtLiveDmSpeed.textContent = formatLiveDmSpeedLabel(speedLv);
         }
-        // 始终保持定时器就绪（只要处于直播间且未手动关闭开关，弹幕就会默认源源不断向上滚动，绝不因为初始化时序而卡死）
+        if (txtLiveCanvasSpd) {
+            txtLiveCanvasSpd.textContent = `⚡${speedLv}檔`;
+        }
+        // 始终保持定时器就绪（不管是否上传视频，只要打开直播间就默认源源不断向上滚动）
         if (!swLiveAutoRollDm || swLiveAutoRollDm.checked) {
             const intervalMs = getLiveDmIntervalMs(speedLv);
             liveChatRollTimer = setInterval(() => {
-                if (renderTarget && renderTarget.classList.contains('dy-live-open') && liveDmVisible) {
+                if (isLiveRoomOpenNow() && liveDmVisible) {
                     renderLiveChatBubbles(true);
                 }
             }, intervalMs);
@@ -10699,7 +11069,7 @@ window.switchRightTab = function (mode) {
         // 最底部单行「足弟 来了 / 💎17 足弟 来了」进场通道：随弹幕速度滑块同步加速切换进场观众
         const joinIntervalMs = getLiveJoinIntervalMs(speedLv);
         liveJoinTickerTimer = setInterval(() => {
-            if (renderTarget && renderTarget.classList.contains('dy-live-open') && liveDmVisible && liveEditingDmIdx === null) {
+            if (isLiveRoomOpenNow() && liveDmVisible && liveEditingDmIdx === null) {
                 renderLiveJoinTicker(true);
             }
         }, joinIntervalMs);
@@ -10711,11 +11081,66 @@ window.switchRightTab = function (mode) {
         });
     }
 
+    // ★ 根据视频画面进度（播放中或手动拖动底部进度条/时间轴）实时联动推进直播间评论、进场、礼物与点赞飘心
+    window.__onLiveVideoProgressSync = function (curTimeSec, isPaused) {
+        if (!isLiveRoomOpenNow()) return;
+        const t = Number(curTimeSec) || 0;
+        if (lastLiveVideoSyncTime < 0) {
+            lastLiveVideoSyncTime = t;
+            return;
+        }
+        const diff = Math.abs(t - lastLiveVideoSyncTime);
+        const speedLv = getLiveDmSpeedVal();
+        const stepThresholdSec = Math.max(0.08, (getLiveDmIntervalMs(speedLv) / 1000) * 0.85);
+        // 当用户手动拖拽进度条游标(isPaused 或跳跃较大)或播放推进达到阈值时，同步推进公屏与礼物/点赞
+        if ((isPaused && diff >= 0.12) || diff >= stepThresholdSec) {
+            lastLiveVideoSyncTime = t;
+            if (liveDmVisible && (!swLiveAutoRollDm || swLiveAutoRollDm.checked)) {
+                renderLiveChatBubbles(true);
+                renderLiveJoinTicker(true);
+            }
+            if (isPaused && diff >= 0.15) {
+                spawnSingleLiveHeart();
+                if (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) {
+                    if (Math.round(t * 2) % 3 === 0) {
+                        cycleNextGiftBannerWithSlide(true);
+                    } else {
+                        bumpLiveGiftComboOnce();
+                    }
+                }
+            }
+        }
+    };
+
+    const previewVidForLiveSync = document.getElementById('preview-video');
+    if (previewVidForLiveSync) {
+        previewVidForLiveSync.addEventListener('seeking', () => {
+            if (typeof window.__onLiveVideoProgressSync === 'function') {
+                window.__onLiveVideoProgressSync(previewVidForLiveSync.currentTime || 0, true);
+            }
+        });
+        previewVidForLiveSync.addEventListener('ratechange', () => {
+            if (isLiveRoomOpenNow()) {
+                restartLiveChatRollTimer();
+                restartLiveGiftAutoCycleTimer();
+            }
+        });
+    }
+    const inProgressSliderForLive = document.getElementById('in-progress');
+    if (inProgressSliderForLive) {
+        inProgressSliderForLive.addEventListener('input', () => {
+            if (typeof window.__onLiveVideoProgressSync === 'function') {
+                window.__onLiveVideoProgressSync(parseFloat(inProgressSliderForLive.value) || 0, true);
+            }
+        });
+    }
+
     function startLiveRoomAnimations() {
         liveRollTickCount = 0;
         liveDmVisible = true;
         liveEditingDmIdx = null;
         if (swLiveAutoRollDm) swLiveAutoRollDm.checked = true;
+        if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = true;
         if (liveChatList) liveChatList.style.opacity = '1';
         if (liveJoinTickerRow) liveJoinTickerRow.style.opacity = '1';
         if (liveSysNoticeEl) {
@@ -10728,17 +11153,22 @@ window.switchRightTab = function (mode) {
         renderLiveChatBubbles(false);
         renderLiveJoinTicker(false);
         restartLiveChatRollTimer();
-        // 进入直播间瞬间立即触发一次平滑上滑，让用户第一眼就看到评论正在流动
-        setTimeout(() => {
-            if (renderTarget && renderTarget.classList.contains('dy-live-open')) {
-                renderLiveChatBubbles(true);
-            }
-        }, 120);
-
-        spawnSingleLiveHeart();
-        setTimeout(spawnSingleLiveHeart, 240);
         restartLiveHeartTimer();
         restartLiveGiftAutoCycleTimer();
+
+        // 一打开直播间立即启动评论滚动、礼物连击跳动与点赞飘心，无论是否上传了视频都默认全自动开启
+        setTimeout(() => {
+            if (isLiveRoomOpenNow()) {
+                renderLiveChatBubbles(true);
+                bumpLiveGiftComboOnce();
+                spawnSingleLiveHeart();
+            }
+        }, 120);
+        setTimeout(() => {
+            if (isLiveRoomOpenNow()) {
+                spawnSingleLiveHeart();
+            }
+        }, 280);
 
         if (liveHeaderFlipTimer) {
             clearInterval(liveHeaderFlipTimer);
@@ -10767,16 +11197,49 @@ window.switchRightTab = function (mode) {
             clearInterval(liveGiftComboTimer);
             liveGiftComboTimer = null;
         }
+        if (liveGiftComboBounceTimer) {
+            clearInterval(liveGiftComboBounceTimer);
+            liveGiftComboBounceTimer = null;
+        }
         if (liveHeaderFlipTimer) {
             clearInterval(liveHeaderFlipTimer);
             liveHeaderFlipTimer = null;
         }
+        syncLiveZoomEditingUI(false);
     }
 
-    // 进入 Laya 直播页面（满足：1.手机竖屏9:16 + 2.顶部点了「直播」 + 3.下方视频区或「點擊進入直播間」被点击）
-    function enterLayaLiveRoom() {
+    // ★ 右侧编辑栏瞬间跳转并高亮【🔴 直播间专属设置】卡片
+    function scrollToLiveSettingsCardImmediately() {
+        if (typeof window.switchRightTab === 'function') {
+            window.switchRightTab('dy');
+        }
+        if (typeof setActiveQuickAccessItem === 'function') {
+            setActiveQuickAccessItem('card-dy-live-settings', true);
+        }
+        const liveCard = document.getElementById('card-dy-live-settings');
+        const rightSide = document.getElementById('right-sidebar');
+        if (liveCard && rightSide) {
+            rightSide.querySelectorAll('.panel-card.qa-card-focus-glow').forEach(c => c.classList.remove('qa-card-focus-glow'));
+            const jumpNow = () => {
+                const sideRect = rightSide.getBoundingClientRect();
+                const cardRect = liveCard.getBoundingClientRect();
+                const targetTop = rightSide.scrollTop + (cardRect.top - sideRect.top) - 10;
+                rightSide.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
+                void liveCard.offsetWidth;
+                liveCard.classList.add('qa-card-focus-glow');
+            };
+            requestAnimationFrame(jumpNow);
+            setTimeout(jumpNow, 65);
+        }
+    }
+
+    // 进入 Laya 直播页面（点顶部「直播」立即进入，自动开启礼物轮播、点赞飘心与公屏滚动，且右侧瞬间跳到【直播间专属设置】）
+    function enterLayaLiveRoom(opts = {}) {
         if (!window.__ENABLE_LAYA_LIVE_ENTRY) return;
-        if (!renderTarget || !renderTarget.classList.contains('mode-mobile-port')) return;
+        if (!renderTarget) return;
+        if (!renderTarget.classList.contains('mode-mobile-port') && window.PlayerEngine && typeof window.PlayerEngine.activateViewportMode === 'function') {
+            window.PlayerEngine.activateViewportMode('mode-mobile-port');
+        }
         window.__layaLiveTabArmed = false;
         if (liveArmedTipEl) liveArmedTipEl.style.display = 'none';
         if (topNavBounceTimer) {
@@ -10784,7 +11247,7 @@ window.switchRightTab = function (mode) {
             topNavBounceTimer = null;
         }
 
-        // 若评论区打开则先收起，并从预览态切换为直播间内页态
+        // 若评论区打开则先收起，并切换为直播间内页态
         renderTarget.classList.remove('dy-comment-open', 'dy-comment-expanded', 'dy-live-preview');
         renderTarget.classList.add('dy-live-open');
         if (liveOverlayEl) liveOverlayEl.style.display = 'flex';
@@ -10793,24 +11256,63 @@ window.switchRightTab = function (mode) {
         // 保持本软件原有的顶部标签栏亮在「直播」(index 2)
         document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item').forEach((el, idx) => el.classList.toggle('active', idx === 2));
         document.querySelectorAll('.laya-nav-tabs > span').forEach((el, idx) => el.classList.toggle('active', idx === 2));
+        document.querySelectorAll('.dy-top-tabs > span').forEach((el, idx) => el.classList.toggle('active', idx === 2));
 
         if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
             setTimeout(() => window.PlayerEngine.updateTransform(), 25);
         }
         startLiveRoomAnimations();
-
-        // 自动展开右侧「竖屏社区」面板并定位到直播设置卡片
-        const dySideTabBtn = document.querySelector('.sidebar-tabs .s-tab[data-target="panel-dy-settings"]');
-        if (dySideTabBtn && !dySideTabBtn.classList.contains('active')) {
-            dySideTabBtn.click();
+        if (!opts || !opts.preserveScroll) {
+            scrollToLiveSettingsCardImmediately();
+        } else {
+            if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
+            if (typeof setActiveQuickAccessItem === 'function') setActiveQuickAccessItem('card-dy-live-settings', true);
         }
-        const liveCard = document.getElementById('card-dy-live-settings');
-        if (liveCard && typeof liveCard.scrollIntoView === 'function') {
-            setTimeout(() => liveCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' }), 80);
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
         }
-        window.showToast('🔴 已進入直播間！可在右側調整在線人數、禮物條與彩虹彈幕');
+        if (!opts || !opts.silentToast) {
+            window.showToast('🔴 已進入直播間！禮物、點讚與滾動評論已自動開啟，右側已定位至【直播間專屬設置】');
+        }
     }
     window.enterLayaLiveRoom = enterLayaLiveRoom;
+
+    // ★ 当用户点击中间快捷导航「🔴 直播间设置」或在右侧点击/调整【🔴 直播间专属设置】卡片任意项时，若左侧还未进入直播间，自动打开直播间并启动滚动！
+    const qaLiveItemBtn = document.querySelector('.qa-item[data-target-card="card-dy-live-settings"]');
+    if (qaLiveItemBtn) {
+        qaLiveItemBtn.addEventListener('click', () => {
+            if (!isLiveRoomOpenNow()) {
+                enterLayaLiveRoom();
+            }
+        });
+    }
+    const liveSettingsCardEl = document.getElementById('card-dy-live-settings');
+    if (liveSettingsCardEl) {
+        liveSettingsCardEl.addEventListener('mousedown', (e) => {
+            if (window.__isRestoringStorage) return;
+            if (e.target && e.target.closest && e.target.closest('#btn-live-back-to-video')) return;
+            if (!isLiveRoomOpenNow() && renderTarget && renderTarget.classList.contains('mode-mobile-port')) {
+                enterLayaLiveRoom();
+            }
+        });
+    }
+
+    // ★ 700ms 自愈巡检守护：只要直播间处于开启状态，确保公屏评论滚动、底部进场、礼物连击轮播、右侧飘心 4 大定时器始终活跃运行，绝不因任何时序或切换而停摆
+    setInterval(() => {
+        if (!isLiveRoomOpenNow()) return;
+        if ((!swLiveAutoRollDm || swLiveAutoRollDm.checked) && !liveChatRollTimer) {
+            restartLiveChatRollTimer();
+        }
+        if (!liveJoinTickerTimer) {
+            restartLiveChatRollTimer();
+        }
+        if ((!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) && (!liveGiftComboTimer || !liveGiftComboBounceTimer)) {
+            restartLiveGiftAutoCycleTimer();
+        }
+        if (!liveHeartTimer) {
+            restartLiveHeartTimer();
+        }
+    }, 700);
 
     // 切回短视频（推薦）默认状态
     function exitLayaLiveRoom(showMsg = true) {
@@ -10829,6 +11331,9 @@ window.switchRightTab = function (mode) {
 
         if (window.PlayerEngine && typeof window.PlayerEngine.updateTransform === 'function') {
             setTimeout(() => window.PlayerEngine.updateTransform(), 25);
+        }
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
         }
         if (wasOpen && showMsg) {
             window.showToast('🎬 已切回短視頻（推薦）頁面');
@@ -11933,8 +12438,11 @@ window.switchRightTab = function (mode) {
         inLiveDmSpeed.addEventListener('input', () => {
             const v = getLiveDmSpeedVal();
             if (txtLiveDmSpeed) txtLiveDmSpeed.textContent = formatLiveDmSpeedLabel(v);
+            if (txtLiveCanvasSpd) txtLiveCanvasSpd.textContent = `⚡${v}檔`;
+            if (swLiveAutoRollDm && !swLiveAutoRollDm.checked) swLiveAutoRollDm.checked = true;
             renderLiveChatBubbles(true);
             restartLiveChatRollTimer();
+            restartLiveGiftAutoCycleTimer();
         });
     }
 
@@ -12418,23 +12926,179 @@ window.switchRightTab = function (mode) {
                 ctx.fillText(joinTxt, jCurX, jMidY);
                 ctx.restore();
             }
+
+            // 二点五、动态绘制礼物进场提示条 (#live-gift-combo-banner：随礼物速度滑块自动滑入切换不同礼物并跳动连击数字)
+            const giftBox = layout.giftBox || {
+                x: chatBox.x,
+                y: Math.max(80 * scaleRatioY, (layout.scrollBox ? layout.scrollBox.y : chatBox.y) - Math.round(35 * scaleRatioY)),
+                w: Math.round(170 * scaleRatioX),
+                h: Math.round(31 * scaleRatioY)
+            };
+            const giftSpdLv = getLiveGiftSpeedVal();
+            const gSpdIdx = Math.min(9, Math.max(0, giftSpdLv - 1));
+            const switchGiftMs = GIFT_SWITCH_MS_TABLE[gSpdIdx] || 1400;
+            const bounceComboMs = GIFT_BOUNCE_MS_TABLE[gSpdIdx] || 330;
+            const autoGiftOn = !swLiveAutoCycleGift || swLiveAutoCycleGift.checked;
+
+            const giftCycleStep = autoGiftOn ? Math.floor(elapsedMs / switchGiftMs) : 0;
+            const giftPhaseMs = autoGiftOn ? (elapsedMs % switchGiftMs) : 500;
+            const comboStepInCycle = autoGiftOn ? Math.floor(giftPhaseMs / bounceComboMs) : 0;
+            const comboBouncePhase = autoGiftOn ? ((giftPhaseMs % bounceComboMs) / bounceComboMs) : 1;
+
+            let expSender = (inLiveGiftUser && inLiveGiftUser.value.trim()) || '皓哥';
+            let expGiftDesc = (inLiveGiftName && inLiveGiftName.value.trim()) || '送 嘉年華';
+            let expGiftIcon = (inLiveGiftIcon && inLiveGiftIcon.value.trim()) || '🎠';
+            let expBaseColor = (inLiveGiftColor && inLiveGiftColor.value) || '#9333ea';
+            let expEndColor = currentGiftEndColor || 'rgba(245, 158, 11, 0.85)';
+            let expComboTxt = (inLiveGiftCount && inLiveGiftCount.value.trim()) || 'x9';
+
+            if (autoGiftOn && giftCycleStep > 0) {
+                expSender = giftUserPresets[(lastGiftUserIdx + giftCycleStep) % giftUserPresets.length];
+                const catItem = LIVE_GIFT_CATALOG[(lastGiftCatalogIdx + giftCycleStep) % LIVE_GIFT_CATALOG.length];
+                if (catItem) {
+                    expGiftDesc = catItem.name;
+                    expGiftIcon = catItem.icon;
+                    expBaseColor = catItem.color;
+                    expEndColor = catItem.endColor;
+                }
+            }
+            if (autoGiftOn) {
+                expComboTxt = GIFT_COMBO_STEP_SEQ[comboStepInCycle % GIFT_COMBO_STEP_SEQ.length] || 'x9';
+            }
+
+            // 滑入位移动画（前 260ms 从左侧滑入）
+            const slideInProgress = autoGiftOn ? Math.min(1, giftPhaseMs / 260) : 1;
+            const slideEase = 1 - Math.pow(1 - slideInProgress, 3);
+            const slideOffsetX = Math.round((1 - slideEase) * (-28 * scaleRatioX));
+            const bannerAlpha = autoGiftOn ? Math.min(1, 0.25 + slideEase * 0.75) : 1;
+
+            const gH = Math.round(30 * scaleRatioY);
+            const gY = giftBox.y;
+            const gX = giftBox.x + slideOffsetX;
+            const avSize = Math.round(24 * scaleRatioX);
+            const senderFontPx = Math.round(9.8 * scaleRatioX);
+            const descFontPx = Math.round(8.2 * scaleRatioX);
+            const iconFontPx = Math.round(18.5 * scaleRatioX);
+            const comboFontPx = Math.round(15.8 * scaleRatioX);
+
+            ctx.save();
+            ctx.globalAlpha = bannerAlpha;
+            ctx.font = `800 ${senderFontPx}px ${activeFont}`;
+            const sNameW = ctx.measureText(expSender).width;
+            ctx.font = `600 ${descFontPx}px ${activeFont}`;
+            const sDescW = ctx.measureText(expGiftDesc).width;
+            const metaW = Math.max(sNameW, sDescW);
+            ctx.font = `italic 900 ${comboFontPx}px "Inter", ${activeFont}`;
+            const comboW = ctx.measureText(expComboTxt).width;
+            const gBannerW = Math.ceil((3.5 + 6 + 6 + 4 + 11) * scaleRatioX + avSize + metaW + iconFontPx + comboW);
+
+            // 胶囊流光渐变底色
+            const gGrad = ctx.createLinearGradient(gX, gY, gX + gBannerW, gY);
+            gGrad.addColorStop(0, hexToRgba(expBaseColor, 0.94));
+            gGrad.addColorStop(0.58, hexToRgba(expBaseColor, 0.84));
+            gGrad.addColorStop(1, expEndColor);
+            drawLiveRoundRect(ctx, gX, gY, gBannerW, gH, gH / 2);
+            ctx.fillStyle = gGrad;
+            ctx.fill();
+            ctx.lineWidth = Math.max(1, 1 * scaleRatioX);
+            ctx.strokeStyle = hexToRgba(expBaseColor, 0.75);
+            ctx.stroke();
+
+            // 左侧圆形真人送礼头像
+            const avX = gX + Math.round(3.5 * scaleRatioX);
+            const avY = gY + Math.round((gH - avSize) / 2);
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2);
+            ctx.closePath();
+            ctx.clip();
+            if (liveGiftSenderAv && liveGiftSenderAv.complete && liveGiftSenderAv.naturalWidth > 0) {
+                try {
+                    ctx.drawImage(liveGiftSenderAv, avX, avY, avSize, avSize);
+                } catch (avDrawErr) {
+                    ctx.fillStyle = '#7c3aed';
+                    ctx.fillRect(avX, avY, avSize, avSize);
+                }
+            } else {
+                ctx.fillStyle = '#7c3aed';
+                ctx.fillRect(avX, avY, avSize, avSize);
+            }
+            ctx.restore();
+            ctx.beginPath();
+            ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2);
+            ctx.lineWidth = Math.max(1, 1.2 * scaleRatioX);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.stroke();
+
+            // 送礼人昵称与礼物描述
+            const metaX = avX + avSize + Math.round(6 * scaleRatioX);
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.font = `800 ${senderFontPx}px ${activeFont}`;
+            ctx.fillStyle = '#ffffff';
+            ctx.fillText(expSender, metaX, gY + gH * 0.34);
+            ctx.font = `600 ${descFontPx}px ${activeFont}`;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillText(expGiftDesc, metaX, gY + gH * 0.72);
+
+            // 礼物图标与连击数字跳动脉冲
+            const bounceScale = (autoGiftOn && comboBouncePhase < 0.36)
+                ? (1 + Math.sin((comboBouncePhase / 0.36) * Math.PI) * 0.32)
+                : 1;
+            const iconCenterX = metaX + metaW + Math.round(6 * scaleRatioX) + iconFontPx * 0.5;
+            const iconCenterY = gY + gH * 0.52;
+            ctx.save();
+            ctx.translate(iconCenterX, iconCenterY);
+            ctx.scale(bounceScale, bounceScale);
+            ctx.font = `${iconFontPx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(expGiftIcon, 0, 0);
+            ctx.restore();
+
+            const comboX = iconCenterX + iconFontPx * 0.55 + Math.round(4 * scaleRatioX);
+            ctx.save();
+            ctx.translate(comboX, gY + gH * 0.54);
+            ctx.scale(bounceScale, bounceScale);
+            ctx.font = `italic 900 ${comboFontPx}px "Inter", ${activeFont}`;
+            ctx.fillStyle = '#fde047';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
+            ctx.shadowBlur = 4 * scaleRatioX;
+            ctx.fillText(expComboTxt, 0, 0);
+            ctx.restore();
+            ctx.restore();
         }
 
-        // 三、动态绘制右侧向上飘动的彩色矢量爱心粒子
-        const heartSizePx = Math.round(18 * scaleRatioX);
+        // 三、动态绘制右侧向上飘动的火花、笑脸、礼花、礼炮与彩色爱心混搭粒子
+        const EXPORT_CHEER_EMOJIS = ['🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩', '🎆', '😍', '🌟', '🎇', '💖', '🎈', '👍'];
+        const heartSizePx = Math.round(18.5 * scaleRatioX);
         const baseRightX = outW - 30 * scaleRatioX;
         const baseBottomY = outH - 148 * scaleRatioY;
-        const floatHeight = 185 * scaleRatioY;
+        const floatHeight = 205 * scaleRatioY;
         const density = getLiveHeartDensityVal();
-        const particleCount = Math.max(2, Math.min(8, Math.round(density * 0.75)));
+        const particleCount = Math.max(3, Math.min(9, Math.round(density * 0.85)));
 
         for (let i = 0; i < particleCount; i++) {
-            const phase = (elapsedSec * (0.55 + density * 0.03) + i * (1 / particleCount)) % 1;
+            const phase = (elapsedSec * (0.58 + density * 0.032) + i * (1 / particleCount)) % 1;
             const curY = baseBottomY - phase * floatHeight;
-            const swayX = Math.sin((phase * Math.PI * 2) + i * 1.7) * (11 * scaleRatioX);
+            const swayX = Math.sin((phase * Math.PI * 2) + i * 1.7) * (12 * scaleRatioX);
             const alpha = phase < 0.15 ? (phase / 0.15) : (phase > 0.72 ? Math.max(0, (1 - phase) / 0.28) : 0.96);
-            const col = EXPORT_HEART_COLORS[i % EXPORT_HEART_COLORS.length];
-            drawVectorHeartOnCanvas(ctx, baseRightX + swayX, curY, heartSizePx, col, alpha);
+            if (i % 5 === 4) {
+                const col = EXPORT_HEART_COLORS[i % EXPORT_HEART_COLORS.length];
+                drawVectorHeartOnCanvas(ctx, baseRightX + swayX, curY, heartSizePx, col, alpha);
+            } else {
+                const cycleStep = Math.floor(elapsedSec * (0.58 + density * 0.032) + i * (1 / particleCount));
+                const em = EXPORT_CHEER_EMOJIS[(i * 3 + cycleStep) % EXPORT_CHEER_EMOJIS.length];
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                ctx.font = `${heartSizePx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(em, baseRightX + swayX, curY);
+                ctx.restore();
+            }
         }
     };
 
@@ -12453,14 +13117,28 @@ window.switchRightTab = function (mode) {
     }
     // 自动将旧版逗号连在一行的弹幕缓存（如「前排！, 主播好漂亮, 這首歌絕了...」）拆分为每行一条，并同步礼物图标与真人头像
     normalizeLiveDanmakuTextarea(true);
+    ['btn-screenshot', 'btn-export-video'].forEach(expBtnId => {
+        const expBtn = document.getElementById(expBtnId);
+        if (expBtn) {
+            expBtn.addEventListener('click', () => {
+                syncLiveZoomEditingUI(false);
+            }, true);
+        }
+    });
     setTimeout(() => {
         if (localStorage.getItem('LAYA_LIVE_V24_CLEAN_BADGE_MIGRATED') !== '1') {
             if (swLiveDmRowHeart) swLiveDmRowHeart.checked = false;
-            if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = false;
             localStorage.setItem('LAYA_LIVE_V24_CLEAN_BADGE_MIGRATED', '1');
         }
-        // V25/V26 迁移：默认强制开启公屏弹幕平滑自动滚动，并将旧版全带勋章缓存升级为「名字：文案 + 名字 来了 + 60%无勋章路人」自然混排
+        // V25/V26/V27 迁移：默认强制开启公屏弹幕平滑自动滚动与礼物弹窗自动轮播跳动，无论是否上传视频打开直播间即全自动运行
         if (swLiveAutoRollDm) swLiveAutoRollDm.checked = true;
+        if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = true;
+        if (localStorage.getItem('LAYA_LIVE_V27_AUTO_GIFT_SYNC_MIGRATED') !== '1') {
+            if (swLiveAutoRollDm) swLiveAutoRollDm.checked = true;
+            if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = true;
+            localStorage.setItem('LAYA_LIVE_V27_AUTO_GIFT_SYNC_MIGRATED', '1');
+            saveAllToStorage();
+        }
         if (localStorage.getItem('LAYA_LIVE_V26_NOBADGE_JOIN_MIGRATED') !== '1') {
             localStorage.setItem('LAYA_LIVE_TEAM_PASS_OK', TEAM_AI_PASSCODE);
             if (inLiveAiGasUrl && !inLiveAiGasUrl.value.trim()) {
@@ -12494,6 +13172,7 @@ window.switchRightTab = function (mode) {
         applyLiveGiftBannerState(false, true);
         renderLiveChatBubbles(false);
         restartLiveChatRollTimer();
+        restartLiveHeartTimer();
         restartLiveGiftAutoCycleTimer();
     }, 140);
 
@@ -12508,5 +13187,15 @@ window.switchRightTab = function (mode) {
     applyLiveGiftBannerState(false, true);
     renderLiveChatBubbles(false);
     renderLiveJoinTicker(false);
-    exitLayaLiveRoom(false);
+    let shouldStayInLiveOnBoot = false;
+    try {
+        const rawSavedBoot = localStorage.getItem(STORAGE_KEY);
+        if (rawSavedBoot) {
+            const parsedBoot = JSON.parse(rawSavedBoot);
+            shouldStayInLiveOnBoot = !!(parsedBoot && parsedBoot.liveRoomOpen && parsedBoot.viewportMode === 'mode-mobile-port');
+        }
+    } catch (e) {}
+    if (!shouldStayInLiveOnBoot) {
+        exitLayaLiveRoom(false);
+    }
 })();

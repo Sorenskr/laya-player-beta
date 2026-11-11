@@ -7742,42 +7742,51 @@ input[type="range"] {
     display: block;
 }
 
-/* 右侧：竖排爱心飘动画（粉色/紫色爱心从下往上飘） */
+/* 右侧：竖排多彩开心飘赞动画（火花✨🔥、笑脸🥳🤩😄、礼花礼炮🎉🎊🎆、彩心💖从下往上欢快飘动） */
 .live-floating-hearts {
     position: absolute;
-    right: 10px;
+    right: 6px;
     bottom: 44px;
-    width: 52px;
-    height: 195px;
+    width: 68px;
+    height: 260px;
     pointer-events: none;
     overflow: visible;
-    z-index: 6;
+    z-index: 48;
 }
 .live-heart-particle {
     position: absolute;
     bottom: 0;
-    right: 8px;
-    font-size: 17.5px;
+    right: var(--hright, 10px);
+    font-size: var(--hsize, 19.5px);
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     pointer-events: none;
-    filter: drop-shadow(0 2px 6px rgba(168, 85, 247, 0.55));
-    animation: liveHeartFloatUp 2.35s ease-out forwards;
+    user-select: none;
+    will-change: transform, opacity;
+    filter: drop-shadow(0 2px 5px rgba(0, 0, 0, 0.45)) drop-shadow(0 0 8px rgba(250, 204, 21, 0.42));
+    animation: liveHeartFloatUp 2.25s cubic-bezier(0.22, 0.8, 0.36, 1) forwards;
 }
 @keyframes liveHeartFloatUp {
     0% {
-        transform: translateY(0) translateX(0) scale(0.55);
-        opacity: 0.96;
+        transform: translateY(0) translateX(0) scale(0.45) rotate(0deg);
+        opacity: 0.98;
     }
-    35% {
-        transform: translateY(-68px) translateX(var(--hx1, -8px)) scale(1.1);
-        opacity: 0.96;
+    25% {
+        transform: translateY(-52px) translateX(var(--hx1, -10px)) scale(1.18) rotate(var(--hrot1, -10deg));
+        opacity: 1;
     }
-    75% {
-        transform: translateY(-140px) translateX(var(--hx2, 6px)) scale(0.98);
-        opacity: 0.68;
+    60% {
+        transform: translateY(-132px) translateX(var(--hx2, 9px)) scale(1.06) rotate(var(--hrot2, 10deg));
+        opacity: 0.92;
+    }
+    85% {
+        transform: translateY(-190px) translateX(var(--hx1, -6px)) scale(0.95) rotate(var(--hrot1, -6deg));
+        opacity: 0.55;
     }
     100% {
-        transform: translateY(-192px) translateX(var(--hx1, -4px)) scale(0.82);
+        transform: translateY(-235px) translateX(var(--hx2, 4px)) scale(0.78) rotate(0deg);
         opacity: 0;
     }
 }
@@ -7791,6 +7800,20 @@ input[type="range"] {
     pointer-events: auto;
     z-index: 5;
     margin-top: auto;
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), background 0.2s ease, box-shadow 0.2s ease;
+    transform-origin: left bottom;
+}
+.live-bottom-section.is-zoom-editing {
+    transform: scale(1.34);
+    transform-origin: left bottom;
+    width: 74.5%;
+    z-index: 45;
+    background: rgba(10, 12, 22, 0.88);
+    backdrop-filter: blur(8px);
+    padding: 8px 8px 6px 8px;
+    border-radius: 12px;
+    border: 1.5px solid rgba(168, 85, 247, 0.88);
+    box-shadow: 0 14px 38px rgba(0, 0, 0, 0.85), 0 0 18px rgba(168, 85, 247, 0.35);
 }
 
 /* 三、礼物进场提示条：紫色渐变胶囊条（左侧 Laya 小圆头像 + 用户名 + 送 小心心 + 粉色爱心图标 + 大号数字） */
@@ -7813,19 +7836,27 @@ input[type="range"] {
     transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.28s ease;
 }
 .live-gift-combo-banner.gift-slide-in {
-    animation: liveGiftSlideIn 0.36s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: liveGiftSlideIn 0.38s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .live-gift-combo-banner.gift-slide-out {
-    animation: liveGiftSlideOut 0.28s ease-in forwards;
+    animation: liveGiftSlideOut 0.24s ease-in forwards;
+}
+.live-gift-combo-banner.is-combo-pulse {
+    animation: liveGiftBannerPulse 0.32s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 @keyframes liveGiftSlideIn {
-    0% { opacity: 0; transform: translateX(-28px) scale(0.94); }
-    70% { opacity: 1; transform: translateX(3px) scale(1.02); }
+    0% { opacity: 0; transform: translateX(-34px) scale(0.92); }
+    68% { opacity: 1; transform: translateX(4px) scale(1.04); }
     100% { opacity: 1; transform: translateX(0) scale(1); }
 }
 @keyframes liveGiftSlideOut {
     0% { opacity: 1; transform: translateX(0) scale(1); }
-    100% { opacity: 0; transform: translateX(-24px) scale(0.95); }
+    100% { opacity: 0; transform: translateX(-28px) scale(0.94); }
+}
+@keyframes liveGiftBannerPulse {
+    0% { transform: scale(1); }
+    45% { transform: scale(1.045) translateX(2px); box-shadow: 0 4px 16px rgba(236, 72, 153, 0.65); }
+    100% { transform: scale(1); }
 }
 .live-gift-sender-av {
     width: 24px;
@@ -7856,7 +7887,7 @@ input[type="range"] {
     font-weight: 600;
 }
 .live-gift-heart-ico {
-    font-size: 18px;
+    font-size: 18.5px;
     line-height: 1;
     display: inline-flex;
     align-items: center;
@@ -7865,19 +7896,32 @@ input[type="range"] {
     transform-origin: center;
     animation: liveGiftIconPop 0.48s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
+.live-gift-heart-ico.is-bouncing {
+    animation: liveGiftIconPop 0.36s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
 @keyframes liveGiftIconPop {
-    0% { transform: scale(0.4) rotate(-14deg); }
-    65% { transform: scale(1.22) rotate(6deg); }
+    0% { transform: scale(0.55) rotate(-16deg); }
+    60% { transform: scale(1.34) rotate(8deg); }
     100% { transform: scale(1) rotate(0deg); }
 }
 .live-gift-combo-num {
-    font-size: 15.5px;
+    font-size: 15.8px;
     font-weight: 900;
     font-style: italic;
     color: #fde047;
-    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.8);
+    text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85);
     padding-left: 2px;
+    display: inline-block;
+    transform-origin: left center;
     transition: transform 0.15s ease;
+}
+.live-gift-combo-num.is-bouncing {
+    animation: liveGiftComboPop 0.34s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+@keyframes liveGiftComboPop {
+    0% { transform: scale(0.75); color: #ffffff; }
+    50% { transform: scale(1.42) rotate(-4deg); color: #fef08a; text-shadow: 0 0 12px rgba(250, 204, 21, 1); }
+    100% { transform: scale(1) rotate(0deg); color: #fde047; }
 }
 /* 双击弹幕或礼物弹窗时弹出的原地全能编辑条 */
 .live-row-inline-editor {
@@ -7954,28 +7998,96 @@ input[type="range"] {
     justify-content: flex-end;
     transition: width 0.12s ease;
 }
-.live-dm-resize-handle {
-    position: absolute;
-    top: -18px;
-    right: 0;
-    background: rgba(124, 58, 237, 0.85);
-    border: 1px solid rgba(216, 180, 254, 0.7);
-    color: #ffffff;
-    font-size: 8.5px;
+.live-dm-edit-toolbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-wrap: nowrap;
+    width: 96%;
+    margin-bottom: 2px;
+    padding: 3px 5px;
+    border-radius: 999px;
+    background: rgba(15, 23, 42, 0.82);
+    border: 1px solid rgba(56, 189, 248, 0.55);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
+    opacity: 0.96;
+    pointer-events: auto;
+    transition: opacity 0.18s ease, transform 0.15s ease;
+    z-index: 38;
+}
+.laya-live-room-overlay:hover .live-dm-edit-toolbar,
+.live-bottom-section:hover .live-dm-edit-toolbar,
+.live-bottom-section.is-zoom-editing .live-dm-edit-toolbar,
+.live-chat-scroll-box:hover .live-dm-edit-toolbar,
+.live-chat-scroll-box.is-resizing-dm .live-dm-edit-toolbar {
+    opacity: 1;
+    pointer-events: auto;
+}
+.live-dm-tool-btn {
+    border: 1px solid rgba(192, 132, 252, 0.65);
+    background: rgba(15, 23, 42, 0.95);
+    color: #f3e8ff;
+    font-size: 8.6px;
     font-weight: 800;
-    padding: 1.5px 6px;
+    padding: 2.5px 6px;
+    border-radius: 999px;
+    cursor: pointer;
+    line-height: 1.2;
+    white-space: nowrap;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+    transition: transform 0.12s ease, background 0.15s ease;
+}
+.live-dm-tool-btn.is-zoom-highlight {
+    background: linear-gradient(90deg, #0284c7, #7c3aed);
+    border: 1.2px solid #fde047;
+    color: #ffffff;
+    box-shadow: 0 0 8px rgba(56, 189, 248, 0.55);
+}
+.live-dm-tool-btn.is-reset-highlight {
+    background: rgba(245, 158, 11, 0.32);
+    border: 1.2px solid #fde047;
+    color: #fef08a;
+}
+.live-dm-tool-btn:hover {
+    background: rgba(124, 58, 237, 0.92);
+    transform: translateY(-1px);
+}
+.live-dm-tool-btn.is-active {
+    background: linear-gradient(90deg, #f59e0b, #ec4899) !important;
+    border-color: #ffffff !important;
+    color: #ffffff !important;
+}
+.live-dm-tool-btn.is-ai {
+    background: linear-gradient(90deg, #7c3aed, #ec4899);
+    border-color: rgba(244, 114, 182, 0.75);
+    color: #ffffff;
+}
+.live-dm-tool-spd {
+    font-size: 8px;
+    font-weight: 800;
+    color: #fde047;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(250, 204, 21, 0.45);
+    padding: 1.5px 4.5px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+.live-dm-resize-handle {
+    margin-left: auto;
+    background: rgba(124, 58, 237, 0.88);
+    border: 1px solid rgba(216, 180, 254, 0.75);
+    color: #ffffff;
+    font-size: 8.2px;
+    font-weight: 800;
+    padding: 2px 6px;
     border-radius: 999px;
     cursor: nwse-resize;
-    opacity: 0;
     pointer-events: auto;
     user-select: none;
-    transition: opacity 0.18s ease, transform 0.15s ease;
-    z-index: 25;
+    transition: transform 0.15s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
-}
-.live-chat-scroll-box:hover .live-dm-resize-handle,
-.live-chat-scroll-box.is-resizing-dm .live-dm-resize-handle {
-    opacity: 1;
+    white-space: nowrap;
 }
 .live-chat-scroll-box.is-resizing-dm {
     outline: 1px dashed rgba(192, 132, 252, 0.75);

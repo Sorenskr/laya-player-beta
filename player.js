@@ -269,7 +269,10 @@ window.PlayerEngine = {
         const currentSkin = skinVal === 'laya-app' ? 'skin-laya-app' : (skinVal === 'laya' ? 'skin-laya' : 'skin-douyin');
         const isCmtOpen = !!(document.getElementById('sw-dy-comment-drawer')?.checked);
         const cmtClass = (targetMode === 'mode-mobile-port' && isCmtOpen) ? ' dy-comment-open' : '';
-        renderTarget.className = `player-box ${targetMode} ${currentSkin}${cmtClass}`;
+        const liveOverlayNode = document.getElementById('laya-live-room-overlay');
+        const wasLiveOpen = renderTarget.classList.contains('dy-live-open') || !!(liveOverlayNode && liveOverlayNode.style.display === 'flex');
+        const liveClass = (targetMode === 'mode-mobile-port' && wasLiveOpen) ? ' dy-live-open' : '';
+        renderTarget.className = `player-box ${targetMode} ${currentSkin}${cmtClass}${liveClass}`;
 
         if (targetMode === 'mode-mobile-land') {
             if (typeof window.switchRightTab === 'function') window.switchRightTab('m-cinema');
@@ -290,6 +293,9 @@ window.PlayerEngine = {
             updateTransform();
             if (typeof window.drawWaveform === 'function') window.drawWaveform();
         }, 60);
+        if (!window.__isRestoringStorage && typeof window.triggerSaveStorage === 'function') {
+            window.triggerSaveStorage();
+        }
     }
     window.PlayerEngine.activateViewportMode = activateViewportMode;
 
@@ -300,8 +306,208 @@ window.PlayerEngine = {
     });
 
     /* ==========================================================================
-       2. 媒体上传、格式嗅探、小窗缩略图与剪映时间轴初始化
+       2. 媒体上传、IndexedDB 跨刷新持久化、格式嗅探与剪映时间轴初始化
        ========================================================================== */
+    const MEDIA_DB_NAME = 'LayaPlayerMediaCacheDB';
+    const MEDIA_STORE_NAME = 'mediaStore';
+    const MEDIA_RECORD_KEY = 'activeMedia';
+    const MEDIA_STATE_KEY = 'LAYA_LAST_MEDIA_STATE';
+
+    function openMediaCacheDB() {
+        return new Promise((resolve, reject) => {
+            if (!window.indexedDB) {
+                reject(new Error('IndexedDB not supported'));
+                return;
+            }
+            const req = window.indexedDB.open(MEDIA_DB_NAME, 1);
+            req.onupgradeneeded = (ev) => {
+                const db = ev.target.result;
+                if (!db.objectStoreNames.contains(MEDIA_STORE_NAME)) {
+                    db.createObjectStore(MEDIA_STORE_NAME);
+                }
+            };
+            req.onsuccess = (ev) => resolve(ev.target.result);
+            req.onerror = (ev) => reject(ev.target.error);
+        });
+    }
+
+    window.LayaMediaPersistDB = {
+        async saveMedia(blob, mediaType, fileName) {
+            try {
+                const db = await openMediaCacheDB();
+                return await new Promise((resolve, reject) => {
+                    const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
+                    const store = tx.objectStore(MEDIA_STORE_NAME);
+                    store.put({
+                        blob,
+                        mediaType,
+                        fileName: fileName || '',
+                        savedAt: Date.now()
+                    }, MEDIA_RECORD_KEY);
+                    tx.oncomplete = () => { db.close(); resolve(true); };
+                    tx.onerror = (err) => { db.close(); reject(err); };
+                });
+            } catch (e) {
+                console.warn('IndexedDB saveMedia warning:', e);
+                return false;
+            }
+        },
+        async loadMedia() {
+            try {
+                const db = await openMediaCacheDB();
+                return await new Promise((resolve, reject) => {
+                    const tx = db.transaction(MEDIA_STORE_NAME, 'readonly');
+                    const store = tx.objectStore(MEDIA_STORE_NAME);
+                    const req = store.get(MEDIA_RECORD_KEY);
+                    req.onsuccess = () => { db.close(); resolve(req.result || null); };
+                    req.onerror = (err) => { db.close(); reject(err); };
+                });
+            } catch (e) {
+                return null;
+            }
+        },
+        async clearMedia() {
+            try {
+                localStorage.removeItem(MEDIA_STATE_KEY);
+                const db = await openMediaCacheDB();
+                return await new Promise((resolve) => {
+                    const tx = db.transaction(MEDIA_STORE_NAME, 'readwrite');
+                    const store = tx.objectStore(MEDIA_STORE_NAME);
+                    store.delete(MEDIA_RECORD_KEY);
+                    tx.oncomplete = () => { db.close(); resolve(true); };
+                    tx.onerror = () => { db.close(); resolve(false); };
+                });
+            } catch (e) {
+                return false;
+            }
+        }
+    };
+
+    let lastMediaStateSaveTs = 0;
+    function saveMediaPlayStateNow(force = false) {
+        if (window.__isResettingAll) return;
+        const now = Date.now();
+        if (!force && now - lastMediaStateSaveTs < 450) return;
+        lastMediaStateSaveTs = now;
+        try {
+            const state = {
+                isVideoMode: !!window.PlayerEngine.isVideoMode,
+                currentTime: (previewVideo && isFinite(previewVideo.currentTime)) ? previewVideo.currentTime : 0,
+                trimStart: window.PlayerEngine.trimStart || 0,
+                trimEnd: window.PlayerEngine.trimEnd || 0,
+                userHasTrimmed: !!window.PlayerEngine.userHasTrimmed,
+                posX: inPosX ? inPosX.value : '50',
+                posY: inPosY ? inPosY.value : '50',
+                scale: inMediaScale ? inMediaScale.value : '100',
+                fileName: window.__lastUploadedMediaName || ''
+            };
+            localStorage.setItem(MEDIA_STATE_KEY, JSON.stringify(state));
+        } catch (e) {}
+    }
+    window.PlayerEngine.saveMediaPlayStateNow = () => saveMediaPlayStateNow(true);
+
+    if (previewVideo) {
+        previewVideo.addEventListener('timeupdate', () => saveMediaPlayStateNow(false));
+        previewVideo.addEventListener('seeked', () => saveMediaPlayStateNow(true));
+    }
+
+    function applyLoadedMediaBlob(fileOrBlob, mediaType, fileName, isRestoring = false) {
+        if (!fileOrBlob) return;
+        window.__lastUploadedMediaName = String(fileName || '').replace(/\.[^.]+$/, '');
+        const isVideo = mediaType === 'video';
+        let savedPlayState = null;
+        if (isRestoring) {
+            try {
+                const rawSt = localStorage.getItem(MEDIA_STATE_KEY);
+                if (rawSt) savedPlayState = JSON.parse(rawSt);
+            } catch (e) {}
+        }
+
+        if (isVideo) {
+            window.PlayerEngine.isVideoMode = true;
+            window.PlayerEngine._userExplicitlyPaused = false;
+            previewImg.style.display = 'none';
+            previewVideo.style.display = 'block';
+            previewVideo.loop = true;
+            previewVideo.playsInline = true;
+            setVideoSoundMuted(false, false);
+            const curSpeed = selPreviewSpeed ? (parseFloat(selPreviewSpeed.value) || 1.0) : 1.0;
+            if (previewVideo.src && previewVideo.src.startsWith('blob:')) {
+                URL.revokeObjectURL(previewVideo.src);
+            }
+            const vidUrl = URL.createObjectURL(fileOrBlob);
+            previewVideo.src = vidUrl;
+            previewVideo.playbackRate = curSpeed;
+            previewVideo.defaultPlaybackRate = curSpeed;
+
+            if (savedPlayState) {
+                const restoreMetaHandler = () => {
+                    previewVideo.removeEventListener('loadedmetadata', restoreMetaHandler);
+                    if (typeof savedPlayState.currentTime === 'number' && isFinite(savedPlayState.currentTime) && savedPlayState.currentTime > 0 && savedPlayState.currentTime < (previewVideo.duration || 99999)) {
+                        previewVideo.currentTime = savedPlayState.currentTime;
+                    }
+                    if (savedPlayState.posX && inPosX) inPosX.value = savedPlayState.posX;
+                    if (savedPlayState.posY && inPosY) inPosY.value = savedPlayState.posY;
+                    if (savedPlayState.scale && inMediaScale) inMediaScale.value = savedPlayState.scale;
+                    checkMediaAspect();
+                    updateTransform();
+                };
+                previewVideo.addEventListener('loadedmetadata', restoreMetaHandler);
+            }
+
+            previewVideo.play().then(() => {
+                updatePlayStateUI(true);
+            }).catch(() => {
+                // 若浏览器有声自动播放策略拦截，自动降级为静音播放，确保视频绝不卡在暂停态
+                setVideoSoundMuted(true, false);
+                previewVideo.play().then(() => {
+                    updatePlayStateUI(true);
+                }).catch(() => {
+                    updatePlayStateUI(false);
+                });
+            });
+
+            if (jyTrimmerPanel) jyTrimmerPanel.style.display = 'flex';
+            buildJianyingTimeline(vidUrl);
+            if (!isRestoring) {
+                toast('🎬 视频加载成功！已自动开启跨刷新保存（刷新页面视频不会消失，点一键重置可清除）');
+            }
+        } else {
+            window.PlayerEngine.isVideoMode = false;
+            window.PlayerEngine._userExplicitlyPaused = true;
+            previewVideo.pause();
+            previewVideo.style.display = 'none';
+            previewImg.style.display = 'block';
+            if (jyTrimmerPanel) jyTrimmerPanel.style.display = 'none';
+            if (previewImg.src && previewImg.src.startsWith('blob:')) {
+                URL.revokeObjectURL(previewImg.src);
+            }
+            const imgUrl = URL.createObjectURL(fileOrBlob);
+            previewImg.src = imgUrl;
+            if (cropThumbImg) cropThumbImg.src = imgUrl;
+            previewImg.onload = () => {
+                if (savedPlayState) {
+                    if (savedPlayState.posX && inPosX) inPosX.value = savedPlayState.posX;
+                    if (savedPlayState.posY && inPosY) inPosY.value = savedPlayState.posY;
+                    if (savedPlayState.scale && inMediaScale) inMediaScale.value = savedPlayState.scale;
+                }
+                checkMediaAspect();
+                updateTransform();
+            };
+            updatePlayStateUI(false);
+            if (!isRestoring) {
+                toast('🖼️ 图片素材加载成功！（刷新页面不会消失，点一键重置可清除）');
+            }
+        }
+    }
+
+    async function restorePersistedMediaOnBoot() {
+        const record = await window.LayaMediaPersistDB.loadMedia();
+        if (record && record.blob) {
+            applyLoadedMediaBlob(record.blob, record.mediaType || 'video', record.fileName || '', true);
+        }
+    }
+
     if (mediaUploader) {
         mediaUploader.addEventListener('click', () => {
             mediaUploader.value = '';
@@ -311,61 +517,11 @@ window.PlayerEngine = {
             if (!file) return;
             const fileName = file.name || '';
             const fileType = file.type || '';
-            window.__lastUploadedMediaName = fileName.replace(/\.[^.]+$/, '');
             const isVideo = fileType.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi|mkv)$/i.test(fileName);
-            const isImage = fileType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|jfif|bmp|svg)$/i.test(fileName);
-
-            if (isVideo) {
-                window.PlayerEngine.isVideoMode = true;
-                window.PlayerEngine._userExplicitlyPaused = false;
-                previewImg.style.display = 'none';
-                previewVideo.style.display = 'block';
-                previewVideo.loop = true;
-                previewVideo.playsInline = true;
-                setVideoSoundMuted(false, false);
-                const curSpeed = selPreviewSpeed ? (parseFloat(selPreviewSpeed.value) || 1.0) : 1.0;
-                if (previewVideo.src && previewVideo.src.startsWith('blob:')) {
-                    URL.revokeObjectURL(previewVideo.src);
-                }
-                const vidUrl = URL.createObjectURL(file);
-                previewVideo.src = vidUrl;
-                previewVideo.playbackRate = curSpeed;
-                previewVideo.defaultPlaybackRate = curSpeed;
-                previewVideo.play().then(() => {
-                    updatePlayStateUI(true);
-                }).catch(() => {
-                    // 若浏览器有声自动播放策略拦截，自动降级为静音播放，确保视频绝不卡在暂停态
-                    setVideoSoundMuted(true, false);
-                    previewVideo.play().then(() => {
-                        updatePlayStateUI(true);
-                    }).catch(() => {
-                        updatePlayStateUI(false);
-                    });
-                });
-
-                if (jyTrimmerPanel) jyTrimmerPanel.style.display = 'flex';
-                buildJianyingTimeline(vidUrl);
-                toast('🎬 视频加载成功！页面原声已开启，右上取景框可自由切换竖框/横框并拖动！');
-            } else if (isImage || !isVideo) {
-                window.PlayerEngine.isVideoMode = false;
-                window.PlayerEngine._userExplicitlyPaused = true;
-                previewVideo.pause();
-                previewVideo.style.display = 'none';
-                previewImg.style.display = 'block';
-                if (jyTrimmerPanel) jyTrimmerPanel.style.display = 'none';
-                if (previewImg.src && previewImg.src.startsWith('blob:')) {
-                    URL.revokeObjectURL(previewImg.src);
-                }
-                const imgUrl = URL.createObjectURL(file);
-                previewImg.src = imgUrl;
-                if (cropThumbImg) cropThumbImg.src = imgUrl;
-                previewImg.onload = () => {
-                    checkMediaAspect();
-                    updateTransform();
-                };
-                updatePlayStateUI(false);
-                toast('🖼️ 图片素材加载成功！');
-            }
+            const mediaType = isVideo ? 'video' : 'image';
+            applyLoadedMediaBlob(file, mediaType, fileName, false);
+            window.LayaMediaPersistDB.saveMedia(file, mediaType, fileName);
+            saveMediaPlayStateNow(true);
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
         });
     }
@@ -505,6 +661,11 @@ window.PlayerEngine = {
         const pct = Math.max(0, Math.min(100, (cur / dur) * 100));
         if (jyPlayhead) jyPlayhead.style.left = pct + '%';
         if (jyDispCur) jyDispCur.textContent = window.PlayerEngine.secToMinSec(cur, true);
+        if (typeof window.__onLiveVideoProgressSync === 'function') {
+            try {
+                window.__onLiveVideoProgressSync(cur, previewVideo.paused);
+            } catch (e) {}
+        }
     }
 
     function buildJianyingTimeline(vidUrl) {
@@ -1800,4 +1961,5 @@ window.PlayerEngine = {
 
     refreshTimeUI();
     updateTransform();
+    restorePersistedMediaOnBoot();
 })();

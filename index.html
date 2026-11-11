@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20261111_v6">
+    <link rel="stylesheet" href="style.css?v=20261111_v28">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
         .sidebar .tab-panel.active {
@@ -923,8 +923,19 @@
                         <!-- 右側：點贊飄心動畫區 -->
                         <div class="live-floating-hearts" id="live-floating-hearts"></div>
 
-                        <!-- 下方公屏區域：紫色漸變禮物進場提示條 + 滾動彈幕列表 + 底部輸入欄與四圓形按鈕 -->
+                        <!-- 下方公屏區域：頂部醒目編輯工具欄 + 紫色漸變禮物進場提示條 + 滾動彈幕列表 + 底部輸入欄與四圓形按鈕 -->
                         <div class="live-bottom-section">
+                            <!-- 畫布常駐醒目精修工具欄（導出截圖/視頻時自動隱藏，不入畫） -->
+                            <div class="live-dm-edit-toolbar interactive-elem" id="live-dm-edit-toolbar" data-html2canvas-ignore="true">
+                                <button type="button" class="live-dm-tool-btn is-zoom-highlight" id="btn-live-canvas-zoom-edit" title="一鍵放大整個底部評論與禮物區域，方便看清並精修燈牌、等級、名字和文案細節（導出時自動還原）">🔍 放大查看</button>
+                                <button type="button" class="live-dm-tool-btn is-reset-highlight" id="btn-live-canvas-reset-size" title="一鍵重置評論區放大狀態、字號比例(100%)、寬度(93%)與行數(5行)">↺ 重置大小</button>
+                                <button type="button" class="live-dm-tool-btn" id="btn-live-canvas-spd-down" title="放慢彈幕與禮物滾動速度">➖慢</button>
+                                <span class="live-dm-tool-spd" id="txt-live-canvas-spd" title="當前滾動速度檔位（1~10檔）">⚡5檔</span>
+                                <button type="button" class="live-dm-tool-btn" id="btn-live-canvas-spd-up" title="加快彈幕與禮物滾動速度">➕快</button>
+                                <button type="button" class="live-dm-tool-btn is-ai" id="btn-live-canvas-ai-dm" title="根據當前視頻畫面AI識別並同步生成直播間滾動評論">🤖 畫面生詞</button>
+                                <div class="live-dm-resize-handle interactive-elem" id="live-dm-resize-handle" title="按住拖動可自由調整彈幕區域寬度與高度 · 鼠標滾輪可無級放大縮小">⤡ 拖動/滾輪</div>
+                            </div>
+
                             <!-- 三、禮物進場提示條：左側真人圓頭像 + 用戶名 + 送禮文案 + 專屬禮物圖標 + 大號連擊數字（每次彈出不同頭像/禮物/主題） -->
                             <div class="live-gift-combo-slot">
                                 <div class="live-gift-combo-banner interactive-elem" id="live-gift-combo-banner" title="單擊隨機切換下一位真人送禮 · 雙擊原地編輯禮物彈窗內容">
@@ -939,7 +950,6 @@
                             </div>
 
                             <div class="live-chat-scroll-box" id="live-chat-scroll-box">
-                                <div class="live-dm-resize-handle interactive-elem" id="live-dm-resize-handle" data-html2canvas-ignore="true" title="按住拖動可自由調整彈幕區域寬度與高度 · 滾輪可縮放彈幕文字大小">⤡ 調整區域/字號</div>
                                 <div class="live-sys-notice interactive-elem" id="live-sys-notice" title="單擊隨機切換提示語 · 雙擊直接修改文字">
                                     <span id="live-sys-notice-txt">歡迎來到直播間！嚴禁未成年人直播或打賞消費。理性消費，謹防網絡詐騙。</span>
                                 </div>
@@ -1433,6 +1443,11 @@
             </button>
 
             <!-- 📲 手机竖屏社区 专属快捷项 -->
+            <button type="button" class="qa-item" data-target-card="card-dy-live-settings" data-tab="dy">
+                <span class="qa-item-icon">🔴</span>
+                <span class="qa-item-text">直播间设置</span>
+                <span class="qa-item-dot"></span>
+            </button>
             <button type="button" class="qa-item" data-target-card="card-dy-skin" data-tab="dy">
                 <span class="qa-item-icon">🎨</span>
                 <span class="qa-item-text">竖屏皮肤</span>
@@ -2435,8 +2450,17 @@
             <!-- ★ 新增：竖屏嵌入直播间专属设置 (Laya 深色紫色品牌风格) -->
             <div class="panel-card" id="card-dy-live-settings" style="border: 1px solid rgba(168, 85, 247, 0.55); background: linear-gradient(180deg, rgba(88, 28, 135, 0.18) 0%, rgba(21, 24, 33, 0.96) 100%);">
                 <div class="card-header">
-                    <span>🔴 直播间专属设置 (点「直播」+点视频进入)</span>
+                    <span>🔴 直播间专属设置 (点「直播」即进入)</span>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-live-back-to-video" style="background: rgba(168, 85, 247, 0.22); border-color: rgba(168, 85, 247, 0.55); color: #e9d5ff; font-weight: 700;" title="立即退出直播页面，切回默认短视频（推薦）界面">🎬 切回短視頻</button>
+                </div>
+
+                <!-- 顶部醒目快捷精修栏：一键放大评论与礼物区调细节 + 一键重置大小 -->
+                <div style="margin: 2px 0 10px 0; padding: 8px 10px; border-radius: 9px; background: linear-gradient(90deg, rgba(14, 165, 233, 0.22) 0%, rgba(124, 58, 237, 0.26) 55%, rgba(236, 72, 153, 0.22) 100%); border: 1.5px solid rgba(56, 189, 248, 0.65); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; box-shadow: 0 4px 14px rgba(14, 165, 233, 0.18);">
+                    <span style="font-size: 12px; font-weight: 800; color: #f0f9ff; display: inline-flex; align-items: center; gap: 4px;">✨ 評論與禮物區細節精修：</span>
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                        <button type="button" id="btn-live-header-zoom-edit" style="background: linear-gradient(90deg, #0284c7, #7c3aed); color: #ffffff; border: 1.5px solid #fde047; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 10px rgba(2, 132, 199, 0.55);" title="点击将左侧手机直播间的礼物与评论区整体放大，方便看清并双击修改灯牌、等级、名字与评论细节（导出时自动还原标准大小）">🔍 放大查看調細節</button>
+                        <button type="button" id="btn-live-header-reset-size" style="background: rgba(245, 158, 11, 0.28); color: #fef08a; border: 1.5px solid rgba(250, 204, 21, 0.75); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 800; cursor: pointer;" title="一键收起放大状态，并将字号比例(100%)、区域宽度(93%)、同屏行数(5行)全部还原为默认标准大小">↺ 重置大小</button>
+                    </div>
                 </div>
 
                 <div class="form-grid-2">
@@ -2542,17 +2566,29 @@
                 <!-- 三、礼物进场提示条专属设置 -->
                 <div style="margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(168, 85, 247, 0.35);">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
-                        <span style="font-size:12px; font-weight:700; color:#e9d5ff;">🎁 礼物进场小弹窗 (真人头像/可上传 + 多款礼物图标，双击画面可改)</span>
+                        <span style="font-size:12px; font-weight:700; color:#e9d5ff;">🎁 礼物进场小弹窗 (自动弹出轮播 + 连击跳动，双击画面可改)</span>
                         <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                            <label style="display:inline-flex; align-items:center; gap:3px; font-size:11px; color:#cbd5e1; cursor:pointer; margin:0;" title="勾选后每隔几秒自动切换不同礼物；取消勾选则固定显示您当前选定的礼物，文字不再自动跳动">
-                                <input type="checkbox" id="sw-live-auto-cycle-gift">
-                                <span>自动轮播</span>
+                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:800; color:#fef08a; background:rgba(16,185,129,0.28); border:1px solid rgba(52,211,153,0.75); padding:2px 8px; border-radius:999px; cursor:pointer; margin:0;" title="默认自动开启：源源不断弹出不同真人送礼并带有连击数字跳动；取消勾选则固定当前礼物">
+                                <input type="checkbox" id="sw-live-auto-cycle-gift" checked>
+                                <span id="txt-live-auto-gift-state">自动弹出轮播中</span>
                             </label>
                             <button type="button" class="sub-mini-act" id="btn-live-upload-gift-av" style="background:rgba(14,165,233,0.25); color:#bae6fd; border-color:rgba(56,189,248,0.5);" title="上传自定义送礼人头像(上传后将固定使用该头像，点换真人头像可恢复随机)">📤 上传头像</button>
                             <input type="file" id="in-live-gift-avatar-file" accept="image/*" style="display:none;">
                             <button type="button" class="sub-mini-act" id="btn-live-rand-gift-av" title="随机更换送礼人的真人头像">👤 换真人头像</button>
-                            <button type="button" class="sub-mini-act" id="btn-live-rand-gift-all" style="background:rgba(168,85,247,0.3); color:#f3e8ff; border-color:rgba(192,132,252,0.5);">🎲 随机换一条</button>
+                            <button type="button" class="sub-mini-act" id="btn-live-rand-gift-all" style="background:linear-gradient(90deg,#7c3aed,#ec4899); color:#ffffff; border-color:#fde047; font-weight:800;">🚀 立即弹一个</button>
                         </div>
+                    </div>
+                    <!-- 礼物独立弹出与连击速度调节栏 -->
+                    <div class="form-row" style="margin-bottom:6px; padding:6px 8px; border-radius:7px; background:rgba(15,23,42,0.65); border:1px solid rgba(192,132,252,0.35);">
+                        <div class="range-box" style="margin-bottom:3px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px;">
+                            <label style="margin:0; font-size:11.5px; font-weight:800; color:#f3e8ff;">⚡ 礼物弹出与连击速度 (1~10档自由调节)</label>
+                            <div style="display:inline-flex; align-items:center; gap:4px;">
+                                <button type="button" class="sub-mini-act" id="btn-live-gift-spd-down" style="padding:1px 7px; font-weight:800;" title="放慢礼物弹出与连击速度">➖慢</button>
+                                <span class="range-value" id="txt-live-gift-speed" style="color:#fde047; font-weight:800;">6档 · 1.6秒/个 (欢快连发)</span>
+                                <button type="button" class="sub-mini-act" id="btn-live-gift-spd-up" style="padding:1px 7px; font-weight:800;" title="加快礼物弹出与连击速度">➕快</button>
+                            </div>
+                        </div>
+                        <input type="range" id="in-live-gift-speed" min="1" max="10" step="1" value="6">
                     </div>
                     <div class="form-grid-2">
                         <div class="form-row">
@@ -2611,6 +2647,8 @@
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
                         <label style="margin:0;">💬 滚动弹幕列表 (双击手机画面上任意一条弹幕，即可单独修改它的等级/管字标/昵称/内容)</label>
                         <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                            <button type="button" class="sub-mini-act" id="btn-live-dm-zoom-2" style="background:linear-gradient(90deg,#0284c7,#7c3aed); color:#fff; border:1px solid #fde047; font-weight:800; padding:3px 9px;" title="放大直播间底部评论与礼物区，方便看清并调整细节">🔍 放大查看</button>
+                            <button type="button" class="sub-mini-act" id="btn-live-dm-reset-2" style="background:rgba(245,158,11,0.28); color:#fef08a; border:1px solid rgba(250,204,21,0.75); font-weight:800; padding:3px 8px;" title="一键还原放大状态与默认标准尺寸">↺ 重置大小</button>
                             <button type="button" class="sub-mini-act" id="btn-live-ai-match-dm" style="background:linear-gradient(90deg,#7c3aed,#ec4899); color:#fff; border:none; font-weight:700; padding:3px 8px;">🤖 AI 識別視頻自動配彈幕</button>
                             <button type="button" class="sub-mini-act" id="btn-live-rand-dm-batch" title="从多场景弹幕库随机换一批分行弹幕">🎲 換一批</button>
                             <button type="button" class="sub-mini-act" id="btn-live-split-dm-lines" title="把逗号或空格分隔的弹幕一键拆分为每行一条">↵ 一鍵分行</button>
@@ -2678,11 +2716,11 @@
 
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <div class="range-box">
-                            <label>🔤 整体弹幕文字与徽章大小 <a href="javascript:void(0)" id="btn-live-reset-dm-size" style="color:#c084fc; text-decoration:none; font-size:10.5px;">↺复位</a></label>
+                        <div class="range-box" style="flex-wrap:wrap; gap:4px;">
+                            <label style="display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap;">🔤 整体弹幕文字与徽章大小 <button type="button" id="btn-live-toggle-zoom-edit" style="background:linear-gradient(90deg,#0284c7,#7c3aed); color:#fff; border:1px solid #fde047; border-radius:999px; padding:2px 8px; font-size:11px; font-weight:800; cursor:pointer;">🔍放大查看细节</button> <button type="button" id="btn-live-reset-dm-size" style="background:rgba(245,158,11,0.28); color:#fef08a; border:1px solid rgba(250,204,21,0.75); border-radius:999px; padding:2px 8px; font-size:11px; font-weight:800; cursor:pointer;">↺重置大小</button></label>
                             <span class="range-value" id="txt-live-dm-scale">100% (标准)</span>
                         </div>
-                        <input type="range" id="in-live-dm-scale" min="75" max="155" step="5" value="100">
+                        <input type="range" id="in-live-dm-scale" min="75" max="220" step="5" value="100">
                     </div>
                     <div class="form-row">
                         <div class="range-box">
@@ -3292,10 +3330,10 @@
     </div>
 </main>
 
-<script src="logos.js?v=20261111_v8"></script>
-<script src="player.js?v=20261111_v8"></script>
-<script src="danmaku.js?v=20261111_v8"></script>
-<script src="app.js?v=20261111_v8"></script>
+<script src="logos.js?v=20261111_v28"></script>
+<script src="player.js?v=20261111_v28"></script>
+<script src="danmaku.js?v=20261111_v28"></script>
+<script src="app.js?v=20261111_v28"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {
