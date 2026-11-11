@@ -9012,6 +9012,8 @@ window.switchRightTab = function (mode) {
     const inLiveHostName = document.getElementById('in-live-host-name');
     const btnLiveRandName = document.getElementById('btn-live-rand-name');
     const btnLiveRandNameBtn = document.getElementById('btn-live-rand-name-btn');
+    const btnLiveUploadHostAv = document.getElementById('btn-live-upload-host-av');
+    const btnLiveUploadHostAvBtn = document.getElementById('btn-live-upload-host-av-btn');
     const inLiveHostId = document.getElementById('in-live-host-id');
     const btnLiveRandId = document.getElementById('btn-live-rand-id');
     const btnLiveRandIdBtn = document.getElementById('btn-live-rand-id-btn');
@@ -9019,6 +9021,9 @@ window.switchRightTab = function (mode) {
     const selLiveAudAvatarMode = document.getElementById('sel-live-aud-avatar-mode');
     const btnLiveRandAudAv = document.getElementById('btn-live-rand-aud-av');
     const btnLiveRandAudAvBtn = document.getElementById('btn-live-rand-aud-av-btn');
+    const btnLiveUploadAudAv = document.getElementById('btn-live-upload-aud-av');
+    const btnLiveUploadAudAvBtn = document.getElementById('btn-live-upload-aud-av-btn');
+    const inLiveAudAvatarFile = document.getElementById('in-live-aud-avatar-file');
     const liveAudAvatarsBox = document.getElementById('live-aud-avatars');
 
     const inLiveViewersText = document.getElementById('in-live-viewers-text');
@@ -9040,6 +9045,8 @@ window.switchRightTab = function (mode) {
     const btnLiveRandRankTagBtn = document.getElementById('btn-live-rand-rank-tag-btn');
 
     // 礼物进场提示条控件
+    const btnLiveUploadGiftAv = document.getElementById('btn-live-upload-gift-av');
+    const inLiveGiftAvatarFile = document.getElementById('in-live-gift-avatar-file');
     const btnLiveRandGiftAv = document.getElementById('btn-live-rand-gift-av');
     const btnLiveRandGiftAll = document.getElementById('btn-live-rand-gift-all');
     const inLiveGiftUser = document.getElementById('in-live-gift-user');
@@ -9063,6 +9070,14 @@ window.switchRightTab = function (mode) {
     const inLiveDmColorHex = document.getElementById('in-live-dm-color-hex');
     const inLiveFollowColor = document.getElementById('in-live-follow-color');
     const inLiveFollowColorHex = document.getElementById('in-live-follow-color-hex');
+    const inLiveDmScale = document.getElementById('in-live-dm-scale');
+    const txtLiveDmScale = document.getElementById('txt-live-dm-scale');
+    const btnLiveResetDmSize = document.getElementById('btn-live-reset-dm-size');
+    const inLiveDmAreaWidth = document.getElementById('in-live-dm-area-width');
+    const inLiveDmMaxRows = document.getElementById('in-live-dm-max-rows');
+    const txtLiveDmArea = document.getElementById('txt-live-dm-area');
+    const liveChatScrollBox = document.getElementById('live-chat-scroll-box');
+    const liveDmResizeHandle = document.getElementById('live-dm-resize-handle');
     const inLiveDmSpeed = document.getElementById('in-live-dm-speed');
     const txtLiveDmSpeed = document.getElementById('txt-live-dm-speed');
     const inLiveHeartDensity = document.getElementById('in-live-heart-density');
@@ -9172,6 +9187,50 @@ window.switchRightTab = function (mode) {
     if (liveAudAvatarsBox) {
         liveAudAvatarsBox.addEventListener('click', triggerRandomLiveAudAvatars);
     }
+
+    // ★ 支持上传自定义观众头像（可选 1~3 张本地图片替换右上角 3 位观众头像）
+    const triggerUploadAudAvatars = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (inLiveAudAvatarFile) inLiveAudAvatarFile.click();
+    };
+    if (btnLiveUploadAudAv) btnLiveUploadAudAv.addEventListener('click', triggerUploadAudAvatars);
+    if (btnLiveUploadAudAvBtn) btnLiveUploadAudAvBtn.addEventListener('click', triggerUploadAudAvatars);
+    if (inLiveAudAvatarFile) {
+        inLiveAudAvatarFile.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
+            if (!files.length) return;
+            files.slice(0, 3).forEach((file, idx) => {
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    const dataUrl = ev.target.result;
+                    if (!dataUrl) return;
+                    if (files.length === 1) {
+                        // 若只选了 1 张图片，替换第 1 个观众头像并轮流更新
+                        const targetImg = liveAudImgs[0];
+                        if (targetImg) {
+                            targetImg.src = dataUrl;
+                            targetImg.setAttribute('data-export-src', dataUrl);
+                        }
+                    } else if (liveAudImgs[idx]) {
+                        liveAudImgs[idx].src = dataUrl;
+                        liveAudImgs[idx].setAttribute('data-export-src', dataUrl);
+                    }
+                };
+                reader.readAsDataURL(file);
+            });
+            window.showToast(`📤 已上傳並替換右上角觀眾頭像`);
+            inLiveAudAvatarFile.value = '';
+        });
+    }
+
+    // ★ 支持在直播间面板一键上传左上角主播头像
+    const triggerUploadHostAvatar = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const up = document.getElementById('author-avatar-uploader');
+        if (up) up.click();
+    };
+    if (btnLiveUploadHostAv) btnLiveUploadHostAv.addEventListener('click', triggerUploadHostAvatar);
+    if (btnLiveUploadHostAvBtn) btnLiveUploadHostAvBtn.addEventListener('click', triggerUploadHostAvatar);
 
     if (dyAvatarImg && liveHostAvatarImg) {
         const syncLiveAvatar = () => {
@@ -9632,6 +9691,36 @@ window.switchRightTab = function (mode) {
         }
     }
 
+    function getLiveMaxRowsVal() {
+        const v = inLiveDmMaxRows ? parseInt(inLiveDmMaxRows.value, 10) : 5;
+        return Number.isNaN(v) ? 5 : Math.min(9, Math.max(2, v));
+    }
+
+    function applyLiveDmScaleAndArea(triggerRender = false) {
+        const scalePct = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
+        const clampedScale = Math.min(155, Math.max(75, scalePct));
+        const scaleRatio = (clampedScale / 100).toFixed(2);
+
+        const widthPct = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
+        const clampedWidth = Math.min(100, Math.max(55, widthPct));
+        const maxRows = getLiveMaxRowsVal();
+
+        if (liveChatScrollBox) {
+            liveChatScrollBox.style.setProperty('--live-dm-scale', scaleRatio);
+            liveChatScrollBox.style.setProperty('--live-dm-width', `${clampedWidth}%`);
+        }
+        if (txtLiveDmScale) {
+            const desc = clampedScale < 95 ? '紧凑' : (clampedScale <= 105 ? '标准' : (clampedScale <= 125 ? '偏大' : '特大'));
+            txtLiveDmScale.textContent = `${clampedScale}% (${desc})`;
+        }
+        if (txtLiveDmArea) {
+            txtLiveDmArea.textContent = `宽${clampedWidth}% · ${maxRows}行`;
+        }
+        if (triggerRender) {
+            renderLiveChatBubbles(false);
+        }
+    }
+
     function renderLiveChatBubbles(advance = false) {
         if (!liveChatList) return;
         // 若用户正在双击编辑某条弹幕，暂停自动滚动刷新，保证编辑框稳定不跳动
@@ -9645,7 +9734,8 @@ window.switchRightTab = function (mode) {
                 liveSysNoticeEl.style.display = 'none';
             }
         }
-        const maxRows = (liveSysNoticeEl && liveSysNoticeEl.style.display === 'none') ? 5 : 4;
+        const userMaxRows = getLiveMaxRowsVal();
+        const maxRows = (liveSysNoticeEl && liveSysNoticeEl.style.display !== 'none') ? Math.max(2, userMaxRows - 1) : userMaxRows;
         const count = Math.min(maxRows, allLines.length);
         const dmTextColor = getLiveDmColor();
         const showRowPurpleHeart = !swLiveDmRowHeart || swLiveDmRowHeart.checked;
@@ -9834,10 +9924,19 @@ window.switchRightTab = function (mode) {
     let lastGiftCatalogIdx = 0;
     let lastGiftUserIdx = 0;
     let lastGiftRealAvatarIdx = -1;
+    let customPinnedGiftAvatarUrl = '';
     let currentGiftEndColor = 'rgba(245, 158, 11, 0.85)';
 
     // 从内置真人头像库（帥哥 + 美女）中抽取不重复的真人头像给礼物小弹窗使用
-    function pickNextRealHumanGiftAvatar(preferNick = '') {
+    function pickNextRealHumanGiftAvatar(preferNick = '', forceClearCustom = false) {
+        if (forceClearCustom) {
+            customPinnedGiftAvatarUrl = '';
+        }
+        if (customPinnedGiftAvatarUrl && liveGiftSenderAv) {
+            liveGiftSenderAv.src = customPinnedGiftAvatarUrl;
+            liveGiftSenderAv.setAttribute('data-export-src', customPinnedGiftAvatarUrl);
+            return;
+        }
         const db = window.LAYA_ASIAN_AVATARS || {};
         const beauties = Array.isArray(db.beauties) ? db.beauties : [];
         const guys = Array.isArray(db.guys) ? db.guys : [];
@@ -10030,9 +10129,35 @@ window.switchRightTab = function (mode) {
             e.stopPropagation();
         }
         const userTxt = (inLiveGiftUser && inLiveGiftUser.value.trim()) ? inLiveGiftUser.value.trim() : '皓哥';
-        pickNextRealHumanGiftAvatar(userTxt);
-        window.showToast('👤 已更換送禮真人頭像');
+        pickNextRealHumanGiftAvatar(userTxt, true);
+        window.showToast('👤 已切換為隨機送禮真人頭像');
     };
+    const triggerUploadGiftAvatarFn = (e) => {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        if (inLiveGiftAvatarFile) inLiveGiftAvatarFile.click();
+    };
+    if (btnLiveUploadGiftAv) btnLiveUploadGiftAv.addEventListener('click', triggerUploadGiftAvatarFn);
+    if (inLiveGiftAvatarFile) {
+        inLiveGiftAvatarFile.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file || !file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                const dataUrl = ev.target.result;
+                if (dataUrl && liveGiftSenderAv) {
+                    customPinnedGiftAvatarUrl = dataUrl;
+                    liveGiftSenderAv.src = dataUrl;
+                    liveGiftSenderAv.setAttribute('data-export-src', dataUrl);
+                    window.showToast('📤 已上傳並固定使用自定義送禮頭像（點「換真人頭像」可恢復隨機）');
+                }
+            };
+            reader.readAsDataURL(file);
+            inLiveGiftAvatarFile.value = '';
+        });
+    }
     const randGiftUserFn = (e) => {
         if (e) e.preventDefault();
         lastGiftUserIdx = (lastGiftUserIdx + 1 + Math.floor(Math.random() * (giftUserPresets.length - 1))) % giftUserPresets.length;
@@ -10109,11 +10234,12 @@ window.switchRightTab = function (mode) {
             const editor = document.createElement('div');
             editor.className = 'live-row-inline-editor';
             editor.innerHTML = `
-                <button type="button" class="live-ed-btn" title="點擊更換送禮真人頭像" style="padding:2px 5px;">👤換頭像</button>
-                <input type="text" class="ed-g-user" value="${escapeHtmlSafe(curUser)}" placeholder="送禮人" style="width:54px;">
-                <input type="text" class="ed-g-name" value="${escapeHtmlSafe(curGift)}" placeholder="如 送 嘉年華" style="width:78px;">
-                <input type="text" class="ed-g-icon" value="${escapeHtmlSafe(curIcon)}" placeholder="圖標" title="禮物圖標(如 🎠 🚀 🏎️ 🌹)" style="width:30px;text-align:center;">
-                <input type="text" class="ed-g-count" value="${escapeHtmlSafe(curCount)}" placeholder="連擊" style="width:38px;">
+                <button type="button" class="live-ed-btn btn-up-gav" title="上傳自定義送禮頭像" style="padding:2px 5px;background:#0284c7;">📤傳頭像</button>
+                <button type="button" class="live-ed-btn btn-rnd-gav" title="點擊隨機更換送禮真人頭像" style="padding:2px 5px;">👤換真人</button>
+                <input type="text" class="ed-g-user" value="${escapeHtmlSafe(curUser)}" placeholder="送禮人" style="width:52px;">
+                <input type="text" class="ed-g-name" value="${escapeHtmlSafe(curGift)}" placeholder="如 送 嘉年華" style="width:74px;">
+                <input type="text" class="ed-g-icon" value="${escapeHtmlSafe(curIcon)}" placeholder="圖標" title="禮物圖標(如 🎠 🚀 🏎️ 🌹)" style="width:28px;text-align:center;">
+                <input type="text" class="ed-g-count" value="${escapeHtmlSafe(curCount)}" placeholder="連擊" style="width:36px;">
                 <button type="button" class="live-ed-btn save">✓</button>
                 <button type="button" class="live-ed-btn cancel">✕</button>
             `;
@@ -10121,7 +10247,8 @@ window.switchRightTab = function (mode) {
             liveGiftComboBanner.style.display = 'none';
             liveGiftComboBanner.parentNode.insertBefore(editor, liveGiftComboBanner);
 
-            const btnAv = editor.querySelector('button[title="點擊更換送禮真人頭像"]');
+            const btnUpAv = editor.querySelector('.btn-up-gav');
+            const btnAv = editor.querySelector('.btn-rnd-gav');
             const inpU = editor.querySelector('.ed-g-user');
             const inpN = editor.querySelector('.ed-g-name');
             const inpI = editor.querySelector('.ed-g-icon');
@@ -10129,10 +10256,16 @@ window.switchRightTab = function (mode) {
             const btnSave = editor.querySelector('.live-ed-btn.save');
             const btnCancel = editor.querySelector('.live-ed-btn.cancel');
 
+            if (btnUpAv) {
+                btnUpAv.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    if (inLiveGiftAvatarFile) inLiveGiftAvatarFile.click();
+                });
+            }
             if (btnAv) {
                 btnAv.addEventListener('click', (ev) => {
                     ev.stopPropagation();
-                    pickNextRealHumanGiftAvatar(inpU.value);
+                    pickNextRealHumanGiftAvatar(inpU.value, true);
                     window.showToast('👤 已更換送禮真人頭像');
                 });
             }
@@ -10184,6 +10317,84 @@ window.switchRightTab = function (mode) {
     }
     // 初始化礼物弹窗真人头像与状态
     applyLiveGiftBannerState(false, true);
+
+    // ★ 绑定整体弹幕文字大小、弹幕区域宽度与高度(同屏行数)滑块，以及手机画面直接拖拽/滚轮缩放手柄
+    if (inLiveDmScale) {
+        inLiveDmScale.addEventListener('input', () => {
+            applyLiveDmScaleAndArea(false);
+        });
+    }
+    if (inLiveDmAreaWidth) {
+        inLiveDmAreaWidth.addEventListener('input', () => {
+            applyLiveDmScaleAndArea(false);
+        });
+    }
+    if (inLiveDmMaxRows) {
+        inLiveDmMaxRows.addEventListener('input', () => {
+            applyLiveDmScaleAndArea(true);
+        });
+    }
+    if (btnLiveResetDmSize) {
+        btnLiveResetDmSize.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (inLiveDmScale) inLiveDmScale.value = '100';
+            if (inLiveDmAreaWidth) inLiveDmAreaWidth.value = '93';
+            if (inLiveDmMaxRows) inLiveDmMaxRows.value = '5';
+            applyLiveDmScaleAndArea(true);
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+                triggerSaveStorage();
+            }
+            window.showToast('↺ 已復位彈幕文字大小與彈幕區域尺寸');
+        });
+    }
+    if (liveDmResizeHandle && liveChatScrollBox) {
+        // 1) 鼠标按住拖拽手柄：左右拖动调弹幕区域宽度 (55%~100%)，上下拖动调弹幕区域高度/同屏行数 (2~9行)
+        liveDmResizeHandle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const startWidth = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
+            const startRows = getLiveMaxRowsVal();
+            liveChatScrollBox.classList.add('is-resizing-dm');
+
+            const onMove = (ev) => {
+                const dx = ev.clientX - startX;
+                const dy = startY - ev.clientY; // 向上拖拉增加高度/行数
+                const nextWidth = Math.min(100, Math.max(55, Math.round(startWidth + dx * 0.25)));
+                const nextRows = Math.min(9, Math.max(2, Math.round(startRows + dy / 22)));
+                if (inLiveDmAreaWidth) inLiveDmAreaWidth.value = String(nextWidth);
+                const prevRows = getLiveMaxRowsVal();
+                if (inLiveDmMaxRows) inLiveDmMaxRows.value = String(nextRows);
+                applyLiveDmScaleAndArea(nextRows !== prevRows);
+            };
+            const onUp = () => {
+                liveChatScrollBox.classList.remove('is-resizing-dm');
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+                if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+                    triggerSaveStorage();
+                }
+            };
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+        });
+
+        // 2) 在拖拽手柄上滚动鼠标滚轮：直接缩放整体弹幕文字与徽章大小 (75%~155%)
+        liveDmResizeHandle.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const curScale = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
+            const delta = e.deltaY < 0 ? 5 : -5;
+            const nextScale = Math.min(155, Math.max(75, curScale + delta));
+            if (inLiveDmScale) inLiveDmScale.value = String(nextScale);
+            applyLiveDmScaleAndArea(false);
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+                triggerSaveStorage();
+            }
+        }, { passive: false });
+    }
+    applyLiveDmScaleAndArea(false);
 
     function restartLiveChatRollTimer() {
         if (liveChatRollTimer) clearInterval(liveChatRollTimer);
@@ -11107,6 +11318,7 @@ window.switchRightTab = function (mode) {
             const matchedIco = inferGiftIconFromName(inLiveGiftName.value);
             if (matchedIco) inLiveGiftIcon.value = matchedIco;
         }
+        applyLiveDmScaleAndArea(false);
         applyLiveGiftBannerState(false, true);
         renderLiveChatBubbles(false);
     }, 120);

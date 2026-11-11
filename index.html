@@ -939,6 +939,7 @@
                             </div>
 
                             <div class="live-chat-scroll-box" id="live-chat-scroll-box">
+                                <div class="live-dm-resize-handle interactive-elem" id="live-dm-resize-handle" data-html2canvas-ignore="true" title="按住拖動可自由調整彈幕區域寬度與高度 · 滾輪可縮放彈幕文字大小">⤡ 調整區域/字號</div>
                                 <div class="live-sys-notice" id="live-sys-notice">
                                     歡迎來到直播間！嚴禁未成年人直播或打賞消費。理性消費，謹防網絡詐騙。
                                 </div>
@@ -2440,10 +2441,11 @@
 
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>主播名 <a href="javascript:void(0)" id="btn-live-rand-name" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <label>主播名与头像 <a href="javascript:void(0)" id="btn-live-rand-name" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a> · <a href="javascript:void(0)" id="btn-live-upload-host-av" style="color:#38bdf8; text-decoration:none;">📤上传头像</a></label>
                         <div class="input-with-dice">
                             <input type="text" id="in-live-host-name" value="小王小王" placeholder="输入主播昵称">
                             <button type="button" class="btn-inline-dice" id="btn-live-rand-name-btn" title="随机切换主播名">🎲</button>
+                            <button type="button" class="btn-inline-dice" id="btn-live-upload-host-av-btn" title="上传自定义主播头像" style="font-size:12px;">📤</button>
                         </div>
                     </div>
                     <div class="form-row">
@@ -2457,7 +2459,7 @@
 
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>👤 抖音观众头像 <a href="javascript:void(0)" id="btn-live-rand-aud-av" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机换一批</a></label>
+                        <label>👤 抖音观众头像 <a href="javascript:void(0)" id="btn-live-rand-aud-av" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a> · <a href="javascript:void(0)" id="btn-live-upload-aud-av" style="color:#38bdf8; text-decoration:none;">📤上传</a></label>
                         <div class="input-with-dice">
                             <select id="sel-live-aud-avatar-mode" style="flex:1;">
                                 <option value="douyin-mix" selected>抖音观众随机 (生活照/萌宠/二次元)</option>
@@ -2466,6 +2468,8 @@
                                 <option value="guys">抖音帅哥观众头像</option>
                             </select>
                             <button type="button" class="btn-inline-dice" id="btn-live-rand-aud-av-btn" title="点击随机更换右上角 3 位抖音观众头像">🎲</button>
+                            <button type="button" class="btn-inline-dice" id="btn-live-upload-aud-av-btn" title="上传自定义观众头像(可选1~3张)" style="font-size:12px;">📤</button>
+                            <input type="file" id="in-live-aud-avatar-file" accept="image/*" multiple style="display:none;">
                         </div>
                     </div>
                     <div class="form-row">
@@ -2506,8 +2510,10 @@
                 <!-- 三、礼物进场提示条专属设置 -->
                 <div style="margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(168, 85, 247, 0.35);">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
-                        <span style="font-size:12px; font-weight:700; color:#e9d5ff;">🎁 礼物进场小弹窗 (真人头像 + 多款礼物图标 + 百变配色，双击画面可改)</span>
-                        <div style="display:flex; gap:4px;">
+                        <span style="font-size:12px; font-weight:700; color:#e9d5ff;">🎁 礼物进场小弹窗 (真人头像/可上传 + 多款礼物图标，双击画面可改)</span>
+                        <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                            <button type="button" class="sub-mini-act" id="btn-live-upload-gift-av" style="background:rgba(14,165,233,0.25); color:#bae6fd; border-color:rgba(56,189,248,0.5);" title="上传自定义送礼人头像(上传后将固定使用该头像，点换真人头像可恢复随机)">📤 上传头像</button>
+                            <input type="file" id="in-live-gift-avatar-file" accept="image/*" style="display:none;">
                             <button type="button" class="sub-mini-act" id="btn-live-rand-gift-av" title="随机更换送礼人的真人头像">👤 换真人头像</button>
                             <button type="button" class="sub-mini-act" id="btn-live-rand-gift-all" style="background:rgba(168,85,247,0.3); color:#f3e8ff; border-color:rgba(192,132,252,0.5);">🎲 随机换一条</button>
                         </div>
@@ -2624,6 +2630,26 @@
                         <div style="display:flex; align-items:center; gap:6px;">
                             <input type="color" id="in-live-follow-color" value="#f43f5e" style="width:34px; height:28px; padding:0; border:1px solid #334155; border-radius:5px; background:transparent; cursor:pointer;">
                             <input type="text" id="in-live-follow-color-hex" value="#f43f5e" style="flex:1; font-family:monospace; font-size:11.5px;">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-grid-2">
+                    <div class="form-row">
+                        <div class="range-box">
+                            <label>🔤 整体弹幕文字与徽章大小 <a href="javascript:void(0)" id="btn-live-reset-dm-size" style="color:#c084fc; text-decoration:none; font-size:10.5px;">↺复位</a></label>
+                            <span class="range-value" id="txt-live-dm-scale">100% (标准)</span>
+                        </div>
+                        <input type="range" id="in-live-dm-scale" min="75" max="155" step="5" value="100">
+                    </div>
+                    <div class="form-row">
+                        <div class="range-box">
+                            <label>↔️ 弹幕区域宽度与同屏行数</label>
+                            <span class="range-value" id="txt-live-dm-area">宽93% · 5行</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <input type="range" id="in-live-dm-area-width" min="55" max="100" step="1" value="93" title="调节弹幕区域宽度 (55%~100%)" style="flex:1;">
+                            <input type="range" id="in-live-dm-max-rows" min="2" max="9" step="1" value="5" title="调节弹幕区域高度/同屏显示行数 (2~9行)" style="width:44%;">
                         </div>
                     </div>
                 </div>
