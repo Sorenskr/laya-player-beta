@@ -6792,10 +6792,14 @@ window.switchRightTab = function (mode) {
             if (data.checkboxes) {
                 Object.entries(data.checkboxes).forEach(([id, checked]) => {
                     const el = document.getElementById(id);
-                    if (el) {
-                        el.checked = checked;
-                        el.dispatchEvent(new Event('change'));
+                    if (!el) return;
+                    // 每次打开页面始终默认开启直播间公屏弹幕自动滚动，防止旧缓存 false 导致评论卡住不动
+                    if (id === 'sw-live-auto-roll-dm') {
+                        el.checked = true;
+                        return;
                     }
+                    el.checked = checked;
+                    el.dispatchEvent(new Event('change'));
                 });
             }
 
@@ -7887,6 +7891,14 @@ window.switchRightTab = function (mode) {
                 const dylBarBox = measureRelBox(document.querySelector('.dyl-progress-track'));
                 const dylTimeBox = measureRelBox(document.getElementById('dyl-wrap-time'));
                 const dylSubBox = measureRelBox(document.getElementById('dyl-wrap-subtitle'));
+                const liveChatListBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-chat-list')) : null;
+                const liveJoinTickerBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-join-ticker-row')) : null;
+                const liveScrollBoxRect = isLiveOpenVid ? measureRelBox(document.getElementById('live-chat-scroll-box')) : null;
+                window.__liveExportLayout = isLiveOpenVid ? {
+                    chatBox: liveChatListBox,
+                    joinBox: liveJoinTickerBox,
+                    scrollBox: liveScrollBoxRect
+                } : null;
 
                 // 抓取静态透明 UI 覆层（通过 ignoreElements 完全跳过媒体与弹幕节点，并强制移除容器黑色背景）
                 const uiSnapshotCanvas = await html2canvas(renderTarget, {
@@ -7925,6 +7937,13 @@ window.switchRightTab = function (mode) {
                             const el = clonedDoc.getElementById(id);
                             if (el) el.style.visibility = 'hidden';
                         });
+                        // 若处于直播间模式导出视频，隐藏静态快照中的评论列表与底部进场条，改由 30fps 动态画布逐帧滚动绘制
+                        if (isLiveOpenVid) {
+                            const clonedChatList = clonedDoc.getElementById('live-chat-list');
+                            if (clonedChatList) clonedChatList.style.visibility = 'hidden';
+                            const clonedJoinRow = clonedDoc.getElementById('live-join-ticker-row');
+                            if (clonedJoinRow) clonedJoinRow.style.visibility = 'hidden';
+                        }
                         const mTrack = clonedDoc.querySelector('.m-progress-track');
                         if (mTrack) mTrack.style.visibility = 'hidden';
                         const dyTrack = clonedDoc.querySelector('.dy-tiny-progressbar');
@@ -9550,20 +9569,20 @@ window.switchRightTab = function (mode) {
     let liveFlyParticles = [];
 
     const defaultLiveChatLines = [
-        '前排！',
-        '主播好漂亮',
-        '這首歌絕了',
-        '666',
-        '哈哈哈哈',
-        '關注了',
-        '求歌名',
-        '聲音好甜',
-        '打卡',
-        '蹲一個歌單',
-        '太治癒了',
-        '主播加油',
-        '已關注 比心',
-        '主播聲音也太好聽了'
+        '微醺小貓：主播今天狀態太好了吧',
+        '輕輕吹風 來了',
+        '阿傑：666 這波操作太頂了',
+        '晚風溫柔：這首歌絕了，求歌名！',
+        '再次邂逅說愛你 來了',
+        '羊🐑：前排打卡支持主播',
+        '星河少女：聲音好甜，聽著太治癒了',
+        '麥兜黑鳳梨 來了',
+        '夜色有點濃：哈哈哈哈笑死我了',
+        '皓哥：已關注 比心！氣氛拉滿',
+        '南城舊夢 來了',
+        '石頭baby：蹲一個歌單，每天準時看',
+        '漫渡：主播加油，今天人好多呀',
+        '深海裡的星星 來了'
     ];
     const presetLevels = [19, 12, 26, 25, 21, 16, 29, 24, 18, 33, 28, 31, 15, 22, 36];
     const presetFanLevels = [10, 12, 8, 15, 9, 11, 16, 14, 6, 18, 13, 10, 7, 19, 11];
@@ -9606,51 +9625,58 @@ window.switchRightTab = function (mode) {
         return lines;
     }
 
-    // ★ 彩虹/彩色用户名色板（逐字或整名渲染，100% 兼容 html2canvas 截图与视频导出）
+    // ★ 彩虹/彩色用户名色板（普通无牌观众采用清爽浅蓝/青白昵称，带牌老粉/大哥采用炫彩或彩虹名，100% 兼容截图与视频导出）
     const RAINBOW_CHAR_COLORS = ['#ff6b9d', '#fbbf24', '#34d399', '#60a5fa', '#c084fc', '#f472b6', '#38bdf8'];
     const COLORFUL_NICK_PALETTE = ['#60a5fa', '#c084fc', '#f472b6', '#34d399', '#fbbf24', '#38bdf8', '#a78bfa'];
+    const PLAIN_VIEWER_NICK_PALETTE = ['#93c5fd', '#7dd3fc', '#a5b4fc', '#bae6fd', '#cbd5e1'];
 
-    function buildColorfulNickHtml(nickStr, rowIdx) {
+    function buildColorfulNickHtml(nickStr, rowIdx, isJoinRow = false, hasBadges = true) {
         const useRainbow = !swLiveRainbowNick || swLiveRainbowNick.checked;
         const clean = String(nickStr || '');
+        const colonSuffix = isJoinRow ? '' : '：';
         if (!useRainbow) {
-            return `<span class="live-chat-nick">${escapeHtmlSafe(clean)}：</span>`;
+            return `<span class="live-chat-nick">${escapeHtmlSafe(clean)}${colonSuffix}</span>`;
         }
-        // 每隔一行使用逐字彩虹渐变色，其余行使用高饱和绚丽彩名
+        // 普通无灯牌/无等级观众（或「名字 来了」进场行）：采用抖音原版清爽浅蓝/淡青色系昵称，自然真实不花哨
+        if (!hasBadges || isJoinRow) {
+            const plainCol = PLAIN_VIEWER_NICK_PALETTE[rowIdx % PLAIN_VIEWER_NICK_PALETTE.length];
+            return `<span class="live-chat-nick" style="color:${plainCol};">${escapeHtmlSafe(clean)}${colonSuffix}</span>`;
+        }
+        // 带等级牌/粉丝灯牌的活跃老粉与榜上大哥：交替使用逐字彩虹渐变色或高饱和彩名
         if (rowIdx % 2 === 0 && clean.length >= 2) {
             const chars = Array.from(clean);
             const spans = chars.map((ch, cIdx) => {
                 const col = RAINBOW_CHAR_COLORS[(rowIdx + cIdx) % RAINBOW_CHAR_COLORS.length];
                 return `<span style="color:${col};">${escapeHtmlSafe(ch)}</span>`;
             }).join('');
-            return `<span class="live-chat-nick">${spans}<span style="color:#cbd5e1;">：</span></span>`;
+            return `<span class="live-chat-nick">${spans}${colonSuffix ? `<span style="color:#cbd5e1;">${colonSuffix}</span>` : ''}</span>`;
         }
         const solidCol = COLORFUL_NICK_PALETTE[rowIdx % COLORFUL_NICK_PALETTE.length];
-        return `<span class="live-chat-nick" style="color:${solidCol};">${escapeHtmlSafe(clean)}：</span>`;
+        return `<span class="live-chat-nick" style="color:${solidCol};">${escapeHtmlSafe(clean)}${colonSuffix}</span>`;
     }
 
-    // ★ 独立高频进场观众池
+    // ★ 独立高频进场观众池（约 70% 为无灯牌无等级的纯「名字 来了」普通路人观众，约 30% 带单蓝牌等级）
     const liveJoinViewerPool = [
-        { lv: 17, fan: 8,  nick: '足弟' },
-        { lv: 12, fan: 6,  nick: '再次邂逅說愛你' },
-        { lv: 25, fan: 11, nick: 'LOL' },
-        { lv: 33, fan: 15, nick: '滴水成冰' },
-        { lv: 18, fan: 9,  nick: '捉事盧鑫' },
-        { lv: 24, fan: 10, nick: '混凝土銷售' },
-        { lv: 29, fan: 14, nick: '皓哥' },
-        { lv: 16, fan: 7,  nick: '漫渡' },
-        { lv: 21, fan: 10, nick: '風止何安' },
-        { lv: 19, fan: 8,  nick: '晨霸' },
-        { lv: 31, fan: 16, nick: '石頭baby' },
-        { lv: 14, fan: 6,  nick: '香港明' },
-        { lv: 22, fan: 12, nick: '麥兜黑鳳梨' },
-        { lv: 27, fan: 13, nick: '歲月如歌' },
-        { lv: 35, fan: 18, nick: '萬里星河' },
-        { lv: 20, fan: 9,  nick: '晚風溫柔' },
-        { lv: 28, fan: 14, nick: '南城舊夢' },
-        { lv: 30, fan: 15, nick: '深海裡的星星' },
-        { lv: 23, fan: 10, nick: '暴富小錦鯉' },
-        { lv: 38, fan: 20, nick: 'Laya榜一大哥' }
+        { lv: 0,  fan: 0, nick: '再次邂逅說愛你' },
+        { lv: 0,  fan: 0, nick: '輕輕吹風' },
+        { lv: 17, fan: 0, nick: '足弟' },
+        { lv: 0,  fan: 0, nick: '晚風溫柔' },
+        { lv: 0,  fan: 0, nick: '麥兜黑鳳梨' },
+        { lv: 25, fan: 0, nick: 'LOL' },
+        { lv: 0,  fan: 0, nick: '滴水成冰' },
+        { lv: 0,  fan: 0, nick: '捉事盧鑫' },
+        { lv: 18, fan: 0, nick: '混凝土銷售' },
+        { lv: 0,  fan: 0, nick: '南城舊夢' },
+        { lv: 0,  fan: 0, nick: '漫渡' },
+        { lv: 21, fan: 0, nick: '風止何安' },
+        { lv: 0,  fan: 0, nick: '晨霸' },
+        { lv: 0,  fan: 0, nick: '石頭baby' },
+        { lv: 14, fan: 0, nick: '香港明' },
+        { lv: 0,  fan: 0, nick: '歲月如歌' },
+        { lv: 0,  fan: 0, nick: '深海裡的星星' },
+        { lv: 29, fan: 0, nick: '皓哥' },
+        { lv: 0,  fan: 0, nick: '暴富小錦鯉' },
+        { lv: 36, fan: 0, nick: 'Laya榜一大哥' }
     ];
 
     function parseLiveDanmakuTexts() {
@@ -9666,6 +9692,29 @@ window.switchRightTab = function (mode) {
     function getLiveDmSpeedVal() {
         const v = inLiveDmSpeed ? parseInt(inLiveDmSpeed.value, 10) : 5;
         return Number.isNaN(v) ? 5 : Math.min(10, Math.max(1, v));
+    }
+
+    // ★ 1~10 档直播间评论滚动间隔映射表（单位 ms）：
+    // 1档(极慢)=1600ms，5档(标准)=480ms，7档(快速)=220ms，8档(高速)=145ms，9档(飙速)=95ms，10档(万人狂刷)=65ms(约每秒滚出15条！)
+    const LIVE_DM_SPEED_INTERVAL_MAP = [1600, 1600, 1200, 900, 680, 480, 330, 220, 145, 95, 65];
+    const LIVE_JOIN_SPEED_INTERVAL_MAP = [2000, 2000, 1650, 1350, 1100, 880, 680, 500, 360, 260, 180];
+
+    function getLiveDmIntervalMs(speedLv) {
+        const lv = Math.min(10, Math.max(1, parseInt(speedLv, 10) || 5));
+        return LIVE_DM_SPEED_INTERVAL_MAP[lv] || 480;
+    }
+
+    function getLiveJoinIntervalMs(speedLv) {
+        const lv = Math.min(10, Math.max(1, parseInt(speedLv, 10) || 5));
+        return LIVE_JOIN_SPEED_INTERVAL_MAP[lv] || 880;
+    }
+
+    function formatLiveDmSpeedLabel(speedLv) {
+        const lv = Math.min(10, Math.max(1, parseInt(speedLv, 10) || 5));
+        const ms = getLiveDmIntervalMs(lv);
+        const perSec = (1000 / ms).toFixed(ms >= 400 ? 1 : 0);
+        const tag = lv <= 2 ? '極慢' : (lv <= 4 ? '慢速' : (lv <= 6 ? '標準' : (lv <= 8 ? '高速刷屏' : '萬人狂刷')));
+        return `${lv} (${tag}·${perSec}條/秒)`;
     }
 
     function getLiveHeartDensityVal() {
@@ -9708,72 +9757,125 @@ window.switchRightTab = function (mode) {
     }
 
     // ★ 四、渲染滚动弹幕列表：
-    // 1) 「管」字标不再全员刷屏，默认只有偶尔几条（约每 6 条出现 1 个房管）才带红色「管」字牌；
-    // 2) 双击画面上任意一条弹幕（.live-chat-bubble），自动暂停滚动并原地弹出全能编辑条，可单独修改这条弹幕的：蓝牌等级、橙牌粉丝等级、是否带「管」字牌、发言人昵称、弹幕文字！
+    // 1) 真实还原直播间观众构成：约 60% 观众名字前面没有任何灯牌和等级（纯「名字：文案」或纯「名字 来了」），约 20% 仅带单蓝牌，约 20% 老粉带双牌，房管「管」字牌极少出现；
+    // 2) 支持「名字 来了」（无冒号）进场行与「名字：文案」评论行混合滚动；
+    // 3) 双击画面上任意一条弹幕（.live-chat-bubble），自动暂停滚动并原地弹出全能编辑条，可单独修改这条弹幕的：蓝牌等级、橙牌粉丝等级、是否带「管」字牌、发言人昵称、弹幕文字！
     let liveEditingDmIdx = null;
+
+    function getDefaultBadgeProfileForRow(seedIdx, isJoinRow = false) {
+        const idx = Math.abs(parseInt(seedIdx, 10) || 0);
+        if (isJoinRow) {
+            // 「名字 来了」进场行：约 75% 完全无灯牌无等级（纯「名字 来了」），仅 25% 带单个蓝牌
+            if (idx % 4 === 2) {
+                return { lv: presetLevels[idx % presetLevels.length], fanLv: 0, isAdmin: false };
+            }
+            return { lv: 0, fanLv: 0, isAdmin: false };
+        }
+        const slot = idx % 10;
+        // 60% 的普通观众 (slot 0, 2, 4, 5, 7, 9)：名字前面没有任何灯牌和等级，只有「名字：文案」
+        if (slot === 0 || slot === 2 || slot === 4 || slot === 5 || slot === 7 || slot === 9) {
+            return { lv: 0, fanLv: 0, isAdmin: false };
+        }
+        // 20% 的观众 (slot 1, 6)：仅带单个蓝紫财富等级牌
+        if (slot === 1 || slot === 6) {
+            return { lv: presetLevels[idx % presetLevels.length], fanLv: 0, isAdmin: false };
+        }
+        // 10% 的观众 (slot 3)：仅带单个橙色粉丝团灯牌
+        if (slot === 3) {
+            return { lv: 0, fanLv: presetFanLevels[idx % presetFanLevels.length], isAdmin: false };
+        }
+        // 10% 的核心老粉/房管 (slot 8)：同时带蓝牌+粉丝牌，其中每 20 条仅 1 条带红「管」字牌
+        return {
+            lv: presetLevels[idx % presetLevels.length],
+            fanLv: presetFanLevels[idx % presetFanLevels.length],
+            isAdmin: (idx % 20 === 8)
+        };
+    }
 
     function parseSingleLiveDanmakuRow(rawLine, globalIdx) {
         let rest = String(rawLine || '').trim();
-        let lv = presetLevels[globalIdx % presetLevels.length];
-        // 参照抖音原版实拍视频：约 1/3 铁粉观众同时带橙色粉丝团牌，其余只带蓝紫财富等级牌，自然真实不拥挤
-        let fanLv = (globalIdx % 3 === 1) ? presetFanLevels[globalIdx % presetFanLevels.length] : 0;
-        // 默认只有偶尔几个发言人带红色「管」字图标（每 6 条里仅 1 条带「管」）
-        let isAdmin = (globalIdx % 6 === 2);
+        let hasCustomMeta = false;
+        let customLv = 0;
+        let customFanLv = 0;
+        let customAdmin = false;
 
         // 解析行首可选自定义徽章标签，如：[Lv26|粉12|管] 或 [26|0|無管] 或 [管] 或 [無管]
         const metaMatch = rest.match(/^\[([^\]]+)\]\s*/);
         if (metaMatch) {
             const tagBody = metaMatch[1].trim();
-            // 避免把旧版 [主播] 当成普通无解析标签，但如果是我们支持的格式则解析并剥离
             if (/^(Lv\d+|\d+|粉\d+|管|房管|無管|无管|-管|\|)+$/i.test(tagBody)) {
+                hasCustomMeta = true;
                 rest = rest.slice(metaMatch[0].length).trim();
                 const parts = tagBody.split('|').map(s => s.trim()).filter(Boolean);
                 parts.forEach((p, idx) => {
                     if (/^Lv(\d+)$/i.test(p)) {
-                        lv = parseInt(RegExp.$1, 10) || 0;
+                        customLv = parseInt(RegExp.$1, 10) || 0;
                     } else if (/^粉(\d+)$/i.test(p)) {
-                        fanLv = parseInt(RegExp.$1, 10) || 0;
+                        customFanLv = parseInt(RegExp.$1, 10) || 0;
                     } else if (/^\d+$/.test(p)) {
-                        if (idx === 0) lv = parseInt(p, 10) || 0;
-                        else if (idx === 1) fanLv = parseInt(p, 10) || 0;
+                        if (idx === 0) customLv = parseInt(p, 10) || 0;
+                        else if (idx === 1) customFanLv = parseInt(p, 10) || 0;
                     } else if (p === '管' || p === '房管') {
-                        isAdmin = true;
+                        customAdmin = true;
                     } else if (p === '無管' || p === '无管' || p === '-管') {
-                        isAdmin = false;
+                        customAdmin = false;
                     }
                 });
             }
         }
 
-        const colonIdx = rest.indexOf('：') !== -1 ? rest.indexOf('：') : rest.indexOf(':');
+        const isSimp = window.__currentLangMode === 'simp';
+        const defaultJoinWord = isSimp ? '来了' : '來了';
         let nickPart = '';
         let msg = '';
-        if (colonIdx > 0) {
+        let isJoinRow = false;
+
+        // 识别「名字 来了 / 名字 來了 / 名字：来了」进场行格式（展示为无冒号的「名字 来了」）
+        const joinSpaceMatch = rest.match(/^([^\s:：]+)\s+(來了|来了|進入直播間|进入直播间)[！!~～]*$/);
+        const colonIdx = rest.indexOf('：') !== -1 ? rest.indexOf('：') : rest.indexOf(':');
+
+        if (joinSpaceMatch) {
+            nickPart = joinSpaceMatch[1].trim();
+            msg = defaultJoinWord;
+            isJoinRow = true;
+        } else if (/^(來了|来了)[！!~～]*$/.test(rest)) {
+            nickPart = fallbackNicknames[globalIdx % fallbackNicknames.length];
+            msg = defaultJoinWord;
+            isJoinRow = true;
+        } else if (colonIdx > 0) {
             nickPart = rest.slice(0, colonIdx).trim();
             msg = rest.slice(colonIdx + 1).trim();
+            if (/^(來了|来了|進入直播間|进入直播间)[！!~～]*$/.test(msg)) {
+                msg = defaultJoinWord;
+                isJoinRow = true;
+            }
         } else {
             nickPart = fallbackNicknames[globalIdx % fallbackNicknames.length];
             msg = rest;
         }
         nickPart = nickPart.replace(/\s*\[💜[^\]]+\]\s*/g, '').replace(/^\[主播\]\s*/, '').trim() || fallbackNicknames[globalIdx % fallbackNicknames.length];
 
-        return { lv, fanLv, isAdmin, nickPart, msg };
+        const defBadge = getDefaultBadgeProfileForRow(globalIdx, isJoinRow);
+        const lv = hasCustomMeta ? customLv : defBadge.lv;
+        const fanLv = hasCustomMeta ? customFanLv : defBadge.fanLv;
+        const isAdmin = hasCustomMeta ? customAdmin : defBadge.isAdmin;
+
+        return { lv, fanLv, isAdmin, nickPart, msg, isJoinRow };
     }
 
     function formatSingleLiveDanmakuRow(lv, fanLv, isAdmin, nickPart, msg, globalIdx) {
-        const defLv = presetLevels[globalIdx % presetLevels.length];
-        const defFan = (globalIdx % 3 === 1) ? presetFanLevels[globalIdx % presetFanLevels.length] : 0;
-        const defAdmin = (globalIdx % 6 === 2);
-
         const cleanNick = String(nickPart || '').trim() || fallbackNicknames[globalIdx % fallbackNicknames.length];
         const cleanMsg = String(msg || '').trim() || '666';
+        const isJoinRow = /^(來了|来了|進入直播間|进入直播间)[！!~～]*$/.test(cleanMsg);
+        const defBadge = getDefaultBadgeProfileForRow(globalIdx, isJoinRow);
+        const bodyText = isJoinRow ? `${cleanNick} ${cleanMsg}` : `${cleanNick}：${cleanMsg}`;
 
-        // 若等级与房管均与默认一致，则保持最干净的「昵称：内容」；若用户自定义了等级或开关了「管」，则写入行首标签持久化保存
-        if (lv === defLv && fanLv === defFan && isAdmin === defAdmin) {
-            return `${cleanNick}：${cleanMsg}`;
+        // 若等级与房管均与默认一致，则保持最干净的「昵称：内容」或「昵称 来了」；若用户自定义了等级或开关了「管」，则写入行首标签持久化保存
+        if (lv === defBadge.lv && fanLv === defBadge.fanLv && isAdmin === defBadge.isAdmin) {
+            return bodyText;
         }
         const adminToken = isAdmin ? '管' : '無管';
-        return `[Lv${Math.max(0, lv)}|粉${Math.max(0, fanLv)}|${adminToken}] ${cleanNick}：${cleanMsg}`;
+        return `[Lv${Math.max(0, lv)}|粉${Math.max(0, fanLv)}|${adminToken}] ${bodyText}`;
     }
 
     function updateSingleLiveDanmakuLineInTextarea(globalIdx, newFormattedLine) {
@@ -9821,38 +9923,69 @@ window.switchRightTab = function (mode) {
 
     function renderLiveChatBubbles(advance = false) {
         if (!liveChatList) return;
-        // 若用户正在双击编辑某条弹幕，暂停自动滚动刷新，保证编辑框稳定不跳动
-        if (advance && liveEditingDmIdx !== null) return;
+        // 若用户正在双击编辑某条弹幕且编辑框仍在 DOM 中，暂停自动滚动刷新；若编辑框已不在 DOM 则自动恢复滚动
+        if (liveEditingDmIdx !== null) {
+            if (liveChatList.querySelector('.live-row-inline-editor')) {
+                if (advance) return;
+            } else {
+                liveEditingDmIdx = null;
+            }
+        }
 
         const allLines = parseLiveDanmakuTexts();
         if (advance) {
-            liveChatCursor = (liveChatCursor + 1) % allLines.length;
             liveRollTickCount++;
+            liveChatCursor = liveRollTickCount % Math.max(1, allLines.length);
         }
         const userMaxRows = getLiveMaxRowsVal();
         const maxRows = (liveSysNoticeEl && liveSysNoticeEl.style.display !== 'none') ? Math.max(2, userMaxRows - 1) : userMaxRows;
-        const count = Math.min(maxRows, allLines.length);
+        // 始终填满 maxRows 行，即便用户只输入了 1~2 行也能持续向上循环滚动推进
+        const count = Math.max(2, maxRows);
         const dmTextColor = getLiveDmColor();
         const showRowPurpleHeart = !!(swLiveDmRowHeart && swLiveDmRowHeart.checked);
         const rowsHtml = [];
 
         for (let i = 0; i < count; i++) {
-            const globalIdx = (liveChatCursor + i) % allLines.length;
-            const rawLine = allLines[globalIdx];
-            const { lv, fanLv, isAdmin, nickPart, msg } = parseSingleLiveDanmakuRow(rawLine, globalIdx);
+            const virtualStep = liveRollTickCount + i;
+            const globalIdx = virtualStep % allLines.length;
+            let rawLine = allLines[globalIdx];
+            // 当弹幕总行数较少(<= count)时，用 virtualStep 驱动等级牌与默认昵称轮换，确保视觉上每一行都在持续向上滚动
+            const badgeSeedIdx = allLines.length <= count ? virtualStep : globalIdx;
+
+            // 若当前弹幕池里还没有「某某 来了」进场行，每隔 5 步自然穿插一条无灯牌的「名字 来了」进场提示
+            const hasJoinInPool = allLines.some(l => /(\s|^|：|:)(來了|来了)$/.test(String(l).trim()));
+            if (!hasJoinInPool && (virtualStep % 5 === 3)) {
+                const jViewer = liveJoinViewerPool[virtualStep % liveJoinViewerPool.length];
+                rawLine = `${jViewer.nick} ${window.__currentLangMode === 'simp' ? '来了' : '來了'}`;
+            }
+
+            const { lv, fanLv, isAdmin, nickPart, msg, isJoinRow } = parseSingleLiveDanmakuRow(rawLine, badgeSeedIdx);
+            const hasBadges = (lv > 0 || fanLv > 0 || isAdmin);
 
             const lvBadgeHtml = buildLiveLvBadgeHtml(lv);
             const fanBadgeHtml = buildLiveFanBadgeHtml(fanLv);
             const adminBadgeHtml = isAdmin ? `<span class="live-admin-badge" title="房管標識（雙擊彈幕可開關）">管</span>` : '';
-            const rightHeartHtml = showRowPurpleHeart ? `<span class="live-row-purple-heart"><svg width="10" height="10" viewBox="0 0 24 24" fill="#c084fc"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>` : '';
+            const rightHeartHtml = (showRowPurpleHeart && !isJoinRow) ? `<span class="live-row-purple-heart"><svg width="10" height="10" viewBox="0 0 24 24" fill="#c084fc"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>` : '';
 
-            const colorfulNickHtml = buildColorfulNickHtml(nickPart, globalIdx);
+            const colorfulNickHtml = buildColorfulNickHtml(nickPart, badgeSeedIdx, isJoinRow, hasBadges);
+            const msgContentHtml = isJoinRow
+                ? `<span class="live-chat-msg is-join" style="color:rgba(255,255,255,0.88);"> ${escapeHtmlSafe(msg)}</span>`
+                : `<span class="live-chat-msg" style="color:${dmTextColor};">${escapeHtmlSafe(msg)}</span>`;
+
             rowsHtml.push(
-                `<div class="live-chat-bubble interactive-elem" data-dm-idx="${globalIdx}" title="雙擊可編輯這條彈幕的所有內容（等級/管字標/暱稱/彈幕文字）">${lvBadgeHtml}${fanBadgeHtml}${adminBadgeHtml}${colorfulNickHtml}<span class="live-chat-msg" style="color:${dmTextColor};">${escapeHtmlSafe(msg)}</span>${rightHeartHtml}</div>`
+                `<div class="live-chat-bubble interactive-elem" data-dm-idx="${globalIdx}" title="雙擊可編輯這條彈幕的所有內容（等級/管字標/暱稱/彈幕文字）">${lvBadgeHtml}${fanBadgeHtml}${adminBadgeHtml}${colorfulNickHtml}${msgContentHtml}${rightHeartHtml}</div>`
             );
         }
 
         liveChatList.innerHTML = rowsHtml.join('');
+        if (advance) {
+            const curInterval = getLiveDmIntervalMs(getLiveDmSpeedVal());
+            const animMs = Math.min(220, Math.max(45, Math.round(curInterval * 0.78)));
+            liveChatList.style.setProperty('--live-roll-anim-ms', `${animMs}ms`);
+            liveChatList.classList.remove('is-rolling-step');
+            void liveChatList.offsetWidth;
+            liveChatList.classList.add('is-rolling-step');
+        }
     }
 
     // 双击任意一条弹幕气泡 -> 原地展开全能编辑器（可修改蓝牌等级、橙牌等级、是否带「管」字牌、昵称、弹幕文字）
@@ -10548,23 +10681,25 @@ window.switchRightTab = function (mode) {
             clearInterval(liveJoinTickerTimer);
             liveJoinTickerTimer = null;
         }
-        if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
 
         const speedLv = getLiveDmSpeedVal();
-        // 开启「公屏弹幕自动滚动」开关（默认开启）时，按抖音直播间自然节奏平滑向上推进弹幕（鼠标悬停或双击编辑单条时自动暂停）
+        if (txtLiveDmSpeed) {
+            txtLiveDmSpeed.textContent = formatLiveDmSpeedLabel(speedLv);
+        }
+        // 始终保持定时器就绪（只要处于直播间且未手动关闭开关，弹幕就会默认源源不断向上滚动，绝不因为初始化时序而卡死）
         if (!swLiveAutoRollDm || swLiveAutoRollDm.checked) {
-            const intervalMs = Math.max(950, 3600 - speedLv * 280);
+            const intervalMs = getLiveDmIntervalMs(speedLv);
             liveChatRollTimer = setInterval(() => {
-                if (liveDmVisible && !isHoveringLiveChatBox && liveEditingDmIdx === null) {
+                if (renderTarget && renderTarget.classList.contains('dy-live-open') && liveDmVisible) {
                     renderLiveChatBubbles(true);
                 }
             }, intervalMs);
         }
 
-        // 最底部单行「💎17 足弟 来了」进场通道：参照原版抖音实拍视频约 2.2 秒轻柔切换一位进场观众（鼠标悬停时暂停）
-        const joinIntervalMs = Math.max(1100, 3200 - speedLv * 180);
+        // 最底部单行「足弟 来了 / 💎17 足弟 来了」进场通道：随弹幕速度滑块同步加速切换进场观众
+        const joinIntervalMs = getLiveJoinIntervalMs(speedLv);
         liveJoinTickerTimer = setInterval(() => {
-            if (liveDmVisible && !isHoveringLiveChatBox && liveEditingDmIdx === null) {
+            if (renderTarget && renderTarget.classList.contains('dy-live-open') && liveDmVisible && liveEditingDmIdx === null) {
                 renderLiveJoinTicker(true);
             }
         }, joinIntervalMs);
@@ -10578,6 +10713,11 @@ window.switchRightTab = function (mode) {
 
     function startLiveRoomAnimations() {
         liveRollTickCount = 0;
+        liveDmVisible = true;
+        liveEditingDmIdx = null;
+        if (swLiveAutoRollDm) swLiveAutoRollDm.checked = true;
+        if (liveChatList) liveChatList.style.opacity = '1';
+        if (liveJoinTickerRow) liveJoinTickerRow.style.opacity = '1';
         if (liveSysNoticeEl) {
             liveSysNoticeEl.style.display = (!swLiveShowNotice || swLiveShowNotice.checked) ? '' : 'none';
         }
@@ -10588,6 +10728,12 @@ window.switchRightTab = function (mode) {
         renderLiveChatBubbles(false);
         renderLiveJoinTicker(false);
         restartLiveChatRollTimer();
+        // 进入直播间瞬间立即触发一次平滑上滑，让用户第一眼就看到评论正在流动
+        setTimeout(() => {
+            if (renderTarget && renderTarget.classList.contains('dy-live-open')) {
+                renderLiveChatBubbles(true);
+            }
+        }, 120);
 
         spawnSingleLiveHeart();
         setTimeout(spawnSingleLiveHeart, 240);
@@ -11212,79 +11358,79 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // ★ 多场景分行弹幕预设池（用于「🎲 換一批」与「🤖 AI 識別視頻自動配彈幕」）
+    // ★ 多场景分行弹幕预设池（混合普通无牌观众「名字：文案」与「名字 来了」进场行，真实感拉满）
     const LIVE_AI_SCENE_DANMAKU_POOLS = {
         classic: [
-            '前排！',
-            '主播好漂亮',
-            '這首歌絕了',
-            '666',
-            '哈哈哈哈',
-            '關注了',
-            '求歌名',
-            '聲音好甜',
-            '打卡',
-            '蹲一個歌單',
-            '太治癒了',
-            '主播加油',
-            '已關注 比心',
-            '主播聲音也太好聽了'
+            '微醺小貓：主播今天狀態太好了吧',
+            '輕輕吹風 來了',
+            '阿傑：666 這波操作太頂了',
+            '晚風溫柔：這首歌絕了，求歌名！',
+            '再次邂逅說愛你 來了',
+            '羊🐑：前排打卡支持主播',
+            '星河少女：聲音好甜，聽著太治癒了',
+            '麥兜黑鳳梨 來了',
+            '夜色有點濃：哈哈哈哈笑死我了',
+            '皓哥：已關注 比心！氣氛拉滿',
+            '南城舊夢 來了',
+            '石頭baby：蹲一個歌單，每天準時看',
+            '漫渡：主播加油，今天人好多呀',
+            '深海裡的星星 來了'
         ],
         beauty_dance: [
             '微醺小貓：主播今天這身穿搭絕了，愛了愛了💖',
-            '輕輕吹風：這顏值簡直天花板，剛刷到就走不動道了',
+            '輕輕吹風 來了',
             '羊🐑：前排打卡！主播好漂亮，狀態拉滿🔥',
             '阿傑：66666 這身材比例太頂了吧',
+            '再次邂逅說愛你 來了',
             '石頭baby：聲音好甜，人美聲甜說的就是主播吧',
             '夜色有點濃：已關注 比心！每天準時蹲直播間',
+            '晚風溫柔 來了',
             '希拉：大家把讚點到 10 萬，讓主播再跳一段！',
             '皓哥：禮物走一波，這個直播間氛圍太好了',
-            '漫渡：鏡頭拉近一點，這皮膚狀態也太好了吧',
             '星河少女：求今天口紅色號和穿搭連結！',
-            '晚風溫柔：太治癒了，看美女直播心情都變好了',
-            '捉事盧鑫：剛從推薦頁進來，果斷點了關注'
+            '捉事盧鑫 來了'
         ],
         music_singing: [
-            '前排！這首歌一開口直接跪了',
-            '求歌名！這個版本的伴奏太好聽了',
-            '聲音好甜，主播聲音也太好聽了吧',
-            '蹲一個歌單，今晚單曲循環預定',
-            '太治癒了，戴上耳機聽簡直是享受',
-            '這首歌絕了，高音部分穩得像CD一樣',
-            '哈哈哈哈剛進來就被嗓音迷住了，關注了',
-            '666 實力派唱將，比原唱還有感覺',
-            '打卡！可以點一首周杰倫的歌嗎',
-            '主播加油，這唱功不火天理難容',
-            '已關注 比心，每天睡前必聽的寶藏直播間',
-            '氣氛組就位，大家小心心和螢光棒刷起來'
+            '微醺小貓：前排！這首歌一開口直接跪了',
+            '輕輕吹風 來了',
+            '阿傑：求歌名！這個版本的伴奏太好聽了',
+            '晚風溫柔：聲音好甜，主播聲音也太好聽了吧',
+            '麥兜黑鳳梨 來了',
+            '星河少女：蹲一個歌單，今晚單曲循環預定',
+            '漫渡：太治癒了，戴上耳機聽簡直是享受',
+            '再次邂逅說愛你 來了',
+            '石頭baby：這首歌絕了，高音部分穩得像CD一樣',
+            '皓哥：666 實力派唱將，比原唱還有感覺',
+            '夜色有點濃：已關注 比心，每天睡前必聽',
+            '深海裡的星星 來了'
         ],
         mahjong_game: [
             '羊🐑：這牌也不咋地嘛，全靠主播技術撐著',
+            '輕輕吹風 來了',
             '🌈七月初五🐟🐳：除了小王和絲滑姐，沒人能打出這操作',
             '蒙蒙：昨天的牌才有節目效果，笑死我了哈哈哈',
+            '再次邂逅說愛你 來了',
             '阿傑：666 這波預判直接封神，對面徹底懵了',
             '捉事盧鑫：這把節奏太穩了，坐等清一色自摸！',
-            '輕輕吹風：哈哈哈哈這張牌敢打出去也是心大',
+            '混凝土銷售 來了',
             '皓哥：這局要是贏了，我直接刷一組嘉年華',
             '夜色有點濃：家庭娛樂局氣氛就是好，百看不厭',
             '石頭baby：注意看右手邊那張牌，伏筆早就埋好了',
-            '漫渡：前排圍觀高手過招，這手氣絕了',
-            '希拉：關注了！每天下班就愛看你們打牌嘮嗑',
-            '風止何安：來了來了，今天戰況怎麼樣？'
+            '風止何安 來了'
         ],
         drama_cinema: [
-            '前排！這段劇情張力拉滿，演技太頂了',
-            '注意看他最後那個眼神，信息量太大了',
-            '這畫質和運鏡絕了，完全是電影級質感',
-            '666 第一次看覺得好笑，看懂之後背後發涼',
-            '終於刷到完整版直播了，之前找了好久',
-            '哈哈哈哈這反轉真的沒猜到，編劇腦洞太大了',
-            '配樂一響雞皮疙瘩都起來了，太有代入感了',
-            '打卡！評論區和彈幕果然臥虎藏龍',
-            '表面風平浪靜，實際上每一句話都在博弈',
-            '已關注 比心，這個系列百看不厭',
-            '太真實了，短短幾十秒把人物性格全立住了',
-            '主播加油，多放點這種高能名場面！'
+            '微醺小貓：前排！這段劇情張力拉滿，演技太頂了',
+            '輕輕吹風 來了',
+            '阿傑：注意看他最後那個眼神，信息量太大了',
+            '晚風溫柔：這畫質和運鏡絕了，完全是電影級質感',
+            '再次邂逅說愛你 來了',
+            '石頭baby：666 第一次看覺得好笑，看懂之後背後發涼',
+            '夜色有點濃：哈哈哈哈這反轉真的沒猜到，編劇腦洞太大了',
+            '南城舊夢 來了',
+            '漫渡：配樂一響雞皮疙瘩都起來了，太有代入感了',
+            '皓哥：表面風平浪靜，實際上每一句話都在博弈',
+            '星河少女：已關注 比心，這個系列百看不厭',
+            '深海裡的星星 來了'
         ]
     };
 
@@ -11309,47 +11455,70 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // ★ 从当前预览视频或图片即时截取最多 2 张省流关键帧 Base64 (宽 360px, JPEG 0.65，节省 80% Token) + 视觉色彩/人像特征分析
+    // ★ 从当前预览视频或图片即时截取最多 2 张高清关键帧 Base64 (宽 420px, JPEG 0.72，兼顾字幕清晰度与省流) + 视觉色彩/人像特征分析
     async function extractCurrentVideoFramesAndStats(preFrames = null) {
         const previewVid = document.getElementById('preview-video');
         const previewImg = document.getElementById('preview-img');
-        const frames = Array.isArray(preFrames) && preFrames.length > 0 ? preFrames.slice(0, 2) : [];
+        const rawCandidates = [];
 
-        if (frames.length === 0) {
-            // 优先截取当前画面正在播放的实时视频帧，确保拖动进度条或换画面后识别的是最新画面
-            if (previewVid && previewVid.videoWidth > 0 && previewVid.style.display !== 'none') {
-                try {
-                    const c = document.createElement('canvas');
-                    const vw = previewVid.videoWidth || 640;
-                    const vh = previewVid.videoHeight || 360;
-                    c.width = Math.min(360, vw);
-                    c.height = Math.round(c.width * (vh / vw)) || 202;
-                    c.getContext('2d').drawImage(previewVid, 0, 0, c.width, c.height);
-                    frames.push(c.toDataURL('image/jpeg', 0.65));
-                } catch (e) {}
-            }
-            if (Array.isArray(window.__lastExtractedVideoFrames) && window.__lastExtractedVideoFrames.length > 0 && frames.length < 2) {
-                window.__lastExtractedVideoFrames.forEach(f => {
-                    if (frames.length < 2 && f) frames.push(f);
-                });
-            }
-            if (frames.length === 0 && previewImg && previewImg.naturalWidth > 0 && previewImg.style.display !== 'none') {
-                try {
-                    const c = document.createElement('canvas');
-                    const iw = previewImg.naturalWidth || 640;
-                    const ih = previewImg.naturalHeight || 360;
-                    c.width = Math.min(360, iw);
-                    c.height = Math.round(c.width * (ih / iw)) || 202;
-                    c.getContext('2d').drawImage(previewImg, 0, 0, c.width, c.height);
-                    frames.push(c.toDataURL('image/jpeg', 0.65));
-                } catch (e) {}
-            }
+        // 1) 优先截取当前画面正在展示的实时视频帧（若视频刚加载停在 0.0s 片头黑屏且处于暂停状态，自动微调到 0.8s 抓取真实画面）
+        if (previewVid && previewVid.videoWidth > 0 && previewVid.style.display !== 'none') {
+            try {
+                if (previewVid.paused && previewVid.currentTime < 0.18 && previewVid.duration > 1.0) {
+                    await new Promise((resolve) => {
+                        const onSeeked = () => {
+                            previewVid.removeEventListener('seeked', onSeeked);
+                            resolve();
+                        };
+                        previewVid.addEventListener('seeked', onSeeked);
+                        try {
+                            previewVid.currentTime = Math.min(1.2, previewVid.duration * 0.2);
+                        } catch (e) {
+                            resolve();
+                        }
+                        setTimeout(resolve, 220);
+                    });
+                }
+                const c = document.createElement('canvas');
+                const vw = previewVid.videoWidth || 640;
+                const vh = previewVid.videoHeight || 360;
+                c.width = Math.min(420, vw);
+                c.height = Math.round(c.width * (vh / vw)) || 236;
+                c.getContext('2d').drawImage(previewVid, 0, 0, c.width, c.height);
+                rawCandidates.push(c.toDataURL('image/jpeg', 0.72));
+            } catch (e) {}
         }
 
-        // 分析第一张关键帧的像素色彩分布（人像肤色占比、麻将/桌面绿色占比、霓虹舞台紫粉占比、整体明暗度）
-        const stats = { skinRatio: 0, greenTableRatio: 0, neonStageRatio: 0, avgLuma: 120 };
-        if (frames.length > 0) {
-            await new Promise((resolve) => {
+        if (Array.isArray(preFrames) && preFrames.length > 0) {
+            preFrames.forEach(f => {
+                if (f && rawCandidates.length < 4) rawCandidates.push(f);
+            });
+        }
+        if (Array.isArray(window.__lastExtractedVideoFrames) && window.__lastExtractedVideoFrames.length > 0) {
+            window.__lastExtractedVideoFrames.forEach(f => {
+                if (f && rawCandidates.length < 4) rawCandidates.push(f);
+            });
+        }
+        if (rawCandidates.length === 0 && previewImg && previewImg.naturalWidth > 0 && previewImg.style.display !== 'none') {
+            try {
+                const c = document.createElement('canvas');
+                const iw = previewImg.naturalWidth || 640;
+                const ih = previewImg.naturalHeight || 360;
+                c.width = Math.min(420, iw);
+                c.height = Math.round(c.width * (ih / iw)) || 236;
+                c.getContext('2d').drawImage(previewImg, 0, 0, c.width, c.height);
+                rawCandidates.push(c.toDataURL('image/jpeg', 0.72));
+            } catch (e) {}
+        }
+
+        // 逐帧检测亮度与色彩特征，自动过滤掉亮度过低 (<12) 的全黑帧，保留最多 2 张有效画面帧
+        const validFrames = [];
+        let primaryStats = { skinRatio: 0, greenTableRatio: 0, neonStageRatio: 0, avgLuma: 120 };
+
+        for (let idx = 0; idx < rawCandidates.length; idx++) {
+            const frameUrl = rawCandidates[idx];
+            const frameStat = await new Promise((resolve) => {
+                const st = { skinRatio: 0, greenTableRatio: 0, neonStageRatio: 0, avgLuma: 120 };
                 const img = new Image();
                 img.onload = () => {
                     try {
@@ -11359,41 +11528,38 @@ window.switchRightTab = function (mode) {
                         const sctx = sc.getContext('2d');
                         sctx.drawImage(img, 0, 0, 64, 64);
                         const data = sctx.getImageData(0, 0, 64, 64).data;
-                        let skinCnt = 0;
-                        let greenCnt = 0;
-                        let neonCnt = 0;
-                        let lumaSum = 0;
+                        let skinCnt = 0, greenCnt = 0, neonCnt = 0, lumaSum = 0;
                         const totalPx = 64 * 64;
                         for (let i = 0; i < data.length; i += 4) {
                             const r = data[i], g = data[i + 1], b = data[i + 2];
-                            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
-                            lumaSum += luma;
-                            if (r > 95 && g > 40 && b > 20 && r > g && r > b && (r - Math.min(g, b)) > 15 && Math.abs(r - g) > 12) {
-                                skinCnt++;
-                            }
-                            if (g > 75 && g > r * 1.08 && g > b * 1.05) {
-                                greenCnt++;
-                            }
-                            if ((r > 130 && b > 130 && g < 110) || (b > 140 && r > 90 && g < 100)) {
-                                neonCnt++;
-                            }
+                            lumaSum += (0.299 * r + 0.587 * g + 0.114 * b);
+                            if (r > 95 && g > 40 && b > 20 && r > g && r > b && (r - Math.min(g, b)) > 15 && Math.abs(r - g) > 12) skinCnt++;
+                            if (g > 75 && g > r * 1.08 && g > b * 1.05) greenCnt++;
+                            if ((r > 130 && b > 130 && g < 110) || (b > 140 && r > 90 && g < 100)) neonCnt++;
                         }
-                        stats.skinRatio = skinCnt / totalPx;
-                        stats.greenTableRatio = greenCnt / totalPx;
-                        stats.neonStageRatio = neonCnt / totalPx;
-                        stats.avgLuma = Math.round(lumaSum / totalPx);
+                        st.skinRatio = skinCnt / totalPx;
+                        st.greenTableRatio = greenCnt / totalPx;
+                        st.neonStageRatio = neonCnt / totalPx;
+                        st.avgLuma = Math.round(lumaSum / totalPx);
                     } catch (e) {}
-                    resolve();
+                    resolve(st);
                 };
-                img.onerror = () => resolve();
-                img.src = frames[0];
+                img.onerror = () => resolve(st);
+                img.src = frameUrl;
             });
-            // 若视频刚好停在 0.0 秒全黑渐入帧（亮度 < 12），剔除该全黑帧以免干扰视觉判断
-            if (stats.avgLuma < 12) {
-                frames.shift();
+
+            if (frameStat.avgLuma >= 12) {
+                if (validFrames.length === 0) primaryStats = frameStat;
+                if (validFrames.length < 2) validFrames.push(frameUrl);
             }
         }
-        return { frames, stats };
+
+        // 若所有候选帧都很暗但至少有一张，保留第一张兜底
+        if (validFrames.length === 0 && rawCandidates.length > 0) {
+            validFrames.push(rawCandidates[0]);
+        }
+
+        return { frames: validFrames, stats: primaryStats };
     }
 
     // ★ 根据视频抽帧像素特征 + 文件名/标题关键词智能生成匹配的直播间弹幕（零配置即时可用）
@@ -11446,8 +11612,15 @@ window.switchRightTab = function (mode) {
         const hostName = (inLiveHostName && inLiveHostName.value.trim()) ? inLiveHostName.value.trim() : '主播';
         const randSeed = Math.floor(1000 + Math.random() * 9000);
         const promptText = frames && frames.length > 0
-            ? `你是一個抖音/Laya直播間的真實觀眾彈幕生成助手。請仔細觀察這段直播視頻的畫面（主播暱稱：${hostName}，參考標題信息：${contextText || '無'}，刷新批次：${randSeed}），根據畫面裡的人物穿搭、顏值氣質、動作神態、場景環境或劇情氛圍，生成 14 條高度貼合畫面的直播間滾動彈幕。要求：1.全部使用繁體中文；2.每行一條，不要編號，不要用逗號併成一行；3.格式統一為「觀眾暱稱：彈幕內容」，語氣自然接地氣且每條不重複；4.嚴禁出現「黑屏」「卡住了」「沒聲音」等故障詞彙，全部為熱鬧互動、誇讚或討論畫面的正向彈幕；5.只輸出這14行彈幕文本，不要任何解釋。`
-            : `你是一個抖音/Laya直播間的真實觀眾彈幕生成助手。請根據當前直播間信息（主播暱稱：${hostName}，主題與標籤：${contextText || '熱門才藝顏值互動直播'}，刷新批次：${randSeed}），生成 14 條生動自然、互動感強的直播間滾動彈幕。要求：1.全部使用繁體中文；2.每行一條，不要編號，不要用逗號併成一行；3.格式統一為「觀眾暱稱：彈幕內容」，每次生成的暱稱與話術都要新鮮不重複；4.只輸出這14行彈幕文本，不要任何解釋。`;
+            ? `你是一個抖音/Laya直播間的真實觀眾彈幕與台詞互動生成助手。請仔細觀察上傳的直播視頻畫面截圖（主播暱稱：${hostName}，參考標題信息：${contextText || '無'}，刷新批次：${randSeed}），重點識別：1.畫面中的人物外貌、穿搭、動作神態與情緒；2.畫面上的字幕、台詞文字、牌局或道具細節；3.場景環境與劇情氛圍。請直接針對畫面正在發生的內容和台詞細節，生成 14 條高度貼合畫面劇情的直播間公屏滾動內容（其中 11 條格式為「觀眾暱稱：彈幕內容」，另外穿插 3 條格式為「觀眾暱稱 來了」的新觀眾進場提示）。要求：1.全部使用繁體中文；2.每行一條，絕對不要序號或編號，不要用逗號併成一行；3.語氣自然接地氣且每條不重複；4.嚴禁出現「黑屏」「卡住了」「看不見」等詞彙；5.只輸出這14行文本，不要任何解釋或開頭語。`
+            : `你是一個抖音/Laya直播間的真實觀眾彈幕生成助手。請根據當前直播間信息（主播暱稱：${hostName}，主題與標籤：${contextText || '熱門才藝顏值互動直播'}，刷新批次：${randSeed}），生成 14 條生動自然的直播間公屏滾動內容（其中 11 條格式為「觀眾暱稱：彈幕內容」，另外穿插 3 條格式為「觀眾暱稱 來了」的新觀眾進場提示）。要求：1.全部使用繁體中文；2.每行一條，不要編號，不要用逗號併成一行；3.只輸出這14行文本，不要任何解釋。`;
+
+        const cleanParsedAiLines = (rawText) => {
+            const lines = splitDanmakuTextToMultiline(rawText)
+                .map(line => line.replace(/^(\d+[\.、\)\s]+|[-•*]\s*)/, '').replace(/^\*\*|\*\*$/g, '').trim())
+                .filter(line => line.length >= 2 && !/^(好的|以下是|根據畫面|這裡是)/.test(line));
+            return lines;
+        };
 
         // 1. Google Gemini 3.8 Flash API Key (支持 AQ... 或 AIza...)
         if (apiKey && (/^(AIza|AQ\.)/i.test(apiKey))) {
@@ -11458,34 +11631,49 @@ window.switchRightTab = function (mode) {
                     parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Data } });
                 }
             });
-            const bodyPayload = JSON.stringify({
-                contents: [{ role: 'user', parts }],
-                generationConfig: {
-                    thinkingConfig: { thinkingBudget: 0 },
-                    maxOutputTokens: 600,
-                    temperature: 0.9
-                }
-            });
 
-            const candidateUrls = [
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${encodeURIComponent(apiKey)}`,
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${encodeURIComponent(apiKey)}`
+            // 针对 gemini-3.8-flash 必须使用 thinkingLevel: 'LOW' + maxOutputTokens: 2048，避免思考 Token 占满输出上限导致只返回 1 行
+            const candidateConfigs = [
+                {
+                    url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+                    generationConfig: {
+                        thinkingConfig: { thinkingLevel: 'LOW' },
+                        maxOutputTokens: 2048,
+                        temperature: 0.9
+                    }
+                },
+                {
+                    url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${encodeURIComponent(apiKey)}`,
+                    generationConfig: {
+                        maxOutputTokens: 2048,
+                        temperature: 0.9
+                    }
+                },
+                {
+                    url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+                    generationConfig: {
+                        maxOutputTokens: 2048,
+                        temperature: 0.9
+                    }
+                }
             ];
 
-            for (const url of candidateUrls) {
+            for (const cfg of candidateConfigs) {
                 try {
-                    const res = await fetch(url, {
+                    const res = await fetch(cfg.url, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: bodyPayload
+                        body: JSON.stringify({
+                            contents: [{ role: 'user', parts }],
+                            generationConfig: cfg.generationConfig
+                        })
                     });
                     if (res.ok) {
                         const json = await res.json();
                         const resParts = json?.candidates?.[0]?.content?.parts || [];
                         const textPart = resParts.find(p => typeof p.text === 'string' && !p.thought) || resParts[0];
                         const outTxt = textPart?.text || '';
-                        const parsed = splitDanmakuTextToMultiline(outTxt);
+                        const parsed = cleanParsedAiLines(outTxt);
                         if (parsed.length >= 4) return parsed;
                     }
                 } catch (e) {}
@@ -11744,8 +11932,8 @@ window.switchRightTab = function (mode) {
     if (inLiveDmSpeed) {
         inLiveDmSpeed.addEventListener('input', () => {
             const v = getLiveDmSpeedVal();
-            const desc = v <= 3 ? '慢速' : (v <= 7 ? '标准' : '极速');
-            if (txtLiveDmSpeed) txtLiveDmSpeed.textContent = `${v} (${desc})`;
+            if (txtLiveDmSpeed) txtLiveDmSpeed.textContent = formatLiveDmSpeedLabel(v);
+            renderLiveChatBubbles(true);
             restartLiveChatRollTimer();
         });
     }
@@ -11858,9 +12046,381 @@ window.switchRightTab = function (mode) {
         ctx.restore();
     }
 
-    window.__drawLiveRoomDynamicCanvas = function (ctx, outW, outH, scaleRatioX, scaleRatioY, elapsedSec) {
-        if (!ctx) return;
+    // ★ 在录屏 Canvas 上绘制圆角矩形辅助函数
+    function drawLiveRoundRect(ctx, x, y, w, h, r) {
+        const rad = Math.max(0, Math.min(r, w / 2, h / 2));
+        ctx.beginPath();
+        ctx.moveTo(x + rad, y);
+        ctx.arcTo(x + w, y, x + w, y + h, rad);
+        ctx.arcTo(x + w, y + h, x, y + h, rad);
+        ctx.arcTo(x, y + h, x, y, rad);
+        ctx.arcTo(x, y, x + w, y, rad);
+        ctx.closePath();
+    }
 
+    // ★ 在录屏 Canvas 上 1:1 绘制抖音蓝紫财富等级胶囊牌（含左侧矢量星钻 + 右侧数字）
+    function drawCanvasLvBadge(ctx, x, y, lv, s, fontStack) {
+        const n = parseInt(lv, 10) || 0;
+        if (n <= 0) return 0;
+        const txt = String(n);
+        const h = Math.round(13.2 * s);
+        const fontPx = Math.round(8.4 * s);
+        ctx.save();
+        ctx.font = `800 ${fontPx}px "Inter", ${fontStack}`;
+        const numW = ctx.measureText(txt).width;
+        const icoSize = 8.4 * s;
+        const padL = 3.5 * s;
+        const padR = 4.8 * s;
+        const gap = 2 * s;
+        const w = Math.ceil(padL + icoSize + gap + numW + padR);
+
+        const grad = ctx.createLinearGradient(x, y, x + w, y);
+        if (n <= 15) {
+            grad.addColorStop(0, '#4aa1fa');
+            grad.addColorStop(1, '#3b74f6');
+        } else if (n <= 29) {
+            grad.addColorStop(0, '#5c73fa');
+            grad.addColorStop(1, '#7d5bfa');
+        } else {
+            grad.addColorStop(0, '#8655f8');
+            grad.addColorStop(1, '#b84bf8');
+        }
+        drawLiveRoundRect(ctx, x, y, w, h, h / 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // 左侧矢量钻石星芒
+        const cx = x + padL + icoSize * 0.5;
+        const cy = y + h * 0.5;
+        const r = icoSize * 0.44;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - r);
+        ctx.lineTo(cx + r * 0.88, cy - r * 0.25);
+        ctx.lineTo(cx + r * 0.52, cy + r * 0.92);
+        ctx.lineTo(cx - r * 0.52, cy + r * 0.92);
+        ctx.lineTo(cx - r * 0.88, cy - r * 0.25);
+        ctx.closePath();
+        ctx.fillStyle = '#e0f2fe';
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(cx, cy - r * 0.65);
+        ctx.lineTo(cx + r * 0.25, cy - r * 0.15);
+        ctx.lineTo(cx + r * 0.72, cy);
+        ctx.lineTo(cx + r * 0.25, cy + r * 0.15);
+        ctx.lineTo(cx, cy + r * 0.65);
+        ctx.lineTo(cx - r * 0.25, cy + r * 0.15);
+        ctx.lineTo(cx - r * 0.72, cy);
+        ctx.lineTo(cx - r * 0.25, cy - r * 0.15);
+        ctx.closePath();
+        ctx.fillStyle = '#ffffff';
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.fillText(txt, x + padL + icoSize + gap, y + h * 0.52);
+        ctx.restore();
+        return w;
+    }
+
+    // ★ 在录屏 Canvas 上 1:1 绘制橙粉粉丝团勋章胶囊牌（含左侧星翼爱心 + 右侧数字）
+    function drawCanvasFanBadge(ctx, x, y, fanLv, s, fontStack) {
+        const n = parseInt(fanLv, 10) || 0;
+        if (n <= 0) return 0;
+        const txt = String(n);
+        const h = Math.round(13.2 * s);
+        const fontPx = Math.round(8.4 * s);
+        ctx.save();
+        ctx.font = `800 ${fontPx}px "Inter", ${fontStack}`;
+        const numW = ctx.measureText(txt).width;
+        const icoSize = 8.4 * s;
+        const padL = 3.2 * s;
+        const padR = 4.8 * s;
+        const gap = 2 * s;
+        const w = Math.ceil(padL + icoSize + gap + numW + padR);
+
+        const grad = ctx.createLinearGradient(x, y, x + w, y);
+        grad.addColorStop(0, '#fb923c');
+        grad.addColorStop(0.55, '#f97316');
+        grad.addColorStop(1, '#f43f5e');
+        drawLiveRoundRect(ctx, x, y, w, h, h / 2);
+        ctx.fillStyle = grad;
+        ctx.fill();
+
+        // 左侧白色小爱心徽章
+        drawVectorHeartOnCanvas(ctx, x + padL + icoSize * 0.5, y + h * 0.52, icoSize * 1.15, '#fff7ed', 0.96);
+
+        ctx.fillStyle = '#ffffff';
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'left';
+        ctx.fillText(txt, x + padL + icoSize + gap, y + h * 0.52);
+        ctx.restore();
+        return w;
+    }
+
+    // ★ 在录屏 Canvas 上绘制单行滚动弹幕胶囊气泡（支持无灯牌普通观众「名字：文案」、纯「名字 来了」进场行、以及带牌老粉行）
+    function drawSingleLiveChatBubbleOnCanvas(ctx, baseX, rowTopY, maxBubbleW, rowData, badgeSeedIdx, s, dmTextColor, showRowHeart, fontStack) {
+        const { lv, fanLv, isAdmin, nickPart, msg, isJoinRow } = rowData;
+        const hasBadges = (lv > 0 || fanLv > 0 || isAdmin);
+        const rowH = Math.round(18.8 * s);
+        const padX = Math.round(7.5 * s);
+        const itemGap = Math.round(3.5 * s);
+        const badgeH = Math.round(13.2 * s);
+        const fontPx = Math.round(10 * s);
+
+        ctx.save();
+        // 先测量内部元素总宽度以确定黑色毛玻璃胶囊气泡宽度
+        ctx.font = `800 ${fontPx}px "Inter", ${fontStack}`;
+        const lvW = lv > 0 ? Math.ceil((lv >= 10 ? 26.5 : 21.5) * s) : 0;
+        const fanW = fanLv > 0 ? Math.ceil((fanLv >= 10 ? 26.2 : 21.2) * s) : 0;
+        const admW = isAdmin ? Math.ceil(14.5 * s) : 0;
+        const nickFull = isJoinRow ? `${nickPart} ` : `${nickPart}：`;
+        const nickW = ctx.measureText(nickFull).width;
+
+        ctx.font = `600 ${fontPx}px ${fontStack}`;
+        let displayMsg = String(msg || '');
+        const effectiveShowHeart = showRowHeart && !isJoinRow;
+        const heartW = effectiveShowHeart ? Math.ceil(12 * s) : 0;
+
+        let prefixW = padX;
+        if (lvW > 0) prefixW += lvW + itemGap;
+        if (fanW > 0) prefixW += fanW + itemGap;
+        if (admW > 0) prefixW += admW + itemGap;
+        prefixW += nickW;
+
+        const availMsgW = Math.max(40 * s, maxBubbleW - prefixW - heartW - padX);
+        let msgW = ctx.measureText(displayMsg).width;
+        if (msgW > availMsgW && displayMsg.length > 4) {
+            while (displayMsg.length > 2 && ctx.measureText(displayMsg + '…').width > availMsgW) {
+                displayMsg = displayMsg.slice(0, -1);
+            }
+            displayMsg += '…';
+            msgW = ctx.measureText(displayMsg).width;
+        }
+
+        const totalBubbleW = Math.min(maxBubbleW, Math.ceil(prefixW + msgW + heartW + padX));
+
+        // 1) 绘制圆角深色半透明气泡背景
+        drawLiveRoundRect(ctx, baseX, rowTopY, totalBubbleW, rowH, Math.round(10.5 * s));
+        ctx.fillStyle = 'rgba(10, 12, 20, 0.50)';
+        ctx.fill();
+        ctx.lineWidth = Math.max(1, 0.8 * s);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+        ctx.stroke();
+
+        // 2) 依次绘制蓝牌、橙牌、红管字牌、彩色/彩虹昵称、弹幕文字、右侧紫心
+        let curX = baseX + padX;
+        const badgeY = rowTopY + Math.round((rowH - badgeH) / 2);
+
+        if (lv > 0) {
+            const actualLvW = drawCanvasLvBadge(ctx, curX, badgeY, lv, s, fontStack);
+            curX += actualLvW + itemGap;
+        }
+        if (fanLv > 0) {
+            const actualFanW = drawCanvasFanBadge(ctx, curX, badgeY, fanLv, s, fontStack);
+            curX += actualFanW + itemGap;
+        }
+        if (isAdmin) {
+            const aw = Math.round(14.2 * s);
+            drawLiveRoundRect(ctx, curX, badgeY, aw, badgeH, 3.5 * s);
+            const agrad = ctx.createLinearGradient(curX, badgeY, curX + aw, badgeY);
+            agrad.addColorStop(0, '#ef4444');
+            agrad.addColorStop(1, '#f43f5e');
+            ctx.fillStyle = agrad;
+            ctx.fill();
+            ctx.font = `800 ${Math.round(8 * s)}px ${fontStack}`;
+            ctx.fillStyle = '#ffffff';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('管', curX + aw / 2, badgeY + badgeH * 0.52);
+            curX += aw + itemGap;
+        }
+
+        // 3) 发言人昵称（无灯牌普通观众与进场行用清爽浅蓝昵称，带牌老粉用彩虹或绚丽彩名）
+        const textMidY = rowTopY + rowH * 0.53;
+        ctx.font = `800 ${fontPx}px ${fontStack}`;
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        const useRainbow = !swLiveRainbowNick || swLiveRainbowNick.checked;
+        if (!useRainbow) {
+            ctx.fillStyle = '#93c5fd';
+            ctx.fillText(nickFull, curX, textMidY);
+            curX += ctx.measureText(nickFull).width;
+        } else if (!hasBadges || isJoinRow) {
+            ctx.fillStyle = PLAIN_VIEWER_NICK_PALETTE[badgeSeedIdx % PLAIN_VIEWER_NICK_PALETTE.length];
+            ctx.fillText(nickFull, curX, textMidY);
+            curX += ctx.measureText(nickFull).width;
+        } else if (badgeSeedIdx % 2 === 0 && nickPart.length >= 2) {
+            const chars = Array.from(nickPart);
+            for (let cIdx = 0; cIdx < chars.length; cIdx++) {
+                const ch = chars[cIdx];
+                ctx.fillStyle = RAINBOW_CHAR_COLORS[(badgeSeedIdx + cIdx) % RAINBOW_CHAR_COLORS.length];
+                ctx.fillText(ch, curX, textMidY);
+                curX += ctx.measureText(ch).width;
+            }
+            ctx.fillStyle = '#cbd5e1';
+            ctx.fillText('：', curX, textMidY);
+            curX += ctx.measureText('：').width;
+        } else {
+            ctx.fillStyle = COLORFUL_NICK_PALETTE[badgeSeedIdx % COLORFUL_NICK_PALETTE.length];
+            ctx.fillText(nickFull, curX, textMidY);
+            curX += ctx.measureText(nickFull).width;
+        }
+
+        // 4) 弹幕内容文字（或「来了」后缀）
+        ctx.font = `600 ${fontPx}px ${fontStack}`;
+        ctx.fillStyle = isJoinRow ? 'rgba(255, 255, 255, 0.88)' : (dmTextColor || '#ffffff');
+        ctx.fillText(displayMsg, curX, textMidY);
+        curX += msgW;
+
+        // 5) 右侧紫色小心心（若开启且非进场行）
+        if (effectiveShowHeart) {
+            drawVectorHeartOnCanvas(ctx, curX + 6 * s, textMidY, 9.5 * s, '#c084fc', 0.95);
+        }
+
+        ctx.restore();
+        return rowH;
+    }
+
+    window.__drawLiveRoomDynamicCanvas = function (ctx, outW, outH, scaleRatioX, scaleRatioY, elapsedSec, exportFontStack) {
+        if (!ctx) return;
+        const activeFont = exportFontStack || '"PingFang SC", "Microsoft YaHei", sans-serif';
+
+        // 一、动态绘制直播间左下角公屏滚动弹幕列表 (#live-chat-list) 与底部进场提示条 (#live-join-ticker-row)
+        if (liveDmVisible) {
+            const speedLv = getLiveDmSpeedVal();
+            const intervalMs = getLiveDmIntervalMs(speedLv);
+            const joinIntervalMs = getLiveJoinIntervalMs(speedLv);
+            const autoRoll = !swLiveAutoRollDm || swLiveAutoRollDm.checked;
+
+            const scalePct = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
+            const dmScale = Math.min(1.55, Math.max(0.75, scalePct / 100));
+            const s = scaleRatioX * dmScale;
+
+            const widthPct = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
+            const layout = window.__liveExportLayout || {};
+            const chatBox = layout.chatBox || {
+                x: Math.round(12 * scaleRatioX),
+                y: Math.round(outH - 225 * scaleRatioY),
+                w: Math.round((outW - 24 * scaleRatioX) * (widthPct / 100)),
+                h: Math.round(115 * scaleRatioY)
+            };
+            const joinBox = layout.joinBox || {
+                x: chatBox.x,
+                y: chatBox.y + chatBox.h + Math.round(3.5 * s),
+                w: chatBox.w,
+                h: Math.round(21 * scaleRatioY)
+            };
+
+            const allLines = parseLiveDanmakuTexts();
+            const userMaxRows = getLiveMaxRowsVal();
+            const maxRows = (liveSysNoticeEl && liveSysNoticeEl.style.display !== 'none') ? Math.max(2, userMaxRows - 1) : userMaxRows;
+            const count = Math.max(2, maxRows);
+            const dmTextColor = getLiveDmColor();
+            const showRowHeart = !!(swLiveDmRowHeart && swLiveDmRowHeart.checked);
+
+            const rowH = Math.round(18.8 * s);
+            const rowGap = Math.round(3.5 * s);
+            const stepPx = rowH + rowGap;
+
+            // 根据录制已用时 elapsedSec 计算当前推进了多少行，以及当前步内的平滑上滑位移
+            const elapsedMs = Math.max(0, elapsedSec * 1000);
+            const stepsAdvanced = autoRoll ? Math.floor(elapsedMs / intervalMs) : 0;
+            const stepElapsedMs = autoRoll ? (elapsedMs % intervalMs) : intervalMs;
+            const animDurationMs = Math.min(220, Math.max(45, intervalMs * 0.78));
+            const animProgress = autoRoll ? Math.min(1, stepElapsedMs / animDurationMs) : 1;
+            const easeOut = 1 - Math.pow(1 - animProgress, 3);
+            const ySlideOffset = autoRoll && stepsAdvanced > 0 ? Math.round((1 - easeOut) * stepPx) : 0;
+
+            const totalListH = count * rowH + (count - 1) * rowGap;
+            const listTopY = (chatBox.y + chatBox.h) - totalListH;
+            const maxBubbleW = Math.max(160 * scaleRatioX, chatBox.w);
+
+            ctx.save();
+            // 裁剪公屏弹幕可视窗口，让顶部旧弹幕平滑滑出、底部新弹幕平滑滑入
+            ctx.beginPath();
+            ctx.rect(chatBox.x - 4 * scaleRatioX, listTopY - 2 * scaleRatioY, maxBubbleW + 12 * scaleRatioX, totalListH + 4 * scaleRatioY);
+            ctx.clip();
+
+            // 若正在向上滑动过渡中，多画顶部即将滑出的一行 (i = -1)
+            const hasJoinInPool = allLines.some(l => /(\s|^|：|:)(來了|来了)$/.test(String(l).trim()));
+            const startI = (ySlideOffset > 0) ? -1 : 0;
+            for (let i = startI; i < count; i++) {
+                const virtualStep = liveRollTickCount + stepsAdvanced + i;
+                const safeStep = ((virtualStep % 100000) + 100000) % 100000;
+                const globalIdx = safeStep % allLines.length;
+                let rawLine = allLines[globalIdx];
+                if (!hasJoinInPool && (safeStep % 5 === 3)) {
+                    const jViewer = liveJoinViewerPool[safeStep % liveJoinViewerPool.length];
+                    rawLine = `${jViewer.nick} ${window.__currentLangMode === 'simp' ? '来了' : '來了'}`;
+                }
+                const badgeSeedIdx = allLines.length <= count ? safeStep : globalIdx;
+                const parsedRow = parseSingleLiveDanmakuRow(rawLine, badgeSeedIdx);
+                const rowY = listTopY + i * stepPx + ySlideOffset;
+
+                drawSingleLiveChatBubbleOnCanvas(
+                    ctx,
+                    chatBox.x,
+                    rowY,
+                    maxBubbleW,
+                    parsedRow,
+                    badgeSeedIdx,
+                    s,
+                    dmTextColor,
+                    showRowHeart,
+                    activeFont
+                );
+            }
+            ctx.restore();
+
+            // 二、动态绘制底部高频进场通道 (#live-join-ticker-row：支持无牌「再次邂逅說愛你 來了」与有牌「💎17 足弟 來了」)
+            if (liveJoinViewerPool.length > 0) {
+                const joinSteps = Math.floor(elapsedMs / joinIntervalMs);
+                const v = liveJoinViewerPool[(liveJoinCursor + joinSteps) % liveJoinViewerPool.length];
+                const isSimp = window.__currentLangMode === 'simp';
+                const joinTxt = isSimp ? ' 来了' : ' 來了';
+                const jRowH = Math.round(18 * s);
+                const jPadX = Math.round(7.5 * s);
+                const jFontPx = Math.round(9.6 * s);
+                const jY = joinBox.y;
+
+                ctx.save();
+                ctx.font = `800 ${jFontPx}px ${activeFont}`;
+                const nickW = ctx.measureText(v.nick).width;
+                ctx.font = `600 ${jFontPx}px ${activeFont}`;
+                const suffixW = ctx.measureText(joinTxt).width;
+                const lvEstW = v.lv > 0 ? Math.ceil((v.lv >= 10 ? 26.5 : 21.5) * s) + Math.round(4 * s) : 0;
+                const jPillW = Math.ceil(jPadX * 2 + lvEstW + nickW + suffixW);
+
+                drawLiveRoundRect(ctx, joinBox.x, jY, jPillW, jRowH, Math.round(10 * s));
+                ctx.fillStyle = 'rgba(12, 14, 24, 0.46)';
+                ctx.fill();
+
+                let jCurX = joinBox.x + jPadX;
+                if (v.lv > 0) {
+                    const badgeH = Math.round(13.2 * s);
+                    const badgeY = jY + Math.round((jRowH - badgeH) / 2);
+                    const realLvW = drawCanvasLvBadge(ctx, jCurX, badgeY, v.lv, s, activeFont);
+                    jCurX += realLvW + Math.round(4 * s);
+                }
+
+                const jMidY = jY + jRowH * 0.53;
+                ctx.font = `800 ${jFontPx}px ${activeFont}`;
+                ctx.fillStyle = '#93c5fd';
+                ctx.textAlign = 'left';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(v.nick, jCurX, jMidY);
+                jCurX += nickW;
+
+                ctx.font = `600 ${jFontPx}px ${activeFont}`;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+                ctx.fillText(joinTxt, jCurX, jMidY);
+                ctx.restore();
+            }
+        }
+
+        // 三、动态绘制右侧向上飘动的彩色矢量爱心粒子
         const heartSizePx = Math.round(18 * scaleRatioX);
         const baseRightX = outW - 30 * scaleRatioX;
         const baseBottomY = outH - 148 * scaleRatioY;
@@ -11899,14 +12459,23 @@ window.switchRightTab = function (mode) {
             if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = false;
             localStorage.setItem('LAYA_LIVE_V24_CLEAN_BADGE_MIGRATED', '1');
         }
-        // V25 迁移：默认恢复公屏弹幕平滑自动滚动，并自动写入团队默认口令 0000 防止被旧空缓存覆盖
-        if (localStorage.getItem('LAYA_LIVE_V25_FLASH38_MIGRATED') !== '1') {
-            if (swLiveAutoRollDm) swLiveAutoRollDm.checked = true;
+        // V25/V26 迁移：默认强制开启公屏弹幕平滑自动滚动，并将旧版全带勋章缓存升级为「名字：文案 + 名字 来了 + 60%无勋章路人」自然混排
+        if (swLiveAutoRollDm) swLiveAutoRollDm.checked = true;
+        if (localStorage.getItem('LAYA_LIVE_V26_NOBADGE_JOIN_MIGRATED') !== '1') {
             localStorage.setItem('LAYA_LIVE_TEAM_PASS_OK', TEAM_AI_PASSCODE);
             if (inLiveAiGasUrl && !inLiveAiGasUrl.value.trim()) {
                 inLiveAiGasUrl.value = TEAM_AI_PASSCODE;
             }
+            if (inLiveDanmakuList) {
+                const curTxt = inLiveDanmakuList.value || '';
+                // 若旧缓存还是旧版默认文案或没有任何「來了」进场行，自动升级为新版含「名字：文案」与「名字 來了」的自然混排预设
+                if (!curTxt.trim() || (curTxt.includes('微醺小貓：主播今天狀態太好了吧') && !curTxt.includes('來了'))) {
+                    inLiveDanmakuList.value = defaultLiveChatLines.join('\n');
+                }
+            }
             localStorage.setItem('LAYA_LIVE_V25_FLASH38_MIGRATED', '1');
+            localStorage.setItem('LAYA_LIVE_V26_NOBADGE_JOIN_MIGRATED', '1');
+            saveAllToStorage();
         } else if (inLiveAiGasUrl && !inLiveAiGasUrl.value.trim()) {
             inLiveAiGasUrl.value = TEAM_AI_PASSCODE;
         }

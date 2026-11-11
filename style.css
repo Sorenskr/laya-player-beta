@@ -8024,6 +8024,21 @@ input[type="range"] {
     flex-direction: column;
     align-items: flex-start;
     gap: calc(3.5px * var(--live-dm-scale, 1));
+    will-change: transform;
+}
+.live-chat-list.is-rolling-step {
+    animation: liveChatListPushUp var(--live-roll-anim-ms, 170ms) cubic-bezier(0.22, 1, 0.36, 1);
+}
+.live-chat-list.is-rolling-step .live-chat-bubble:last-child {
+    animation: liveChatBubbleEnterBottom var(--live-roll-anim-ms, 170ms) cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes liveChatListPushUp {
+    0% { transform: translateY(var(--live-roll-step-px, 20px)); }
+    100% { transform: translateY(0); }
+}
+@keyframes liveChatBubbleEnterBottom {
+    0% { opacity: 0.14; transform: translateY(5px) scale(0.96); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 .live-chat-bubble {
     display: inline-flex;
