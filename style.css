@@ -7636,13 +7636,47 @@ input[type="range"] {
     cursor: pointer;
 }
 .live-red-dot {
-    width: 5.5px;
-    height: 5.5px;
+    position: relative;
+    width: 6px;
+    height: 6px;
     border-radius: 50%;
-    background: #ff2a55;
-    box-shadow: 0 0 6px #ff2a55;
+    background: #ff2442;
+    box-shadow: 0 0 6px #ff2442, 0 0 11px rgba(255, 36, 66, 0.85);
     display: inline-block;
     flex-shrink: 0;
+    margin: 0 1px;
+    animation: liveRedDotBreath 1.45s ease-in-out infinite;
+}
+.live-red-dot::after {
+    content: "";
+    position: absolute;
+    inset: -2.5px;
+    border-radius: 50%;
+    border: 1.2px solid rgba(255, 42, 85, 0.85);
+    animation: liveRedDotRipple 1.45s ease-out infinite;
+    pointer-events: none;
+}
+@keyframes liveRedDotBreath {
+    0%, 100% {
+        transform: scale(0.88);
+        opacity: 0.72;
+        box-shadow: 0 0 4px rgba(255, 36, 66, 0.6);
+    }
+    50% {
+        transform: scale(1.16);
+        opacity: 1;
+        box-shadow: 0 0 8px #ff2442, 0 0 14px rgba(255, 42, 85, 0.98);
+    }
+}
+@keyframes liveRedDotRipple {
+    0% {
+        transform: scale(0.75);
+        opacity: 0.9;
+    }
+    100% {
+        transform: scale(1.85);
+        opacity: 0;
+    }
 }
 .live-red-word {
     background: linear-gradient(90deg, #ff2a55 0%, #f43f5e 100%);
@@ -7698,7 +7732,7 @@ input[type="range"] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: #1877f2;
+    background: #7c3aed;
     flex-shrink: 0;
 }
 .live-laya-mini-logo {
@@ -7996,26 +8030,21 @@ input[type="range"] {
     align-items: center;
     flex-wrap: wrap;
     gap: calc(3.5px * var(--live-dm-scale, 1));
-    background: rgba(12, 14, 24, 0.54);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(10, 12, 20, 0.46);
+    border: 1px solid rgba(255, 255, 255, 0.05);
     color: #ffffff;
     font-size: calc(10px * var(--live-dm-scale, 1));
     font-weight: 600;
-    padding: calc(3px * var(--live-dm-scale, 1)) calc(8px * var(--live-dm-scale, 1));
+    padding: calc(2.8px * var(--live-dm-scale, 1)) calc(7.5px * var(--live-dm-scale, 1));
     border-radius: calc(11px * var(--live-dm-scale, 1));
     max-width: 100%;
     line-height: 1.26;
     cursor: pointer;
     transition: border-color 0.15s ease, background 0.15s ease;
-    animation: liveBubbleSlideUp 0.26s cubic-bezier(0.22, 1, 0.36, 1);
 }
 .live-chat-bubble:hover {
     border-color: rgba(192, 132, 252, 0.55);
     background: rgba(24, 20, 48, 0.72);
-}
-@keyframes liveBubbleSlideUp {
-    0% { opacity: 0.35; transform: translateY(6px); }
-    100% { opacity: 1; transform: translateY(0); }
 }
 .live-chat-bubble.is-rank-top {
     background: linear-gradient(90deg, rgba(180, 83, 9, 0.58) 0%, rgba(124, 45, 18, 0.45) 100%);
@@ -8026,40 +8055,64 @@ input[type="range"] {
     background: rgba(22, 24, 35, 0.1);
     color: #161823;
 }
-/* 1) 蓝色数字等级牌 (💎 19) */
+/* 1) 1:1 复刻抖音实拍视频的蓝紫财富等级胶囊牌 (左矢量星钻 + 右白粗体数字) */
 .live-lv-badge {
     display: inline-flex;
     align-items: center;
-    gap: 1.5px;
-    background: linear-gradient(90deg, #3b82f6 0%, #6366f1 100%);
+    gap: calc(2px * var(--live-dm-scale, 1));
+    background: linear-gradient(90deg, #5a78fa 0%, #7b5dfa 100%);
+    border: 0.5px solid rgba(255, 255, 255, 0.28);
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.32);
     color: #ffffff;
-    font-size: calc(8.2px * var(--live-dm-scale, 1));
+    font-size: calc(8.4px * var(--live-dm-scale, 1));
     font-weight: 800;
-    padding: calc(0.5px * var(--live-dm-scale, 1)) calc(4.5px * var(--live-dm-scale, 1));
-    border-radius: calc(4px * var(--live-dm-scale, 1));
-    line-height: 1.22;
+    font-family: "Inter", "SF Pro Display", -apple-system, sans-serif;
+    padding: calc(0.8px * var(--live-dm-scale, 1)) calc(5px * var(--live-dm-scale, 1)) calc(0.8px * var(--live-dm-scale, 1)) calc(3.5px * var(--live-dm-scale, 1));
+    border-radius: 999px;
+    line-height: 1.15;
     flex-shrink: 0;
+    letter-spacing: -0.2px;
 }
-.live-lv-badge.lv-low {
-    background: linear-gradient(90deg, #2563eb 0%, #4f46e5 100%);
+.live-lv-badge.lv-tier-1 {
+    background: linear-gradient(90deg, #4aa1fa 0%, #3b74f6 100%);
 }
-.live-lv-icon {
-    font-size: calc(7px * var(--live-dm-scale, 1));
-    line-height: 1;
+.live-lv-badge.lv-tier-2 {
+    background: linear-gradient(90deg, #5c73fa 0%, #7d5bfa 100%);
 }
-/* 2) 橙色数字勋章牌 (🏅 10) */
+.live-lv-badge.lv-tier-3 {
+    background: linear-gradient(90deg, #8655f8 0%, #b84bf8 100%);
+}
+.live-lv-svg {
+    width: calc(8.5px * var(--live-dm-scale, 1));
+    height: calc(8.5px * var(--live-dm-scale, 1));
+    display: inline-block;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.25));
+}
+/* 2) 1:1 复刻抖音实拍视频的橙粉粉丝团勋章胶囊牌 (左精致徽章星翼图标 + 右数字) */
 .live-fan-badge {
     display: inline-flex;
     align-items: center;
-    gap: 1px;
-    background: linear-gradient(90deg, #f97316 0%, #f59e0b 100%);
+    gap: calc(2px * var(--live-dm-scale, 1));
+    background: linear-gradient(90deg, #fb923c 0%, #f97316 55%, #f43f5e 100%);
+    border: 0.5px solid rgba(255, 237, 213, 0.36);
+    box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.32);
     color: #ffffff;
-    font-size: calc(8.2px * var(--live-dm-scale, 1));
+    font-size: calc(8.4px * var(--live-dm-scale, 1));
     font-weight: 800;
-    padding: calc(0.5px * var(--live-dm-scale, 1)) calc(4.5px * var(--live-dm-scale, 1));
-    border-radius: calc(4px * var(--live-dm-scale, 1));
-    line-height: 1.22;
+    font-family: "Inter", "SF Pro Display", -apple-system, sans-serif;
+    padding: calc(0.8px * var(--live-dm-scale, 1)) calc(5px * var(--live-dm-scale, 1)) calc(0.8px * var(--live-dm-scale, 1)) calc(3.2px * var(--live-dm-scale, 1));
+    border-radius: 999px;
+    line-height: 1.15;
     flex-shrink: 0;
+    letter-spacing: -0.2px;
+}
+.live-fan-svg {
+    width: calc(8.5px * var(--live-dm-scale, 1));
+    height: calc(8.5px * var(--live-dm-scale, 1));
+    display: inline-block;
+    flex-shrink: 0;
+    filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.22));
 }
 /* 3) 管理员红色「管」字牌 */
 .live-admin-badge {

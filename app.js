@@ -318,7 +318,7 @@ window.switchRightTab = function (mode) {
         const dyFeaturedLogoImg = document.getElementById('dy-featured-logo-img');
         if (dyFeaturedLogoImg) dyFeaturedLogoImg.src = realSrc;
         const liveLayaMiniLogo = document.getElementById('live-laya-mini-logo');
-        if (liveLayaMiniLogo) liveLayaMiniLogo.src = realSrc;
+        if (liveLayaMiniLogo) liveLayaMiniLogo.src = getActiveLogoSrc('Laya2.png');
 
         // 手机竖屏头像、右下角黑胶唱片头像与全屏横屏头像如果没单独上传过其他人物头像，同步使用当前自带蓝/紫 Logo
         if (dyAvatarImg && (!dyAvatarImg.dataset.custom || dyAvatarImg.dataset.custom === 'false')) {
@@ -7046,10 +7046,14 @@ window.switchRightTab = function (mode) {
         const activeRealSrc = getActiveLogoSrc(curKey);
         const isLightMode = !!(renderTarget && renderTarget.classList.contains('theme-light'));
 
-        ['header-brand-logo', 'player-mini-logo', 'm-brand-logo', 'dy-lf-wm-logo', 'live-laya-mini-logo'].forEach(id => {
+        ['header-brand-logo', 'player-mini-logo', 'm-brand-logo', 'dy-lf-wm-logo'].forEach(id => {
             const clonedImg = clonedDoc.getElementById(id);
             if (clonedImg) clonedImg.src = activeRealSrc;
         });
+        const clonedLiveLayaMiniLogo = clonedDoc.getElementById('live-laya-mini-logo');
+        if (clonedLiveLayaMiniLogo) {
+            clonedLiveLayaMiniLogo.src = getActiveLogoSrc('Laya2.png');
+        }
 
         // 同步直播间礼物弹窗左侧真人头像/自定义头像到导出画布，绝不回退为蓝色 Laya 图标
         const origGiftAv = document.getElementById('live-gift-sender-av');
@@ -9095,6 +9099,8 @@ window.switchRightTab = function (mode) {
     const inLiveHeartDensity = document.getElementById('in-live-heart-density');
     const txtLiveHeartDensity = document.getElementById('txt-live-heart-density');
     const swLiveRainbowNick = document.getElementById('sw-live-rainbow-nick');
+    const swLiveAutoRollDm = document.getElementById('sw-live-auto-roll-dm');
+    const swLiveAutoCycleGift = document.getElementById('sw-live-auto-cycle-gift');
     const swLiveDmRowHeart = document.getElementById('sw-live-dm-row-heart');
 
     // 直播间内部显示节点
@@ -9644,18 +9650,34 @@ window.switchRightTab = function (mode) {
         return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // 渲染底部独立高频进场通道（#live-join-ticker-row）
+    // ★ 1:1 复刻抖音实拍视频的「蓝紫财富等级胶囊牌」与「橙粉粉丝团勋章牌」（采用高清矢量 SVG，绝不用假的 💎 和 🏅 Emoji）
+    const DOUYIN_LV_STAR_DIAMOND_SVG = `<svg class="live-lv-svg" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="8,1.2 13.8,5.2 11.6,14.2 4.4,14.2 2.2,5.2" fill="#e0f2fe" fill-opacity="0.95"/><polygon points="8,1.2 13.8,5.2 8,6.8 2.2,5.2" fill="#ffffff"/><polygon points="2.2,5.2 8,6.8 4.4,14.2" fill="#bae6fd"/><polygon points="13.8,5.2 11.6,14.2 8,6.8" fill="#7dd3fc"/><polygon points="8,3.2 9.4,6.4 12.6,7.8 9.4,9.2 8,12.4 6.6,9.2 3.4,7.8 6.6,6.4" fill="#ffffff"/></svg>`;
+    const DOUYIN_FAN_HEART_WING_SVG = `<svg class="live-fan-svg" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 13.8C8 13.8 2.2 10.1 2.2 5.9C2.2 3.9 3.8 2.4 5.6 2.4C6.7 2.4 7.6 3 8 3.8C8.4 3 9.3 2.4 10.4 2.4C12.2 2.4 13.8 3.9 13.8 5.9C13.8 10.1 8 13.8 8 13.8Z" fill="#fff7ed"/><path d="M8 4.3L9.05 6.45L11.4 6.8L9.7 8.45L10.1 10.8L8 9.7L5.9 10.8L6.3 8.45L4.6 6.8L6.95 6.45L8 4.3Z" fill="#f97316"/></svg>`;
+
+    function buildLiveLvBadgeHtml(lv) {
+        const n = parseInt(lv, 10) || 0;
+        if (n <= 0) return '';
+        const tierCls = n <= 15 ? 'lv-tier-1' : (n <= 29 ? 'lv-tier-2' : 'lv-tier-3');
+        return `<span class="live-lv-badge ${tierCls}">${DOUYIN_LV_STAR_DIAMOND_SVG}<span>${n}</span></span>`;
+    }
+
+    function buildLiveFanBadgeHtml(fanLv) {
+        const n = parseInt(fanLv, 10) || 0;
+        if (n <= 0) return '';
+        return `<span class="live-fan-badge">${DOUYIN_FAN_HEART_WING_SVG}<span>${n}</span></span>`;
+    }
+
+    // 渲染底部独立高频进场通道（#live-join-ticker-row，1:1 还原抖音实拍视频底部「💎17 足弟 来了」单蓝牌简洁样式）
     function renderLiveJoinTicker(advance = false) {
         if (!liveJoinTickerRow) return;
         if (advance) {
             liveJoinCursor = (liveJoinCursor + 1) % liveJoinViewerPool.length;
         }
         const v = liveJoinViewerPool[liveJoinCursor % liveJoinViewerPool.length];
-        const lvBadgeHtml = `<span class="live-lv-badge"><span class="live-lv-icon">💎</span>${v.lv}</span>`;
-        const fanHtml = v.fan > 0 ? `<span class="live-fan-badge">🏅 ${v.fan}</span>` : '';
+        const lvBadgeHtml = buildLiveLvBadgeHtml(v.lv);
         const isSimp = window.__currentLangMode === 'simp';
         const joinTxt = isSimp ? '来了' : '來了';
-        liveJoinTickerRow.innerHTML = `<div class="live-join-pill">${lvBadgeHtml}${fanHtml}<span class="live-chat-nick">${escapeHtmlSafe(v.nick)}</span><span class="live-chat-msg is-join"> ${joinTxt}</span></div>`;
+        liveJoinTickerRow.innerHTML = `<div class="live-join-pill">${lvBadgeHtml}<span class="live-chat-nick">${escapeHtmlSafe(v.nick)}</span><span class="live-chat-msg is-join"> ${joinTxt}</span></div>`;
     }
 
     // ★ 四、渲染滚动弹幕列表：
@@ -9666,8 +9688,8 @@ window.switchRightTab = function (mode) {
     function parseSingleLiveDanmakuRow(rawLine, globalIdx) {
         let rest = String(rawLine || '').trim();
         let lv = presetLevels[globalIdx % presetLevels.length];
-        // 约 75% 观众带橙色粉丝团牌，25% 路人只带蓝色财富等级牌，真实有层次
-        let fanLv = (globalIdx % 4 === 3) ? 0 : presetFanLevels[globalIdx % presetFanLevels.length];
+        // 参照抖音原版实拍视频：约 1/3 铁粉观众同时带橙色粉丝团牌，其余只带蓝紫财富等级牌，自然真实不拥挤
+        let fanLv = (globalIdx % 3 === 1) ? presetFanLevels[globalIdx % presetFanLevels.length] : 0;
         // 默认只有偶尔几个发言人带红色「管」字图标（每 6 条里仅 1 条带「管」）
         let isAdmin = (globalIdx % 6 === 2);
 
@@ -9713,7 +9735,7 @@ window.switchRightTab = function (mode) {
 
     function formatSingleLiveDanmakuRow(lv, fanLv, isAdmin, nickPart, msg, globalIdx) {
         const defLv = presetLevels[globalIdx % presetLevels.length];
-        const defFan = (globalIdx % 4 === 3) ? 0 : presetFanLevels[globalIdx % presetFanLevels.length];
+        const defFan = (globalIdx % 3 === 1) ? presetFanLevels[globalIdx % presetFanLevels.length] : 0;
         const defAdmin = (globalIdx % 6 === 2);
 
         const cleanNick = String(nickPart || '').trim() || fallbackNicknames[globalIdx % fallbackNicknames.length];
@@ -9787,7 +9809,7 @@ window.switchRightTab = function (mode) {
         const maxRows = (liveSysNoticeEl && liveSysNoticeEl.style.display !== 'none') ? Math.max(2, userMaxRows - 1) : userMaxRows;
         const count = Math.min(maxRows, allLines.length);
         const dmTextColor = getLiveDmColor();
-        const showRowPurpleHeart = !swLiveDmRowHeart || swLiveDmRowHeart.checked;
+        const showRowPurpleHeart = !!(swLiveDmRowHeart && swLiveDmRowHeart.checked);
         const rowsHtml = [];
 
         for (let i = 0; i < count; i++) {
@@ -9795,10 +9817,10 @@ window.switchRightTab = function (mode) {
             const rawLine = allLines[globalIdx];
             const { lv, fanLv, isAdmin, nickPart, msg } = parseSingleLiveDanmakuRow(rawLine, globalIdx);
 
-            const lvBadgeHtml = lv > 0 ? `<span class="live-lv-badge"><span class="live-lv-icon">💎</span>${lv}</span>` : '';
-            const fanBadgeHtml = fanLv > 0 ? `<span class="live-fan-badge">🏅 ${fanLv}</span>` : '';
+            const lvBadgeHtml = buildLiveLvBadgeHtml(lv);
+            const fanBadgeHtml = buildLiveFanBadgeHtml(fanLv);
             const adminBadgeHtml = isAdmin ? `<span class="live-admin-badge" title="房管標識（雙擊彈幕可開關）">管</span>` : '';
-            const rightHeartHtml = showRowPurpleHeart ? `<span class="live-row-purple-heart">💜</span>` : '';
+            const rightHeartHtml = showRowPurpleHeart ? `<span class="live-row-purple-heart"><svg width="10" height="10" viewBox="0 0 24 24" fill="#c084fc"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>` : '';
 
             const colorfulNickHtml = buildColorfulNickHtml(nickPart, globalIdx);
             rowsHtml.push(
@@ -9903,13 +9925,18 @@ window.switchRightTab = function (mode) {
         liveFlyParticles = [];
     }
 
-    // ★ 二、右侧竖排爱心飘动画（粉色/紫色爱心从下往上飘，支持密度调节 1~10）
-    const heartSymbols = ['🩷', '💜', '💖', '💜', '🩷', '❤️'];
+    // ★ 二、右侧竖排爱心飘动画（100% 采用高清矢量彩色渐变 SVG 爱心，彻底杜绝 Windows 下 🩷 缺失字形显示为白色方框 ⮾ 的乱码问题！）
+    const LIVE_SVG_HEARTS = [
+        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#ff5e97"/><path d="M7.8 5.6c-1.5 0-2.7 1.1-2.9 2.5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/></svg>`,
+        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#a855f7"/><path d="M7.8 5.6c-1.5 0-2.7 1.1-2.9 2.5" stroke="#f3e8ff" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/></svg>`,
+        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#f43f5e"/><circle cx="17.2" cy="6.8" r="1.4" fill="#fde047"/></svg>`,
+        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#ec4899"/><path d="M12 16.8l-.75-.68C8.4 13.55 6.6 11.9 6.6 9.9c0-1.62 1.26-2.88 2.88-2.88.9 0 1.78.42 2.52 1.1.74-.68 1.62-1.1 2.52-1.1 1.62 0 2.88 1.26 2.88 2.88 0 2-1.8 3.65-4.65 6.22L12 16.8z" fill="#fbcfe8" opacity="0.65"/></svg>`
+    ];
     function spawnSingleLiveHeart() {
         if (!liveFloatingHearts || !renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
         const h = document.createElement('span');
         h.className = 'live-heart-particle';
-        h.textContent = heartSymbols[Math.floor(Math.random() * heartSymbols.length)];
+        h.innerHTML = LIVE_SVG_HEARTS[Math.floor(Math.random() * LIVE_SVG_HEARTS.length)];
         const hx1 = Math.round((Math.random() - 0.5) * 26);
         const hx2 = Math.round((Math.random() - 0.5) * 28);
         h.style.setProperty('--hx1', hx1 + 'px');
@@ -9963,7 +9990,7 @@ window.switchRightTab = function (mode) {
         { icon: '🎈', name: '送 告白氣球',   color: '#ec4899', endColor: 'rgba(168, 85, 247, 0.85)',  counts: ['x5', 'x19', 'x52', 'x99'] },
         { icon: '🍭', name: '投餵 彩虹棒棒糖', color: '#a855f7', endColor: 'rgba(236, 72, 153, 0.85)', counts: ['x10', 'x30', 'x66', 'x188'] },
         { icon: '🕶️', name: '送 酷炫墨鏡',   color: '#0f766e', endColor: 'rgba(20, 184, 166, 0.85)',  counts: ['x6', 'x18', 'x66', 'x88'] },
-        { icon: '🪄', name: '揮舞 粉絲螢光棒', color: '#8b5cf6', endColor: 'rgba(217, 70, 239, 0.85)', counts: ['x18', 'x66', 'x99', 'x520'] },
+        { icon: '✨', name: '揮舞 粉絲螢光棒', color: '#8b5cf6', endColor: 'rgba(217, 70, 239, 0.85)', counts: ['x18', 'x66', 'x99', 'x520'] },
         { icon: '🍾', name: '開啟 皇家香檳', color: '#ca8a04', endColor: 'rgba(245, 158, 11, 0.85)',  counts: ['x3', 'x8', 'x18', 'x88'] },
         { icon: '💗', name: '送 小心心',     color: '#7c3aed', endColor: 'rgba(236, 72, 153, 0.82)',  counts: ['x5', 'x52', 'x99', 'x520', 'x1314'] }
     ];
@@ -10031,12 +10058,12 @@ window.switchRightTab = function (mode) {
         if (/氣球|气球/.test(s)) return '🎈';
         if (/棒棒糖|糖果/.test(s)) return '🍭';
         if (/墨鏡|墨镜|眼鏡/.test(s)) return '🕶️';
-        if (/螢光棒|荧光棒|應援|魔杖/.test(s)) return '🪄';
+        if (/螢光棒|荧光棒|應援|魔杖/.test(s)) return '✨';
         if (/香檳|香槟|紅酒/.test(s)) return '🍾';
         if (/啤酒|乾杯/.test(s)) return '🍻';
-        if (/奶茶|咖啡/.test(s)) return '🧋';
-        if (/遊艇|游艇|輪船/.test(s)) return '🛥️';
-        if (/金磚|元寶|招財/.test(s)) return '🪙';
+        if (/奶茶|咖啡/.test(s)) return '☕';
+        if (/遊艇|游艇|輪船/.test(s)) return '🚢';
+        if (/金磚|元寶|招財/.test(s)) return '💰';
         if (/小心心|比心|愛心|爱心/.test(s)) return '💗';
         return null;
     }
@@ -10462,23 +10489,67 @@ window.switchRightTab = function (mode) {
     }
     applyLiveDmScaleAndArea(false);
 
-    function restartLiveChatRollTimer() {
-        if (liveChatRollTimer) clearInterval(liveChatRollTimer);
-        if (liveJoinTickerTimer) clearInterval(liveJoinTickerTimer);
-        const speedLv = getLiveDmSpeedVal();
-        const intervalMs = Math.max(450, 1850 - speedLv * 140);
-        liveChatRollTimer = setInterval(() => {
-            if (liveDmVisible) {
-                renderLiveChatBubbles(true);
-            }
-        }, intervalMs);
+    let isHoveringLiveChatBox = false;
+    if (liveChatScrollBox) {
+        liveChatScrollBox.addEventListener('mouseenter', () => { isHoveringLiveChatBox = true; });
+        liveChatScrollBox.addEventListener('mouseleave', () => { isHoveringLiveChatBox = false; });
+    }
 
-        const joinIntervalMs = Math.max(420, Math.round(intervalMs * 0.72));
+    function restartLiveGiftAutoCycleTimer() {
+        if (liveGiftComboTimer) {
+            clearInterval(liveGiftComboTimer);
+            liveGiftComboTimer = null;
+        }
+        if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
+        if (swLiveAutoCycleGift && swLiveAutoCycleGift.checked) {
+            liveGiftComboTimer = setInterval(() => {
+                if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
+                cycleNextGiftBannerWithSlide(true);
+            }, 6500);
+        }
+    }
+    if (swLiveAutoCycleGift) {
+        swLiveAutoCycleGift.addEventListener('change', () => {
+            restartLiveGiftAutoCycleTimer();
+            window.showToast(swLiveAutoCycleGift.checked ? '🔄 已開啟禮物彈窗自動輪播' : '⏸️ 已固定當前禮物彈窗（點篩子或手動修改後文字不再自動跳變）');
+        });
+    }
+
+    function restartLiveChatRollTimer() {
+        if (liveChatRollTimer) {
+            clearInterval(liveChatRollTimer);
+            liveChatRollTimer = null;
+        }
+        if (liveJoinTickerTimer) {
+            clearInterval(liveJoinTickerTimer);
+            liveJoinTickerTimer = null;
+        }
+        if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
+
+        const speedLv = getLiveDmSpeedVal();
+        // 只有开启了「公屏弹幕自动滚动」开关时，才按抖音原版舒缓节奏推进上方弹幕；默认保持静止展示，点筛子换弹幕后不再一直乱跳！
+        if (swLiveAutoRollDm && swLiveAutoRollDm.checked) {
+            const intervalMs = Math.max(1200, 4600 - speedLv * 320);
+            liveChatRollTimer = setInterval(() => {
+                if (liveDmVisible && !isHoveringLiveChatBox && liveEditingDmIdx === null) {
+                    renderLiveChatBubbles(true);
+                }
+            }, intervalMs);
+        }
+
+        // 最底部单行「💎17 足弟 来了」进场通道：参照原版抖音实拍视频约 2.2 秒轻柔切换一位进场观众（鼠标悬停时暂停）
+        const joinIntervalMs = Math.max(1100, 3200 - speedLv * 180);
         liveJoinTickerTimer = setInterval(() => {
-            if (liveDmVisible) {
+            if (liveDmVisible && !isHoveringLiveChatBox && liveEditingDmIdx === null) {
                 renderLiveJoinTicker(true);
             }
         }, joinIntervalMs);
+    }
+    if (swLiveAutoRollDm) {
+        swLiveAutoRollDm.addEventListener('change', () => {
+            restartLiveChatRollTimer();
+            window.showToast(swLiveAutoRollDm.checked ? '🔄 已開啟公屏彈幕自動滾動' : '⏸️ 已固定公屏彈幕展示（文字不再自動滾動跳變）');
+        });
     }
 
     function startLiveRoomAnimations() {
@@ -10497,12 +10568,7 @@ window.switchRightTab = function (mode) {
         spawnSingleLiveHeart();
         setTimeout(spawnSingleLiveHeart, 240);
         restartLiveHeartTimer();
-
-        if (liveGiftComboTimer) clearInterval(liveGiftComboTimer);
-        liveGiftComboTimer = setInterval(() => {
-            if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
-            cycleNextGiftBannerWithSlide(true);
-        }, 4800);
+        restartLiveGiftAutoCycleTimer();
 
         if (liveHeaderFlipTimer) {
             clearInterval(liveHeaderFlipTimer);
@@ -11571,15 +11637,34 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // ★ 录屏导出 MP4 (30fps) 专用的直播间右侧动态飘心绘制器（根据右侧飘心密度滑块自适应粒子数量）
-    window.__drawLiveRoomDynamicCanvas = function (ctx, outW, outH, scaleRatioX, scaleRatioY, elapsedSec, fontStack) {
+    // ★ 录屏导出 MP4 (30fps) 专用的直播间右侧动态矢量飘心绘制器（100% 矢量贝塞尔曲线画心，绝不调用 fillText 产生乱码方框）
+    const EXPORT_HEART_COLORS = ['#ff5e97', '#a855f7', '#f43f5e', '#ec4899'];
+    function drawVectorHeartOnCanvas(ctx, cx, cy, size, fillColor, alpha) {
+        ctx.save();
+        ctx.globalAlpha = alpha;
+        ctx.translate(cx, cy);
+        const s = size / 24;
+        ctx.scale(s, s);
+        ctx.beginPath();
+        ctx.moveTo(0, 8.8);
+        ctx.bezierCurveTo(-6.4, 3.2, -9.6, 0.3, -9.6, -3.45);
+        ctx.bezierCurveTo(-9.6, -6.35, -7.35, -8.6, -4.45, -8.6);
+        ctx.bezierCurveTo(-2.83, -8.6, -1.27, -7.84, 0, -6.62);
+        ctx.bezierCurveTo(1.27, -7.84, 2.83, -8.6, 4.45, -8.6);
+        ctx.bezierCurveTo(7.35, -8.6, 9.6, -6.35, 9.6, -3.45);
+        ctx.bezierCurveTo(9.6, 0.3, 6.4, 3.2, 0, 8.8);
+        ctx.closePath();
+        ctx.fillStyle = fillColor;
+        ctx.shadowColor = 'rgba(168, 85, 247, 0.55)';
+        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.restore();
+    }
+
+    window.__drawLiveRoomDynamicCanvas = function (ctx, outW, outH, scaleRatioX, scaleRatioY, elapsedSec) {
         if (!ctx) return;
 
-        ctx.save();
-        const heartFontPx = Math.round(18 * scaleRatioX);
-        ctx.font = `${heartFontPx}px ${fontStack}`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        const heartSizePx = Math.round(18 * scaleRatioX);
         const baseRightX = outW - 30 * scaleRatioX;
         const baseBottomY = outH - 148 * scaleRatioY;
         const floatHeight = 185 * scaleRatioY;
@@ -11591,10 +11676,9 @@ window.switchRightTab = function (mode) {
             const curY = baseBottomY - phase * floatHeight;
             const swayX = Math.sin((phase * Math.PI * 2) + i * 1.7) * (11 * scaleRatioX);
             const alpha = phase < 0.15 ? (phase / 0.15) : (phase > 0.72 ? Math.max(0, (1 - phase) / 0.28) : 0.96);
-            ctx.globalAlpha = alpha;
-            ctx.fillText(heartSymbols[i % heartSymbols.length], baseRightX + swayX, curY);
+            const col = EXPORT_HEART_COLORS[i % EXPORT_HEART_COLORS.length];
+            drawVectorHeartOnCanvas(ctx, baseRightX + swayX, curY, heartSizePx, col, alpha);
         }
-        ctx.restore();
     };
 
     // 初始化清理旧版 8888 / 1000 缓存并同步所有直播间顶部数值
@@ -11613,6 +11697,16 @@ window.switchRightTab = function (mode) {
     // 自动将旧版逗号连在一行的弹幕缓存（如「前排！, 主播好漂亮, 這首歌絕了...」）拆分为每行一条，并同步礼物图标与真人头像
     normalizeLiveDanmakuTextarea(true);
     setTimeout(() => {
+        if (localStorage.getItem('LAYA_LIVE_V24_CLEAN_BADGE_MIGRATED') !== '1') {
+            if (swLiveDmRowHeart) swLiveDmRowHeart.checked = false;
+            if (swLiveAutoRollDm) swLiveAutoRollDm.checked = false;
+            if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = false;
+            localStorage.setItem('LAYA_LIVE_V24_CLEAN_BADGE_MIGRATED', '1');
+        }
+        const liveMiniLogoEl = document.getElementById('live-laya-mini-logo');
+        if (liveMiniLogoEl) {
+            liveMiniLogoEl.src = getActiveLogoSrc('Laya2.png');
+        }
         normalizeLiveDanmakuTextarea(true);
         if (inLiveGiftName && inLiveGiftIcon) {
             const matchedIco = inferGiftIconFromName(inLiveGiftName.value);
@@ -11623,7 +11717,9 @@ window.switchRightTab = function (mode) {
         applyLiveNoticeDisplay(inLiveNoticeTxt ? inLiveNoticeTxt.value : '');
         applyLiveGiftBannerState(false, true);
         renderLiveChatBubbles(false);
-    }, 120);
+        restartLiveChatRollTimer();
+        restartLiveGiftAutoCycleTimer();
+    }, 140);
 
     applyLiveHostNameDisplay(inLiveHostName ? inLiveHostName.value : '小王小王');
     applyLiveHostLikesDisplay((inLiveHostId && inLiveHostId.value !== '8888') ? inLiveHostId.value : '25.6萬');

@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20261111_v3">
+    <link rel="stylesheet" href="style.css?v=20261111_v5">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
         .sidebar .tab-panel.active {
@@ -899,14 +899,14 @@
                             <div class="live-top-sub-row">
                                 <div class="live-top-sub-left">
                                     <span class="live-red-live-pill interactive-elem" id="live-left-live-pill" title="單擊隨機(1000~200萬) · 雙擊直接輸入修改在線人數">
-                                        <span class="live-red-dot"></span>
                                         <span class="live-red-word">LIVE</span>
+                                        <span class="live-red-dot" id="live-red-breath-dot"></span>
                                         <span class="live-red-count" id="live-left-live-viewers">10.2萬人在線</span>
                                     </span>
                                     <span class="live-sub-pill interactive-elem" id="live-sub-rank-pill" title="單擊隨機切換 · 雙擊直接輸入修改標籤文字"><span id="live-sub-txt-rank">人氣榜</span></span>
                                     <span class="live-laya-brand-pill interactive-elem" id="live-laya-brand-pill" title="單擊隨機切換 · 雙擊直接輸入修改「Laya 精選」文字">
                                         <span class="live-laya-logo-box">
-                                            <img src="Laya.png" class="live-laya-mini-logo" id="live-laya-mini-logo" alt="Laya">
+                                            <img src="Laya2.png" class="live-laya-mini-logo" id="live-laya-mini-logo" alt="Laya">
                                         </span>
                                         <span id="live-laya-brand-txt">Laya 精選</span>
                                     </span>
@@ -2543,7 +2543,11 @@
                 <div style="margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(168, 85, 247, 0.35);">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
                         <span style="font-size:12px; font-weight:700; color:#e9d5ff;">🎁 礼物进场小弹窗 (真人头像/可上传 + 多款礼物图标，双击画面可改)</span>
-                        <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                        <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                            <label style="display:inline-flex; align-items:center; gap:3px; font-size:11px; color:#cbd5e1; cursor:pointer; margin:0;" title="勾选后每隔几秒自动切换不同礼物；取消勾选则固定显示您当前选定的礼物，文字不再自动跳动">
+                                <input type="checkbox" id="sw-live-auto-cycle-gift">
+                                <span>自动轮播</span>
+                            </label>
                             <button type="button" class="sub-mini-act" id="btn-live-upload-gift-av" style="background:rgba(14,165,233,0.25); color:#bae6fd; border-color:rgba(56,189,248,0.5);" title="上传自定义送礼人头像(上传后将固定使用该头像，点换真人头像可恢复随机)">📤 上传头像</button>
                             <input type="file" id="in-live-gift-avatar-file" accept="image/*" style="display:none;">
                             <button type="button" class="sub-mini-act" id="btn-live-rand-gift-av" title="随机更换送礼人的真人头像">👤 换真人头像</button>
@@ -2584,7 +2588,7 @@
                                     <option value="🎈|送 告白氣球|#ec4899">🎈 告白氣球 (甜心粉紫)</option>
                                     <option value="🍭|投餵 彩虹棒棒糖|#a855f7">🍭 彩虹棒棒糖 (糖果幻彩)</option>
                                     <option value="🕶️|送 酷炫墨鏡|#0f766e">🕶️ 酷炫墨鏡 (潮酷暗青)</option>
-                                    <option value="🪄|揮舞 粉絲螢光棒|#8b5cf6">🪄 粉絲螢光棒 (应援霓虹)</option>
+                                    <option value="✨|揮舞 粉絲螢光棒|#8b5cf6">✨ 粉絲螢光棒 (应援霓虹)</option>
                                     <option value="🍾|開啟 皇家香檳|#ca8a04">🍾 皇家香檳 (香槟流金)</option>
                                     <option value="💗|送 小心心|#7c3aed">💗 小心心 (经典粉紫)</option>
                                 </select>
@@ -2718,9 +2722,16 @@
                         </label>
                     </div>
                     <div class="switch-tile">
+                        <span>🔄 公屏弹幕自动滚动</span>
+                        <label class="ios-toggle" title="关闭时公屏弹幕静止展示不乱跳，仅最底下一行观众进场轻柔切换；开启后每隔数秒慢速推进一行">
+                            <input type="checkbox" id="sw-live-auto-roll-dm">
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
                         <span>💜 弹幕行右侧紫心</span>
                         <label class="ios-toggle">
-                            <input type="checkbox" id="sw-live-dm-row-heart" checked>
+                            <input type="checkbox" id="sw-live-dm-row-heart">
                             <span class="slider-round"></span>
                         </label>
                     </div>
@@ -3281,10 +3292,10 @@
     </div>
 </main>
 
-<script src="logos.js?v=20261111_v4"></script>
-<script src="player.js?v=20261111_v4"></script>
-<script src="danmaku.js?v=20261111_v4"></script>
-<script src="app.js?v=20261111_v4"></script>
+<script src="logos.js?v=20261111_v5"></script>
+<script src="player.js?v=20261111_v5"></script>
+<script src="danmaku.js?v=20261111_v5"></script>
+<script src="app.js?v=20261111_v5"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {
