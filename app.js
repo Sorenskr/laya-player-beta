@@ -7042,6 +7042,7 @@ window.switchRightTab = function (mode) {
        ★ 辅助函数：确保克隆节点 100% 注入你绑定的真实蓝/紫原图，绝不替换为假图
        ========================================================================== */
     function injectRealLogosToClonedDoc(clonedDoc) {
+        try {
         const curKey = selLogoVersion ? selLogoVersion.value : 'Laya.png';
         const activeRealSrc = getActiveLogoSrc(curKey);
         const isLightMode = !!(renderTarget && renderTarget.classList.contains('theme-light'));
@@ -7100,8 +7101,8 @@ window.switchRightTab = function (mode) {
         // 精确锁定「點擊進入直播間」胶囊与「你的關注▾」胶囊在导出画布中的水平正中坐标
         const origArmedTip = document.getElementById('dy-live-armed-tip');
         const clonedArmedTip = clonedDoc.getElementById('dy-live-armed-tip');
-        if (origArmedTip && clonedArmedTip && origRenderTarget && origRenderTarget.classList.contains('dy-live-preview')) {
-            const targetW = origRenderTarget.offsetWidth || 360;
+        if (origArmedTip && clonedArmedTip && renderTarget && renderTarget.classList.contains('dy-live-preview')) {
+            const targetW = renderTarget.offsetWidth || 360;
             const tipW = origArmedTip.offsetWidth || 138;
             clonedArmedTip.style.setProperty('left', Math.max(0, Math.round((targetW - tipW) / 2)) + 'px', 'important');
             clonedArmedTip.style.setProperty('right', 'auto', 'important');
@@ -7109,8 +7110,8 @@ window.switchRightTab = function (mode) {
         }
         const origFollowDrop = document.getElementById('dy-live-follow-drop');
         const clonedFollowDrop = clonedDoc.getElementById('dy-live-follow-drop');
-        if (origFollowDrop && clonedFollowDrop && origRenderTarget && origRenderTarget.classList.contains('dy-live-preview')) {
-            const targetW = origRenderTarget.offsetWidth || 360;
+        if (origFollowDrop && clonedFollowDrop && renderTarget && renderTarget.classList.contains('dy-live-preview')) {
+            const targetW = renderTarget.offsetWidth || 360;
             const dropW = origFollowDrop.offsetWidth || 86;
             clonedFollowDrop.style.setProperty('left', Math.max(0, Math.round((targetW - dropW) / 2)) + 'px', 'important');
             clonedFollowDrop.style.setProperty('right', 'auto', 'important');
@@ -7460,6 +7461,9 @@ window.switchRightTab = function (mode) {
                 barEl.style.setProperty('background-image', 'none', 'important');
             }
         });
+        } catch (cloneSyncErr) {
+            console.warn('injectRealLogosToClonedDoc warning:', cloneSyncErr);
+        }
     }
 
     // 使用原生 Canvas 2D 线性渐变绘制顶/底部蒙层（自动适配夜间深色与日间浅色模式）
@@ -7947,7 +7951,7 @@ window.switchRightTab = function (mode) {
                 const dmContainerEl = document.getElementById('danmaku-container');
                 const dmSwitchEl = document.getElementById('sw-danmaku');
                 const isDmContainerVisible = !!(dmContainerEl && window.getComputedStyle(dmContainerEl).display !== 'none' && window.getComputedStyle(dmContainerEl).visibility !== 'hidden');
-                const showDanmaku = (dmSwitchEl ? dmSwitchEl.checked : true) || isDmContainerVisible;
+                const showDanmaku = !isLiveOpenVid && ((dmSwitchEl ? dmSwitchEl.checked : true) || isDmContainerVisible);
                 const showPcBot = !document.getElementById('sw-bottom-bar') || document.getElementById('sw-bottom-bar').checked;
                 const showMBot = !document.getElementById('sw-m-bottom-bar') || document.getElementById('sw-m-bottom-bar').checked;
                 const showDylBot = !document.getElementById('sw-dyl-bottom') || document.getElementById('sw-dyl-bottom').checked;
@@ -8299,9 +8303,13 @@ window.switchRightTab = function (mode) {
                 let decodedAudioBuffer = null;
 
                 if (window.Mp4Muxer && typeof window.VideoEncoder === 'function' && typeof window.VideoFrame === 'function') {
-                    // 严格选用手机 100% 硬件解码支持的 8-bit H.264 Main Profile / Baseline Profile (Level 4.0)
+                    // 优先选用支持 1080x1920 竖屏与 1920x1080 横屏的 8-bit H.264 Level 4.2 / 4.1 / 4.0
                     const h264Candidates = [
-                        'avc1.4d0028', // H.264 Main Profile Level 4.0 (首选手机硬解)
+                        'avc1.4d002a', // H.264 Main Profile Level 4.2 (完美支持竖屏 1080x1920 硬解)
+                        'avc1.4d0029', // H.264 Main Profile Level 4.1
+                        'avc1.42e02a', // H.264 Constrained Baseline Level 4.2
+                        'avc1.42e029', // H.264 Constrained Baseline Level 4.1
+                        'avc1.4d0028', // H.264 Main Profile Level 4.0
                         'avc1.42e028', // H.264 Constrained Baseline Level 4.0
                         'avc1.420028', // H.264 Baseline Level 4.0
                         'avc1.4d4028'  // H.264 Main Profile (Constrained) Level 4.0
@@ -8365,58 +8373,23 @@ window.switchRightTab = function (mode) {
                 }
 
                 if (webCodecsSupported && selectedVideoCodecConfig) {
-                    const totalFrames = Math.max(1, Math.round(recordSeconds * TARGET_FPS));
-                    const frameDurationUs = Math.round(1_000_000 / TARGET_FPS);
-
-                    const muxerOpts = {
-                        target: new window.Mp4Muxer.ArrayBufferTarget(),
-                        video: {
-                            codec: 'avc',
-                            width: outW,
-                            height: outH,
-                            frameRate: TARGET_FPS
-                        },
-                        // ★ 开启 faststart（moov atom 前置），手机无需等待下载完即可秒开硬解播放
-                        fastStart: 'in-memory',
-                        firstTimestampBehavior: 'offset'
-                    };
-                    if (selectedAudioCodecConfig && decodedAudioBuffer) {
-                        muxerOpts.audio = {
-                            codec: 'aac',
-                            numberOfChannels: selectedAudioCodecConfig.numberOfChannels,
-                            sampleRate: selectedAudioCodecConfig.sampleRate
-                        };
-                    }
-
-                    const muxer = new window.Mp4Muxer.Muxer(muxerOpts);
+                    let videoEncoder = null;
+                    let muxer = null;
                     let muxerEncoderError = null;
+                    const encodedAudioChunks = [];
 
-                    const videoEncoder = new VideoEncoder({
-                        output: (chunk, meta) => {
-                            try { muxer.addVideoChunk(chunk, meta); } catch (e) { muxerEncoderError = e; }
-                        },
-                        error: (e) => {
-                            muxerEncoderError = e;
-                        }
-                    });
-                    videoEncoder.configure(selectedVideoCodecConfig);
-
-                    let audioEncoder = null;
+                    // 1) 先安全预编码音频轨，若某台电脑不支持 AAC 硬件编码则自动降级为纯视频轨，绝不导致 MP4 封装崩溃
                     if (selectedAudioCodecConfig && decodedAudioBuffer) {
-                        audioEncoder = new AudioEncoder({
-                            output: (chunk, meta) => {
-                                try { muxer.addAudioChunk(chunk, meta); } catch (e) {}
-                            },
-                            error: (e) => {
-                                console.warn('AudioEncoder warning:', e);
-                            }
-                        });
-                        audioEncoder.configure(selectedAudioCodecConfig);
-                    }
-
-                    // 预先将对应时间段 [exportStartSec, exportStartSec + recordSeconds] 的 PCM 音频送入 AAC 编码器
-                    if (audioEncoder && decodedAudioBuffer) {
                         try {
+                            const audioEncoder = new AudioEncoder({
+                                output: (chunk, meta) => {
+                                    encodedAudioChunks.push({ chunk, meta });
+                                },
+                                error: (e) => {
+                                    console.warn('AudioEncoder warning:', e);
+                                }
+                            });
+                            audioEncoder.configure(selectedAudioCodecConfig);
                             const sr = selectedAudioCodecConfig.sampleRate;
                             const nCh = selectedAudioCodecConfig.numberOfChannels;
                             const startSample = Math.max(0, Math.floor(exportStartSec * sr));
@@ -8426,6 +8399,7 @@ window.switchRightTab = function (mode) {
                             );
                             const chunkFrames = 1024;
                             for (let offset = 0; offset < totalSamples; offset += chunkFrames) {
+                                if (audioEncoder.state !== 'configured') break;
                                 const curFrames = Math.min(chunkFrames, totalSamples - offset);
                                 if (curFrames <= 0) break;
                                 const planarBuf = new Float32Array(curFrames * nCh);
@@ -8445,114 +8419,167 @@ window.switchRightTab = function (mode) {
                                 audioEncoder.encode(audioData);
                                 audioData.close();
                             }
+                            if (audioEncoder.state === 'configured') {
+                                await audioEncoder.flush();
+                            }
+                            if (audioEncoder.state !== 'closed') {
+                                audioEncoder.close();
+                            }
                         } catch (audEncErr) {
-                            console.warn('AAC encode note:', audEncErr);
+                            console.warn('AAC encode note (fallback to video track):', audEncErr);
+                            encodedAudioChunks.length = 0;
                         }
                     }
 
-                    let isRecording = true;
-                    let encodedFrameCount = 0;
-                    let intervalId = null;
+                    // 2) 初始化 Mp4Muxer 与 VideoEncoder，并预检首帧编码是否被显卡接受
+                    try {
+                        const muxerOpts = {
+                            target: new window.Mp4Muxer.ArrayBufferTarget(),
+                            video: {
+                                codec: 'avc',
+                                width: outW,
+                                height: outH,
+                                frameRate: TARGET_FPS
+                            },
+                            fastStart: 'in-memory',
+                            firstTimestampBehavior: 'offset'
+                        };
+                        if (encodedAudioChunks.length > 0 && selectedAudioCodecConfig) {
+                            muxerOpts.audio = {
+                                codec: 'aac',
+                                numberOfChannels: selectedAudioCodecConfig.numberOfChannels,
+                                sampleRate: selectedAudioCodecConfig.sampleRate
+                            };
+                        }
+                        muxer = new window.Mp4Muxer.Muxer(muxerOpts);
+                        for (const item of encodedAudioChunks) {
+                            try { muxer.addAudioChunk(item.chunk, item.meta); } catch (e) {}
+                        }
 
-                    const finalizeWebCodecsExport = async () => {
-                        if (!isRecording) return;
-                        isRecording = false;
-                        window.__stopActiveExport = null;
-                        if (intervalId) clearInterval(intervalId);
-
-                        try {
-                            btnSaveVid.textContent = `⏳ 正在封装 H.264 + faststart MP4...`;
-                            await videoEncoder.flush();
-                            videoEncoder.close();
-                            if (audioEncoder) {
-                                await audioEncoder.flush();
-                                audioEncoder.close();
+                        videoEncoder = new VideoEncoder({
+                            output: (chunk, meta) => {
+                                try { muxer.addVideoChunk(chunk, meta); } catch (e) { muxerEncoderError = e; }
+                            },
+                            error: (e) => {
+                                muxerEncoderError = e;
                             }
-                            muxer.finalize();
+                        });
+                        videoEncoder.configure(selectedVideoCodecConfig);
+                    } catch (initEncErr) {
+                        console.warn('WebCodecs init fallback to MediaRecorder:', initEncErr);
+                        webCodecsSupported = false;
+                    }
 
-                            if (muxerEncoderError) throw muxerEncoderError;
+                    if (webCodecsSupported && videoEncoder && muxer && videoEncoder.state === 'configured') {
+                        const totalFrames = Math.max(1, Math.round(recordSeconds * TARGET_FPS));
+                        const frameDurationUs = Math.round(1_000_000 / TARGET_FPS);
+                        let isRecording = true;
+                        let encodedFrameCount = 0;
+                        let intervalId = null;
 
-                            const { buffer } = muxer.target;
-                            const blob = new Blob([buffer], { type: 'video/mp4' });
-                            const downloadUrl = URL.createObjectURL(blob);
-                            const link = document.createElement('a');
-                            link.style.display = 'none';
-                            const modeTag = isPort ? 'MobilePort' : (isDyLand ? 'DouyinFullLand' : (isLand ? 'MobileCinema' : 'WebPC'));
-                            link.download = `Laya_${modeTag}_H264_30fps_${Date.now()}.mp4`;
-                            link.href = downloadUrl;
-                            document.body.appendChild(link);
-                            link.click();
-                            setTimeout(() => {
-                                if (link.parentNode) link.parentNode.removeChild(link);
-                                URL.revokeObjectURL(downloadUrl);
-                            }, 800);
-
-                            const actualSec = Math.max(0.5, encodedFrameCount / TARGET_FPS).toFixed(1);
-                            window.showToast(`🎉 手机硬解 MP4 (H.264+AAC · 恒定30fps · faststart · ${actualSec}s) 导出成功！`);
-                        } catch (encFinalErr) {
-                            console.error('WebCodecs finalize error:', encFinalErr);
-                            window.showToast(`❌ MP4 封装失败：${encFinalErr.message || '请重试'}`);
-                        } finally {
-                            window.__isExportRecording = false;
+                        const finalizeWebCodecsExport = async () => {
+                            if (!isRecording) return;
+                            isRecording = false;
                             window.__stopActiveExport = null;
-                            previewVideo.loop = origLoopState;
-                            previewVideo.playbackRate = origPlaybackRate;
-                            previewVideo.defaultPlaybackRate = origPlaybackRate;
-                            if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
-                            btnSaveVid.textContent = origVidBtnText;
-                            btnSaveVid.disabled = false;
-                            if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
-                                window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                            if (intervalId) clearInterval(intervalId);
+
+                            try {
+                                btnSaveVid.textContent = `⏳ 正在封装 H.264 + faststart MP4...`;
+                                if (videoEncoder.state === 'configured') {
+                                    await videoEncoder.flush();
+                                }
+                                if (videoEncoder.state !== 'closed') {
+                                    videoEncoder.close();
+                                }
+                                muxer.finalize();
+
+                                if (muxerEncoderError || encodedFrameCount === 0) {
+                                    throw (muxerEncoderError || new Error('未采集到有效视频帧'));
+                                }
+
+                                const { buffer } = muxer.target;
+                                const blob = new Blob([buffer], { type: 'video/mp4' });
+                                const downloadUrl = URL.createObjectURL(blob);
+                                const link = document.createElement('a');
+                                link.style.display = 'none';
+                                const modeTag = isPort ? 'MobilePort' : (isDyLand ? 'DouyinFullLand' : (isLand ? 'MobileCinema' : 'WebPC'));
+                                link.download = `Laya_${modeTag}_H264_30fps_${Date.now()}.mp4`;
+                                link.href = downloadUrl;
+                                document.body.appendChild(link);
+                                link.click();
+                                setTimeout(() => {
+                                    if (link.parentNode) link.parentNode.removeChild(link);
+                                    URL.revokeObjectURL(downloadUrl);
+                                }, 800);
+
+                                const actualSec = Math.max(0.5, encodedFrameCount / TARGET_FPS).toFixed(1);
+                                window.showToast(`🎉 手机硬解 MP4 (H.264+AAC · 恒定30fps · faststart · ${actualSec}s) 导出成功！`);
+                            } catch (encFinalErr) {
+                                console.error('WebCodecs finalize error:', encFinalErr);
+                                window.showToast(`❌ MP4 封装失败：${encFinalErr.message || '请重试'}`);
+                            } finally {
+                                window.__isExportRecording = false;
+                                window.__stopActiveExport = null;
+                                previewVideo.loop = origLoopState;
+                                previewVideo.playbackRate = origPlaybackRate;
+                                previewVideo.defaultPlaybackRate = origPlaybackRate;
+                                if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
+                                btnSaveVid.textContent = origVidBtnText;
+                                btnSaveVid.disabled = false;
+                                if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                                    window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                                }
                             }
-                        }
-                    };
+                        };
 
-                    window.__stopActiveExport = finalizeWebCodecsExport;
+                        window.__stopActiveExport = finalizeWebCodecsExport;
 
-                    await previewVideo.play().catch(() => {
-                        previewVideo.muted = true;
-                        return previewVideo.play().catch(() => {});
-                    });
+                        await previewVideo.play().catch(() => {
+                            previewVideo.muted = true;
+                            return previewVideo.play().catch(() => {});
+                        });
 
-                    recordStartStamp = performance.now();
-                    lastFrameStamp = recordStartStamp;
+                        recordStartStamp = performance.now();
+                        lastFrameStamp = recordStartStamp;
 
-                    // ★ 严格按 30fps (每 33.33ms 一帧) 恒定帧率 (CFR) 采样并赋予固定步进时间戳，杜绝 VFR 导致手机播放变慢
-                    intervalId = setInterval(() => {
-                        if (!isRecording) return;
-                        if (encodedFrameCount >= totalFrames || previewVideo.ended || (previewVideo.currentTime >= exportStartSec + recordSeconds + 0.05)) {
-                            finalizeWebCodecsExport();
-                            return;
-                        }
+                        // ★ 严格按 30fps (每 33.33ms 一帧) 恒定帧率 (CFR) 采样并赋予固定步进时间戳，杜绝 VFR 导致手机播放变慢
+                        intervalId = setInterval(() => {
+                            if (!isRecording) return;
+                            if (encodedFrameCount >= totalFrames || previewVideo.ended || (previewVideo.currentTime >= exportStartSec + recordSeconds + 0.05)) {
+                                finalizeWebCodecsExport();
+                                return;
+                            }
 
-                        const exactElapsedSec = encodedFrameCount / TARGET_FPS;
-                        const now = performance.now();
-                        renderSingleFrame(now, exactElapsedSec);
+                            const exactElapsedSec = encodedFrameCount / TARGET_FPS;
+                            const now = performance.now();
+                            renderSingleFrame(now, exactElapsedSec);
 
-                        try {
-                            const timestampUs = Math.round(encodedFrameCount * (1_000_000 / TARGET_FPS));
-                            const frame = new VideoFrame(offCanvas, {
-                                timestamp: timestampUs,
-                                duration: frameDurationUs
-                            });
-                            // 每 30 帧（1秒）插入一个关键帧 I-Frame，保证手机拖动与硬解秒开
-                            videoEncoder.encode(frame, { keyFrame: (encodedFrameCount % TARGET_FPS === 0) });
-                            frame.close();
-                            encodedFrameCount++;
-                        } catch (frameErr) {
-                            console.warn('Frame encode warning:', frameErr);
-                        }
+                            try {
+                                if (videoEncoder.state === 'configured') {
+                                    const timestampUs = Math.round(encodedFrameCount * (1_000_000 / TARGET_FPS));
+                                    const frame = new VideoFrame(offCanvas, {
+                                        timestamp: timestampUs,
+                                        duration: frameDurationUs
+                                    });
+                                    videoEncoder.encode(frame, { keyFrame: (encodedFrameCount % TARGET_FPS === 0) });
+                                    frame.close();
+                                    encodedFrameCount++;
+                                }
+                            } catch (frameErr) {
+                                console.warn('Frame encode warning:', frameErr);
+                            }
 
-                        const remain = Math.max(0, recordSeconds - exactElapsedSec);
-                        const pct = Math.min(99, Math.round((encodedFrameCount / totalFrames) * 100));
-                        btnSaveVid.textContent = `🔴 导出中 ${pct}% (剩 ${remain.toFixed(1)}s · 点击立即保存)`;
+                            const remain = Math.max(0, recordSeconds - exactElapsedSec);
+                            const pct = Math.min(99, Math.round((encodedFrameCount / totalFrames) * 100));
+                            btnSaveVid.textContent = `🔴 导出中 ${pct}% (剩 ${remain.toFixed(1)}s · 点击立即保存)`;
 
-                        if (encodedFrameCount >= totalFrames) {
-                            finalizeWebCodecsExport();
-                        }
-                    }, Math.round(1000 / TARGET_FPS));
+                            if (encodedFrameCount >= totalFrames) {
+                                finalizeWebCodecsExport();
+                            }
+                        }, Math.round(1000 / TARGET_FPS));
 
-                    return;
+                        return;
+                    }
                 }
 
                 // =========================================================================
@@ -9651,8 +9678,8 @@ window.switchRightTab = function (mode) {
     }
 
     // ★ 1:1 复刻抖音实拍视频的「蓝紫财富等级胶囊牌」与「橙粉粉丝团勋章牌」（采用高清矢量 SVG，绝不用假的 💎 和 🏅 Emoji）
-    const DOUYIN_LV_STAR_DIAMOND_SVG = `<svg class="live-lv-svg" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="8,1.2 13.8,5.2 11.6,14.2 4.4,14.2 2.2,5.2" fill="#e0f2fe" fill-opacity="0.95"/><polygon points="8,1.2 13.8,5.2 8,6.8 2.2,5.2" fill="#ffffff"/><polygon points="2.2,5.2 8,6.8 4.4,14.2" fill="#bae6fd"/><polygon points="13.8,5.2 11.6,14.2 8,6.8" fill="#7dd3fc"/><polygon points="8,3.2 9.4,6.4 12.6,7.8 9.4,9.2 8,12.4 6.6,9.2 3.4,7.8 6.6,6.4" fill="#ffffff"/></svg>`;
-    const DOUYIN_FAN_HEART_WING_SVG = `<svg class="live-fan-svg" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 13.8C8 13.8 2.2 10.1 2.2 5.9C2.2 3.9 3.8 2.4 5.6 2.4C6.7 2.4 7.6 3 8 3.8C8.4 3 9.3 2.4 10.4 2.4C12.2 2.4 13.8 3.9 13.8 5.9C13.8 10.1 8 13.8 8 13.8Z" fill="#fff7ed"/><path d="M8 4.3L9.05 6.45L11.4 6.8L9.7 8.45L10.1 10.8L8 9.7L5.9 10.8L6.3 8.45L4.6 6.8L6.95 6.45L8 4.3Z" fill="#f97316"/></svg>`;
+    const DOUYIN_LV_STAR_DIAMOND_SVG = `<svg class="live-lv-svg" width="9" height="9" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><polygon points="8,1.2 13.8,5.2 11.6,14.2 4.4,14.2 2.2,5.2" fill="#e0f2fe" fill-opacity="0.95"/><polygon points="8,1.2 13.8,5.2 8,6.8 2.2,5.2" fill="#ffffff"/><polygon points="2.2,5.2 8,6.8 4.4,14.2" fill="#bae6fd"/><polygon points="13.8,5.2 11.6,14.2 8,6.8" fill="#7dd3fc"/><polygon points="8,3.2 9.4,6.4 12.6,7.8 9.4,9.2 8,12.4 6.6,9.2 3.4,7.8 6.6,6.4" fill="#ffffff"/></svg>`;
+    const DOUYIN_FAN_HEART_WING_SVG = `<svg class="live-fan-svg" width="9" height="9" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 13.8C8 13.8 2.2 10.1 2.2 5.9C2.2 3.9 3.8 2.4 5.6 2.4C6.7 2.4 7.6 3 8 3.8C8.4 3 9.3 2.4 10.4 2.4C12.2 2.4 13.8 3.9 13.8 5.9C13.8 10.1 8 13.8 8 13.8Z" fill="#fff7ed"/><path d="M8 4.3L9.05 6.45L11.4 6.8L9.7 8.45L10.1 10.8L8 9.7L5.9 10.8L6.3 8.45L4.6 6.8L6.95 6.45L8 4.3Z" fill="#f97316"/></svg>`;
 
     function buildLiveLvBadgeHtml(lv) {
         const n = parseInt(lv, 10) || 0;
