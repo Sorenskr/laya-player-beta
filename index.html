@@ -898,28 +898,57 @@
 
                             <div class="live-top-sub-row">
                                 <div class="live-top-sub-left">
-                                    <span class="live-sub-pill"><span class="live-sub-icon-gold">👑</span> <span id="live-sub-txt-rank">小時榜</span></span>
-                                    <span class="live-sub-pill"><span id="live-sub-txt-fan">粉絲展館</span> <b class="live-sub-num">8</b><span class="live-sub-total">/12</span></span>
+                                    <span class="live-sub-pill" id="live-sub-rank-pill"><span id="live-sub-txt-rank">人氣榜</span></span>
+                                    <span class="live-laya-brand-pill interactive-elem" id="live-laya-brand-pill" title="Laya 官方認證直播間">
+                                        <span class="live-laya-logo-box">
+                                            <img src="Laya.png" class="live-laya-mini-logo" id="live-laya-mini-logo" alt="Laya">
+                                        </span>
+                                        <span id="live-laya-brand-txt">Laya 精選直播</span>
+                                    </span>
                                 </div>
                                 <div class="live-top-sub-right">
                                     <span class="live-sub-pill"><span id="live-sub-txt-square">直播廣場</span> &gt;</span>
+                                    <div class="live-fan-stick-box">
+                                        <span class="live-fan-stick-title" id="live-sub-txt-fan">粉絲螢光棒</span>
+                                        <span class="live-fan-stick-num"><b id="live-fan-cur">14</b>/29</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- 中間視頻取景框橫向飄過彈幕層 -->
-                        <div class="live-floating-dm-stage" id="live-floating-dm-stage"></div>
+                        <!-- 中間視頻取景框橫向飄過彈幕層（默認隱藏不遮擋畫面） -->
+                        <div class="live-floating-dm-stage" id="live-floating-dm-stage" style="display: none;"></div>
 
                         <!-- 右側：點贊飄心動畫區 -->
                         <div class="live-floating-hearts" id="live-floating-hearts"></div>
 
-                        <!-- 下方公屏區域：系統防詐提示 + 帶等級/粉絲團勳章的真實滾動彈幕 + 底部「說點什麼...」與四個真實圖標 -->
+                        <!-- 下方公屏區域：送禮連擊橫幅 + 系統防詐提示/房間公告 + 多樣化滾動評論區 + 底部高頻進場專屬通道 + 底部四圖標 -->
                         <div class="live-bottom-section">
+                            <!-- 送禮連擊彈出橫幅 (如：晨霸 送 小心心 ❤️ x 1) -->
+                            <div class="live-gift-combo-slot">
+                                <div class="live-gift-combo-banner" id="live-gift-combo-banner">
+                                    <img src="Laya.png" class="live-gift-sender-av" id="live-gift-sender-av" alt="">
+                                    <div class="live-gift-meta">
+                                        <span class="live-gift-sender" id="live-gift-sender-name">晨霸</span>
+                                        <span class="live-gift-desc" id="live-gift-desc-txt">送 小心心</span>
+                                    </div>
+                                    <span class="live-gift-heart-ico">💗</span>
+                                    <span class="live-gift-combo-num" id="live-gift-combo-num">x 1</span>
+                                </div>
+                            </div>
+
                             <div class="live-chat-scroll-box" id="live-chat-scroll-box">
                                 <div class="live-sys-notice" id="live-sys-notice">
-                                    嚴禁違法違規、低俗色情、吸煙酗酒、人身傷害等直播內容。理性消費，如主播在直播中以不當方式誘導消費，請謹慎辨別。切勿私下交易，以防人身財產損失，謹防網絡詐騙。
+                                    歡迎來到直播間！嚴禁未成年人直播或打賞消費。嚴禁違法違規、低俗色情、吸煙酗酒、人身傷害等直播內容。理性消費，如主播在直播中以不當方式誘導打賞，請謹慎辨別。切勿私下交易，以防人身財產損失，謹防網絡詐騙。
                                 </div>
+                                <div class="live-room-welcome" id="live-room-welcome">
+                                    <span class="live-welcome-icon">🎧</span>
+                                    <span id="live-room-welcome-txt">Laya 官方精選直播間，點關注不迷路，歡迎來到我的直播間！！！</span>
+                                </div>
+                                <!-- 滾動評論列表（5~6條實時向上滾動：含粉絲團評論、主播語音、送禮、關注、TOP3播報） -->
                                 <div class="live-chat-list" id="live-chat-list"></div>
+                                <!-- 最底部獨立高頻進場通道（每 0.8 秒高頻刷新不同等級觀眾「xxx 來了」） -->
+                                <div class="live-join-ticker-row" id="live-join-ticker-row"></div>
                             </div>
 
                             <div class="live-action-row">
@@ -2433,15 +2462,27 @@
                 </div>
 
                 <div class="form-row">
-                    <label>💬 直播公屏弹幕话术 (每行一条，支持「昵称：内容」或「昵称 來了」，自动配等级与勋章)</label>
-                    <textarea id="in-live-danmaku-list" rows="4" style="width:100%; background:#0f1219; color:#f1f5f9; border:1px solid #2b3142; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.45; resize:vertical;">羊🐑：這牌也不咋地嘛
+                    <label>💬 直播公屏弹幕话术 (每行一条，支持评论/送礼/关注/主播语音，底部另有 80+ 观众高频进场流)</label>
+                    <textarea id="in-live-danmaku-list" rows="5" style="width:100%; background:#0f1219; color:#f1f5f9; border:1px solid #2b3142; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.45; resize:vertical;">金碧輝煌：好無趣😒
+0.0：說話真沒情商
+二十年老球迷：妹妹這是沒睡醒？還是剛睡醒？
+#L：😡
+#L：註銷了
+#L：沒YY
+晨霸 送出 小心心 ×1
+主播：ılıl 4" 歡迎 @用戶5082702197903
+名言 關注了主播
+麥兜黑鳳梨 關注了主播
+恭喜 .2 成為在線觀眾TOP3
+羊🐑：這牌也不咋地嘛
 🌈七月初五🐟🐳：除了小王和絲滑姐
 蒙蒙：昨天的牌有節目效果
-風止何安 來了
-is阿靜 來了
 微醺小貓：主播今天狀態超好！
 阿傑：666 這把太秀了
-晚風溫柔 來了</textarea>
+夜色有點濃：剛下班就趕過來看了
+漫渡 送出 人氣票 ×5
+石頭baby：主播聲音也太好聽了吧
+萬里星河 關注了主播</textarea>
                 </div>
 
                 <div class="form-grid-2">

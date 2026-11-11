@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ==========================================================================
  * app.js - 全局中枢控制、真实蓝/紫双Logo原图无损导出、真机录屏合成与持久化引擎
  * ==========================================================================
@@ -317,6 +317,8 @@ window.switchRightTab = function (mode) {
         if (dyLfWmLogo) dyLfWmLogo.src = realSrc;
         const dyFeaturedLogoImg = document.getElementById('dy-featured-logo-img');
         if (dyFeaturedLogoImg) dyFeaturedLogoImg.src = realSrc;
+        const liveLayaMiniLogo = document.getElementById('live-laya-mini-logo');
+        if (liveLayaMiniLogo) liveLayaMiniLogo.src = realSrc;
 
         // 手机竖屏头像、右下角黑胶唱片头像与全屏横屏头像如果没单独上传过其他人物头像，同步使用当前自带蓝/紫 Logo
         if (dyAvatarImg && (!dyAvatarImg.dataset.custom || dyAvatarImg.dataset.custom === 'false')) {
@@ -7041,7 +7043,7 @@ window.switchRightTab = function (mode) {
         const activeRealSrc = getActiveLogoSrc(curKey);
         const isLightMode = !!(renderTarget && renderTarget.classList.contains('theme-light'));
 
-        ['header-brand-logo', 'player-mini-logo', 'm-brand-logo', 'dy-lf-wm-logo'].forEach(id => {
+        ['header-brand-logo', 'player-mini-logo', 'm-brand-logo', 'dy-lf-wm-logo', 'live-laya-mini-logo'].forEach(id => {
             const clonedImg = clonedDoc.getElementById(id);
             if (clonedImg) clonedImg.src = activeRealSrc;
         });
@@ -9000,20 +9002,35 @@ window.switchRightTab = function (mode) {
     const inLiveDmSpeed = document.getElementById('in-live-dm-speed');
     const txtLiveDmSpeed = document.getElementById('txt-live-dm-speed');
 
-    // 同步主播头像、顶部「你的關注」小头像与右上角 3 个真实观众头像
+    // 同步主播头像、顶部「你的關注」小头像、礼物连击头像与右上角 3 个真实观众头像
     const liveFollowMiniAv = document.getElementById('dy-live-follow-mini-av');
     const liveAudImgs = document.querySelectorAll('#live-aud-avatars .live-aud-img');
-    function syncLiveAudienceAvatars() {
+    const liveJoinTickerRow = document.getElementById('live-join-ticker-row');
+    const liveGiftComboBanner = document.getElementById('live-gift-combo-banner');
+    const liveGiftSenderAv = document.getElementById('live-gift-sender-av');
+    const liveGiftSenderName = document.getElementById('live-gift-sender-name');
+    const liveGiftItemDesc = document.getElementById('live-gift-item-desc');
+    const liveGiftItemIcon = document.getElementById('live-gift-item-icon');
+    const liveGiftComboNum = document.getElementById('live-gift-combo-num');
+    const liveSubTxtRank = document.getElementById('live-sub-txt-rank');
+    const liveSysNoticeEl = document.getElementById('live-sys-notice');
+    let liveAudAvatarOffset = 0;
+
+    function syncLiveAudienceAvatars(step = 0) {
+        liveAudAvatarOffset += step;
         const pool = (typeof COMMENT_AVATAR_POOL !== 'undefined' && Array.isArray(COMMENT_AVATAR_POOL) && COMMENT_AVATAR_POOL.length >= 3)
             ? COMMENT_AVATAR_POOL
             : [];
         if (pool.length > 0 && liveAudImgs.length > 0) {
             liveAudImgs.forEach((img, idx) => {
-                img.src = pool[(idx * 3 + 1) % pool.length];
+                img.src = pool[(idx * 3 + 1 + liveAudAvatarOffset) % pool.length];
             });
+            if (liveGiftSenderAv) {
+                liveGiftSenderAv.src = pool[(liveAudAvatarOffset + 2) % pool.length];
+            }
         }
     }
-    syncLiveAudienceAvatars();
+    syncLiveAudienceAvatars(0);
 
     if (dyAvatarImg && liveHostAvatarImg) {
         const syncLiveAvatar = () => {
@@ -9036,7 +9053,7 @@ window.switchRightTab = function (mode) {
             e.stopPropagation();
             const rndBtn = document.getElementById('btn-random-author-avatar');
             if (rndBtn) rndBtn.click();
-            syncLiveAudienceAvatars();
+            syncLiveAudienceAvatars(1);
         });
         liveHostAvatarWrap.addEventListener('contextmenu', (e) => {
             e.preventDefault();
@@ -9048,24 +9065,75 @@ window.switchRightTab = function (mode) {
 
     let liveHeartTimer = null;
     let liveChatRollTimer = null;
+    let liveJoinTickerTimer = null;
+    let liveGiftComboTimer = null;
+    let liveHeaderFlipTimer = null;
     let liveFlyDmRaf = null;
     let liveDmVisible = true;
     let liveChatCursor = 0;
+    let liveJoinCursor = 0;
+    let liveRollTickCount = 0;
     let liveFlyParticles = [];
 
     const defaultLiveChatLines = [
-        '羊🐑：這牌也不咋地嘛',
-        '🌈七月初五🐟🐳：除了小王和絲滑姐',
-        '蒙蒙：昨天的牌有節目效果',
-        '風止何安 來了',
-        'is阿靜 來了',
-        '微醺小貓：主播今天狀態超好！',
-        '阿傑：666 這把太秀了',
-        '晚風溫柔 來了'
+        '羊🐑 [💜金碧輝煌]：這把節奏太穩了，主播狀態拉滿🔥',
+        '🌈七月初五🐟🐳：除了小王和絲滑姐，沒人能打出這操作',
+        '[主播] 小王小王：ılıl 4" 歡迎新進直播間的寶寶們，點點關注不迷路',
+        '輕輕吹風 [💜二十年老球迷]：妹妹這是剛開播嗎？畫面太清晰了',
+        '晨霸 送出 小心心 ×1',
+        '蒙蒙：昨天的名場面真的太有節目效果了哈哈哈',
+        '麥兜黑鳳梨 關注了主播',
+        '夜色有點濃 [💜Laya鐵粉團]：支持 Laya 精選直播！每天必蹲',
+        '恭喜 .2 成為在線觀眾TOP3',
+        '微醺小貓：主播今天這身穿搭絕了，愛了愛了💖',
+        '皓哥 送出 人氣票 ×5',
+        '阿傑 [💜至尊榮耀]：66666 這波預判直接封神！',
+        '[主播] 小王小王：ılıl 5" 感謝 @晨霸 @皓哥 送出的禮物，比心💗',
+        '捉事盧鑫：前排打卡！剛從推薦頁刷到就進來了',
+        '巴錢想厚 關注了主播',
+        '石頭baby [💜星河護衛隊]：聲音太好聽了吧，聽著超解壓',
+        '漫渡 送出 浪漫星河 ×1',
+        '希拉：大家把讚點到 5 萬，讓主播加播一小時！'
     ];
-    const presetLevels = [19, 12, 21, 21, 2, 28, 16, 9, 32, 14];
-    const presetFanLevels = [10, 10, 10, 0, 0, 12, 8, 0, 15, 6];
-    const fallbackNicknames = ['羊🐑', '🌈七月初五🐟🐳', '蒙蒙', '風止何安', 'is阿靜', '微醺小貓', '阿傑', '晚風溫柔'];
+    const presetLevels = [19, 12, 26, 25, 21, 16, 7, 29, 24, 18, 33, 28, 26, 15, 8, 22, 31, 14, 36, 11];
+    const presetFanLevels = [10, 10, 0, 12, 9, 10, 0, 15, 11, 8, 16, 14, 0, 6, 0, 11, 18, 7, 13, 9];
+    const fallbackNicknames = ['羊🐑', '🌈七月初五🐟🐳', '輕輕吹風', '蒙蒙', '夜色有點濃', '微醺小貓', '阿傑', '捉事盧鑫', '石頭baby', '希拉'];
+
+    // ★ 独立高频进场观众池（对标抖音真机录屏底部「xxx 来了」通道，每 0.8s 极速刷新，营造火热人气）
+    const liveJoinViewerPool = [
+        { lv: 17, fan: 0, nick: '足弟' },
+        { lv: 3,  fan: 0, nick: '再次邂逅說愛你' },
+        { lv: 25, fan: 11, nick: 'LOL' },
+        { lv: 33, fan: 15, nick: '滴水成冰' },
+        { lv: 18, fan: 0, nick: '捉事盧鑫' },
+        { lv: 24, fan: 9, nick: '混凝土銷售' },
+        { lv: 29, fan: 14, nick: '皓哥' },
+        { lv: 16, fan: 0, nick: '漫渡' },
+        { lv: 21, fan: 10, nick: '風止何安' },
+        { lv: 2,  fan: 0, nick: 'is阿靜' },
+        { lv: 19, fan: 8, nick: '晨霸' },
+        { lv: 9,  fan: 0, nick: '希拉' },
+        { lv: 31, fan: 16, nick: '石頭baby' },
+        { lv: 14, fan: 0, nick: '香港明' },
+        { lv: 22, fan: 12, nick: '麥兜黑鳳梨' },
+        { lv: 8,  fan: 0, nick: '巴錢想厚' },
+        { lv: 27, fan: 13, nick: '歲月如歌' },
+        { lv: 12, fan: 0, nick: '小幸運✨' },
+        { lv: 35, fan: 18, nick: '萬里星河' },
+        { lv: 6,  fan: 0, nick: '用戶508291' },
+        { lv: 20, fan: 9, nick: '晚風溫柔' },
+        { lv: 15, fan: 0, nick: '半夏微涼' },
+        { lv: 28, fan: 14, nick: '南城舊夢' },
+        { lv: 4,  fan: 0, nick: '可樂加冰塊' },
+        { lv: 30, fan: 15, nick: '深海裡的星星' },
+        { lv: 11, fan: 0, nick: '阿澤同學' },
+        { lv: 23, fan: 10, nick: '暴富小錦鯉' },
+        { lv: 13, fan: 0, nick: '人間小甜餅' },
+        { lv: 38, fan: 20, nick: 'Laya榜一大哥' },
+        { lv: 7,  fan: 0, nick: '聽風看海' },
+        { lv: 26, fan: 11, nick: '星河入夢' },
+        { lv: 19, fan: 0, nick: '白茶清歡' }
+    ];
 
     function parseLiveDanmakuTexts() {
         const raw = inLiveDanmakuList ? inLiveDanmakuList.value : '';
@@ -9089,14 +9157,35 @@ window.switchRightTab = function (mode) {
         return String(str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     }
 
-    // 渲染左下角公屏滚动聊天列表（还原抖音真实等级图标 💎19、粉丝团勋章 🏅10、房管标「管」、浅蓝昵称与「來了」进场提示）
+    // 渲染底部独立高频进场通道（#live-join-ticker-row）
+    function renderLiveJoinTicker(advance = false) {
+        if (!liveJoinTickerRow) return;
+        if (advance) {
+            liveJoinCursor = (liveJoinCursor + 1) % liveJoinViewerPool.length;
+        }
+        const v = liveJoinViewerPool[liveJoinCursor % liveJoinViewerPool.length];
+        const lvClass = v.lv <= 5 ? 'live-lv-badge lv-low' : 'live-lv-badge';
+        const lvBadgeHtml = `<span class="${lvClass}"><span class="live-lv-icon">💎</span>${v.lv}</span>`;
+        const fanHtml = v.fan > 0 ? `<span class="live-fan-badge">🏅 ${v.fan}</span>` : '';
+        const isSimp = window.__currentLangMode === 'simp';
+        const joinTxt = isSimp ? '来了' : '來了';
+        liveJoinTickerRow.innerHTML = `<div class="live-join-pill">${lvBadgeHtml}${fanHtml}<span class="live-chat-nick">${escapeHtmlSafe(v.nick)}</span><span class="live-chat-msg is-join">${joinTxt}</span></div>`;
+    }
+
+    // 渲染左下角公屏滚动聊天列表（支持 6 大抖音真机样式：粉丝团紫色铭牌、主播语音条、送礼提示、关注提示、TOP3榜单播报、普通等级评论）
     function renderLiveChatBubbles(advance = false) {
         if (!liveChatList) return;
         const allLines = parseLiveDanmakuTexts();
         if (advance) {
             liveChatCursor = (liveChatCursor + 1) % allLines.length;
+            liveRollTickCount++;
+            // 对标抖音真机录屏：进入直播间滚动 3 次后，顶部绿色系统公告自动向上滚出收起，给评论区腾出 6 行完整空间
+            if (liveRollTickCount >= 3 && liveSysNoticeEl && liveSysNoticeEl.style.display !== 'none') {
+                liveSysNoticeEl.style.display = 'none';
+            }
         }
-        const count = Math.min(5, allLines.length);
+        const maxRows = (liveSysNoticeEl && liveSysNoticeEl.style.display === 'none') ? 6 : 5;
+        const count = Math.min(maxRows, allLines.length);
         const rowsHtml = [];
 
         for (let i = 0; i < count; i++) {
@@ -9107,7 +9196,40 @@ window.switchRightTab = function (mode) {
             const lvClass = lv <= 5 ? 'live-lv-badge lv-low' : 'live-lv-badge';
             const lvBadgeHtml = `<span class="${lvClass}"><span class="live-lv-icon">💎</span>${lv}</span>`;
 
-            // 判断是否为「xxx 來了 / 来了」进场消息
+            // 1. 判断是否为「恭喜 xxx 成為在線觀眾TOP3」榜单高亮消息
+            const rankMatch = rawLine.match(/^恭喜\s*(.+?)\s*(成為|成为)(.+)$/);
+            if (rankMatch) {
+                const rNick = escapeHtmlSafe(rankMatch[1].trim());
+                const rTail = escapeHtmlSafe(rankMatch[2] + rankMatch[3]);
+                rowsHtml.push(
+                    `<div class="live-chat-bubble is-rank-top"><span class="live-chat-msg is-rank">恭喜 </span>${lvBadgeHtml}<span class="live-chat-nick">${rNick}</span><span class="live-chat-msg is-rank"> ${rTail}</span></div>`
+                );
+                continue;
+            }
+
+            // 2. 判断是否为「xxx 送出 礼物 ×N」送礼消息
+            const giftMatch = rawLine.match(/^(.+?)\s+(送出|送了)\s+(.+)$/);
+            if (giftMatch) {
+                const gNick = escapeHtmlSafe(giftMatch[1].trim());
+                const gDesc = escapeHtmlSafe(giftMatch[2] + ' ' + giftMatch[3].trim());
+                rowsHtml.push(
+                    `<div class="live-chat-bubble">${lvBadgeHtml}<span class="live-chat-nick">${gNick}</span><span class="live-chat-msg is-gift"> ${gDesc} 💗</span></div>`
+                );
+                continue;
+            }
+
+            // 3. 判断是否为「xxx 關注了主播 / 关注了主播」消息
+            const followMatch = rawLine.match(/^(.+?)\s+(關注了主播|关注了主播)$/);
+            if (followMatch) {
+                const fNick = escapeHtmlSafe(followMatch[1].trim());
+                const fWord = escapeHtmlSafe(followMatch[2]);
+                rowsHtml.push(
+                    `<div class="live-chat-bubble">${lvBadgeHtml}<span class="live-chat-nick">${fNick}</span><span class="live-chat-msg is-follow"> ${fWord}</span></div>`
+                );
+                continue;
+            }
+
+            // 4. 判断是否为「xxx 來了 / 来了」进场消息
             const joinMatch = rawLine.match(/^(.+?)\s+(來了|来了)$/);
             if (joinMatch) {
                 const nick = escapeHtmlSafe(joinMatch[1].trim());
@@ -9118,85 +9240,63 @@ window.switchRightTab = function (mode) {
                 continue;
             }
 
-            // 判断是否为「昵称：内容」格式
+            // 5. 判断是否为「[主播] 主播名：ılıl 4" 内容」主播语音互动消息
+            const hostMatch = rawLine.match(/^\[主播\]\s*([^：:]+)[：:]\s*(.+)$/);
+            if (hostMatch) {
+                const hNick = escapeHtmlSafe(hostMatch[1].trim());
+                let hMsg = hostMatch[2].trim();
+                let voiceBarHtml = '';
+                const vMatch = hMsg.match(/^(ılıl\s*\d+["″]?)\s*(.*)$/);
+                if (vMatch) {
+                    voiceBarHtml = `<span class="live-voice-bar"><span class="live-voice-waves">ılıl</span> ${escapeHtmlSafe(vMatch[1].replace(/ılıl\s*/, ''))}</span>`;
+                    hMsg = vMatch[2];
+                }
+                rowsHtml.push(
+                    `<div class="live-chat-bubble">${lvBadgeHtml}<span class="live-host-tag">主播</span><span class="live-chat-nick">${hNick}：</span>${voiceBarHtml}<span class="live-chat-msg">${escapeHtmlSafe(hMsg)}</span></div>`
+                );
+                continue;
+            }
+
+            // 6. 普通评论或带「[💜粉丝团铭牌]」评论
             const colonIdx = rawLine.indexOf('：') !== -1 ? rawLine.indexOf('：') : rawLine.indexOf(':');
-            let nick = '';
+            let nickPart = '';
             let msg = '';
             if (colonIdx > 0) {
-                nick = rawLine.slice(0, colonIdx).trim();
+                nickPart = rawLine.slice(0, colonIdx).trim();
                 msg = rawLine.slice(colonIdx + 1).trim();
             } else {
-                nick = fallbackNicknames[globalIdx % fallbackNicknames.length];
+                nickPart = fallbackNicknames[globalIdx % fallbackNicknames.length];
                 msg = rawLine;
             }
 
-            const fanBadgeHtml = fanLv > 0 ? `<span class="live-fan-badge">🏅 ${fanLv}</span>` : '';
-            const adminBadgeHtml = (globalIdx === 0 || nick.includes('羊')) ? `<span class="live-admin-badge">管</span>` : '';
+            // 解析昵称中是否附带 [💜xxx] 粉丝团文字铭牌
+            let fanClubTagHtml = '';
+            const clubMatch = nickPart.match(/^(.+?)\s*\[💜([^\]]+)\]\s*$/);
+            if (clubMatch) {
+                nickPart = clubMatch[1].trim();
+                const clubTitle = escapeHtmlSafe(clubMatch[2].trim());
+                fanClubTagHtml = `<span class="live-fan-club-tag"><span class="live-fan-club-heart">💜</span>${clubTitle}</span>`;
+            }
+
+            const fanBadgeHtml = (!fanClubTagHtml && fanLv > 0) ? `<span class="live-fan-badge">🏅 ${fanLv}</span>` : '';
+            const adminBadgeHtml = (globalIdx === 0 || nickPart.includes('羊')) ? `<span class="live-admin-badge">管</span>` : '';
             rowsHtml.push(
-                `<div class="live-chat-bubble">${lvBadgeHtml}${fanBadgeHtml}${adminBadgeHtml}<span class="live-chat-nick">${escapeHtmlSafe(nick)}：</span><span class="live-chat-msg">${escapeHtmlSafe(msg)}</span></div>`
+                `<div class="live-chat-bubble">${lvBadgeHtml}${fanClubTagHtml}${fanBadgeHtml}${adminBadgeHtml}<span class="live-chat-nick">${escapeHtmlSafe(nickPart)}：</span><span class="live-chat-msg">${escapeHtmlSafe(msg)}</span></div>`
             );
         }
 
         liveChatList.innerHTML = rowsHtml.join('');
     }
 
-    // 初始化/重置中间横向漂浮弹幕粒子
+    // 初始化/重置中间横向漂浮弹幕粒子（默认已隐藏，仅保留兼容）
     function initLiveFlyDanmakuParticles() {
         if (!liveFloatingDmStage) return;
         liveFloatingDmStage.innerHTML = '';
         liveFlyParticles = [];
-        if (!liveDmVisible) return;
-
-        const stageW = liveFloatingDmStage.clientWidth || 320;
-        const allTexts = parseLiveDanmakuTexts();
-        const dmColor = getLiveDmColor();
-        const count = Math.min(4, allTexts.length);
-
-        for (let i = 0; i < count; i++) {
-            const txt = allTexts[i % allTexts.length];
-            const el = document.createElement('div');
-            el.className = 'live-fly-dm-item';
-            el.textContent = txt;
-            el.style.color = dmColor;
-            const laneY = 10 + (i % 4) * 38;
-            const startX = stageW * (0.22 + (i * 0.26) % 0.72);
-            el.style.top = laneY + 'px';
-            el.style.left = Math.round(startX) + 'px';
-            liveFloatingDmStage.appendChild(el);
-            liveFlyParticles.push({
-                el,
-                x: startX,
-                y: laneY,
-                textIdx: i % allTexts.length
-            });
-        }
     }
 
     function stepLiveFlyDanmaku() {
-        if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) {
-            liveFlyDmRaf = null;
-            return;
-        }
-        if (liveDmVisible && liveFloatingDmStage && liveFlyParticles.length > 0) {
-            const stageW = liveFloatingDmStage.clientWidth || 320;
-            const speedLv = getLiveDmSpeedVal();
-            const pxPerFrame = 0.45 + speedLv * 0.22;
-            const allTexts = parseLiveDanmakuTexts();
-            const dmColor = getLiveDmColor();
-
-            liveFlyParticles.forEach((p, idx) => {
-                p.x -= pxPerFrame;
-                const w = p.el.offsetWidth || 72;
-                if (p.x + w < -12) {
-                    p.x = stageW + 16 + (idx % 3) * 28;
-                    p.textIdx = (p.textIdx + liveFlyParticles.length) % allTexts.length;
-                    p.el.textContent = allTexts[p.textIdx];
-                }
-                p.el.style.color = dmColor;
-                p.el.style.left = p.x.toFixed(1) + 'px';
-            });
-        }
-        liveFlyDmRaf = requestAnimationFrame(stepLiveFlyDanmaku);
+        liveFlyDmRaf = null;
     }
 
     // 右侧点赞飘心粒子生成
@@ -9209,26 +9309,105 @@ window.switchRightTab = function (mode) {
         const hx1 = Math.round((Math.random() - 0.5) * 26);
         const hx2 = Math.round((Math.random() - 0.5) * 28);
         h.style.setProperty('--hx1', hx1 + 'px');
- 
-        const intervalMs = Math.max(700, 2600 - speedLv * 180);
+        h.style.setProperty('--hx2', hx2 + 'px');
+        liveFloatingHearts.appendChild(h);
+        setTimeout(() => {
+            if (h.parentNode) h.parentNode.removeChild(h);
+        }, 2350);
+    }
+
+    // 礼物连击横幅动画（还原抖音公屏上方送礼连击 x1 -> x2 -> x5）
+    const giftComboPresets = [
+        { sender: '晨霸', desc: '送 小心心', icon: '💗', maxCombo: 5 },
+        { sender: '皓哥', desc: '送 人氣票', icon: '🎫', maxCombo: 9 },
+        { sender: '漫渡', desc: '送 浪漫星河', icon: '🌌', maxCombo: 3 },
+        { sender: '輕輕吹風', desc: '送 粉絲螢光棒', icon: '🪄', maxCombo: 6 }
+    ];
+    let giftPresetCursor = 0;
+    function triggerLiveGiftComboBurst() {
+        if (!liveGiftComboBanner || !renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
+        const item = giftComboPresets[giftPresetCursor % giftComboPresets.length];
+        giftPresetCursor++;
+        syncLiveAudienceAvatars(1);
+        if (liveGiftSenderName) liveGiftSenderName.textContent = item.sender;
+        if (liveGiftItemDesc) liveGiftItemDesc.textContent = item.desc;
+        if (liveGiftItemIcon) liveGiftItemIcon.textContent = item.icon;
+        if (liveGiftComboNum) liveGiftComboNum.textContent = '1';
+        liveGiftComboBanner.style.display = 'inline-flex';
+
+        let c = 1;
+        const stepCombo = setInterval(() => {
+            c++;
+            if (!renderTarget || !renderTarget.classList.contains('dy-live-open') || c > item.maxCombo) {
+                clearInterval(stepCombo);
+                return;
+            }
+            if (liveGiftComboNum) {
+                liveGiftComboNum.textContent = String(c);
+                liveGiftComboNum.style.transform = 'scale(1.28)';
+                setTimeout(() => {
+                    if (liveGiftComboNum) liveGiftComboNum.style.transform = 'scale(1)';
+                }, 140);
+            }
+        }, 420);
+    }
+
+    function restartLiveChatRollTimer() {
+        if (liveChatRollTimer) clearInterval(liveChatRollTimer);
+        if (liveJoinTickerTimer) clearInterval(liveJoinTickerTimer);
+        const speedLv = getLiveDmSpeedVal();
+        // 公屏主评论滚动速度更快（默认约 1.15s 一条），进场通道更密集（约 0.8s 一位新观众）
+        const intervalMs = Math.max(450, 1850 - speedLv * 140);
         liveChatRollTimer = setInterval(() => {
             if (liveDmVisible) {
                 renderLiveChatBubbles(true);
             }
         }, intervalMs);
+
+        const joinIntervalMs = Math.max(420, Math.round(intervalMs * 0.72));
+        liveJoinTickerTimer = setInterval(() => {
+            if (liveDmVisible) {
+                renderLiveJoinTicker(true);
+            }
+        }, joinIntervalMs);
     }
 
     function startLiveRoomAnimations() {
+        liveRollTickCount = 0;
+        if (liveSysNoticeEl) liveSysNoticeEl.style.display = '';
         renderLiveChatBubbles(false);
-        initLiveFlyDanmakuParticles();
-        if (liveFlyDmRaf) cancelAnimationFrame(liveFlyDmRaf);
-        liveFlyDmRaf = requestAnimationFrame(stepLiveFlyDanmaku);
+        renderLiveJoinTicker(false);
         restartLiveChatRollTimer();
 
         if (liveHeartTimer) clearInterval(liveHeartTimer);
         spawnSingleLiveHeart();
-        setTimeout(spawnSingleLiveHeart, 350);
-        liveHeartTimer = setInterval(spawnSingleLiveHeart, 780);
+        setTimeout(spawnSingleLiveHeart, 280);
+        liveHeartTimer = setInterval(spawnSingleLiveHeart, 620);
+
+        if (liveGiftComboTimer) clearInterval(liveGiftComboTimer);
+        triggerLiveGiftComboBurst();
+        liveGiftComboTimer = setInterval(triggerLiveGiftComboBurst, 5200);
+
+        if (liveHeaderFlipTimer) clearInterval(liveHeaderFlipTimer);
+        let rankFlip = false;
+        liveHeaderFlipTimer = setInterval(() => {
+            if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
+            rankFlip = !rankFlip;
+            const isSimp = window.__currentLangMode === 'simp';
+            if (liveSubTxtRank) {
+                liveSubTxtRank.textContent = rankFlip ? (isSimp ? '小时榜' : '小時榜') : (isSimp ? '人气榜' : '人氣榜');
+            }
+            // 右上角在线人数轻微自然跳动 + 观众头像轮换，增强真人进场感
+            if (liveDispViewers && inLiveViewers) {
+                const baseVal = parseInt(inLiveViewers.value, 10) || 293;
+                if (baseVal < 10000) {
+                    const jitter = Math.floor(Math.random() * 7) - 2;
+                    const nextVal = Math.max(10, baseVal + jitter);
+                    liveDispViewers.textContent = String(nextVal);
+                }
+            }
+            syncLiveAudienceAvatars(1);
+        }, 3200);
     }
 
     function stopLiveRoomAnimations() {
@@ -9240,9 +9419,21 @@ window.switchRightTab = function (mode) {
             clearInterval(liveChatRollTimer);
             liveChatRollTimer = null;
         }
+        if (liveJoinTickerTimer) {
+            clearInterval(liveJoinTickerTimer);
+            liveJoinTickerTimer = null;
+        }
         if (liveHeartTimer) {
             clearInterval(liveHeartTimer);
             liveHeartTimer = null;
+        }
+        if (liveGiftComboTimer) {
+            clearInterval(liveGiftComboTimer);
+            liveGiftComboTimer = null;
+        }
+        if (liveHeaderFlipTimer) {
+            clearInterval(liveHeaderFlipTimer);
+            liveHeaderFlipTimer = null;
         }
     }
 
@@ -9490,11 +9681,11 @@ window.switchRightTab = function (mode) {
         }
         if (inLiveDanmakuList) {
             const cur = inLiveDanmakuList.value.trim();
-            inLiveDanmakuList.value = cur ? `${txt}, ${cur}` : txt;
+            const fmtLine = (txt.includes('：') || txt.includes(':')) ? txt : `Laya用戶 [💜Laya鐵粉團]：${txt}`;
+            inLiveDanmakuList.value = cur ? `${fmtLine}\n${cur}` : fmtLine;
         }
         liveChatCursor = 0;
         renderLiveChatBubbles(false);
-        initLiveFlyDanmakuParticles();
         liveChatInput.value = '';
         spawnSingleLiveHeart();
         window.showToast(`🚀 已發送直播彈幕：${txt}`);
@@ -9519,18 +9710,19 @@ window.switchRightTab = function (mode) {
             e.stopPropagation();
             liveDmVisible = !liveDmVisible;
             liveBotBtnDm.classList.toggle('active', liveDmVisible);
-            if (liveFloatingDmStage) liveFloatingDmStage.style.opacity = liveDmVisible ? '1' : '0';
             if (liveChatList) liveChatList.style.opacity = liveDmVisible ? '1' : '0';
-            window.showToast(liveDmVisible ? '💬 已開啟直播彈幕顯示' : '🙈 已隱藏直播彈幕顯示');
+            if (liveJoinTickerRow) liveJoinTickerRow.style.opacity = liveDmVisible ? '1' : '0';
+            window.showToast(liveDmVisible ? '💬 已開啟直播公屏顯示' : '🙈 已隱藏直播公屏顯示');
         });
     }
     if (liveBotBtnGift) {
         liveBotBtnGift.addEventListener('click', (e) => {
             e.stopPropagation();
+            triggerLiveGiftComboBurst();
             for (let i = 0; i < 4; i++) {
                 setTimeout(spawnSingleLiveHeart, i * 110);
             }
-            window.showToast('🎁 已送出 Laya 浪漫星河禮物！');
+            window.showToast('🎁 已送出 Laya 浪漫星河連擊禮物！');
         });
     }
     if (liveBotBtnShare) {
@@ -9548,47 +9740,19 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // ★ 录屏导出 MP4 (30fps) 专用的直播间动态飘屏弹幕与右侧飘心绘制器
+    // ★ 录屏导出 MP4 (30fps) 专用的直播间右侧动态飘心绘制器
     window.__drawLiveRoomDynamicCanvas = function (ctx, outW, outH, scaleRatioX, scaleRatioY, elapsedSec, fontStack) {
         if (!ctx) return;
-        const speedLv = getLiveDmSpeedVal();
-        const dmColor = getLiveDmColor();
-        const allTexts = parseLiveDanmakuTexts();
 
-        // 1. 绘制中间横向飘过的直播弹幕
-        if (liveDmVisible && allTexts.length > 0) {
-            ctx.save();
-            const fontPx = Math.round(12.5 * scaleRatioX);
-            ctx.font = `800 ${fontPx}px ${fontStack}`;
-            ctx.textBaseline = 'top';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-            ctx.shadowBlur = 4 * scaleRatioX;
-            ctx.fillStyle = dmColor;
-
-            const count = Math.min(4, allTexts.length);
-            const pxPerSec = (28 + speedLv * 14) * scaleRatioX;
-            const cycleW = outW * 1.35;
-
-            for (let i = 0; i < count; i++) {
-                const txt = allTexts[i % allTexts.length];
-                const startX = outW * (0.25 + (i * 0.28) % 0.75);
-                const rawX = startX - elapsedSec * pxPerSec;
-                const wrappedX = ((rawX % cycleW) + cycleW) % cycleW - outW * 0.18;
-                const laneY = (140 + (i % 4) * 38) * scaleRatioY;
-                ctx.fillText(txt, wrappedX, laneY);
-            }
-            ctx.restore();
-        }
-
-        // 2. 绘制右侧向上飘动的彩色爱心粒子
+        // 绘制右侧向上飘动的彩色爱心粒子
         ctx.save();
         const heartFontPx = Math.round(18 * scaleRatioX);
         ctx.font = `${heartFontPx}px ${fontStack}`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         const baseRightX = outW - 32 * scaleRatioX;
-        const baseBottomY = outH - 108 * scaleRatioY;
-        const floatHeight = 180 * scaleRatioY;
+        const baseBottomY = outH - 148 * scaleRatioY;
+        const floatHeight = 175 * scaleRatioY;
 
         for (let i = 0; i < 4; i++) {
             const phase = (elapsedSec * 0.65 + i * 0.25) % 1;
@@ -9601,8 +9765,8 @@ window.switchRightTab = function (mode) {
         ctx.restore();
     };
 
-    // 初始化默认渲染一次直播间聊天列表（确保默认处于短视频状态，不进直播）
+    // 初始化默认渲染一次直播间聊天列表与进场通道（确保默认处于短视频状态，不进直播）
     renderLiveChatBubbles(false);
+    renderLiveJoinTicker(false);
     exitLayaLiveRoom(false);
 })();
-

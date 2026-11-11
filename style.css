@@ -7370,11 +7370,8 @@ input[type="range"] {
 }
 
 /* ==========================================================================
-   ★ 状态二（进入直播间后 .dy-live-open）：抖音真实直播间顶栏 + 防诈蓝字公告 + 等级勋章公屏弹幕 + 底部四图标
+   ★ 状态二（进入直播间后 .dy-live-open）：保留 Laya 顶底导航栏原生 UI + 抖音真实直播间顶栏 + 送礼横幅 + 多样化等级公屏 + 高频进场通道
    ========================================================================== */
-#render-target.mode-mobile-port.dy-live-open .dy-top-nav,
-#render-target.mode-mobile-port.dy-live-open .laya-top-nav,
-#render-target.mode-mobile-port.dy-live-open .laya-app-top-nav,
 #render-target.mode-mobile-port.dy-live-open .dy-right-bar,
 #render-target.mode-mobile-port.dy-live-open .dy-left-info,
 #render-target.mode-mobile-port.dy-live-open .dy-fullscreen-pill,
@@ -7388,28 +7385,28 @@ input[type="range"] {
     display: flex !important;
 }
 
-/* 直播间主覆层：位于手机状态栏 (32px) 下方、底部导航栏 (56px) 上方，结合 Laya 原生格局 */
+/* 直播间主覆层：位于 Laya 顶部导航栏 (58px) 下方、Laya 底部导航栏 (54px) 上方，完整保留 Laya 原生顶底栏 */
 .laya-live-room-overlay {
     position: absolute;
-    top: 32px;
-    bottom: 56px;
+    top: 58px;
+    bottom: 54px;
     left: 0;
     right: 0;
     z-index: 22;
     display: none;
     flex-direction: column;
     justify-content: space-between;
-    padding: 4px 10px 6px 10px;
+    padding: 2px 10px 4px 10px;
     box-sizing: border-box;
     pointer-events: none;
     background: transparent !important;
 }
 
-/* 顶部区域：第一行（主播胶囊 + 观众头像/在线人数/关闭）+ 第二行（小时榜/粉丝展馆 + 直播广场>） */
+/* 顶部区域：第一行（主播胶囊 + 观众头像/在线人数/关闭）+ 第二行（人气榜/Laya品牌标 + 直播广场>/粉丝荧光棒） */
 .live-top-section {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: 4px;
     width: 100%;
     pointer-events: auto;
     z-index: 5;
@@ -7424,11 +7421,11 @@ input[type="range"] {
 .live-host-card {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 2.5px 4px 2.5px 3px;
+    gap: 5px;
+    padding: 2px 4px 2px 3px;
     border-radius: 999px;
-    background: rgba(0, 0, 0, 0.42);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.46);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     max-width: 58%;
 }
 #render-target.theme-light .live-host-card {
@@ -7436,13 +7433,13 @@ input[type="range"] {
     border-color: rgba(22, 24, 35, 0.14);
 }
 .live-host-avatar-wrap {
-    width: 29px;
-    height: 29px;
+    width: 27px;
+    height: 27px;
     border-radius: 50%;
     flex-shrink: 0;
     cursor: pointer;
     overflow: hidden;
-    border: 1px solid rgba(255, 255, 255, 0.35);
+    border: 1.2px solid #a855f7;
 }
 .live-host-avatar {
     width: 100%;
@@ -7457,14 +7454,14 @@ input[type="range"] {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 1px;
+    gap: 0.5px;
 }
 .live-host-name-row {
     display: flex;
     align-items: center;
 }
 .live-host-name {
-    font-size: 11px;
+    font-size: 10.5px;
     font-weight: 700;
     color: #ffffff;
     white-space: nowrap;
@@ -7476,7 +7473,7 @@ input[type="range"] {
     color: #161823;
 }
 .live-host-id-row {
-    font-size: 8.5px;
+    font-size: 8px;
     color: rgba(255, 255, 255, 0.72);
     line-height: 1.1;
     display: flex;
@@ -7497,8 +7494,8 @@ input[type="range"] {
     color: #ffffff;
     border: none;
     border-radius: 999px;
-    padding: 4.5px 9.5px;
-    font-size: 10px;
+    padding: 4px 9px;
+    font-size: 9.5px;
     font-weight: 800;
     line-height: 1.1;
     cursor: pointer;
@@ -7514,7 +7511,7 @@ input[type="range"] {
 .live-status-row {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: 4px;
     flex-shrink: 0;
 }
 .live-aud-avatars {
@@ -7522,8 +7519,8 @@ input[type="range"] {
     align-items: center;
 }
 .live-aud-img {
-    width: 23px;
-    height: 23px;
+    width: 22px;
+    height: 22px;
     border-radius: 50%;
     object-fit: cover;
     border: 1.2px solid rgba(255, 255, 255, 0.85);
@@ -7538,12 +7535,12 @@ input[type="range"] {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: rgba(0, 0, 0, 0.42);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.46);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     color: #ffffff;
-    font-size: 10px;
+    font-size: 9.5px;
     font-weight: 700;
-    padding: 3.5px 8px;
+    padding: 3px 7.5px;
     border-radius: 999px;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
@@ -7554,13 +7551,13 @@ input[type="range"] {
     border-color: rgba(22, 24, 35, 0.14);
 }
 .live-exit-mini-btn {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
     border-radius: 50%;
     border: none;
     background: transparent;
     color: rgba(255, 255, 255, 0.92);
-    font-size: 13px;
+    font-size: 12.5px;
     font-weight: 600;
     line-height: 1;
     display: inline-flex;
@@ -7576,7 +7573,7 @@ input[type="range"] {
     color: #161823;
 }
 
-/* 第二行：小時榜 / 粉絲展館 8/12 | 直播廣場 > */
+/* 第二行：人氣榜/小時榜 + Laya 精選直播品牌胶囊 | 直播廣場 > + 粉絲螢光棒 */
 .live-top-sub-row {
     display: flex;
     align-items: center;
@@ -7594,10 +7591,10 @@ input[type="range"] {
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    background: rgba(0, 0, 0, 0.36);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.42);
+    border: 1px solid rgba(255, 255, 255, 0.12);
     color: rgba(255, 255, 255, 0.92);
-    font-size: 9px;
+    font-size: 8.8px;
     font-weight: 600;
     padding: 2px 7px;
     border-radius: 999px;
@@ -7608,44 +7605,67 @@ input[type="range"] {
     color: #161823;
     border-color: rgba(22, 24, 35, 0.12);
 }
-.live-sub-icon-gold {
-    font-size: 9px;
+/* Laya 软件原生品牌胶囊（带 Laya.png 图标与品牌紫光晕） */
+.live-laya-brand-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: linear-gradient(90deg, rgba(168, 85, 247, 0.28) 0%, rgba(236, 72, 153, 0.22) 100%);
+    border: 1px solid rgba(192, 132, 252, 0.45);
+    color: #f3e8ff;
+    font-size: 8.8px;
+    font-weight: 700;
+    padding: 1.5px 6.5px 1.5px 3px;
+    border-radius: 999px;
+    line-height: 1.2;
 }
-.live-sub-num {
+.live-laya-logo-box {
+    width: 13px;
+    height: 13px;
+    border-radius: 3.5px;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #1877f2;
+    flex-shrink: 0;
+}
+.live-laya-mini-logo {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+/* 粉丝荧光棒 14/29 挂件 */
+.live-fan-stick-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(0, 0, 0, 0.42);
+    border: 1px solid rgba(251, 191, 36, 0.32);
+    border-radius: 999px;
+    padding: 1.5px 6px;
+    font-size: 8.5px;
+    line-height: 1.2;
+}
+.live-fan-stick-title {
+    color: rgba(255, 255, 255, 0.85);
+    font-weight: 600;
+}
+.live-fan-stick-num {
+    color: rgba(255, 255, 255, 0.78);
+    font-weight: 700;
+}
+.live-fan-stick-num b {
     color: #fbbf24;
     font-weight: 800;
-}
-.live-sub-total {
-    color: rgba(255, 255, 255, 0.7);
-}
-
-/* 中间视频画面横向飘过直播弹幕层 */
-.live-floating-dm-stage {
-    position: absolute;
-    left: 0;
-    right: 0;
-    top: 86px;
-    height: 175px;
-    overflow: hidden;
-    pointer-events: none;
-    z-index: 3;
-}
-.live-fly-dm-item {
-    position: absolute;
-    white-space: nowrap;
-    font-size: 12px;
-    font-weight: 800;
-    color: #ffffff;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.85);
-    pointer-events: none;
-    will-change: transform, left;
 }
 
 /* 右侧：点赞飘心动画区 */
 .live-floating-hearts {
     position: absolute;
     right: 12px;
-    bottom: 44px;
+    bottom: 38px;
     width: 48px;
     height: 185px;
     pointer-events: none;
@@ -7681,107 +7701,221 @@ input[type="range"] {
     }
 }
 
-/* 下方公屏区域：系统蓝字防诈提示 + 带真实等级/粉丝团勋章的滚动弹幕 + 底部输入与四图标 */
+/* 下方公屏区域：送礼连击横幅 + 防诈公告/房间欢迎 + 5条滚动评论 + 底部独立高频进场流 + 底部四图标 */
 .live-bottom-section {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
     width: 100%;
     pointer-events: auto;
     z-index: 5;
     margin-top: auto;
 }
-.live-chat-scroll-box {
-    width: 88%;
+
+/* 送礼连击弹出横幅 (如：晨霸 送 小心心 💗 x 1) */
+.live-gift-combo-slot {
+    min-height: 30px;
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+}
+.live-gift-combo-banner {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: linear-gradient(90deg, rgba(20, 22, 34, 0.78) 0%, rgba(88, 28, 135, 0.52) 65%, rgba(244, 63, 94, 0.25) 100%);
+    border: 1px solid rgba(244, 114, 182, 0.38);
+    border-radius: 999px;
+    padding: 2.5px 10px 2.5px 3px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+    transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.22s ease;
+}
+.live-gift-combo-banner.gift-pop {
+    animation: liveGiftComboPop 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes liveGiftComboPop {
+    0% { transform: scale(0.92); }
+    50% { transform: scale(1.06); }
+    100% { transform: scale(1); }
+}
+.live-gift-sender-av {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid rgba(255, 255, 255, 0.8);
+    flex-shrink: 0;
+}
+.live-gift-meta {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    line-height: 1.1;
+}
+.live-gift-sender {
+    font-size: 9.5px;
+    font-weight: 800;
+    color: #ffffff;
+    max-width: 82px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.live-gift-desc {
+    font-size: 8px;
+    color: rgba(255, 255, 255, 0.78);
+}
+.live-gift-heart-ico {
+    font-size: 16px;
+    line-height: 1;
+    filter: drop-shadow(0 1px 4px rgba(244, 63, 94, 0.55));
+}
+.live-gift-combo-num {
+    font-size: 13.5px;
+    font-weight: 900;
+    font-style: italic;
+    color: #fde047;
+    text-shadow: 0 1px 4px rgba(0, 0, 0, 0.75);
+    padding-left: 1px;
+}
+
+.live-chat-scroll-box {
+    width: 92%;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
     justify-content: flex-end;
 }
-/* 直播间系统蓝字防诈公告气泡 */
+/* 直播间系统蓝字防诈公告气泡（紧凑2~3行） */
 .live-sys-notice {
-    background: rgba(0, 0, 0, 0.42);
-    border-radius: 8px;
-    padding: 5px 8px;
-    font-size: 9.5px;
+    background: rgba(0, 0, 0, 0.44);
+    border-radius: 7px;
+    padding: 4px 7px;
+    font-size: 8.8px;
     font-weight: 600;
-    line-height: 1.36;
+    line-height: 1.3;
     color: #67e8f9;
-    letter-spacing: 0.1px;
 }
 #render-target.theme-light .live-sys-notice {
     background: rgba(22, 24, 35, 0.08);
     color: #0284c7;
 }
+/* 主播房间欢迎语（带 🎧 图标，如同视频1） */
+.live-room-welcome {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.42);
+    border-radius: 8px;
+    padding: 3px 7px;
+    font-size: 9.2px;
+    font-weight: 700;
+    color: #ffffff;
+    line-height: 1.25;
+    width: fit-content;
+    max-width: 100%;
+}
+.live-welcome-icon {
+    font-size: 10px;
+    flex-shrink: 0;
+}
+
 .live-chat-list {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 3.5px;
+    gap: 3px;
 }
 .live-chat-bubble {
     display: inline-flex;
     align-items: center;
     flex-wrap: wrap;
     gap: 3.5px;
-    background: rgba(0, 0, 0, 0.38);
+    background: rgba(0, 0, 0, 0.42);
     color: #ffffff;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 600;
-    padding: 3px 8px;
-    border-radius: 11px;
+    padding: 2.5px 7.5px;
+    border-radius: 10px;
     max-width: 100%;
-    line-height: 1.28;
+    line-height: 1.26;
+    animation: liveBubbleSlideUp 0.24s ease-out;
+}
+@keyframes liveBubbleSlideUp {
+    0% { opacity: 0.45; transform: translateY(4px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+/* 榜单播报胶囊 (如：恭喜 💎24 .2 成為在線觀眾TOP3) */
+.live-chat-bubble.is-rank-top {
+    background: linear-gradient(90deg, rgba(180, 83, 9, 0.55) 0%, rgba(124, 45, 18, 0.42) 100%);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+    color: #fde68a;
 }
 #render-target.theme-light .live-chat-bubble {
     background: rgba(22, 24, 35, 0.08);
     color: #161823;
 }
-/* 蓝紫钻石财富等级图标 (如 💎 19, 💎 12, 💎 21) */
+/* 蓝紫钻石财富等级图标 (如 💎 29, 💎 25, 💎 10) */
 .live-lv-badge {
     display: inline-flex;
     align-items: center;
     gap: 1.5px;
     background: linear-gradient(90deg, #5b7cfa 0%, #8b5cf6 100%);
     color: #ffffff;
-    font-size: 8.5px;
-    font-weight: 800;
-    padding: 0.5px 4.5px;
-    border-radius: 4px;
-    line-height: 1.2;
-    flex-shrink: 0;
-}
-.live-lv-badge.lv-low {
-    background: linear-gradient(90deg, #64748b 0%, #475569 100%);
-}
-.live-lv-icon {
-    font-size: 7.5px;
-    line-height: 1;
-}
-/* 金色粉丝团勋章 (如 🏅 10) */
-.live-fan-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 1px;
-    background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
-    color: #ffffff;
-    font-size: 8.5px;
+    font-size: 8.2px;
     font-weight: 800;
     padding: 0.5px 4px;
     border-radius: 4px;
     line-height: 1.2;
     flex-shrink: 0;
 }
-/* 粉红房管勋章 (管) */
+.live-lv-badge.lv-high {
+    background: linear-gradient(90deg, #7c3aed 0%, #db2777 100%);
+}
+.live-lv-badge.lv-low {
+    background: linear-gradient(90deg, #64748b 0%, #475569 100%);
+}
+.live-lv-icon {
+    font-size: 7px;
+    line-height: 1;
+}
+/* 紫粉粉丝团铭牌 (如视频2：💜 二十年老球迷 / 💜 金碧辉煌) */
+.live-fan-club-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    background: linear-gradient(90deg, #a855f7 0%, #ec4899 100%);
+    color: #ffffff;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 0.5px 4.5px;
+    border-radius: 4px;
+    line-height: 1.2;
+    flex-shrink: 0;
+}
+/* 金色星光勋章 (如视频1：🏅 16) */
+.live-fan-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 1px;
+    background: linear-gradient(90deg, #f59e0b 0%, #d97706 100%);
+    color: #ffffff;
+    font-size: 8px;
+    font-weight: 800;
+    padding: 0.5px 4px;
+    border-radius: 4px;
+    line-height: 1.2;
+    flex-shrink: 0;
+}
+/* 粉红主播/房管勋章 (主播 / 管) */
 .live-admin-badge {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: linear-gradient(90deg, #fb7185 0%, #f43f5e 100%);
+    background: linear-gradient(90deg, #ff2a6d 0%, #f43f5e 100%);
     color: #ffffff;
     font-size: 8px;
     font-weight: 800;
-    padding: 0.5px 3.5px;
+    padding: 0.5px 4px;
     border-radius: 3.5px;
     line-height: 1.2;
     flex-shrink: 0;
@@ -7789,7 +7923,7 @@ input[type="range"] {
 .live-chat-nick {
     color: #93c5fd;
     font-weight: 700;
-    font-size: 10.5px;
+    font-size: 10px;
 }
 #render-target.theme-light .live-chat-nick {
     color: #2563eb;
@@ -7797,17 +7931,38 @@ input[type="range"] {
 .live-chat-msg {
     color: #ffffff;
     font-weight: 600;
-    font-size: 10.5px;
+    font-size: 10px;
 }
-.live-chat-msg.is-join {
-    color: rgba(255, 255, 255, 0.78);
-    font-weight: 500;
+.live-chat-msg.is-follow {
+    color: #fbcfe8;
 }
-#render-target.theme-light .live-chat-msg {
-    color: #161823;
+.live-chat-msg.is-gift {
+    color: #fde047;
 }
-#render-target.theme-light .live-chat-msg.is-join {
-    color: #4b5563;
+.live-chat-msg.is-voice {
+    color: #67e8f9;
+}
+
+/* 最底部独立高频进场通道（每 0.8s 刷新不同观众「💎29 皓哥 來了」） */
+.live-join-ticker-row {
+    min-height: 21px;
+    display: flex;
+    align-items: center;
+}
+.live-join-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 0, 0, 0.36);
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 9.8px;
+    line-height: 1.22;
+    animation: liveJoinSlideIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes liveJoinSlideIn {
+    0% { opacity: 0.25; transform: translateX(-10px); }
+    100% { opacity: 1; transform: translateX(0); }
 }
 
 /* 底部互动行：左侧「說點什麼...」输入胶囊，右侧 4 个真实图标按钮（笑脸、粉紫心、礼盒、转发） */
@@ -7817,7 +7972,7 @@ input[type="range"] {
     justify-content: space-between;
     gap: 8px;
     width: 100%;
-    padding-top: 2px;
+    padding-top: 1px;
 }
 .live-input-row {
     flex: 1;
@@ -7829,13 +7984,13 @@ input[type="range"] {
 .live-input-pill {
     flex: 1;
     min-width: 0;
-    height: 31px;
+    height: 29px;
     border-radius: 999px;
-    background: rgba(0, 0, 0, 0.42);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.44);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     display: flex;
     align-items: center;
-    padding: 0 12px;
+    padding: 0 11px;
     box-sizing: border-box;
 }
 #render-target.theme-light .live-input-pill {
@@ -7848,7 +8003,7 @@ input[type="range"] {
     outline: none !important;
     background: transparent !important;
     color: #ffffff !important;
-    font-size: 11px !important;
+    font-size: 10.5px !important;
     padding: 0 !important;
     margin: 0 !important;
 }
@@ -7862,13 +8017,13 @@ input[type="range"] {
     color: #6b7280 !important;
 }
 .live-send-btn {
-    height: 28px;
+    height: 27px;
     padding: 0 10px;
     border-radius: 999px;
     border: none;
     background: #fe2c55;
     color: #ffffff;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 800;
     cursor: pointer;
     flex-shrink: 0;
@@ -7878,7 +8033,7 @@ input[type="range"] {
 .live-bottom-bar {
     display: flex;
     align-items: center;
-    gap: 7px;
+    gap: 6px;
     flex-shrink: 0;
 }
 .live-bot-item {
@@ -7893,11 +8048,11 @@ input[type="range"] {
     transform: scale(1.08);
 }
 .live-bot-icon {
-    width: 30px;
-    height: 30px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
-    background: rgba(0, 0, 0, 0.42);
-    border: 1px solid rgba(255, 255, 255, 0.12);
+    background: rgba(0, 0, 0, 0.44);
+    border: 1px solid rgba(255, 255, 255, 0.14);
     display: flex;
     align-items: center;
     justify-content: center;
