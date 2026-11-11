@@ -940,11 +940,11 @@
 
                             <div class="live-chat-scroll-box" id="live-chat-scroll-box">
                                 <div class="live-dm-resize-handle interactive-elem" id="live-dm-resize-handle" data-html2canvas-ignore="true" title="按住拖動可自由調整彈幕區域寬度與高度 · 滾輪可縮放彈幕文字大小">⤡ 調整區域/字號</div>
-                                <div class="live-sys-notice" id="live-sys-notice">
-                                    歡迎來到直播間！嚴禁未成年人直播或打賞消費。理性消費，謹防網絡詐騙。
+                                <div class="live-sys-notice interactive-elem" id="live-sys-notice" title="單擊隨機切換提示語 · 雙擊直接修改文字">
+                                    <span id="live-sys-notice-txt">歡迎來到直播間！嚴禁未成年人直播或打賞消費。理性消費，謹防網絡詐騙。</span>
                                 </div>
-                                <div class="live-room-welcome" id="live-room-welcome">
-                                    <span class="live-welcome-icon">🎧</span>
+                                <div class="live-room-welcome interactive-elem" id="live-room-welcome" title="單擊隨機切換歡迎語 · 雙擊直接修改「Laya 官方精選直播間...」這段話">
+                                    <span class="live-welcome-icon" id="live-welcome-icon">🎧</span>
                                     <span id="live-room-welcome-txt">Laya 官方精選直播間，點關注不迷路，歡迎來到我的直播間！</span>
                                 </div>
                                 <!-- 四、滾動彈幕列表（左側：藍牌+橙牌+紅管字牌 | 中間：彩色/彩虹用戶名+冒號+白字彈幕 | 右側：紫色飄心） -->
@@ -2508,6 +2508,37 @@
                     </div>
                 </div>
 
+                <!-- 二点五、公屏上方官方精选欢迎语 & 系统提示语设置（支持自定义修改、随机切换、双击画面编辑、开关隐藏） -->
+                <div style="margin: 6px 0; padding: 7px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.55); border: 1px solid rgba(148, 163, 184, 0.28);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
+                        <span style="font-size:12px; font-weight:700; color:#e2e8f0;">📢 公屏顶部欢迎语 & 官方提示 (双击画面那段话可直接改)</span>
+                        <div style="display:flex; gap:10px; font-size:11.5px;">
+                            <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; color:#cbd5e1;">
+                                <input type="checkbox" id="sw-live-show-welcome" checked>
+                                <span>显示「Laya官方精选...」欢迎语</span>
+                            </label>
+                            <label style="display:inline-flex; align-items:center; gap:4px; cursor:pointer; margin:0; color:#cbd5e1;">
+                                <input type="checkbox" id="sw-live-show-notice" checked>
+                                <span>显示顶部绿色公约提示</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:5px;">
+                        <label>🎧 直播间欢迎语 (即「Laya 官方精選直播間...」那段话) <a href="javascript:void(0)" id="btn-live-rand-welcome" style="color:#c084fc; text-decoration:none; margin-left:4px;">🎲随机换一句</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-live-welcome-txt" value="Laya 官方精選直播間，點關注不迷路，歡迎來到我的直播間！" placeholder="输入自定义直播间欢迎语...">
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-welcome-btn" title="随机切换直播间欢迎语">🎲</button>
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin-bottom:0;">
+                        <label>🛡️ 顶部绿色系统提示语 <a href="javascript:void(0)" id="btn-live-rand-notice" style="color:#c084fc; text-decoration:none; margin-left:4px;">🎲随机换一句</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-live-notice-txt" value="歡迎來到直播間！嚴禁未成年人直播或打賞消費。理性消費，謹防網絡詐騙。" placeholder="输入自定义顶部绿色提示语...">
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-notice-btn" title="随机切换顶部系统提示语">🎲</button>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- 三、礼物进场提示条专属设置 -->
                 <div style="margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(168, 85, 247, 0.35);">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
@@ -3250,10 +3281,10 @@
     </div>
 </main>
 
-<script src="logos.js?v=20261111_v3"></script>
-<script src="player.js?v=20261111_v3"></script>
-<script src="danmaku.js?v=20261111_v3"></script>
-<script src="app.js?v=20261111_v3"></script>
+<script src="logos.js?v=20261111_v4"></script>
+<script src="player.js?v=20261111_v4"></script>
+<script src="danmaku.js?v=20261111_v4"></script>
+<script src="app.js?v=20261111_v4"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {

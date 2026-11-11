@@ -10483,7 +10483,12 @@ window.switchRightTab = function (mode) {
 
     function startLiveRoomAnimations() {
         liveRollTickCount = 0;
-        if (liveSysNoticeEl) liveSysNoticeEl.style.display = '';
+        if (liveSysNoticeEl) {
+            liveSysNoticeEl.style.display = (!swLiveShowNotice || swLiveShowNotice.checked) ? '' : 'none';
+        }
+        if (liveRoomWelcomeEl) {
+            liveRoomWelcomeEl.style.display = (!swLiveShowWelcome || swLiveShowWelcome.checked) ? '' : 'none';
+        }
         applyLiveGiftBannerState(true, true);
         renderLiveChatBubbles(false);
         renderLiveJoinTicker(false);
@@ -10808,6 +10813,119 @@ window.switchRightTab = function (mode) {
         },
         randomizeLiveSquareTag,
         58
+    );
+
+    // ★ 公屏上方「Laya 官方精選直播間，點關注不迷路...」欢迎语 & 顶部绿色系统提示语：支持右侧自定义修改、随机切换、勾选隐藏、以及手机画面单击随机/双击原地编辑
+    const liveWelcomePresets = [
+        'Laya 官方精選直播間，點關注不迷路，歡迎來到我的直播間！',
+        '歡迎新進直播間的寶寶們，點點右上角關注，精彩馬上開始！',
+        '高顏值才藝現場直播中，喜歡主播的點個關注亮個粉絲燈牌～',
+        '晚上好呀家人們！新來的朋友點關注不迷路，公屏扣1有驚喜！',
+        'Laya 認證熱門直播間，感謝各位大哥大姐的支持與陪伴！',
+        '正在直播精彩內容，點擊左上方關注主播，每天準時開播不走散！',
+        '歡迎來到本場直播間，喜歡的家人們多點點讚，右下角愛心走一走！'
+    ];
+    const liveNoticePresets = [
+        '歡迎來到直播間！嚴禁未成年人直播或打賞消費。理性消費，謹防網絡詐騙。',
+        '平台倡導綠色健康直播，請文明發言、友善互動，共同維護良好直播氛圍。',
+        '溫馨提示：請勿輕信私下交易或外部鏈接，理性觀看與打賞，注意財產安全。',
+        '官方巡查提醒：直播間嚴禁低俗辱罵及違規廣告，祝大家觀看愉快！'
+    ];
+
+    function applyLiveWelcomeDisplay(val) {
+        const cleanVal = String(val || '').trim() || 'Laya 官方精選直播間，點關注不迷路，歡迎來到我的直播間！';
+        if (liveRoomWelcomeTxt) liveRoomWelcomeTxt.textContent = cleanVal;
+        if (inLiveWelcomeTxt && document.activeElement !== inLiveWelcomeTxt) {
+            inLiveWelcomeTxt.value = cleanVal;
+        }
+        if (liveRoomWelcomeEl && swLiveShowWelcome) {
+            liveRoomWelcomeEl.style.display = swLiveShowWelcome.checked ? '' : 'none';
+        }
+    }
+
+    function applyLiveNoticeDisplay(val) {
+        const cleanVal = String(val || '').trim() || '歡迎來到直播間！嚴禁未成年人直播或打賞消費。理性消費，謹防網絡詐騙。';
+        if (liveSysNoticeTxt) {
+            liveSysNoticeTxt.textContent = cleanVal;
+        } else if (liveSysNoticeEl) {
+            liveSysNoticeEl.textContent = cleanVal;
+        }
+        if (inLiveNoticeTxt && document.activeElement !== inLiveNoticeTxt) {
+            inLiveNoticeTxt.value = cleanVal;
+        }
+        if (liveSysNoticeEl && swLiveShowNotice) {
+            liveSysNoticeEl.style.display = swLiveShowNotice.checked ? '' : 'none';
+        }
+    }
+
+    function randomizeLiveWelcome() {
+        const cur = liveRoomWelcomeTxt ? liveRoomWelcomeTxt.textContent.trim() : '';
+        const candidates = liveWelcomePresets.filter(t => t !== cur);
+        const pick = candidates[Math.floor(Math.random() * candidates.length)] || liveWelcomePresets[0];
+        applyLiveWelcomeDisplay(pick);
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        window.showToast('🎲 已隨機切換直播間歡迎語');
+    }
+
+    function randomizeLiveNotice() {
+        const cur = (liveSysNoticeTxt || liveSysNoticeEl) ? (liveSysNoticeTxt || liveSysNoticeEl).textContent.trim() : '';
+        const candidates = liveNoticePresets.filter(t => t !== cur);
+        const pick = candidates[Math.floor(Math.random() * candidates.length)] || liveNoticePresets[0];
+        applyLiveNoticeDisplay(pick);
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        window.showToast('🎲 已隨機切換頂部系統提示語');
+    }
+
+    if (inLiveWelcomeTxt) {
+        inLiveWelcomeTxt.addEventListener('input', () => {
+            applyLiveWelcomeDisplay(inLiveWelcomeTxt.value);
+        });
+    }
+    if (btnLiveRandWelcome) btnLiveRandWelcome.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveWelcome(); });
+    if (btnLiveRandWelcomeBtn) btnLiveRandWelcomeBtn.addEventListener('click', randomizeLiveWelcome);
+    if (swLiveShowWelcome) {
+        swLiveShowWelcome.addEventListener('change', () => {
+            if (liveRoomWelcomeEl) liveRoomWelcomeEl.style.display = swLiveShowWelcome.checked ? '' : 'none';
+        });
+    }
+
+    if (inLiveNoticeTxt) {
+        inLiveNoticeTxt.addEventListener('input', () => {
+            applyLiveNoticeDisplay(inLiveNoticeTxt.value);
+        });
+    }
+    if (btnLiveRandNotice) btnLiveRandNotice.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveNotice(); });
+    if (btnLiveRandNoticeBtn) btnLiveRandNoticeBtn.addEventListener('click', randomizeLiveNotice);
+    if (swLiveShowNotice) {
+        swLiveShowNotice.addEventListener('change', () => {
+            if (liveSysNoticeEl) liveSysNoticeEl.style.display = swLiveShowNotice.checked ? '' : 'none';
+        });
+    }
+
+    // 绑定手机画面上「Laya 官方精選直播間...」欢迎语与顶部绿色提示语：单击随机换一句，双击原地直接输入修改！
+    bindLiveClickRandAndDblEdit(
+        liveRoomWelcomeEl,
+        liveRoomWelcomeTxt,
+        () => (liveRoomWelcomeTxt ? liveRoomWelcomeTxt.textContent.trim() : liveWelcomePresets[0]),
+        (v) => {
+            applyLiveWelcomeDisplay(v);
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`✅ 直播間歡迎語已修改為：${v}`);
+        },
+        randomizeLiveWelcome,
+        210
+    );
+    bindLiveClickRandAndDblEdit(
+        liveSysNoticeEl,
+        liveSysNoticeTxt || liveSysNoticeEl,
+        () => ((liveSysNoticeTxt || liveSysNoticeEl) ? (liveSysNoticeTxt || liveSysNoticeEl).textContent.trim() : liveNoticePresets[0]),
+        (v) => {
+            applyLiveNoticeDisplay(v);
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast(`✅ 頂部提示語已修改為：${v}`);
+        },
+        randomizeLiveNotice,
+        210
     );
 
     const btnLiveAiMatchDm = document.getElementById('btn-live-ai-match-dm');
@@ -11501,6 +11619,8 @@ window.switchRightTab = function (mode) {
             if (matchedIco) inLiveGiftIcon.value = matchedIco;
         }
         applyLiveDmScaleAndArea(false);
+        applyLiveWelcomeDisplay(inLiveWelcomeTxt ? inLiveWelcomeTxt.value : '');
+        applyLiveNoticeDisplay(inLiveNoticeTxt ? inLiveNoticeTxt.value : '');
         applyLiveGiftBannerState(false, true);
         renderLiveChatBubbles(false);
     }, 120);
@@ -11511,6 +11631,8 @@ window.switchRightTab = function (mode) {
     applyLiveBrandTagDisplay(inLiveBrandTag ? inLiveBrandTag.value : 'Laya 精選');
     applyLiveRankTagDisplay(inLiveRankTag ? inLiveRankTag.value : '人氣榜');
     applyLiveSquareTagDisplay(inLiveSquareTag ? inLiveSquareTag.value : '直播廣場');
+    applyLiveWelcomeDisplay(inLiveWelcomeTxt ? inLiveWelcomeTxt.value : '');
+    applyLiveNoticeDisplay(inLiveNoticeTxt ? inLiveNoticeTxt.value : '');
     applyLiveGiftBannerState(false, true);
     renderLiveChatBubbles(false);
     renderLiveJoinTicker(false);
