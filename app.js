@@ -9801,9 +9801,6 @@ window.switchRightTab = function (mode) {
         if (advance) {
             liveChatCursor = (liveChatCursor + 1) % allLines.length;
             liveRollTickCount++;
-            if (liveRollTickCount >= 3 && liveSysNoticeEl && liveSysNoticeEl.style.display !== 'none') {
-                liveSysNoticeEl.style.display = 'none';
-            }
         }
         const userMaxRows = getLiveMaxRowsVal();
         const maxRows = (liveSysNoticeEl && liveSysNoticeEl.style.display !== 'none') ? Math.max(2, userMaxRows - 1) : userMaxRows;
@@ -10527,9 +10524,9 @@ window.switchRightTab = function (mode) {
         if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
 
         const speedLv = getLiveDmSpeedVal();
-        // 只有开启了「公屏弹幕自动滚动」开关时，才按抖音原版舒缓节奏推进上方弹幕；默认保持静止展示，点筛子换弹幕后不再一直乱跳！
-        if (swLiveAutoRollDm && swLiveAutoRollDm.checked) {
-            const intervalMs = Math.max(1200, 4600 - speedLv * 320);
+        // 开启「公屏弹幕自动滚动」开关（默认开启）时，按抖音直播间自然节奏平滑向上推进弹幕（鼠标悬停或双击编辑单条时自动暂停）
+        if (!swLiveAutoRollDm || swLiveAutoRollDm.checked) {
+            const intervalMs = Math.max(950, 3600 - speedLv * 280);
             liveChatRollTimer = setInterval(() => {
                 if (liveDmVisible && !isHoveringLiveChatBox && liveEditingDmIdx === null) {
                     renderLiveChatBubbles(true);
@@ -11006,16 +11003,16 @@ window.switchRightTab = function (mode) {
     const btnLiveSaveAiKey = document.getElementById('btn-live-save-ai-key');
     const btnLiveShareAiKey = document.getElementById('btn-live-share-ai-key');
 
-    // ★ 全站默认共享 AI API Key（已内置团队专属 Gemini Flash 秘钥 + 8人防刷限流保护）
+    // ★ 全站默认共享 AI API Key（已内置团队专属 Gemini 3.8 Flash 秘钥 + 8人防刷限流保护）
     const _TEAM_BUILTIN_KEY_PARTS = ['AQ.Ab8RN6JEu2BzQVh7cehw', 'LxkkCOnsQG4E4a8_I3RTKtzd5AIS6w'];
     const GLOBAL_SHARED_DEFAULT_AI_KEY = window.LAYA_GLOBAL_SHARED_AI_KEY || _TEAM_BUILTIN_KEY_PARTS.join('');
     const GLOBAL_SHARED_DEFAULT_AI_URL = window.LAYA_GLOBAL_SHARED_AI_URL || '';
     const TEAM_AI_PASSCODE = '0000';
     const TEAM_AI_DAILY_LIMIT = 40;       // 每人每天最多调用 40 次（8人合计最多 320 次/天）
-    const TEAM_AI_COOLDOWN_SEC = 15;      // 每次手动调用冷却 15 秒，防手快连点刷爆并发
+    const TEAM_AI_COOLDOWN_SEC = 5;       // 每次手动调用冷却 5 秒，既防连点刷爆又保证响应流畅
     let lastAiCallTimestamp = 0;
     let aiCooldownTimer = null;
-    const videoAiResultCache = new Map(); // 同视频防重复消耗缓存
+    const videoAiResultCache = new Map(); // 同视频自动触发时的防重复消耗缓存
 
     function getTodayDateKey() {
         const d = new Date();
@@ -11043,7 +11040,7 @@ window.switchRightTab = function (mode) {
         return Math.max(0, TEAM_AI_DAILY_LIMIT - nextUsed);
     }
 
-    function updateLiveAiQuotaStatusText(prefixMsg = '⚡ Flash AI 就緒') {
+    function updateLiveAiQuotaStatusText(prefixMsg = '⚡ Gemini 3.8 Flash 就緒') {
         if (!txtLiveAiStatus) return;
         const { remain } = getDailyAiQuotaState();
         txtLiveAiStatus.textContent = `${prefixMsg} (今日剩餘 ${remain}/${TEAM_AI_DAILY_LIMIT})`;
@@ -11052,16 +11049,18 @@ window.switchRightTab = function (mode) {
     function verifyTeamAiPasscode(isInteractive = true) {
         const savedPass = localStorage.getItem('LAYA_LIVE_TEAM_PASS_OK') || '';
         const boxPass = (inLiveAiGasUrl && inLiveAiGasUrl.value.trim()) || '';
-        if (savedPass === TEAM_AI_PASSCODE || boxPass === TEAM_AI_PASSCODE) {
+        // 默认为空或等于 0000 时直接自动通过验证并写入 0000（防止旧版 localStorage 空值覆盖导致弹窗卡死）
+        if (!boxPass || savedPass === TEAM_AI_PASSCODE || boxPass === TEAM_AI_PASSCODE || /^https?:\/\//i.test(boxPass)) {
             localStorage.setItem('LAYA_LIVE_TEAM_PASS_OK', TEAM_AI_PASSCODE);
+            if (inLiveAiGasUrl && !boxPass) inLiveAiGasUrl.value = TEAM_AI_PASSCODE;
             return true;
         }
         if (!isInteractive) return false;
-        const userInp = window.prompt('🔐 請輸入 4 位數團隊 AI 口令（驗證一次後瀏覽器自動記住）：', '');
+        const userInp = window.prompt('🔐 請輸入 4 位數團隊 AI 口令（默認 0000，驗證一次後自動記住）：', '0000');
         if (userInp && userInp.trim() === TEAM_AI_PASSCODE) {
             localStorage.setItem('LAYA_LIVE_TEAM_PASS_OK', TEAM_AI_PASSCODE);
             if (inLiveAiGasUrl) inLiveAiGasUrl.value = TEAM_AI_PASSCODE;
-            window.showToast('✅ 團隊口令驗證成功！已解鎖 Flash 視覺 AI');
+            window.showToast('✅ 團隊口令驗證成功！已解鎖 Gemini 3.8 Flash 視覺 AI');
             return true;
         }
         if (userInp !== null) {
@@ -11075,6 +11074,8 @@ window.switchRightTab = function (mode) {
         if (aiCooldownTimer) clearInterval(aiCooldownTimer);
         if (!btnLiveAiMatchDm) return;
         const origText = '🤖 AI 識別視頻自動配彈幕';
+        btnLiveAiMatchDm.disabled = true;
+        btnLiveAiMatchDm.textContent = '✅ 已配好新彈幕！';
         aiCooldownTimer = setInterval(() => {
             const elapsedSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
             const leftSec = TEAM_AI_COOLDOWN_SEC - elapsedSec;
@@ -11082,12 +11083,14 @@ window.switchRightTab = function (mode) {
                 clearInterval(aiCooldownTimer);
                 aiCooldownTimer = null;
                 btnLiveAiMatchDm.disabled = false;
+                btnLiveAiMatchDm.style.opacity = '1';
                 btnLiveAiMatchDm.textContent = origText;
-            } else {
+            } else if (elapsedSec >= 1) {
                 btnLiveAiMatchDm.disabled = true;
-                btnLiveAiMatchDm.textContent = `⏳ 冷卻中 ${leftSec}s...`;
+                btnLiveAiMatchDm.style.opacity = '0.85';
+                btnLiveAiMatchDm.textContent = `⏳ 冷卻 ${leftSec}s...`;
             }
-        }, 500);
+        }, 400);
     }
 
     // 支持从网址参数 ?ai_key=xxx 自动读取并持久化共享 Key
@@ -11261,15 +11264,19 @@ window.switchRightTab = function (mode) {
     let randDmPoolIndex = 0;
     if (btnLiveRandDmBatch) {
         btnLiveRandDmBatch.addEventListener('click', () => {
+            if (renderTarget && renderTarget.classList.contains('mode-mobile-port') && !renderTarget.classList.contains('dy-live-open')) {
+                enterLayaLiveRoom();
+            }
             const keys = Object.keys(LIVE_AI_SCENE_DANMAKU_POOLS);
             randDmPoolIndex = (randDmPoolIndex + 1) % keys.length;
             const pickedKey = keys[randDmPoolIndex];
-            const lines = LIVE_AI_SCENE_DANMAKU_POOLS[pickedKey].slice();
+            const lines = LIVE_AI_SCENE_DANMAKU_POOLS[pickedKey].slice().sort(() => Math.random() - 0.5);
             if (inLiveDanmakuList) {
                 inLiveDanmakuList.value = lines.join('\n');
             }
             liveChatCursor = 0;
             renderLiveChatBubbles(false);
+            restartLiveChatRollTimer();
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
             window.showToast(`🎲 已切換一套分行彈幕（共 ${lines.length} 條）`);
         });
@@ -11282,9 +11289,8 @@ window.switchRightTab = function (mode) {
         const frames = Array.isArray(preFrames) && preFrames.length > 0 ? preFrames.slice(0, 2) : [];
 
         if (frames.length === 0) {
-            if (Array.isArray(window.__lastExtractedVideoFrames) && window.__lastExtractedVideoFrames.length > 0) {
-                frames.push(...window.__lastExtractedVideoFrames.slice(0, 2));
-            } else if (previewVid && previewVid.videoWidth > 0 && previewVid.style.display !== 'none') {
+            // 优先截取当前画面正在播放的实时视频帧，确保拖动进度条或换画面后识别的是最新画面
+            if (previewVid && previewVid.videoWidth > 0 && previewVid.style.display !== 'none') {
                 try {
                     const c = document.createElement('canvas');
                     const vw = previewVid.videoWidth || 640;
@@ -11294,7 +11300,13 @@ window.switchRightTab = function (mode) {
                     c.getContext('2d').drawImage(previewVid, 0, 0, c.width, c.height);
                     frames.push(c.toDataURL('image/jpeg', 0.65));
                 } catch (e) {}
-            } else if (previewImg && previewImg.naturalWidth > 0) {
+            }
+            if (Array.isArray(window.__lastExtractedVideoFrames) && window.__lastExtractedVideoFrames.length > 0 && frames.length < 2) {
+                window.__lastExtractedVideoFrames.forEach(f => {
+                    if (frames.length < 2 && f) frames.push(f);
+                });
+            }
+            if (frames.length === 0 && previewImg && previewImg.naturalWidth > 0 && previewImg.style.display !== 'none') {
                 try {
                     const c = document.createElement('canvas');
                     const iw = previewImg.naturalWidth || 640;
@@ -11349,6 +11361,10 @@ window.switchRightTab = function (mode) {
                 img.onerror = () => resolve();
                 img.src = frames[0];
             });
+            // 若视频刚好停在 0.0 秒全黑渐入帧（亮度 < 12），剔除该全黑帧以免干扰视觉判断
+            if (stats.avgLuma < 12) {
+                frames.shift();
+            }
         }
         return { frames, stats };
     }
@@ -11392,16 +11408,21 @@ window.switchRightTab = function (mode) {
             customLines.push(`羊🐑：剛刷到${hostName}的直播間，這狀態直接拉滿🔥`);
         }
 
-        const merged = [...customLines, ...basePool];
+        const shuffledPool = basePool.slice().sort(() => Math.random() - 0.5);
+        const merged = [...customLines, ...shuffledPool];
         return { lines: merged.slice(0, 14), sceneLabel };
     }
 
-    // ★ 调用云端 Gemini Flash Vision API (支持 AQ. Vertex Express Key 与 AIza Gemini Key)、OpenAI/DeepSeek 兼容接口或 Google Apps Script 代理
+    // ★ 调用云端 Gemini 3.8 Flash Vision API (支持 AQ. 与 AIza Key)、OpenAI/DeepSeek 兼容接口或 Google Apps Script 代理
     async function requestCloudVisionVideoDanmaku(frames, contextText) {
         const { apiKey, apiUrl } = getActiveLiveAiKeyAndUrl();
-        const promptText = `你是一個抖音/Laya直播間的真實觀眾彈幕生成助手。請仔細觀察這段直播視頻的抽幀畫面（參考標題信息：${contextText || '無'}），生成 14 條高度貼合畫面內容、人物動作、場景氛圍的直播間滾動彈幕。要求：1.全部使用繁體中文；2.每行一條，不要用逗號併成一行，不要編號；3.格式可以是「暱稱：彈幕內容」或直接是簡短自然的觀眾彈幕；4.只輸出這14行彈幕文本，不要任何解釋。`;
+        const hostName = (inLiveHostName && inLiveHostName.value.trim()) ? inLiveHostName.value.trim() : '主播';
+        const randSeed = Math.floor(1000 + Math.random() * 9000);
+        const promptText = frames && frames.length > 0
+            ? `你是一個抖音/Laya直播間的真實觀眾彈幕生成助手。請仔細觀察這段直播視頻的畫面（主播暱稱：${hostName}，參考標題信息：${contextText || '無'}，刷新批次：${randSeed}），根據畫面裡的人物穿搭、顏值氣質、動作神態、場景環境或劇情氛圍，生成 14 條高度貼合畫面的直播間滾動彈幕。要求：1.全部使用繁體中文；2.每行一條，不要編號，不要用逗號併成一行；3.格式統一為「觀眾暱稱：彈幕內容」，語氣自然接地氣且每條不重複；4.嚴禁出現「黑屏」「卡住了」「沒聲音」等故障詞彙，全部為熱鬧互動、誇讚或討論畫面的正向彈幕；5.只輸出這14行彈幕文本，不要任何解釋。`
+            : `你是一個抖音/Laya直播間的真實觀眾彈幕生成助手。請根據當前直播間信息（主播暱稱：${hostName}，主題與標籤：${contextText || '熱門才藝顏值互動直播'}，刷新批次：${randSeed}），生成 14 條生動自然、互動感強的直播間滾動彈幕。要求：1.全部使用繁體中文；2.每行一條，不要編號，不要用逗號併成一行；3.格式統一為「觀眾暱稱：彈幕內容」，每次生成的暱稱與話術都要新鮮不重複；4.只輸出這14行彈幕文本，不要任何解釋。`;
 
-        // 1. Google Gemini Flash / Vertex AI Express API Key (支持 AQ... 或 AIza...)
+        // 1. Google Gemini 3.8 Flash API Key (支持 AQ... 或 AIza...)
         if (apiKey && (/^(AIza|AQ\.)/i.test(apiKey))) {
             const parts = [{ text: promptText }];
             frames.slice(0, 2).forEach(dataUrl => {
@@ -11412,22 +11433,18 @@ window.switchRightTab = function (mode) {
             });
             const bodyPayload = JSON.stringify({
                 contents: [{ role: 'user', parts }],
-                generationConfig: { maxOutputTokens: 320, temperature: 0.8 }
+                generationConfig: {
+                    thinkingConfig: { thinkingBudget: 0 },
+                    maxOutputTokens: 600,
+                    temperature: 0.9
+                }
             });
 
-            // 根据 Key 类型智能排序端点：AQ. 优先走 Vertex AI Express Mode + Gemini Flash 端点，AIza 优先走 Google AI Studio 端点
-            const isVertexExpressKey = /^AQ\./i.test(apiKey);
-            const candidateUrls = isVertexExpressKey
-                ? [
-                    `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-                    `https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`
-                ]
-                : [
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-                    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`
-                ];
+            const candidateUrls = [
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${encodeURIComponent(apiKey)}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent?key=${encodeURIComponent(apiKey)}`
+            ];
 
             for (const url of candidateUrls) {
                 try {
@@ -11438,7 +11455,9 @@ window.switchRightTab = function (mode) {
                     });
                     if (res.ok) {
                         const json = await res.json();
-                        const outTxt = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                        const resParts = json?.candidates?.[0]?.content?.parts || [];
+                        const textPart = resParts.find(p => typeof p.text === 'string' && !p.thought) || resParts[0];
+                        const outTxt = textPart?.text || '';
                         const parsed = splitDanmakuTextToMultiline(outTxt);
                         if (parsed.length >= 4) return parsed;
                     }
@@ -11513,17 +11532,25 @@ window.switchRightTab = function (mode) {
 
     // ★ 核心主入口：上传视频后或点击「🤖 AI 識別視頻自動配彈幕」时自动分析视频画面并填充弹幕（含 8 人团队 5 层防刷限制）
     async function autoMatchLiveDanmakuByVideoAI(isManualClick = true, preFrames = null) {
-        // 1) 冷却时间检查（防连点狂刷，间隔 15 秒）
+        // 1) 冷却时间检查（防连点狂刷，间隔 5 秒）
         if (isManualClick) {
             const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
             if (lastAiCallTimestamp > 0 && sinceLastSec < TEAM_AI_COOLDOWN_SEC) {
-                window.showToast(`⏳ 請勿連續狂點，請等待 ${TEAM_AI_COOLDOWN_SEC - sinceLastSec} 秒冷卻後再試`);
+                window.showToast(`⏳ 請等待 ${TEAM_AI_COOLDOWN_SEC - sinceLastSec} 秒冷卻後再試`);
                 return;
+            }
+            // 若用户在手机竖屏模式下点击右侧「🤖 AI 識別視頻自動配彈幕」，但左侧还未切入直播间，自动打开直播间让用户立刻看到效果
+            if (renderTarget && renderTarget.classList.contains('mode-mobile-port') && !renderTarget.classList.contains('dy-live-open')) {
+                enterLayaLiveRoom();
             }
         }
 
-        if (txtLiveAiStatus) txtLiveAiStatus.textContent = '🔍 Flash AI 正在抽幀分析視頻...';
-        if (btnLiveAiMatchDm) btnLiveAiMatchDm.disabled = true;
+        if (txtLiveAiStatus) txtLiveAiStatus.textContent = '🔍 Gemini 3.8 Flash 正在識別畫面並生成彈幕...';
+        if (btnLiveAiMatchDm) {
+            btnLiveAiMatchDm.disabled = true;
+            btnLiveAiMatchDm.style.opacity = '0.82';
+            btnLiveAiMatchDm.textContent = '🔍 AI 正在識別畫面...';
+        }
 
         try {
             const { frames, stats } = await extractCurrentVideoFramesAndStats(preFrames);
@@ -11533,10 +11560,10 @@ window.switchRightTab = function (mode) {
             const fileName = window.__lastUploadedMediaName || '';
             const contextText = [fileName, rawDesc, rawTags, rawTitle].filter(Boolean).join(' ');
 
-            // 生成当前视频与标题的特征签名，用于同视频防重复扣额度缓存
+            // 生成当前视频与标题的特征签名，用于上传同视频自动触发时的防重复扣额度缓存
             const cacheSig = `${fileName}|${contextText}|${stats.avgLuma}|${stats.skinRatio.toFixed(2)}`;
             let matchedLines = null;
-            let sceneLabel = 'Gemini Flash 視覺大模型';
+            let sceneLabel = 'Gemini 3.8 Flash 視覺大模型';
 
             if (!isManualClick && videoAiResultCache.has(cacheSig)) {
                 matchedLines = videoAiResultCache.get(cacheSig);
@@ -11564,13 +11591,26 @@ window.switchRightTab = function (mode) {
                 const localRes = buildSmartLocalVideoAiDanmaku(stats, contextText);
                 matchedLines = localRes.lines;
                 sceneLabel = localRes.sceneLabel;
+                if (isManualClick) startAiButtonCooldown();
             }
 
             if (inLiveDanmakuList && matchedLines.length > 0) {
                 inLiveDanmakuList.value = matchedLines.join('\n');
+                inLiveDanmakuList.style.borderColor = '#10b981';
+                inLiveDanmakuList.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.35)';
+                setTimeout(() => {
+                    if (inLiveDanmakuList) {
+                        inLiveDanmakuList.style.borderColor = '#2b3142';
+                        inLiveDanmakuList.style.boxShadow = 'none';
+                    }
+                }, 1200);
+            }
+            if (isManualClick && swLiveAutoRollDm && !swLiveAutoRollDm.checked) {
+                swLiveAutoRollDm.checked = true;
             }
             liveChatCursor = 0;
             renderLiveChatBubbles(false);
+            restartLiveChatRollTimer();
 
             // 同步前 6 条纯弹幕正文到画面顶部飘屏弹幕轨道（方便短视频与直播双端复用）
             if (window.DanmakuEngine && Array.isArray(window.DanmakuEngine.list) && matchedLines.length > 0) {
@@ -11600,7 +11640,11 @@ window.switchRightTab = function (mode) {
                 window.showToast(`🤖 AI 已分析視頻畫面（${sceneLabel}）並自動填充 ${matchedLines.length} 條分行彈幕！`);
             }
         } finally {
-            if (btnLiveAiMatchDm && !aiCooldownTimer) btnLiveAiMatchDm.disabled = false;
+            if (btnLiveAiMatchDm && !aiCooldownTimer) {
+                btnLiveAiMatchDm.disabled = false;
+                btnLiveAiMatchDm.style.opacity = '1';
+                btnLiveAiMatchDm.textContent = '🤖 AI 識別視頻自動配彈幕';
+            }
         }
     }
     window.autoMatchLiveDanmakuByVideoAI = autoMatchLiveDanmakuByVideoAI;
@@ -11825,9 +11869,19 @@ window.switchRightTab = function (mode) {
     setTimeout(() => {
         if (localStorage.getItem('LAYA_LIVE_V24_CLEAN_BADGE_MIGRATED') !== '1') {
             if (swLiveDmRowHeart) swLiveDmRowHeart.checked = false;
-            if (swLiveAutoRollDm) swLiveAutoRollDm.checked = false;
             if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = false;
             localStorage.setItem('LAYA_LIVE_V24_CLEAN_BADGE_MIGRATED', '1');
+        }
+        // V25 迁移：默认恢复公屏弹幕平滑自动滚动，并自动写入团队默认口令 0000 防止被旧空缓存覆盖
+        if (localStorage.getItem('LAYA_LIVE_V25_FLASH38_MIGRATED') !== '1') {
+            if (swLiveAutoRollDm) swLiveAutoRollDm.checked = true;
+            localStorage.setItem('LAYA_LIVE_TEAM_PASS_OK', TEAM_AI_PASSCODE);
+            if (inLiveAiGasUrl && !inLiveAiGasUrl.value.trim()) {
+                inLiveAiGasUrl.value = TEAM_AI_PASSCODE;
+            }
+            localStorage.setItem('LAYA_LIVE_V25_FLASH38_MIGRATED', '1');
+        } else if (inLiveAiGasUrl && !inLiveAiGasUrl.value.trim()) {
+            inLiveAiGasUrl.value = TEAM_AI_PASSCODE;
         }
         const liveMiniLogoEl = document.getElementById('live-laya-mini-logo');
         if (liveMiniLogoEl) {
