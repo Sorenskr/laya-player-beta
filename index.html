@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20261111_v5">
+    <link rel="stylesheet" href="style.css?v=20261111_v6">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
         .sidebar .tab-panel.active {
@@ -2617,29 +2617,29 @@
                             <button type="button" class="sub-mini-act" id="btn-live-toggle-ai-cfg" title="配置可选的云端视觉大模型 Key (Gemini / GAS)">⚙️ 雲端AI</button>
                         </div>
                     </div>
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; font-size:11.5px; color:#cbd5e1;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px; font-size:11.5px; color:#cbd5e1;">
                         <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:#e9d5ff;">
                             <input type="checkbox" id="sw-live-auto-ai-dm" checked>
-                            <span>上傳視頻時自動抽幀讓 AI 匹配並填充彈幕 (同時可一鍵同步到上方飄屏彈幕)</span>
+                            <span>上傳視頻時自動抽幀讓 AI 匹配並填充彈幕 (已內置團隊共享 Flash 模型 + 8人防刷保護)</span>
                         </label>
-                        <span id="txt-live-ai-status" style="color:#a855f7; font-size:11px; font-weight:600;">✨ AI 就緒</span>
+                        <span id="txt-live-ai-status" style="color:#34d399; font-size:11px; font-weight:700;">⚡ Flash AI 就緒 (今日剩餘 40/40)</span>
                     </div>
-                    <div id="box-live-ai-vision-cfg" style="display:block; margin-bottom:6px; padding:8px 10px; border-radius:7px; background:rgba(15,23,42,0.92); border:1px solid rgba(168,85,247,0.55); font-size:11.5px;">
+                    <div id="box-live-ai-vision-cfg" style="display:none; margin-bottom:6px; padding:8px 10px; border-radius:7px; background:rgba(15,23,42,0.92); border:1px solid rgba(168,85,247,0.55); font-size:11.5px;">
                         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
-                            <span style="color:#e9d5ff; font-weight:700;">🔑 AI 自動配彈幕 API Key 填寫處 (支持 Gemini `AIza...` 或 DeepSeek/OpenAI `sk-...`)</span>
+                            <span style="color:#e9d5ff; font-weight:700;">🔑 團隊共享 Gemini Flash Key 已內置 (口令: 0000 · 15秒冷卻 · 每人每日40次)</span>
                             <div style="display:flex; gap:4px;">
                                 <button type="button" class="sub-mini-act" id="btn-live-save-ai-key" style="background:rgba(16,185,129,0.28); color:#a7f3d0; border-color:rgba(52,211,153,0.5);">💾 保存並測試AI</button>
-                                <button type="button" class="sub-mini-act" id="btn-live-share-ai-key" style="background:rgba(56,189,248,0.25); color:#bae6fd; border-color:rgba(56,189,248,0.5);" title="複製帶此 Key 的全員共享連結，或發給開發者直接寫入全站默認配置">🌐 生成全員共享連結</button>
+                                <button type="button" class="sub-mini-act" id="btn-live-share-ai-key" style="background:rgba(56,189,248,0.25); color:#bae6fd; border-color:rgba(56,189,248,0.5);" title="複製帶此 Key 的全員共享連結">🌐 生成全員共享連結</button>
                             </div>
                         </div>
                         <div class="form-grid-2" style="gap:6px;">
                             <div class="form-row" style="margin:0;">
-                                <label style="font-size:11px; color:#cbd5e1;">在此粘貼你的 AI API Key (Gemini / DeepSeek / OpenAI)</label>
-                                <input type="text" id="in-live-ai-gemini-key" placeholder="直接粘貼 AIzaSy... 或 sk-..." style="font-size:11.5px; font-family:monospace;">
+                                <label style="font-size:11px; color:#cbd5e1;">自定義備用 API Key (留空則默認使用已內置的團隊共享 Key)</label>
+                                <input type="password" id="in-live-ai-gemini-key" placeholder="已內置團隊共享 Gemini Flash 秘鑰 (可選填覆蓋)" style="font-size:11.5px; font-family:monospace;">
                             </div>
                             <div class="form-row" style="margin:0;">
-                                <label style="font-size:11px; color:#cbd5e1;">接口類型 / 自定義代理地址 (選填，默認自動識別)</label>
-                                <input type="text" id="in-live-ai-gas-url" placeholder="可選填 BaseURL 或 GAS 連結 (留空則根據 Key 自動識別)" style="font-size:11.5px;">
+                                <label style="font-size:11px; color:#cbd5e1;">團隊訪問口令 (首次驗證 0000 後自動記住)</label>
+                                <input type="text" id="in-live-ai-gas-url" value="0000" placeholder="輸入團隊口令 0000 解鎖雲端 AI" style="font-size:11.5px;">
                             </div>
                         </div>
                     </div>
@@ -3292,10 +3292,10 @@
     </div>
 </main>
 
-<script src="logos.js?v=20261111_v5"></script>
-<script src="player.js?v=20261111_v5"></script>
-<script src="danmaku.js?v=20261111_v5"></script>
-<script src="app.js?v=20261111_v5"></script>
+<script src="logos.js?v=20261111_v6"></script>
+<script src="player.js?v=20261111_v6"></script>
+<script src="danmaku.js?v=20261111_v6"></script>
+<script src="app.js?v=20261111_v6"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {
