@@ -1,4 +1,4 @@
-/**
+﻿/**
  * ==========================================================================
  * app.js - 全局中枢控制、真实蓝/紫双Logo原图无损导出、真机录屏合成与持久化引擎
  * ==========================================================================
@@ -6780,6 +6780,9 @@ window.switchRightTab = function (mode) {
                 }
                 Object.entries(data.inputs).forEach(([id, val]) => {
                     if (id === 'in-m-start-time' || id === 'in-m-total-time' || id === 'in-m-progress' || id === 'in-progress') return;
+                    // 防止旧版直播间 8888 或 29/1000 缓存覆盖新版 1000~200万 点赞与在线人数
+                    if (id === 'in-live-host-id' && (val === '8888' || val === '1.8萬')) return;
+                    if (id === 'in-live-viewers' && (Number(val) <= 1000)) return;
                     const el = document.getElementById(id);
                     if (el) {
                         el.value = val;
@@ -9015,6 +9018,7 @@ window.switchRightTab = function (mode) {
 
     const selLiveAudAvatarMode = document.getElementById('sel-live-aud-avatar-mode');
     const btnLiveRandAudAv = document.getElementById('btn-live-rand-aud-av');
+    const btnLiveRandAudAvBtn = document.getElementById('btn-live-rand-aud-av-btn');
     const liveAudAvatarsBox = document.getElementById('live-aud-avatars');
 
     const inLiveViewersText = document.getElementById('in-live-viewers-text');
@@ -9025,6 +9029,15 @@ window.switchRightTab = function (mode) {
     const liveViewerPillTop = document.getElementById('live-viewer-pill-top');
     const liveLeftLivePill = document.getElementById('live-left-live-pill');
     const liveLeftLiveViewers = document.getElementById('live-left-live-viewers');
+
+    // 直播间顶部胶囊标签（Laya 精选 / 人气榜 / 直播广场）自定义与随机控件
+    const inLiveBrandTag = document.getElementById('in-live-brand-tag');
+    const btnLiveRandBrandTag = document.getElementById('btn-live-rand-brand-tag');
+    const btnLiveRandBrandTagBtn = document.getElementById('btn-live-rand-brand-tag-btn');
+    const inLiveRankTag = document.getElementById('in-live-rank-tag');
+    const inLiveSquareTag = document.getElementById('in-live-square-tag');
+    const btnLiveRandRankTag = document.getElementById('btn-live-rand-rank-tag');
+    const btnLiveRandRankTagBtn = document.getElementById('btn-live-rand-rank-tag-btn');
 
     // 礼物进场提示条控件
     const btnLiveRandGiftAll = document.getElementById('btn-live-rand-gift-all');
@@ -9063,83 +9076,68 @@ window.switchRightTab = function (mode) {
     const liveGiftDescTxt = document.getElementById('live-gift-desc-txt');
     const liveGiftItemIcon = document.getElementById('live-gift-item-icon');
     const liveGiftComboNum = document.getElementById('live-gift-combo-num');
+    const liveSubRankPill = document.getElementById('live-sub-rank-pill');
     const liveSubTxtRank = document.getElementById('live-sub-txt-rank');
+    const liveLayaBrandPill = document.getElementById('live-laya-brand-pill');
+    const liveLayaBrandTxt = document.getElementById('live-laya-brand-txt');
+    const liveSubSquarePill = document.getElementById('live-sub-square-pill');
+    const liveSubTxtSquare = document.getElementById('live-sub-txt-square');
     const liveSysNoticeEl = document.getElementById('live-sys-notice');
 
-    // ★ 1. 右上角观众头像：支持「真人头像」与「抖音默认头像」，绝不使用蓝色 Laya 图标
-    const DOUYIN_DEFAULT_AVATARS = [
-        "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%233b4254'/%3E%3Ccircle cx='32' cy='24' r='11.5' fill='%23cbd5e1'/%3E%3Cpath d='M13 55c2.2-11.5 10.2-17.5 19-17.5s16.8 6 19 17.5' fill='%23cbd5e1'/%3E%3C/svg%3E",
-        "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%234c3b54'/%3E%3Ccircle cx='32' cy='24' r='11.5' fill='%23e9d5ff'/%3E%3Cpath d='M13 55c2.2-11.5 10.2-17.5 19-17.5s16.8 6 19 17.5' fill='%23e9d5ff'/%3E%3C/svg%3E",
-        "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%23334e58'/%3E%3Ccircle cx='32' cy='24' r='11.5' fill='%23bae6fd'/%3E%3Cpath d='M13 55c2.2-11.5 10.2-17.5 19-17.5s16.8 6 19 17.5' fill='%23bae6fd'/%3E%3C/svg%3E",
-        "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%23543b47'/%3E%3Ccircle cx='32' cy='24' r='11.5' fill='%23fbcfe8'/%3E%3Cpath d='M13 55c2.2-11.5 10.2-17.5 19-17.5s16.8 6 19 17.5' fill='%23fbcfe8'/%3E%3C/svg%3E",
-        "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%233f3f46'/%3E%3Ccircle cx='32' cy='24' r='11.5' fill='%23d4d4d8'/%3E%3Cpath d='M13 55c2.2-11.5 10.2-17.5 19-17.5s16.8 6 19 17.5' fill='%23d4d4d8'/%3E%3C/svg%3E",
-        "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%233b4d3e'/%3E%3Ccircle cx='32' cy='24' r='11.5' fill='%23bbf7d0'/%3E%3Cpath d='M13 55c2.2-11.5 10.2-17.5 19-17.5s16.8 6 19 17.5' fill='%23bbf7d0'/%3E%3C/svg%3E"
-    ];
+    // ★ 1. 右上角观众头像：直接采用内置抖音直播观众真实头像库 (Base64 高清原图秒开，绝不使用假剪影小人或蓝色 Laya 图标)
+    function getDouyinLiveAudiencePool(mode) {
+        const db = window.LAYA_ASIAN_AVATARS || {};
+        const beauties = Array.isArray(db.beauties) ? db.beauties : [];
+        const guys = Array.isArray(db.guys) ? db.guys : [];
+        const pets = Array.isArray(db.pets) ? db.pets : [];
+        const anime = Array.isArray(db.anime) ? db.anime : [];
+        const cartoons = Array.isArray(db.cartoons) ? db.cartoons : [];
+        const memes = Array.isArray(db.memes) ? db.memes : [];
 
-    const REAL_HUMAN_AVATAR_URLS = [
-        'https://randomuser.me/api/portraits/women/44.jpg',
-        'https://randomuser.me/api/portraits/men/32.jpg',
-        'https://randomuser.me/api/portraits/women/68.jpg',
-        'https://randomuser.me/api/portraits/women/26.jpg',
-        'https://randomuser.me/api/portraits/men/46.jpg',
-        'https://randomuser.me/api/portraits/women/79.jpg',
-        'https://randomuser.me/api/portraits/men/22.jpg',
-        'https://randomuser.me/api/portraits/women/54.jpg',
-        'https://randomuser.me/api/portraits/men/64.jpg',
-        'https://randomuser.me/api/portraits/women/17.jpg',
-        'https://randomuser.me/api/portraits/women/90.jpg',
-        'https://randomuser.me/api/portraits/men/75.jpg'
-    ];
-    const realAvatarDataUrlCache = {};
-    let liveAudAvatarOffset = 0;
-
-    function loadAudImgWithExportCache(imgEl, url, fallbackSvg) {
-        if (!imgEl) return;
-        imgEl.setAttribute('data-export-src', fallbackSvg);
-        if (url.startsWith('data:')) {
-            imgEl.src = url;
-            imgEl.setAttribute('data-export-src', url);
-            return;
+        if (mode === 'beauties') {
+            return beauties.length ? beauties : [...beauties, ...guys];
         }
-        if (realAvatarDataUrlCache[url]) {
-            imgEl.src = realAvatarDataUrlCache[url];
-            imgEl.setAttribute('data-export-src', realAvatarDataUrlCache[url]);
-            return;
+        if (mode === 'guys') {
+            return guys.length ? guys : [...guys, ...beauties];
         }
-        // 先设置抖音默认头像防闪烁，随后异步拉取真人头像并转为 base64 DataURL 供导出无损使用
-        imgEl.src = fallbackSvg;
-        fetch(url, { mode: 'cors', credentials: 'omit' })
-            .then(r => r.ok ? r.blob() : Promise.reject())
-            .then(blob => new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.onerror = reject;
-                reader.readAsDataURL(blob);
-            }))
-            .then(dataUrl => {
-                if (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')) {
-                    realAvatarDataUrlCache[url] = dataUrl;
-                    imgEl.src = dataUrl;
-                    imgEl.setAttribute('data-export-src', dataUrl);
-                }
-            })
-            .catch(() => {
-                imgEl.src = fallbackSvg;
-                imgEl.setAttribute('data-export-src', fallbackSvg);
-            });
+        if (mode === 'real') {
+            return [...beauties, ...guys];
+        }
+        // 默认 douyin-mix（含旧版缓存自动兼容）：真实抖音直播间观众头像（真人美女/帅哥为主，穿插萌宠/动漫二次元生活头像）
+        return [...beauties, ...guys, ...pets, ...anime, ...cartoons, ...memes];
     }
 
-    function syncLiveAudienceAvatars(step = 0) {
-        liveAudAvatarOffset += step;
-        const mode = selLiveAudAvatarMode ? selLiveAudAvatarMode.value : 'real';
-        if (liveAudImgs.length > 0) {
+    let liveAudUsedIndices = [-1, -1, -1];
+
+    function syncLiveAudienceAvatars(randomize = true) {
+        if (selLiveAudAvatarMode && selLiveAudAvatarMode.value === 'douyin-default') {
+            selLiveAudAvatarMode.value = 'douyin-mix';
+        }
+        const mode = selLiveAudAvatarMode ? selLiveAudAvatarMode.value : 'douyin-mix';
+        const pool = getDouyinLiveAudiencePool(mode);
+
+        if (liveAudImgs.length > 0 && pool.length > 0) {
+            const pickedSet = new Set();
             liveAudImgs.forEach((img, idx) => {
-                const fbSvg = DOUYIN_DEFAULT_AVATARS[(idx + liveAudAvatarOffset) % DOUYIN_DEFAULT_AVATARS.length];
-                if (mode === 'douyin-default') {
-                    loadAudImgWithExportCache(img, fbSvg, fbSvg);
+                let pickIdx = 0;
+                if (!randomize && liveAudUsedIndices[idx] >= 0 && liveAudUsedIndices[idx] < pool.length) {
+                    pickIdx = liveAudUsedIndices[idx];
                 } else {
-                    const realUrl = REAL_HUMAN_AVATAR_URLS[(idx * 3 + liveAudAvatarOffset) % REAL_HUMAN_AVATAR_URLS.length];
-                    loadAudImgWithExportCache(img, realUrl, fbSvg);
+                    for (let attempt = 0; attempt < 25; attempt++) {
+                        const cand = Math.floor(Math.random() * pool.length);
+                        if (!pickedSet.has(cand) && cand !== liveAudUsedIndices[idx]) {
+                            pickIdx = cand;
+                            break;
+                        }
+                        pickIdx = cand;
+                    }
+                }
+                pickedSet.add(pickIdx);
+                liveAudUsedIndices[idx] = pickIdx;
+                const dataUrl = pool[pickIdx];
+                if (dataUrl) {
+                    img.src = dataUrl;
+                    img.setAttribute('data-export-src', dataUrl);
                 }
             });
         }
@@ -9149,27 +9147,31 @@ window.switchRightTab = function (mode) {
             liveGiftSenderAv.src = getActiveLogoSrc(curLogoKey);
         }
     }
-    syncLiveAudienceAvatars(0);
+    syncLiveAudienceAvatars(true);
+
+    function triggerRandomLiveAudAvatars(e) {
+        if (e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+        syncLiveAudienceAvatars(true);
+        window.showToast('🎲 已隨機更換右上角 3 位抖音觀眾頭像');
+    }
 
     if (selLiveAudAvatarMode) {
         selLiveAudAvatarMode.addEventListener('change', () => {
-            syncLiveAudienceAvatars(1);
-            window.showToast(selLiveAudAvatarMode.value === 'real' ? '👤 右上角觀眾頭像已切換為：真人頭像' : '👤 右上角觀眾頭像已切換為：抖音默認頭像');
+            syncLiveAudienceAvatars(true);
+            window.showToast('👤 已隨機切換抖音直播觀眾頭像風格');
         });
     }
     if (btnLiveRandAudAv) {
-        btnLiveRandAudAv.addEventListener('click', (e) => {
-            e.preventDefault();
-            syncLiveAudienceAvatars(3);
-            window.showToast('🎲 已隨機更換右上角 3 位觀眾頭像');
-        });
+        btnLiveRandAudAv.addEventListener('click', triggerRandomLiveAudAvatars);
+    }
+    if (btnLiveRandAudAvBtn) {
+        btnLiveRandAudAvBtn.addEventListener('click', triggerRandomLiveAudAvatars);
     }
     if (liveAudAvatarsBox) {
-        liveAudAvatarsBox.addEventListener('click', (e) => {
-            e.stopPropagation();
-            syncLiveAudienceAvatars(3);
-            window.showToast('🎲 已隨機更換右上角 3 位觀眾頭像');
-        });
+        liveAudAvatarsBox.addEventListener('click', triggerRandomLiveAudAvatars);
     }
 
     if (dyAvatarImg && liveHostAvatarImg) {
@@ -9202,20 +9204,47 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // ★ 2. 右上角在线人数 + 左上角红色 LIVE 在线人数：支持手动输入、1000~100万随机（如 5.6萬、10.2萬、25.3萬）及滑块调节
+    // ★ 2. 本场点赞 + 右上角在线人数 + 左上角 LIVE 在线人数：
+    // 全面支持 1000 ~ 200万 随机（如 5.6萬、10.2萬、25.3萬、138.5萬）、双击画面文字原地编辑、以及右侧面板编辑/滑块调节
+    const liveHostNameRow = document.getElementById('live-host-name-row');
+    const liveHostIdRow = document.getElementById('live-host-id-row');
+
     function formatViewerNumberText(numVal) {
-        const n = Math.max(1000, Math.min(1000000, Number(numVal) || 102000));
+        const n = Math.max(1000, Math.min(2000000, Number(numVal) || 102000));
         const unit = window.__currentLangMode === 'simp' ? '万' : '萬';
         if (n >= 10000) {
             return (n / 10000).toFixed(1) + unit;
         }
-        // 几千人时也支持转为 0.x萬 或千分位，这里按用户习惯大于等于 5000 显示 0.5萬~0.9萬，小于 5000 显示整数
         return String(Math.round(n));
+    }
+
+    // 生成 1000 ~ 200万 之间的逼真随机数值（几千显示整数，几万~200万显示 x.x萬 / xxx.x萬）
+    function generateRandom1kTo2M() {
+        const unit = window.__currentLangMode === 'simp' ? '万' : '萬';
+        const r = Math.random();
+        let numVal = 102000;
+        let dispTxt = `10.2${unit}`;
+        if (r < 0.14) {
+            // 1000 ~ 9900 (如 1680, 3520, 6890, 8420)
+            numVal = Math.floor(10 + Math.random() * 89) * 100 + Math.floor(Math.random() * 9) * 10;
+            dispTxt = String(numVal);
+        } else if (r < 0.58) {
+            // 1.1万 ~ 39.9万 (如 5.2万、5.8万、10.2万、25.3万)
+            const wan = (1.1 + Math.random() * 38.8).toFixed(1);
+            numVal = Math.round(parseFloat(wan) * 10000);
+            dispTxt = `${wan}${unit}`;
+        } else {
+            // 40.1万 ~ 199.8万 (如 56.4万、88.2万、128.5万、186.3万)
+            const wan = (40.1 + Math.random() * 159.7).toFixed(1);
+            numVal = Math.round(parseFloat(wan) * 10000);
+            dispTxt = `${wan}${unit}`;
+        }
+        return { numVal, dispTxt };
     }
 
     function applyLiveViewersDisplay(dispStr, syncSliderVal = null) {
         const isSimp = window.__currentLangMode === 'simp';
-        const cleanTxt = String(dispStr || '10.2萬').trim();
+        const cleanTxt = String(dispStr || '10.2萬').replace(/(人在线|人在線)$/, '').trim() || '10.2萬';
         if (inLiveViewersText && inLiveViewersText.value !== cleanTxt) {
             inLiveViewersText.value = cleanTxt;
         }
@@ -9223,38 +9252,109 @@ window.switchRightTab = function (mode) {
         if (liveDispViewers) liveDispViewers.textContent = cleanTxt;
         if (liveLeftLiveViewers) {
             const suffix = isSimp ? '人在线' : '人在線';
-            liveLeftLiveViewers.textContent = cleanTxt.endsWith('在线') || cleanTxt.endsWith('在線')
-                ? cleanTxt
-                : `${cleanTxt}${suffix}`;
+            liveLeftLiveViewers.textContent = `${cleanTxt}${suffix}`;
         }
         if (syncSliderVal !== null && inLiveViewers) {
             inLiveViewers.value = String(syncSliderVal);
         }
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+    }
+
+    function applyLiveHostLikesDisplay(dispStr) {
+        const cleanTxt = String(dispStr || '25.6萬').replace(/(本场点赞|本場點讚)$/, '').trim() || '25.6萬';
+        if (inLiveHostId && inLiveHostId.value !== cleanTxt) {
+            inLiveHostId.value = cleanTxt;
+        }
+        if (liveDispHostId) liveDispHostId.textContent = cleanTxt;
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+    }
+
+    function applyLiveHostNameDisplay(nameStr) {
+        const cleanTxt = String(nameStr || '小王小王').trim() || '小王小王';
+        if (inLiveHostName && inLiveHostName.value !== cleanTxt) {
+            inLiveHostName.value = cleanTxt;
+        }
+        if (liveDispHostName) liveDispHostName.textContent = cleanTxt;
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
     }
 
     function randomizeLiveViewersCount() {
-        const unit = window.__currentLangMode === 'simp' ? '万' : '萬';
-        // 在 1000 ~ 100万 之间分层随机，重点覆盖 5.几万、10.2万、25.3万 等高频真实区间
-        const r = Math.random();
-        let numVal = 102000;
-        let dispTxt = `10.2${unit}`;
-        if (r < 0.12) {
-            // 1000 ~ 9900
-            numVal = Math.floor(10 + Math.random() * 89) * 100;
-            dispTxt = String(numVal);
-        } else if (r < 0.58) {
-            // 1.2万 ~ 19.8万 (如 5.2万、5.8万、10.2万、15.6万)
-            const wan = (1.2 + Math.random() * 18.6).toFixed(1);
-            numVal = Math.round(parseFloat(wan) * 10000);
-            dispTxt = `${wan}${unit}`;
-        } else {
-            // 20.1万 ~ 99.5万 (如 25.3万、42.8万、78.6万)
-            const wan = (20.1 + Math.random() * 79.4).toFixed(1);
-            numVal = Math.round(parseFloat(wan) * 10000);
-            dispTxt = `${wan}${unit}`;
-        }
+        const { numVal, dispTxt } = generateRandom1kTo2M();
         applyLiveViewersDisplay(dispTxt, numVal);
         window.showToast(`🔥 在線人數已隨機為：${dispTxt}`);
+    }
+
+    // 通用绑定器：单击触发随机（1000~200万），双击直接在手机画面原地弹出内联输入框修改文字
+    function bindLiveClickRandAndDblEdit(triggerEl, targetTextEl, getValFn, setValFn, singleClickRandFn, inputWidthPx = 58) {
+        if (!triggerEl || !targetTextEl) return;
+        let clickTimer = null;
+
+        triggerEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (triggerEl.querySelector('.live-inline-edit-input')) return;
+            if (clickTimer) clearTimeout(clickTimer);
+            clickTimer = setTimeout(() => {
+                clickTimer = null;
+                if (!triggerEl.querySelector('.live-inline-edit-input')) {
+                    singleClickRandFn();
+                }
+            }, 210);
+        });
+
+        triggerEl.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            if (clickTimer) {
+                clearTimeout(clickTimer);
+                clickTimer = null;
+            }
+            if (triggerEl.querySelector('.live-inline-edit-input')) return;
+
+            const curVal = getValFn();
+            const inp = document.createElement('input');
+            inp.type = 'text';
+            inp.className = 'live-inline-edit-input';
+            inp.value = curVal;
+            inp.style.setProperty('width', inputWidthPx + 'px', 'important');
+
+            const prevDisplay = targetTextEl.style.display;
+            targetTextEl.style.display = 'none';
+            targetTextEl.parentNode.insertBefore(inp, targetTextEl);
+            inp.focus();
+            inp.select();
+
+            let finished = false;
+            const commit = (save) => {
+                if (finished) return;
+                finished = true;
+                const nextVal = inp.value.trim();
+                if (inp.parentNode) inp.parentNode.removeChild(inp);
+                targetTextEl.style.display = prevDisplay || '';
+                if (save && nextVal) {
+                    setValFn(nextVal);
+                }
+            };
+
+            inp.addEventListener('click', (ev) => ev.stopPropagation());
+            inp.addEventListener('dblclick', (ev) => ev.stopPropagation());
+            inp.addEventListener('keydown', (ev) => {
+                ev.stopPropagation();
+                if (ev.key === 'Enter') {
+                    ev.preventDefault();
+                    commit(true);
+                } else if (ev.key === 'Escape') {
+                    ev.preventDefault();
+                    commit(false);
+                }
+            });
+            inp.addEventListener('blur', () => commit(true));
+        });
     }
 
     if (inLiveViewersText) {
@@ -9272,8 +9372,30 @@ window.switchRightTab = function (mode) {
     }
     if (btnLiveRandViewers) btnLiveRandViewers.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveViewersCount(); });
     if (btnLiveRandViewersBtn) btnLiveRandViewersBtn.addEventListener('click', randomizeLiveViewersCount);
-    if (liveViewerPillTop) liveViewerPillTop.addEventListener('click', (e) => { e.stopPropagation(); randomizeLiveViewersCount(); });
-    if (liveLeftLivePill) liveLeftLivePill.addEventListener('click', (e) => { e.stopPropagation(); randomizeLiveViewersCount(); });
+
+    // 绑定画面右上角在线人数胶囊 & 左上角 LIVE 在线人数胶囊：单击随机(1000~200万)，双击原地编辑
+    bindLiveClickRandAndDblEdit(
+        liveViewerPillTop,
+        liveDispViewers,
+        () => (liveDispViewers ? liveDispViewers.textContent.trim() : '10.2萬'),
+        (v) => {
+            applyLiveViewersDisplay(v, null);
+            window.showToast(`✅ 在線人數已修改為：${v}`);
+        },
+        randomizeLiveViewersCount,
+        54
+    );
+    bindLiveClickRandAndDblEdit(
+        liveLeftLivePill,
+        liveLeftLiveViewers,
+        () => (liveDispViewers ? liveDispViewers.textContent.trim() : '10.2萬'),
+        (v) => {
+            applyLiveViewersDisplay(v, null);
+            window.showToast(`✅ 在線人數已修改為：${v}`);
+        },
+        randomizeLiveViewersCount,
+        56
+    );
 
     let liveHeartTimer = null;
     let liveChatRollTimer = null;
@@ -9658,16 +9780,10 @@ window.switchRightTab = function (mode) {
             cycleNextGiftBannerWithSlide(true);
         }, 4800);
 
-        if (liveHeaderFlipTimer) clearInterval(liveHeaderFlipTimer);
-        let rankFlip = false;
-        liveHeaderFlipTimer = setInterval(() => {
-            if (!renderTarget || !renderTarget.classList.contains('dy-live-open')) return;
-            rankFlip = !rankFlip;
-            const isSimp = window.__currentLangMode === 'simp';
-            if (liveSubTxtRank) {
-                liveSubTxtRank.textContent = rankFlip ? (isSimp ? '小时榜' : '小時榜') : (isSimp ? '人气榜' : '人氣榜');
-            }
-        }, 3600);
+        if (liveHeaderFlipTimer) {
+            clearInterval(liveHeaderFlipTimer);
+            liveHeaderFlipTimer = null;
+        }
     }
 
     function stopLiveRoomAnimations() {
@@ -9811,32 +9927,169 @@ window.switchRightTab = function (mode) {
     const liveHostNamePresets = ['小王小王', '小鹿同學', '蜜桃甜心', '星河少女', '微醺小貓', '晚風溫柔', 'Laya女神', '蘇蘇學姐'];
     function randomizeLiveHostName() {
         const pick = liveHostNamePresets[Math.floor(Math.random() * liveHostNamePresets.length)];
-        if (inLiveHostName) inLiveHostName.value = pick;
-        if (liveDispHostName) liveDispHostName.textContent = pick;
+        applyLiveHostNameDisplay(pick);
         window.showToast(`🎲 主播名已切換為：${pick}`);
     }
     if (inLiveHostName && liveDispHostName) {
         inLiveHostName.addEventListener('input', () => {
-            liveDispHostName.textContent = inLiveHostName.value.trim() || '小王小王';
+            applyLiveHostNameDisplay(inLiveHostName.value.trim() || '小王小王');
         });
     }
-    if (btnLiveRandName) btnLiveRandName.addEventListener('click', randomizeLiveHostName);
+    if (btnLiveRandName) btnLiveRandName.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveHostName(); });
     if (btnLiveRandNameBtn) btnLiveRandNameBtn.addEventListener('click', randomizeLiveHostName);
 
-    const liveLikesPresets = ['1.8萬', '3.2萬', '5.6萬', '9280', '12.4萬', '2.5萬', '8.1萬'];
+    // 本场点赞：1000 ~ 200万 随机（如 5.6萬、25.3萬、138.5萬、6890）
     function randomizeLiveHostId() {
-        const randLikes = liveLikesPresets[Math.floor(Math.random() * liveLikesPresets.length)];
-        if (inLiveHostId) inLiveHostId.value = randLikes;
-        if (liveDispHostId) liveDispHostId.textContent = randLikes;
-        window.showToast(`🎲 本場點讚已切換為：${randLikes}`);
+        const { dispTxt } = generateRandom1kTo2M();
+        applyLiveHostLikesDisplay(dispTxt);
+        window.showToast(`🎲 本場點讚已隨機為：${dispTxt}`);
     }
     if (inLiveHostId && liveDispHostId) {
         inLiveHostId.addEventListener('input', () => {
-            liveDispHostId.textContent = inLiveHostId.value.trim() || '1.8萬';
+            applyLiveHostLikesDisplay(inLiveHostId.value.trim() || '25.6萬');
         });
     }
-    if (btnLiveRandId) btnLiveRandId.addEventListener('click', randomizeLiveHostId);
+    if (btnLiveRandId) btnLiveRandId.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveHostId(); });
     if (btnLiveRandIdBtn) btnLiveRandIdBtn.addEventListener('click', randomizeLiveHostId);
+
+    // 绑定画面左上角「主播名」与「本場點讚」：单击随机(1000~200万)，双击原地编辑文字
+    bindLiveClickRandAndDblEdit(
+        liveHostNameRow,
+        liveDispHostName,
+        () => (liveDispHostName ? liveDispHostName.textContent.trim() : '小王小王'),
+        (v) => {
+            applyLiveHostNameDisplay(v);
+            window.showToast(`✅ 主播名已修改為：${v}`);
+        },
+        randomizeLiveHostName,
+        68
+    );
+    bindLiveClickRandAndDblEdit(
+        liveHostIdRow,
+        liveDispHostId,
+        () => (liveDispHostId ? liveDispHostId.textContent.trim() : '25.6萬'),
+        (v) => {
+            applyLiveHostLikesDisplay(v);
+            window.showToast(`✅ 本場點讚已修改為：${v}`);
+        },
+        randomizeLiveHostId,
+        52
+    );
+
+    // ★ 直播间顶部胶囊标签（Laya 精選 / 人氣榜 / 直播廣場）：支持右侧输入框自定义修改、单击随机、双击画面文字直接修改
+    const liveBrandTagPresets = ['Laya 精選', 'Laya 官方', 'Laya 熱播', 'Laya 認證', 'Laya 獨播', 'Laya 現場', '高顏值精選', '官方精選'];
+    const liveRankTagPresets = ['人氣榜', '小時榜', '熱度榜', '魅力榜', '高光榜', '同城榜', '新星榜', 'PK熱榜'];
+    const liveSquareTagPresets = ['直播廣場', '熱門直播', '同城直播', '更多直播', '精選頻道', '發現更多'];
+
+    function applyLiveBrandTagDisplay(val) {
+        const cleanVal = String(val || '').trim() || 'Laya 精選';
+        if (liveLayaBrandTxt) liveLayaBrandTxt.textContent = cleanVal;
+        if (inLiveBrandTag && document.activeElement !== inLiveBrandTag) {
+            inLiveBrandTag.value = cleanVal;
+        }
+    }
+    function applyLiveRankTagDisplay(val) {
+        const cleanVal = String(val || '').trim() || '人氣榜';
+        if (liveSubTxtRank) liveSubTxtRank.textContent = cleanVal;
+        if (inLiveRankTag && document.activeElement !== inLiveRankTag) {
+            inLiveRankTag.value = cleanVal;
+        }
+    }
+    function applyLiveSquareTagDisplay(val) {
+        const cleanVal = String(val || '').trim() || '直播廣場';
+        if (liveSubTxtSquare) liveSubTxtSquare.textContent = cleanVal;
+        if (inLiveSquareTag && document.activeElement !== inLiveSquareTag) {
+            inLiveSquareTag.value = cleanVal;
+        }
+    }
+
+    function randomizeLiveBrandTag() {
+        const cur = liveLayaBrandTxt ? liveLayaBrandTxt.textContent.trim() : '';
+        const candidates = liveBrandTagPresets.filter(t => t !== cur);
+        const pick = candidates[Math.floor(Math.random() * candidates.length)] || 'Laya 精選';
+        applyLiveBrandTagDisplay(pick);
+        window.showToast(`🎲 品牌標籤已隨機為：${pick}`);
+    }
+    function randomizeLiveRankTag() {
+        const cur = liveSubTxtRank ? liveSubTxtRank.textContent.trim() : '';
+        const candidates = liveRankTagPresets.filter(t => t !== cur);
+        const pick = candidates[Math.floor(Math.random() * candidates.length)] || '人氣榜';
+        applyLiveRankTagDisplay(pick);
+        window.showToast(`🎲 榜單標籤已隨機為：${pick}`);
+    }
+    function randomizeLiveSquareTag() {
+        const cur = liveSubTxtSquare ? liveSubTxtSquare.textContent.trim() : '';
+        const candidates = liveSquareTagPresets.filter(t => t !== cur);
+        const pick = candidates[Math.floor(Math.random() * candidates.length)] || '直播廣場';
+        applyLiveSquareTagDisplay(pick);
+        window.showToast(`🎲 右側標籤已隨機為：${pick}`);
+    }
+
+    if (inLiveBrandTag) {
+        inLiveBrandTag.addEventListener('input', () => {
+            applyLiveBrandTagDisplay(inLiveBrandTag.value.trim() || 'Laya 精選');
+        });
+    }
+    if (btnLiveRandBrandTag) btnLiveRandBrandTag.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveBrandTag(); });
+    if (btnLiveRandBrandTagBtn) btnLiveRandBrandTagBtn.addEventListener('click', randomizeLiveBrandTag);
+
+    if (inLiveRankTag) {
+        inLiveRankTag.addEventListener('input', () => {
+            applyLiveRankTagDisplay(inLiveRankTag.value.trim() || '人氣榜');
+        });
+    }
+    if (inLiveSquareTag) {
+        inLiveSquareTag.addEventListener('input', () => {
+            applyLiveSquareTagDisplay(inLiveSquareTag.value.trim() || '直播廣場');
+        });
+    }
+    if (btnLiveRandRankTag) {
+        btnLiveRandRankTag.addEventListener('click', (e) => {
+            e.preventDefault();
+            randomizeLiveRankTag();
+            randomizeLiveSquareTag();
+        });
+    }
+    if (btnLiveRandRankTagBtn) {
+        btnLiveRandRankTagBtn.addEventListener('click', () => {
+            randomizeLiveRankTag();
+            randomizeLiveSquareTag();
+        });
+    }
+
+    bindLiveClickRandAndDblEdit(
+        liveLayaBrandPill,
+        liveLayaBrandTxt,
+        () => (liveLayaBrandTxt ? liveLayaBrandTxt.textContent.trim() : 'Laya 精選'),
+        (v) => {
+            applyLiveBrandTagDisplay(v);
+            window.showToast(`✅ 品牌標籤已修改為：${v}`);
+        },
+        randomizeLiveBrandTag,
+        66
+    );
+    bindLiveClickRandAndDblEdit(
+        liveSubRankPill,
+        liveSubTxtRank,
+        () => (liveSubTxtRank ? liveSubTxtRank.textContent.trim() : '人氣榜'),
+        (v) => {
+            applyLiveRankTagDisplay(v);
+            window.showToast(`✅ 榜單標籤已修改為：${v}`);
+        },
+        randomizeLiveRankTag,
+        52
+    );
+    bindLiveClickRandAndDblEdit(
+        liveSubSquarePill,
+        liveSubTxtSquare,
+        () => (liveSubTxtSquare ? liveSubTxtSquare.textContent.trim() : '直播廣場'),
+        (v) => {
+            applyLiveSquareTagDisplay(v);
+            window.showToast(`✅ 右側標籤已修改為：${v}`);
+        },
+        randomizeLiveSquareTag,
+        58
+    );
 
     if (inLiveDanmakuList) {
         inLiveDanmakuList.addEventListener('input', () => {
@@ -10016,7 +10269,25 @@ window.switchRightTab = function (mode) {
         ctx.restore();
     };
 
-    // 初始化默认渲染一次直播间礼物条、聊天列表与进场通道（确保默认处于短视频状态，不进直播）
+    // 初始化清理旧版 8888 / 1000 缓存并同步所有直播间顶部数值
+    if (localStorage.getItem('LAYA_LIVE_V23_1K_2M_MIGRATED') !== '1') {
+        if (inLiveHostId && (inLiveHostId.value === '8888' || inLiveHostId.value === '1.8萬')) {
+            inLiveHostId.value = '25.6萬';
+        }
+        if (inLiveViewersText && (inLiveViewersText.value === '1000' || inLiveViewersText.value === '293')) {
+            inLiveViewersText.value = '10.2萬';
+        }
+        if (inLiveViewers && Number(inLiveViewers.value) <= 1000) {
+            inLiveViewers.value = '102000';
+        }
+        localStorage.setItem('LAYA_LIVE_V23_1K_2M_MIGRATED', '1');
+    }
+    applyLiveHostNameDisplay(inLiveHostName ? inLiveHostName.value : '小王小王');
+    applyLiveHostLikesDisplay((inLiveHostId && inLiveHostId.value !== '8888') ? inLiveHostId.value : '25.6萬');
+    applyLiveViewersDisplay((inLiveViewersText && inLiveViewersText.value !== '1000') ? inLiveViewersText.value : '10.2萬', null);
+    applyLiveBrandTagDisplay(inLiveBrandTag ? inLiveBrandTag.value : 'Laya 精選');
+    applyLiveRankTagDisplay(inLiveRankTag ? inLiveRankTag.value : '人氣榜');
+    applyLiveSquareTagDisplay(inLiveSquareTag ? inLiveSquareTag.value : '直播廣場');
     applyLiveGiftBannerState(false);
     renderLiveChatBubbles(false);
     renderLiveJoinTicker(false);

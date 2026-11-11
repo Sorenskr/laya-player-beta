@@ -7472,17 +7472,45 @@ input[type="range"] {
 #render-target.theme-light .live-host-name {
     color: #161823;
 }
+.live-host-name-row {
+    cursor: pointer;
+    user-select: none;
+}
 .live-host-id-row {
     font-size: 8px;
-    color: rgba(255, 255, 255, 0.72);
+    color: rgba(255, 255, 255, 0.78);
     line-height: 1.1;
     display: flex;
     align-items: center;
-    gap: 1px;
+    gap: 2px;
     white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 3px;
+    transition: color 0.15s ease;
+}
+.live-host-id-row:hover,
+.live-host-name-row:hover {
+    color: #e9d5ff;
 }
 #render-target.theme-light .live-host-id-row {
     color: #6b7280;
+}
+/* 双击文字原地修改的内联编辑框 */
+.live-inline-edit-input {
+    width: 58px !important;
+    height: 16px !important;
+    padding: 0 4px !important;
+    margin: 0 !important;
+    border-radius: 4px !important;
+    border: 1px solid #c084fc !important;
+    background: rgba(15, 17, 26, 0.95) !important;
+    color: #ffffff !important;
+    font-size: 9px !important;
+    font-weight: 700 !important;
+    line-height: 1 !important;
+    outline: none !important;
+    box-shadow: 0 0 6px rgba(168, 85, 247, 0.65) !important;
 }
 .live-host-right {
     display: flex;
@@ -7544,6 +7572,13 @@ input[type="range"] {
     border-radius: 999px;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s ease, transform 0.12s ease;
+}
+.live-viewer-pill:hover,
+.live-red-live-pill:hover {
+    border-color: rgba(192, 132, 252, 0.75);
 }
 #render-target.theme-light .live-viewer-pill {
     background: rgba(22, 24, 35, 0.08);

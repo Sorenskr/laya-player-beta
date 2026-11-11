@@ -870,11 +870,11 @@
                                         <img src="Laya.png" class="live-host-avatar" id="live-host-avatar" alt="Host">
                                     </div>
                                     <div class="live-host-meta">
-                                        <div class="live-host-name-row">
+                                        <div class="live-host-name-row interactive-elem" id="live-host-name-row" title="單擊隨機切換主播名 · 雙擊直接編輯文字">
                                             <span class="live-host-name" id="live-disp-host-name">小王小王</span>
                                         </div>
-                                        <div class="live-host-id-row">
-                                            <span id="live-disp-host-id">1.8萬</span>
+                                        <div class="live-host-id-row interactive-elem" id="live-host-id-row" title="單擊隨機(1000~200萬) · 雙擊直接輸入修改本場點讚">
+                                            <span id="live-disp-host-id">25.6萬</span>
                                             <span id="live-disp-id-prefix">本場點讚</span>
                                         </div>
                                     </div>
@@ -884,12 +884,12 @@
                                 </div>
 
                                 <div class="live-status-row">
-                                    <div class="live-aud-avatars interactive-elem" id="live-aud-avatars" title="點擊隨機切換右上角觀眾頭像">
-                                        <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%233b4254'/%3E%3Ccircle cx='32' cy='24' r='11' fill='%23cbd5e1'/%3E%3Cpath d='M14 54c2-11 10-17 18-17s16 6 18 17' fill='%23cbd5e1'/%3E%3C/svg%3E" class="live-aud-img" alt="">
-                                        <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%234c3b54'/%3E%3Ccircle cx='32' cy='24' r='11' fill='%23e2d5ed'/%3E%3Cpath d='M14 54c2-11 10-17 18-17s16 6 18 17' fill='%23e2d5ed'/%3E%3C/svg%3E" class="live-aud-img" alt="">
-                                        <img src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='32' fill='%233b4e54'/%3E%3Ccircle cx='32' cy='24' r='11' fill='%23cce3ea'/%3E%3Cpath d='M14 54c2-11 10-17 18-17s16 6 18 17' fill='%23cce3ea'/%3E%3C/svg%3E" class="live-aud-img" alt="">
+                                    <div class="live-aud-avatars interactive-elem" id="live-aud-avatars" title="點擊隨機切換抖音直播觀眾頭像">
+                                        <img src="Laya.png" class="live-aud-img" alt="">
+                                        <img src="Laya.png" class="live-aud-img" alt="">
+                                        <img src="Laya.png" class="live-aud-img" alt="">
                                     </div>
-                                    <div class="live-viewer-pill interactive-elem" id="live-viewer-pill-top" title="點擊隨機切換在線人數">
+                                    <div class="live-viewer-pill interactive-elem" id="live-viewer-pill-top" title="單擊隨機(1000~200萬) · 雙擊直接輸入修改在線人數">
                                         <span id="live-disp-viewers">10.2萬</span>
                                     </div>
                                     <button type="button" class="live-exit-mini-btn interactive-elem" id="live-btn-exit-top" title="退出直播間切回短視頻">✕</button>
@@ -898,13 +898,13 @@
 
                             <div class="live-top-sub-row">
                                 <div class="live-top-sub-left">
-                                    <span class="live-red-live-pill interactive-elem" id="live-left-live-pill" title="點擊隨機切換在線人數">
+                                    <span class="live-red-live-pill interactive-elem" id="live-left-live-pill" title="單擊隨機(1000~200萬) · 雙擊直接輸入修改在線人數">
                                         <span class="live-red-dot"></span>
                                         <span class="live-red-word">LIVE</span>
                                         <span class="live-red-count" id="live-left-live-viewers">10.2萬人在線</span>
                                     </span>
-                                    <span class="live-sub-pill" id="live-sub-rank-pill"><span id="live-sub-txt-rank">人氣榜</span></span>
-                                    <span class="live-laya-brand-pill interactive-elem" id="live-laya-brand-pill" title="Laya 官方認證直播間">
+                                    <span class="live-sub-pill interactive-elem" id="live-sub-rank-pill" title="單擊隨機切換 · 雙擊直接輸入修改標籤文字"><span id="live-sub-txt-rank">人氣榜</span></span>
+                                    <span class="live-laya-brand-pill interactive-elem" id="live-laya-brand-pill" title="單擊隨機切換 · 雙擊直接輸入修改「Laya 精選」文字">
                                         <span class="live-laya-logo-box">
                                             <img src="Laya.png" class="live-laya-mini-logo" id="live-laya-mini-logo" alt="Laya">
                                         </span>
@@ -912,7 +912,7 @@
                                     </span>
                                 </div>
                                 <div class="live-top-sub-right">
-                                    <span class="live-sub-pill"><span id="live-sub-txt-square">直播廣場</span> &gt;</span>
+                                    <span class="live-sub-pill interactive-elem" id="live-sub-square-pill" title="單擊隨機切換 · 雙擊直接輸入修改右側標籤文字"><span id="live-sub-txt-square">直播廣場</span> &gt;</span>
                                 </div>
                             </div>
                         </div>
@@ -2447,37 +2447,60 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <label>本场点赞数 <a href="javascript:void(0)" id="btn-live-rand-id" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <label>本场点赞 (1千~200万) <a href="javascript:void(0)" id="btn-live-rand-id" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
                         <div class="input-with-dice">
-                            <input type="text" id="in-live-host-id" value="1.8萬" placeholder="如 1.8萬">
-                            <button type="button" class="btn-inline-dice" id="btn-live-rand-id-btn" title="随机切换本场点赞">🎲</button>
+                            <input type="text" id="in-live-host-id" value="25.6萬" placeholder="如 25.6萬、138.5萬">
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-id-btn" title="随机切换本场点赞 (1000~200万)">🎲</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>👤 右上角观众头像 <a href="javascript:void(0)" id="btn-live-rand-aud-av" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲换一批</a></label>
-                        <select id="sel-live-aud-avatar-mode">
-                            <option value="real" selected>真人头像 (随机男女)</option>
-                            <option value="douyin-default">抖音默认头像</option>
-                        </select>
+                        <label>👤 抖音观众头像 <a href="javascript:void(0)" id="btn-live-rand-aud-av" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机换一批</a></label>
+                        <div class="input-with-dice">
+                            <select id="sel-live-aud-avatar-mode" style="flex:1;">
+                                <option value="douyin-mix" selected>抖音观众随机 (生活照/萌宠/二次元)</option>
+                                <option value="real">抖音真人观众 (美女+帅哥)</option>
+                                <option value="beauties">抖音美女观众头像</option>
+                                <option value="guys">抖音帅哥观众头像</option>
+                            </select>
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-aud-av-btn" title="点击随机更换右上角 3 位抖音观众头像">🎲</button>
+                        </div>
                     </div>
                     <div class="form-row">
-                        <label>🔥 在线人数 (1千~100万) <a href="javascript:void(0)" id="btn-live-rand-viewers" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <label>🔥 在线人数 (1千~200万) <a href="javascript:void(0)" id="btn-live-rand-viewers" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
                         <div class="input-with-dice">
-                            <input type="text" id="in-live-viewers-text" value="10.2萬" placeholder="如 10.2萬、25.3萬、3680">
-                            <button type="button" class="btn-inline-dice" id="btn-live-rand-viewers-btn" title="随机生成 1000 ~ 100万 在线人数">🎲</button>
+                            <input type="text" id="in-live-viewers-text" value="10.2萬" placeholder="如 10.2萬、25.3萬、168.5萬">
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-viewers-btn" title="随机生成 1000 ~ 200万 在线人数">🎲</button>
                         </div>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="range-box">
-                        <label>📊 在线人数滑块调节 (联动右上角与左上角 LIVE)</label>
+                        <label>📊 在线人数滑块调节 (联动右上角与左上角 LIVE，画面文字单击随机/双击可改)</label>
                         <span class="range-value" id="txt-live-viewers">10.2萬</span>
                     </div>
-                    <input type="range" id="in-live-viewers" min="1000" max="1000000" step="500" value="102000">
+                    <input type="range" id="in-live-viewers" min="1000" max="2000000" step="1000" value="102000">
+                </div>
+
+                <div class="form-grid-2" style="margin-top:4px;">
+                    <div class="form-row">
+                        <label>🏷️ 品牌精选标签 (双击画面可改) <a href="javascript:void(0)" id="btn-live-rand-brand-tag" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-live-brand-tag" value="Laya 精選" placeholder="如 Laya 精選、Laya 官方">
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-brand-tag-btn" title="随机切换品牌精选标签">🎲</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>🏆 榜单与广场标签 (双击画面可改) <a href="javascript:void(0)" id="btn-live-rand-rank-tag" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice" style="gap:4px;">
+                            <input type="text" id="in-live-rank-tag" value="人氣榜" placeholder="如 人氣榜" style="width:46%;">
+                            <input type="text" id="in-live-square-tag" value="直播廣場" placeholder="如 直播廣場" style="width:46%;">
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-rank-tag-btn" title="随机切换榜单与广场标签">🎲</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 三、礼物进场提示条专属设置 -->
