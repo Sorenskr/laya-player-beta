@@ -1,4 +1,4 @@
-﻿/**
+/**
  * ==========================================================================
  * app.js - 全局中枢控制、真实蓝/紫双Logo原图无损导出、真机录屏合成与持久化引擎
  * ==========================================================================
@@ -9410,22 +9410,61 @@ window.switchRightTab = function (mode) {
     let liveFlyParticles = [];
 
     const defaultLiveChatLines = [
-        '羊🐑：這把節奏太穩了，主播狀態拉滿🔥',
-        '🌈七月初五🐟🐳：除了小王和絲滑姐，沒人能打出這操作',
-        '輕輕吹風：妹妹這是剛開播嗎？畫面太清晰了',
-        '蒙蒙：昨天的名場面真的太有節目效果了哈哈哈',
-        '夜色有點濃：支持 Laya 精選直播！每天必蹲',
-        '微醺小貓：主播今天這身穿搭絕了，愛了愛了💖',
-        '阿傑：66666 這波預判直接封神！',
-        '捉事盧鑫：前排打卡！剛從推薦頁刷到就進來了',
-        '石頭baby：聲音太好聽了吧，聽著超解壓',
-        '希拉：大家把讚點到 5 萬，讓主播加播一小時！',
-        '皓哥：禮物走一波，大家幫主播點點讚',
-        '漫渡：這個直播間氛圍真好，愛看'
+        '前排！',
+        '主播好漂亮',
+        '這首歌絕了',
+        '666',
+        '哈哈哈哈',
+        '關注了',
+        '求歌名',
+        '聲音好甜',
+        '打卡',
+        '蹲一個歌單',
+        '太治癒了',
+        '主播加油',
+        '已關注 比心',
+        '主播聲音也太好聽了'
     ];
     const presetLevels = [19, 12, 26, 25, 21, 16, 29, 24, 18, 33, 28, 31, 15, 22, 36];
     const presetFanLevels = [10, 12, 8, 15, 9, 11, 16, 14, 6, 18, 13, 10, 7, 19, 11];
-    const fallbackNicknames = ['羊🐑', '🌈七月初五🐟🐳', '輕輕吹風', '蒙蒙', '夜色有點濃', '微醺小貓', '阿傑', '捉事盧鑫', '石頭baby', '希拉'];
+    const fallbackNicknames = ['羊🐑', '🌈七月初五🐟🐳', '輕輕吹風', '蒙蒙', '夜色有點濃', '微醺小貓', '阿傑', '捉事盧鑫', '石頭baby', '希拉', '皓哥', '漫渡', '晚風溫柔', '星河少女'];
+
+    // ★ 将逗号/分号分隔或挤在一行的弹幕文本自动拆分为「每行一条」
+    function splitDanmakuTextToMultiline(rawStr) {
+        const cleaned = String(rawStr || '')
+            .trim()
+            .replace(/^【+/, '')
+            .replace(/】+$/, '');
+        if (!cleaned) return defaultLiveChatLines.slice();
+
+        const rawLines = cleaned.split(/[\r\n]+/).map(s => s.trim()).filter(Boolean);
+        const resultLines = [];
+
+        rawLines.forEach(line => {
+            // 若单行内包含多个逗号分隔的短句（例如旧版「前排！, 主播好漂亮, 這首歌絕了...」），自动按逗号拆分为多行
+            const hasColon = line.includes('：') || line.includes(':');
+            const commaParts = line.split(/\s*[,，、;；]\s*/).map(s => s.trim()).filter(Boolean);
+            if (!hasColon && commaParts.length >= 2) {
+                commaParts.forEach(p => resultLines.push(p));
+            } else if (hasColon && commaParts.length >= 4) {
+                commaParts.forEach(p => resultLines.push(p));
+            } else {
+                resultLines.push(line);
+            }
+        });
+
+        return resultLines.length > 0 ? resultLines : defaultLiveChatLines.slice();
+    }
+
+    function normalizeLiveDanmakuTextarea(updateDom = true) {
+        if (!inLiveDanmakuList) return defaultLiveChatLines.slice();
+        const lines = splitDanmakuTextToMultiline(inLiveDanmakuList.value);
+        const joined = lines.join('\n');
+        if (updateDom && inLiveDanmakuList.value !== joined) {
+            inLiveDanmakuList.value = joined;
+        }
+        return lines;
+    }
 
     // ★ 彩虹/彩色用户名色板（逐字或整名渲染，100% 兼容 html2canvas 截图与视频导出）
     const RAINBOW_CHAR_COLORS = ['#ff6b9d', '#fbbf24', '#34d399', '#60a5fa', '#c084fc', '#f472b6', '#38bdf8'];
@@ -9475,11 +9514,8 @@ window.switchRightTab = function (mode) {
     ];
 
     function parseLiveDanmakuTexts() {
-        const raw = inLiveDanmakuList ? inLiveDanmakuList.value : '';
-        const list = raw
-            .split(/[\n\r]+/)
-            .map(s => s.trim())
-            .filter(Boolean);
+        if (!inLiveDanmakuList) return defaultLiveChatLines;
+        const list = splitDanmakuTextToMultiline(inLiveDanmakuList.value);
         return list.length > 0 ? list : defaultLiveChatLines;
     }
 
@@ -10091,9 +10127,384 @@ window.switchRightTab = function (mode) {
         58
     );
 
+    const btnLiveAiMatchDm = document.getElementById('btn-live-ai-match-dm');
+    const btnLiveRandDmBatch = document.getElementById('btn-live-rand-dm-batch');
+    const btnLiveSplitDmLines = document.getElementById('btn-live-split-dm-lines');
+    const btnLiveToggleAiCfg = document.getElementById('btn-live-toggle-ai-cfg');
+    const boxLiveAiVisionCfg = document.getElementById('box-live-ai-vision-cfg');
+    const swLiveAutoAiDm = document.getElementById('sw-live-auto-ai-dm');
+    const txtLiveAiStatus = document.getElementById('txt-live-ai-status');
+    const inLiveAiGeminiKey = document.getElementById('in-live-ai-gemini-key');
+    const inLiveAiGasUrl = document.getElementById('in-live-ai-gas-url');
+
     if (inLiveDanmakuList) {
         inLiveDanmakuList.addEventListener('input', () => {
             renderLiveChatBubbles(false);
+        });
+        inLiveDanmakuList.addEventListener('paste', () => {
+            setTimeout(() => {
+                normalizeLiveDanmakuTextarea(true);
+                renderLiveChatBubbles(false);
+            }, 20);
+        });
+    }
+    if (btnLiveSplitDmLines) {
+        btnLiveSplitDmLines.addEventListener('click', () => {
+            const lines = normalizeLiveDanmakuTextarea(true);
+            liveChatCursor = 0;
+            renderLiveChatBubbles(false);
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+            window.showToast(`↵ 已自動拆分為 ${lines.length} 行獨立彈幕`);
+        });
+    }
+    if (btnLiveToggleAiCfg && boxLiveAiVisionCfg) {
+        btnLiveToggleAiCfg.addEventListener('click', () => {
+            const isHidden = boxLiveAiVisionCfg.style.display === 'none';
+            boxLiveAiVisionCfg.style.display = isHidden ? 'block' : 'none';
+        });
+    }
+
+    // ★ 多场景分行弹幕预设池（用于「🎲 換一批」与「🤖 AI 識別視頻自動配彈幕」）
+    const LIVE_AI_SCENE_DANMAKU_POOLS = {
+        classic: [
+            '前排！',
+            '主播好漂亮',
+            '這首歌絕了',
+            '666',
+            '哈哈哈哈',
+            '關注了',
+            '求歌名',
+            '聲音好甜',
+            '打卡',
+            '蹲一個歌單',
+            '太治癒了',
+            '主播加油',
+            '已關注 比心',
+            '主播聲音也太好聽了'
+        ],
+        beauty_dance: [
+            '微醺小貓：主播今天這身穿搭絕了，愛了愛了💖',
+            '輕輕吹風：這顏值簡直天花板，剛刷到就走不動道了',
+            '羊🐑：前排打卡！主播好漂亮，狀態拉滿🔥',
+            '阿傑：66666 這身材比例太頂了吧',
+            '石頭baby：聲音好甜，人美聲甜說的就是主播吧',
+            '夜色有點濃：已關注 比心！每天準時蹲直播間',
+            '希拉：大家把讚點到 10 萬，讓主播再跳一段！',
+            '皓哥：禮物走一波，這個直播間氛圍太好了',
+            '漫渡：鏡頭拉近一點，這皮膚狀態也太好了吧',
+            '星河少女：求今天口紅色號和穿搭連結！',
+            '晚風溫柔：太治癒了，看美女直播心情都變好了',
+            '捉事盧鑫：剛從推薦頁進來，果斷點了關注'
+        ],
+        music_singing: [
+            '前排！這首歌一開口直接跪了',
+            '求歌名！這個版本的伴奏太好聽了',
+            '聲音好甜，主播聲音也太好聽了吧',
+            '蹲一個歌單，今晚單曲循環預定',
+            '太治癒了，戴上耳機聽簡直是享受',
+            '這首歌絕了，高音部分穩得像CD一樣',
+            '哈哈哈哈剛進來就被嗓音迷住了，關注了',
+            '666 實力派唱將，比原唱還有感覺',
+            '打卡！可以點一首周杰倫的歌嗎',
+            '主播加油，這唱功不火天理難容',
+            '已關注 比心，每天睡前必聽的寶藏直播間',
+            '氣氛組就位，大家小心心和螢光棒刷起來'
+        ],
+        mahjong_game: [
+            '羊🐑：這牌也不咋地嘛，全靠主播技術撐著',
+            '🌈七月初五🐟🐳：除了小王和絲滑姐，沒人能打出這操作',
+            '蒙蒙：昨天的牌才有節目效果，笑死我了哈哈哈',
+            '阿傑：666 這波預判直接封神，對面徹底懵了',
+            '捉事盧鑫：這把節奏太穩了，坐等清一色自摸！',
+            '輕輕吹風：哈哈哈哈這張牌敢打出去也是心大',
+            '皓哥：這局要是贏了，我直接刷一組嘉年華',
+            '夜色有點濃：家庭娛樂局氣氛就是好，百看不厭',
+            '石頭baby：注意看右手邊那張牌，伏筆早就埋好了',
+            '漫渡：前排圍觀高手過招，這手氣絕了',
+            '希拉：關注了！每天下班就愛看你們打牌嘮嗑',
+            '風止何安：來了來了，今天戰況怎麼樣？'
+        ],
+        drama_cinema: [
+            '前排！這段劇情張力拉滿，演技太頂了',
+            '注意看他最後那個眼神，信息量太大了',
+            '這畫質和運鏡絕了，完全是電影級質感',
+            '666 第一次看覺得好笑，看懂之後背後發涼',
+            '終於刷到完整版直播了，之前找了好久',
+            '哈哈哈哈這反轉真的沒猜到，編劇腦洞太大了',
+            '配樂一響雞皮疙瘩都起來了，太有代入感了',
+            '打卡！評論區和彈幕果然臥虎藏龍',
+            '表面風平浪靜，實際上每一句話都在博弈',
+            '已關注 比心，這個系列百看不厭',
+            '太真實了，短短幾十秒把人物性格全立住了',
+            '主播加油，多放點這種高能名場面！'
+        ]
+    };
+
+    let randDmPoolIndex = 0;
+    if (btnLiveRandDmBatch) {
+        btnLiveRandDmBatch.addEventListener('click', () => {
+            const keys = Object.keys(LIVE_AI_SCENE_DANMAKU_POOLS);
+            randDmPoolIndex = (randDmPoolIndex + 1) % keys.length;
+            const pickedKey = keys[randDmPoolIndex];
+            const lines = LIVE_AI_SCENE_DANMAKU_POOLS[pickedKey].slice();
+            if (inLiveDanmakuList) {
+                inLiveDanmakuList.value = lines.join('\n');
+            }
+            liveChatCursor = 0;
+            renderLiveChatBubbles(false);
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+            window.showToast(`🎲 已切換一套分行彈幕（共 ${lines.length} 條）`);
+        });
+    }
+
+    // ★ 从当前预览视频或图片即时截取最多 3 张高清关键帧 Base64 + 视觉色彩/人像特征分析
+    async function extractCurrentVideoFramesAndStats(preFrames = null) {
+        const previewVid = document.getElementById('preview-video');
+        const previewImg = document.getElementById('preview-img');
+        const frames = Array.isArray(preFrames) && preFrames.length > 0 ? preFrames.slice(0, 3) : [];
+
+        if (frames.length === 0) {
+            if (Array.isArray(window.__lastExtractedVideoFrames) && window.__lastExtractedVideoFrames.length > 0) {
+                frames.push(...window.__lastExtractedVideoFrames.slice(0, 3));
+            } else if (previewVid && previewVid.videoWidth > 0 && previewVid.style.display !== 'none') {
+                try {
+                    const c = document.createElement('canvas');
+                    const vw = previewVid.videoWidth || 640;
+                    const vh = previewVid.videoHeight || 360;
+                    c.width = Math.min(480, vw);
+                    c.height = Math.round(c.width * (vh / vw)) || 270;
+                    c.getContext('2d').drawImage(previewVid, 0, 0, c.width, c.height);
+                    frames.push(c.toDataURL('image/jpeg', 0.78));
+                } catch (e) {}
+            } else if (previewImg && previewImg.naturalWidth > 0) {
+                try {
+                    const c = document.createElement('canvas');
+                    const iw = previewImg.naturalWidth || 640;
+                    const ih = previewImg.naturalHeight || 360;
+                    c.width = Math.min(480, iw);
+                    c.height = Math.round(c.width * (ih / iw)) || 270;
+                    c.getContext('2d').drawImage(previewImg, 0, 0, c.width, c.height);
+                    frames.push(c.toDataURL('image/jpeg', 0.78));
+                } catch (e) {}
+            }
+        }
+
+        // 分析第一张关键帧的像素色彩分布（人像肤色占比、麻将/桌面绿色占比、霓虹舞台紫粉占比、整体明暗度）
+        const stats = { skinRatio: 0, greenTableRatio: 0, neonStageRatio: 0, avgLuma: 120 };
+        if (frames.length > 0) {
+            await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const sc = document.createElement('canvas');
+                        sc.width = 64;
+                        sc.height = 64;
+                        const sctx = sc.getContext('2d');
+                        sctx.drawImage(img, 0, 0, 64, 64);
+                        const data = sctx.getImageData(0, 0, 64, 64).data;
+                        let skinCnt = 0;
+                        let greenCnt = 0;
+                        let neonCnt = 0;
+                        let lumaSum = 0;
+                        const totalPx = 64 * 64;
+                        for (let i = 0; i < data.length; i += 4) {
+                            const r = data[i], g = data[i + 1], b = data[i + 2];
+                            const luma = 0.299 * r + 0.587 * g + 0.114 * b;
+                            lumaSum += luma;
+                            if (r > 95 && g > 40 && b > 20 && r > g && r > b && (r - Math.min(g, b)) > 15 && Math.abs(r - g) > 12) {
+                                skinCnt++;
+                            }
+                            if (g > 75 && g > r * 1.08 && g > b * 1.05) {
+                                greenCnt++;
+                            }
+                            if ((r > 130 && b > 130 && g < 110) || (b > 140 && r > 90 && g < 100)) {
+                                neonCnt++;
+                            }
+                        }
+                        stats.skinRatio = skinCnt / totalPx;
+                        stats.greenTableRatio = greenCnt / totalPx;
+                        stats.neonStageRatio = neonCnt / totalPx;
+                        stats.avgLuma = Math.round(lumaSum / totalPx);
+                    } catch (e) {}
+                    resolve();
+                };
+                img.onerror = () => resolve();
+                img.src = frames[0];
+            });
+        }
+        return { frames, stats };
+    }
+
+    // ★ 根据视频抽帧像素特征 + 文件名/标题关键词智能生成匹配的直播间弹幕（零配置即时可用）
+    function buildSmartLocalVideoAiDanmaku(stats, contextText) {
+        const txt = String(contextText || '').toLowerCase();
+        let category = 'beauty_dance';
+        let sceneLabel = '高顏值才藝直播';
+
+        if (/麻将|麻將|棋牌|打牌|胡了|自摸|家庭娱乐|家庭娛樂|斗地主|鬥地主|pk/i.test(txt) || stats.greenTableRatio > 0.22) {
+            category = 'mahjong_game';
+            sceneLabel = '麻將/棋牌互動局';
+        } else if (/歌|唱|音乐|音樂|mv|dj|伴奏|听|聽|曲/i.test(txt) || stats.neonStageRatio > 0.18) {
+            category = 'music_singing';
+            sceneLabel = '音樂/唱歌才藝直播';
+        } else if (/剧|劇|电影|電影|解说|解説|名场面|名場面|反转|反轉|悬疑|懸疑/i.test(txt) || stats.avgLuma < 68) {
+            category = 'drama_cinema';
+            sceneLabel = '高能劇情/影視現場';
+        } else if (stats.skinRatio > 0.16 || /美女|穿搭|热舞|熱舞|甜妹|女神|主播/i.test(txt)) {
+            category = 'beauty_dance';
+            sceneLabel = '高顏值主播互動';
+        }
+
+        const basePool = (LIVE_AI_SCENE_DANMAKU_POOLS[category] || LIVE_AI_SCENE_DANMAKU_POOLS.classic).slice();
+        const hostName = (inLiveHostName && inLiveHostName.value.trim()) ? inLiveHostName.value.trim() : '主播';
+
+        // 提取标题或视频文件名中的有效关键词，生成 2~3 条专属定制弹幕穿插在顶部
+        const cleanTokens = String(contextText || '')
+            .replace(/#[\S]+/g, m => ' ' + m.slice(1) + ' ')
+            .split(/[\s,，。！？!?:：；;、/\-—_（）()【】\[\]《》""''「」]+/)
+            .map(s => s.trim())
+            .filter(s => s.length >= 2 && s.length <= 9 && !/^(mp4|mov|webm|video|screenrecording|IMG|VID|作者声明|虚构演绎|仅供娱乐|小王小王)$/i.test(s));
+
+        const customLines = [];
+        if (cleanTokens.length > 0) {
+            const kw = typeof window.toStageTrad === 'function' ? window.toStageTrad(cleanTokens[0]) : cleanTokens[0];
+            customLines.push(`羊🐑：衝著「${kw}」進來的，${hostName}這波直播太頂了🔥`);
+            customLines.push(`輕輕吹風：這段${kw}畫面好清晰，前排打卡支持！`);
+        } else {
+            customLines.push(`羊🐑：剛刷到${hostName}的直播間，這狀態直接拉滿🔥`);
+        }
+
+        const merged = [...customLines, ...basePool];
+        return { lines: merged.slice(0, 14), sceneLabel };
+    }
+
+    // ★ 调用云端 Gemini Vision API 或 Google Apps Script 代理（可选）直接看视频关键帧写弹幕
+    async function requestCloudVisionVideoDanmaku(frames, contextText) {
+        const geminiKey = inLiveAiGeminiKey ? inLiveAiGeminiKey.value.trim() : '';
+        const gasUrl = inLiveAiGasUrl ? inLiveAiGasUrl.value.trim() : '';
+        const promptText = `你是一個抖音/Laya直播間的真實觀眾彈幕生成助手。請仔細觀察這段直播視頻的抽幀畫面（參考標題信息：${contextText || '無'}），生成 14 條高度貼合畫面內容、人物動作、場景氛圍的直播間滾動彈幕。要求：1.全部使用繁體中文；2.每行一條，不要用逗號併成一行，不要編號；3.格式可以是「暱稱：彈幕內容」或直接是簡短自然的觀眾彈幕；4.只輸出這14行彈幕文本，不要任何解釋。`;
+
+        if (geminiKey && frames.length > 0) {
+            const parts = [{ text: promptText }];
+            frames.slice(0, 3).forEach(dataUrl => {
+                const base64Data = String(dataUrl).split(',')[1];
+                if (base64Data) {
+                    parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Data } });
+                }
+            });
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts }] })
+            });
+            if (res.ok) {
+                const json = await res.json();
+                const outTxt = json?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                const parsed = splitDanmakuTextToMultiline(outTxt);
+                if (parsed.length >= 4) return parsed;
+            }
+        }
+
+        if (gasUrl && gasUrl.startsWith('http')) {
+            const res = await fetch(gasUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({
+                    action: 'aiVideoDanmaku',
+                    context: contextText,
+                    frames: frames.slice(0, 2)
+                })
+            });
+            if (res.ok) {
+                const json = await res.json();
+                if (Array.isArray(json.danmaku) && json.danmaku.length >= 3) {
+                    return json.danmaku;
+                }
+                if (typeof json.text === 'string' && json.text.trim()) {
+                    return splitDanmakuTextToMultiline(json.text);
+                }
+            }
+        }
+        return null;
+    }
+
+    // ★ 核心主入口：上传视频后或点击「🤖 AI 識別視頻自動配彈幕」时自动分析视频画面并填充弹幕
+    async function autoMatchLiveDanmakuByVideoAI(isManualClick = true, preFrames = null) {
+        if (txtLiveAiStatus) txtLiveAiStatus.textContent = '🔍 AI 正在抽幀分析視頻...';
+        if (btnLiveAiMatchDm) btnLiveAiMatchDm.disabled = true;
+
+        try {
+            const { frames, stats } = await extractCurrentVideoFramesAndStats(preFrames);
+            const rawDesc = document.getElementById('in-dy-desc')?.value || '';
+            const rawTags = document.getElementById('in-dy-tags')?.value || '';
+            const rawTitle = document.getElementById('in-m-main-title')?.value || '';
+            const fileName = window.__lastUploadedMediaName || '';
+            const contextText = [fileName, rawDesc, rawTags, rawTitle].filter(Boolean).join(' ');
+
+            let matchedLines = null;
+            let sceneLabel = '雲端視覺大模型';
+
+            try {
+                matchedLines = await requestCloudVisionVideoDanmaku(frames, contextText);
+            } catch (err) {
+                matchedLines = null;
+            }
+
+            if (!matchedLines || matchedLines.length === 0) {
+                const localRes = buildSmartLocalVideoAiDanmaku(stats, contextText);
+                matchedLines = localRes.lines;
+                sceneLabel = localRes.sceneLabel;
+            }
+
+            if (inLiveDanmakuList && matchedLines.length > 0) {
+                inLiveDanmakuList.value = matchedLines.join('\n');
+            }
+            liveChatCursor = 0;
+            renderLiveChatBubbles(false);
+
+            // 同步前 6 条纯弹幕正文到画面顶部飘屏弹幕轨道（方便短视频与直播双端复用）
+            if (window.DanmakuEngine && Array.isArray(window.DanmakuEngine.list) && matchedLines.length > 0) {
+                const topLanes = [10, 13, 16, 19, 22];
+                window.DanmakuEngine.list = matchedLines.slice(0, 6).map((line, idx) => {
+                    const cIdx = line.indexOf('：') !== -1 ? line.indexOf('：') : line.indexOf(':');
+                    const pureMsg = cIdx > 0 ? line.slice(cIdx + 1).trim() : line.trim();
+                    return {
+                        id: 'ai_dm_' + Date.now() + '_' + idx,
+                        text: pureMsg,
+                        top: topLanes[idx % topLanes.length],
+                        left: (12 + idx * 17) % 75,
+                        color: '#ffffff',
+                        size: 14,
+                        speed: 9 + (idx % 4),
+                        visible: true
+                    };
+                });
+                if (typeof window.DanmakuEngine.refresh === 'function') {
+                    window.DanmakuEngine.refresh();
+                }
+            }
+
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+            if (txtLiveAiStatus) txtLiveAiStatus.textContent = `✅ AI 已匹配 (${sceneLabel})`;
+            if (isManualClick) {
+                window.showToast(`🤖 AI 已分析視頻畫面（${sceneLabel}）並自動填充 ${matchedLines.length} 條分行彈幕！`);
+            }
+        } finally {
+            if (btnLiveAiMatchDm) btnLiveAiMatchDm.disabled = false;
+        }
+    }
+    window.autoMatchLiveDanmakuByVideoAI = autoMatchLiveDanmakuByVideoAI;
+
+    window.onVideoUploadedForLiveAi = function (fileName, aiFrames) {
+        if (swLiveAutoAiDm && !swLiveAutoAiDm.checked) return;
+        autoMatchLiveDanmakuByVideoAI(false, aiFrames);
+        window.showToast('🤖 AI 已根據新上傳視頻自動匹配並填充直播彈幕');
+    };
+
+    if (btnLiveAiMatchDm) {
+        btnLiveAiMatchDm.addEventListener('click', () => {
+            autoMatchLiveDanmakuByVideoAI(true, null);
         });
     }
     if (swLiveRainbowNick) {
@@ -10282,6 +10693,13 @@ window.switchRightTab = function (mode) {
         }
         localStorage.setItem('LAYA_LIVE_V23_1K_2M_MIGRATED', '1');
     }
+    // 自动将旧版逗号连在一行的弹幕缓存（如「前排！, 主播好漂亮, 這首歌絕了...」）拆分为每行一条
+    normalizeLiveDanmakuTextarea(true);
+    setTimeout(() => {
+        normalizeLiveDanmakuTextarea(true);
+        renderLiveChatBubbles(false);
+    }, 120);
+
     applyLiveHostNameDisplay(inLiveHostName ? inLiveHostName.value : '小王小王');
     applyLiveHostLikesDisplay((inLiveHostId && inLiveHostId.value !== '8888') ? inLiveHostId.value : '25.6萬');
     applyLiveViewersDisplay((inLiveViewersText && inLiveViewersText.value !== '1000') ? inLiveViewersText.value : '10.2萬', null);

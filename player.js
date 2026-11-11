@@ -311,6 +311,7 @@ window.PlayerEngine = {
             if (!file) return;
             const fileName = file.name || '';
             const fileType = file.type || '';
+            window.__lastUploadedMediaName = fileName.replace(/\.[^.]+$/, '');
             const isVideo = fileType.startsWith('video/') || /\.(mp4|webm|mov|m4v|avi|mkv)$/i.test(fileName);
             const isImage = fileType.startsWith('image/') || /\.(jpg|jpeg|png|gif|webp|jfif|bmp|svg)$/i.test(fileName);
 
@@ -546,6 +547,7 @@ window.PlayerEngine = {
             c.width = 128;
             c.height = Math.round(128 * (vh / vw)) || 72;
             const ctx = c.getContext('2d');
+            const aiFrames = [];
 
             for (let i = 0; i < thumbCount; i++) {
                 if (window.__isExportRecording) break;
@@ -559,12 +561,16 @@ window.PlayerEngine = {
                             ctx.drawImage(tempVid, 0, 0, c.width, c.height);
                             const dataUrl = c.toDataURL('image/jpeg', 0.6);
                             if (thumbDivs[i]) thumbDivs[i].style.backgroundImage = `url(${dataUrl})`;
-                            if (i === 0 && cropThumbImg) {
+                            if (i === 0 || i === 3 || i === 6) {
                                 const bigC = document.createElement('canvas');
                                 bigC.width = Math.min(480, vw);
                                 bigC.height = Math.round(bigC.width * (vh / vw)) || 270;
                                 bigC.getContext('2d').drawImage(tempVid, 0, 0, bigC.width, bigC.height);
-                                cropThumbImg.src = bigC.toDataURL('image/jpeg', 0.8);
+                                const bigUrl = bigC.toDataURL('image/jpeg', 0.78);
+                                aiFrames.push(bigUrl);
+                                if (i === 0 && cropThumbImg) {
+                                    cropThumbImg.src = bigUrl;
+                                }
                             }
                         } catch (e) {}
                         resolve();
@@ -572,6 +578,13 @@ window.PlayerEngine = {
                     tempVid.addEventListener('seeked', onSeeked);
                     tempVid.currentTime = seekTime;
                 });
+            }
+
+            window.__lastExtractedVideoFrames = aiFrames;
+            if (typeof window.onVideoUploadedForLiveAi === 'function') {
+                try {
+                    window.onVideoUploadedForLiveAi(window.__lastUploadedMediaName || '', aiFrames);
+                } catch (e) {}
             }
 
             // 彻底释放临时视频解码器，避免与主预览视频争抢硬件加速管线导致卡顿

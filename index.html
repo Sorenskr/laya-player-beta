@@ -2544,19 +2544,49 @@
                 </div>
 
                 <div class="form-row">
-                    <label>💬 滚动弹幕列表 (每行一条：左侧蓝牌+橙牌+红管字牌，中间彩色/彩虹名字+白字，右侧紫色飘心)</label>
-                    <textarea id="in-live-danmaku-list" rows="5" style="width:100%; background:#0f1219; color:#f1f5f9; border:1px solid #2b3142; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.45; resize:vertical;">羊🐑：這把節奏太穩了，主播狀態拉滿🔥
-🌈七月初五🐟🐳：除了小王和絲滑姐，沒人能打出這操作
-輕輕吹風：妹妹這是剛開播嗎？畫面太清晰了
-蒙蒙：昨天的名場面真的太有節目效果了哈哈哈
-夜色有點濃：支持 Laya 精選直播！每天必蹲
-微醺小貓：主播今天這身穿搭絕了，愛了愛了💖
-阿傑：66666 這波預判直接封神！
-捉事盧鑫：前排打卡！剛從推薦頁刷到就進來了
-石頭baby：聲音太好聽了吧，聽著超解壓
-希拉：大家把讚點到 5 萬，讓主播加播一小時！
-皓哥：禮物走一波，大家幫主播點點讚
-漫渡：這個直播間氛圍真好，愛看</textarea>
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
+                        <label style="margin:0;">💬 滚动弹幕列表 (每行一条，支持「昵称：弹幕」或纯文字自动配彩名)</label>
+                        <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                            <button type="button" class="sub-mini-act" id="btn-live-ai-match-dm" style="background:linear-gradient(90deg,#7c3aed,#ec4899); color:#fff; border:none; font-weight:700; padding:3px 8px;">🤖 AI 識別視頻自動配彈幕</button>
+                            <button type="button" class="sub-mini-act" id="btn-live-rand-dm-batch" title="从多场景弹幕库随机换一批分行弹幕">🎲 換一批</button>
+                            <button type="button" class="sub-mini-act" id="btn-live-split-dm-lines" title="把逗号或空格分隔的弹幕一键拆分为每行一条">↵ 一鍵分行</button>
+                            <button type="button" class="sub-mini-act" id="btn-live-toggle-ai-cfg" title="配置可选的云端视觉大模型 Key (Gemini / GAS)">⚙️ 雲端AI</button>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:5px; font-size:11.5px; color:#cbd5e1;">
+                        <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:#e9d5ff;">
+                            <input type="checkbox" id="sw-live-auto-ai-dm" checked>
+                            <span>上傳視頻時自動抽幀讓 AI 匹配並填充彈幕 (同時可一鍵同步到上方飄屏彈幕)</span>
+                        </label>
+                        <span id="txt-live-ai-status" style="color:#a855f7; font-size:11px; font-weight:600;">✨ AI 就緒</span>
+                    </div>
+                    <div id="box-live-ai-vision-cfg" style="display:none; margin-bottom:6px; padding:7px 9px; border-radius:7px; background:rgba(15,23,42,0.85); border:1px solid rgba(168,85,247,0.4); font-size:11.5px;">
+                        <div style="color:#e9d5ff; font-weight:600; margin-bottom:4px;">👁️ 多模態視覺 AI 接口 (可選：不填則默認使用內置「智能抽幀視覺+場景AI」秒級生成)</div>
+                        <div class="form-grid-2" style="gap:6px;">
+                            <div class="form-row" style="margin:0;">
+                                <label style="font-size:11px;">Gemini API Key (免費多模態看圖寫彈幕)</label>
+                                <input type="password" id="in-live-ai-gemini-key" placeholder="選填：AIzaSy... (直連 Gemini Flash 視覺)" style="font-size:11.5px;">
+                            </div>
+                            <div class="form-row" style="margin:0;">
+                                <label style="font-size:11px;">或 Google Apps Script 代理 URL</label>
+                                <input type="text" id="in-live-ai-gas-url" placeholder="選填：https://script.google.com/macros/s/.../exec" style="font-size:11.5px;">
+                            </div>
+                        </div>
+                    </div>
+                    <textarea id="in-live-danmaku-list" rows="7" style="width:100%; background:#0f1219; color:#f1f5f9; border:1px solid #2b3142; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.5; resize:vertical;">前排！
+主播好漂亮
+這首歌絕了
+666
+哈哈哈哈
+關注了
+求歌名
+聲音好甜
+打卡
+蹲一個歌單
+太治癒了
+主播加油
+已關注 比心
+主播聲音也太好聽了</textarea>
                 </div>
 
                 <div class="form-grid-2">
