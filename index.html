@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=20261111_v3">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
         .sidebar .tab-panel.active {
@@ -866,7 +866,7 @@
                         <div class="live-top-section">
                             <div class="live-top-main-row">
                                 <div class="live-host-card">
-                                    <div class="live-host-avatar-wrap interactive-elem" id="live-host-avatar-wrap" title="點擊隨機切換頭像（右鍵可上傳本地圖片）">
+                                    <div class="live-host-avatar-wrap interactive-elem" id="live-host-avatar-wrap" title="點擊直接上傳自定義主播頭像（右鍵隨機切換頭像）">
                                         <img src="Laya.png" class="live-host-avatar" id="live-host-avatar" alt="Host">
                                     </div>
                                     <div class="live-host-meta">
@@ -884,7 +884,7 @@
                                 </div>
 
                                 <div class="live-status-row">
-                                    <div class="live-aud-avatars interactive-elem" id="live-aud-avatars" title="點擊隨機切換抖音直播觀眾頭像">
+                                    <div class="live-aud-avatars interactive-elem" id="live-aud-avatars" title="點擊上傳自定義觀眾頭像（右鍵隨機切換抖音觀眾頭像）">
                                         <img src="Laya.png" class="live-aud-img" alt="">
                                         <img src="Laya.png" class="live-aud-img" alt="">
                                         <img src="Laya.png" class="live-aud-img" alt="">
@@ -2441,11 +2441,12 @@
 
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>主播名与头像 <a href="javascript:void(0)" id="btn-live-rand-name" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a> · <a href="javascript:void(0)" id="btn-live-upload-host-av" style="color:#38bdf8; text-decoration:none;">📤上传头像</a></label>
+                        <label>主播名与头像 <a href="javascript:void(0)" id="btn-live-rand-name" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机名</a> · <a href="javascript:void(0)" id="btn-live-rand-host-av" style="color:#a855f7; text-decoration:none;">🎲随机头像</a> · <a href="javascript:void(0)" id="btn-live-upload-host-av" style="color:#38bdf8; font-weight:700; text-decoration:none;">📤上传头像</a></label>
                         <div class="input-with-dice">
                             <input type="text" id="in-live-host-name" value="小王小王" placeholder="输入主播昵称">
                             <button type="button" class="btn-inline-dice" id="btn-live-rand-name-btn" title="随机切换主播名">🎲</button>
-                            <button type="button" class="btn-inline-dice" id="btn-live-upload-host-av-btn" title="上传自定义主播头像" style="font-size:12px;">📤</button>
+                            <button type="button" class="btn-inline-dice" id="btn-live-upload-host-av-btn" title="点击上传自定义主播头像" style="font-size:12px; background:rgba(14,165,233,0.28); border-color:rgba(56,189,248,0.55);">📤</button>
+                            <input type="file" id="in-live-host-avatar-file" accept="image/*" style="display:none;">
                         </div>
                     </div>
                     <div class="form-row">
@@ -2588,16 +2589,22 @@
                         </label>
                         <span id="txt-live-ai-status" style="color:#a855f7; font-size:11px; font-weight:600;">✨ AI 就緒</span>
                     </div>
-                    <div id="box-live-ai-vision-cfg" style="display:none; margin-bottom:6px; padding:7px 9px; border-radius:7px; background:rgba(15,23,42,0.85); border:1px solid rgba(168,85,247,0.4); font-size:11.5px;">
-                        <div style="color:#e9d5ff; font-weight:600; margin-bottom:4px;">👁️ 多模態視覺 AI 接口 (可選：不填則默認使用內置「智能抽幀視覺+場景AI」秒級生成)</div>
+                    <div id="box-live-ai-vision-cfg" style="display:block; margin-bottom:6px; padding:8px 10px; border-radius:7px; background:rgba(15,23,42,0.92); border:1px solid rgba(168,85,247,0.55); font-size:11.5px;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
+                            <span style="color:#e9d5ff; font-weight:700;">🔑 AI 自動配彈幕 API Key 填寫處 (支持 Gemini `AIza...` 或 DeepSeek/OpenAI `sk-...`)</span>
+                            <div style="display:flex; gap:4px;">
+                                <button type="button" class="sub-mini-act" id="btn-live-save-ai-key" style="background:rgba(16,185,129,0.28); color:#a7f3d0; border-color:rgba(52,211,153,0.5);">💾 保存並測試AI</button>
+                                <button type="button" class="sub-mini-act" id="btn-live-share-ai-key" style="background:rgba(56,189,248,0.25); color:#bae6fd; border-color:rgba(56,189,248,0.5);" title="複製帶此 Key 的全員共享連結，或發給開發者直接寫入全站默認配置">🌐 生成全員共享連結</button>
+                            </div>
+                        </div>
                         <div class="form-grid-2" style="gap:6px;">
                             <div class="form-row" style="margin:0;">
-                                <label style="font-size:11px;">Gemini API Key (免費多模態看圖寫彈幕)</label>
-                                <input type="password" id="in-live-ai-gemini-key" placeholder="選填：AIzaSy... (直連 Gemini Flash 視覺)" style="font-size:11.5px;">
+                                <label style="font-size:11px; color:#cbd5e1;">在此粘貼你的 AI API Key (Gemini / DeepSeek / OpenAI)</label>
+                                <input type="text" id="in-live-ai-gemini-key" placeholder="直接粘貼 AIzaSy... 或 sk-..." style="font-size:11.5px; font-family:monospace;">
                             </div>
                             <div class="form-row" style="margin:0;">
-                                <label style="font-size:11px;">或 Google Apps Script 代理 URL</label>
-                                <input type="text" id="in-live-ai-gas-url" placeholder="選填：https://script.google.com/macros/s/.../exec" style="font-size:11.5px;">
+                                <label style="font-size:11px; color:#cbd5e1;">接口類型 / 自定義代理地址 (選填，默認自動識別)</label>
+                                <input type="text" id="in-live-ai-gas-url" placeholder="可選填 BaseURL 或 GAS 連結 (留空則根據 Key 自動識別)" style="font-size:11.5px;">
                             </div>
                         </div>
                     </div>
@@ -3243,10 +3250,10 @@
     </div>
 </main>
 
-<script src="logos.js"></script>
-<script src="player.js"></script>
-<script src="danmaku.js"></script>
-<script src="app.js"></script>
+<script src="logos.js?v=20261111_v3"></script>
+<script src="player.js?v=20261111_v3"></script>
+<script src="danmaku.js?v=20261111_v3"></script>
+<script src="app.js?v=20261111_v3"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {

@@ -319,8 +319,6 @@ window.switchRightTab = function (mode) {
         if (dyFeaturedLogoImg) dyFeaturedLogoImg.src = realSrc;
         const liveLayaMiniLogo = document.getElementById('live-laya-mini-logo');
         if (liveLayaMiniLogo) liveLayaMiniLogo.src = realSrc;
-        const liveGiftSenderAvInit = document.getElementById('live-gift-sender-av');
-        if (liveGiftSenderAvInit) liveGiftSenderAvInit.src = realSrc;
 
         // 手机竖屏头像、右下角黑胶唱片头像与全屏横屏头像如果没单独上传过其他人物头像，同步使用当前自带蓝/紫 Logo
         if (dyAvatarImg && (!dyAvatarImg.dataset.custom || dyAvatarImg.dataset.custom === 'false')) {
@@ -7048,10 +7046,18 @@ window.switchRightTab = function (mode) {
         const activeRealSrc = getActiveLogoSrc(curKey);
         const isLightMode = !!(renderTarget && renderTarget.classList.contains('theme-light'));
 
-        ['header-brand-logo', 'player-mini-logo', 'm-brand-logo', 'dy-lf-wm-logo', 'live-laya-mini-logo', 'live-gift-sender-av'].forEach(id => {
+        ['header-brand-logo', 'player-mini-logo', 'm-brand-logo', 'dy-lf-wm-logo', 'live-laya-mini-logo'].forEach(id => {
             const clonedImg = clonedDoc.getElementById(id);
             if (clonedImg) clonedImg.src = activeRealSrc;
         });
+
+        // 同步直播间礼物弹窗左侧真人头像/自定义头像到导出画布，绝不回退为蓝色 Laya 图标
+        const origGiftAv = document.getElementById('live-gift-sender-av');
+        const clonedGiftAv = clonedDoc.getElementById('live-gift-sender-av');
+        if (origGiftAv && clonedGiftAv) {
+            const giftAvSrc = origGiftAv.getAttribute('data-export-src') || origGiftAv.src;
+            if (giftAvSrc) clonedGiftAv.src = giftAvSrc;
+        }
 
         // 同步直播间右上角 3 个真人/抖音默认观众头像的 DataURL 到导出画布，确保绝不回退为蓝色 Laya
         const origAudImgs = document.querySelectorAll('#live-aud-avatars .live-aud-img');
@@ -7078,8 +7084,12 @@ window.switchRightTab = function (mode) {
         if (clonedVinylAvatar) clonedVinylAvatar.src = avatarSrc;
         const clonedDylAvatar = clonedDoc.getElementById('dyl-disp-avatar');
         if (clonedDylAvatar) clonedDylAvatar.src = avatarSrc;
+        const origLiveHostAv = document.getElementById('live-host-avatar');
         const clonedLiveAvatar = clonedDoc.getElementById('live-host-avatar');
-        if (clonedLiveAvatar) clonedLiveAvatar.src = avatarSrc;
+        if (clonedLiveAvatar) {
+            const liveHostSrc = (origLiveHostAv && (origLiveHostAv.getAttribute('data-export-src') || origLiveHostAv.src)) || avatarSrc;
+            clonedLiveAvatar.src = liveHostSrc;
+        }
         const clonedFeatLogo = clonedDoc.getElementById('dy-featured-logo-img');
         if (clonedFeatLogo) clonedFeatLogo.src = activeRealSrc;
 
@@ -9012,8 +9022,10 @@ window.switchRightTab = function (mode) {
     const inLiveHostName = document.getElementById('in-live-host-name');
     const btnLiveRandName = document.getElementById('btn-live-rand-name');
     const btnLiveRandNameBtn = document.getElementById('btn-live-rand-name-btn');
+    const btnLiveRandHostAv = document.getElementById('btn-live-rand-host-av');
     const btnLiveUploadHostAv = document.getElementById('btn-live-upload-host-av');
     const btnLiveUploadHostAvBtn = document.getElementById('btn-live-upload-host-av-btn');
+    const inLiveHostAvatarFile = document.getElementById('in-live-host-avatar-file');
     const inLiveHostId = document.getElementById('in-live-host-id');
     const btnLiveRandId = document.getElementById('btn-live-rand-id');
     const btnLiveRandIdBtn = document.getElementById('btn-live-rand-id-btn');
@@ -9184,17 +9196,20 @@ window.switchRightTab = function (mode) {
     if (btnLiveRandAudAvBtn) {
         btnLiveRandAudAvBtn.addEventListener('click', triggerRandomLiveAudAvatars);
     }
-    if (liveAudAvatarsBox) {
-        liveAudAvatarsBox.addEventListener('click', triggerRandomLiveAudAvatars);
-    }
 
-    // ★ 支持上传自定义观众头像（可选 1~3 张本地图片替换右上角 3 位观众头像）
+    // ★ 支持上传自定义观众头像（点击画面右上角 3 位观众头像 或 点击右侧「📤上传」按钮均可直接上传本地图片）
+    let audUploadRotateIdx = 0;
     const triggerUploadAudAvatars = (e) => {
         if (e) { e.preventDefault(); e.stopPropagation(); }
         if (inLiveAudAvatarFile) inLiveAudAvatarFile.click();
     };
     if (btnLiveUploadAudAv) btnLiveUploadAudAv.addEventListener('click', triggerUploadAudAvatars);
     if (btnLiveUploadAudAvBtn) btnLiveUploadAudAvBtn.addEventListener('click', triggerUploadAudAvatars);
+    if (liveAudAvatarsBox) {
+        // 左键点击画面右上角观众头像：直接弹出文件选择上传头像；右键点击：随机换一批
+        liveAudAvatarsBox.addEventListener('click', triggerUploadAudAvatars);
+        liveAudAvatarsBox.addEventListener('contextmenu', triggerRandomLiveAudAvatars);
+    }
     if (inLiveAudAvatarFile) {
         inLiveAudAvatarFile.addEventListener('change', (e) => {
             const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
@@ -9205,8 +9220,9 @@ window.switchRightTab = function (mode) {
                     const dataUrl = ev.target.result;
                     if (!dataUrl) return;
                     if (files.length === 1) {
-                        // 若只选了 1 张图片，替换第 1 个观众头像并轮流更新
-                        const targetImg = liveAudImgs[0];
+                        // 若只选了 1 张图片，依次轮流替换第 1、2、3 个观众头像
+                        const targetImg = liveAudImgs[audUploadRotateIdx % liveAudImgs.length] || liveAudImgs[0];
+                        audUploadRotateIdx = (audUploadRotateIdx + 1) % Math.max(1, liveAudImgs.length);
                         if (targetImg) {
                             targetImg.src = dataUrl;
                             targetImg.setAttribute('data-export-src', dataUrl);
@@ -9218,19 +9234,60 @@ window.switchRightTab = function (mode) {
                 };
                 reader.readAsDataURL(file);
             });
-            window.showToast(`📤 已上傳並替換右上角觀眾頭像`);
+            window.showToast('📤 已成功上傳並替換右上角觀眾頭像');
             inLiveAudAvatarFile.value = '';
         });
     }
 
-    // ★ 支持在直播间面板一键上传左上角主播头像
+    // ★ 支持上传自定义左上角主播头像（点击画面左上角主播头像 或 点击右侧「📤上传头像」按钮均可直接上传本地图片！）
+    const applyUploadedHostAvatarDataUrl = (dataUrl) => {
+        if (!dataUrl) return;
+        if (liveHostAvatarImg) {
+            liveHostAvatarImg.src = dataUrl;
+            liveHostAvatarImg.setAttribute('data-export-src', dataUrl);
+        }
+        if (liveFollowMiniAv) {
+            liveFollowMiniAv.src = dataUrl;
+            liveFollowMiniAv.setAttribute('data-export-src', dataUrl);
+        }
+        if (typeof syncAuthorAvatarEverywhere === 'function') {
+            syncAuthorAvatarEverywhere(dataUrl, true);
+        } else if (dyAvatarImg) {
+            dyAvatarImg.src = dataUrl;
+            dyAvatarImg.setAttribute('data-export-src', dataUrl);
+        }
+        window.showToast('📤 主播頭像已成功上傳更新！');
+    };
+
     const triggerUploadHostAvatar = (e) => {
         if (e) { e.preventDefault(); e.stopPropagation(); }
-        const up = document.getElementById('author-avatar-uploader');
-        if (up) up.click();
+        if (inLiveHostAvatarFile) {
+            inLiveHostAvatarFile.click();
+        } else {
+            const up = document.getElementById('dy-avatar-uploader');
+            if (up) up.click();
+        }
+    };
+    const triggerRandomHostAvatar = (e) => {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        const rndBtn = document.getElementById('btn-random-author-avatar');
+        if (rndBtn) rndBtn.click();
     };
     if (btnLiveUploadHostAv) btnLiveUploadHostAv.addEventListener('click', triggerUploadHostAvatar);
     if (btnLiveUploadHostAvBtn) btnLiveUploadHostAvBtn.addEventListener('click', triggerUploadHostAvatar);
+    if (btnLiveRandHostAv) btnLiveRandHostAv.addEventListener('click', triggerRandomHostAvatar);
+    if (inLiveHostAvatarFile) {
+        inLiveHostAvatarFile.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file || !file.type.startsWith('image/')) return;
+            const reader = new FileReader();
+            reader.onload = (ev) => {
+                applyUploadedHostAvatarDataUrl(ev.target.result);
+            };
+            reader.readAsDataURL(file);
+            inLiveHostAvatarFile.value = '';
+        });
+    }
 
     if (dyAvatarImg && liveHostAvatarImg) {
         const syncLiveAvatar = () => {
@@ -9249,17 +9306,9 @@ window.switchRightTab = function (mode) {
         }
     }
     if (liveHostAvatarWrap) {
-        liveHostAvatarWrap.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const rndBtn = document.getElementById('btn-random-author-avatar');
-            if (rndBtn) rndBtn.click();
-        });
-        liveHostAvatarWrap.addEventListener('contextmenu', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            const up = document.getElementById('author-avatar-uploader');
-            if (up) up.click();
-        });
+        // 左键点击画面左上角主播头像：直接弹出文件选择框上传本地头像！右键点击：随机换头像
+        liveHostAvatarWrap.addEventListener('click', triggerUploadHostAvatar);
+        liveHostAvatarWrap.addEventListener('contextmenu', triggerRandomHostAvatar);
     }
 
     // ★ 2. 本场点赞 + 右上角在线人数 + 左上角 LIVE 在线人数：
@@ -9935,6 +9984,7 @@ window.switchRightTab = function (mode) {
         if (customPinnedGiftAvatarUrl && liveGiftSenderAv) {
             liveGiftSenderAv.src = customPinnedGiftAvatarUrl;
             liveGiftSenderAv.setAttribute('data-export-src', customPinnedGiftAvatarUrl);
+            liveGiftSenderAv.dataset.hasRealHumanAv = 'true';
             return;
         }
         const db = window.LAYA_ASIAN_AVATARS || {};
@@ -9961,6 +10011,7 @@ window.switchRightTab = function (mode) {
         if (liveGiftSenderAv && pickUrl) {
             liveGiftSenderAv.src = pickUrl;
             liveGiftSenderAv.setAttribute('data-export-src', pickUrl);
+            liveGiftSenderAv.dataset.hasRealHumanAv = 'true';
         }
     }
 
@@ -10003,16 +10054,26 @@ window.switchRightTab = function (mode) {
         if (!liveGiftComboBanner) return;
         const userTxt = (inLiveGiftUser && inLiveGiftUser.value.trim()) ? inLiveGiftUser.value.trim() : '皓哥';
         const giftTxt = (inLiveGiftName && inLiveGiftName.value.trim()) ? inLiveGiftName.value.trim() : '送 嘉年華';
-        const countTxt = (inLiveGiftCount && inLiveGiftCount.value.trim()) ? inLiveGiftCount.value.trim() : 'x9';
+        let countTxt = (inLiveGiftCount && inLiveGiftCount.value.trim()) ? inLiveGiftCount.value.trim() : 'x9';
+        if (/^\d+$/.test(countTxt)) {
+            countTxt = 'x' + countTxt;
+            if (inLiveGiftCount) inLiveGiftCount.value = countTxt;
+        }
         const baseColor = (inLiveGiftColor && inLiveGiftColor.value) ? inLiveGiftColor.value : '#9333ea';
-        const iconTxt = (inLiveGiftIcon && inLiveGiftIcon.value.trim())
-            ? inLiveGiftIcon.value.trim()
-            : (inferGiftIconFromName(giftTxt) || '🎠');
+        const inferredIcon = inferGiftIconFromName(giftTxt);
+        let rawIconInput = (inLiveGiftIcon && inLiveGiftIcon.value.trim()) ? inLiveGiftIcon.value.trim() : '';
+        // 若图标框里仍是旧版遗留的爱心 💗/❤️，但礼物文案是嘉年华/火箭等其它礼物，自动修正为对应专属图标
+        if ((!rawIconInput || rawIconInput === '💗' || rawIconInput === '🩷' || rawIconInput === '❤️') && inferredIcon && inferredIcon !== '💗') {
+            rawIconInput = inferredIcon;
+            if (inLiveGiftIcon) inLiveGiftIcon.value = inferredIcon;
+        }
+        const iconTxt = rawIconInput || inferredIcon || '🎠';
 
         // 确保左侧始终是真人头像（绝不用蓝色 Laya 图标）
         if (liveGiftSenderAv) {
             const curSrc = liveGiftSenderAv.getAttribute('src') || '';
-            if (changeAvatar || !curSrc || curSrc.includes('Laya')) {
+            const notRealYet = liveGiftSenderAv.dataset.hasRealHumanAv !== 'true';
+            if (changeAvatar || notRealYet || !curSrc || curSrc.includes('Laya')) {
                 pickNextRealHumanGiftAvatar(userTxt);
             }
         }
@@ -10151,6 +10212,7 @@ window.switchRightTab = function (mode) {
                     customPinnedGiftAvatarUrl = dataUrl;
                     liveGiftSenderAv.src = dataUrl;
                     liveGiftSenderAv.setAttribute('data-export-src', dataUrl);
+                    liveGiftSenderAv.dataset.hasRealHumanAv = 'true';
                     window.showToast('📤 已上傳並固定使用自定義送禮頭像（點「換真人頭像」可恢復隨機）');
                 }
             };
@@ -10186,7 +10248,11 @@ window.switchRightTab = function (mode) {
         applyLiveGiftColor(pick, true);
     };
     if (btnLiveRandGiftAv) btnLiveRandGiftAv.addEventListener('click', randGiftAvatarFn);
-    if (liveGiftSenderAv) liveGiftSenderAv.addEventListener('click', randGiftAvatarFn);
+    if (liveGiftSenderAv) {
+        // 左键点击礼物小弹窗上的圆形头像：直接打开文件上传框上传本地头像！右键点击：随机换真人头像
+        liveGiftSenderAv.addEventListener('click', triggerUploadGiftAvatarFn);
+        liveGiftSenderAv.addEventListener('contextmenu', randGiftAvatarFn);
+    }
     if (btnLiveRandGiftUser) btnLiveRandGiftUser.addEventListener('click', randGiftUserFn);
     if (btnLiveRandGiftUserBtn) btnLiveRandGiftUserBtn.addEventListener('click', randGiftUserFn);
     if (btnLiveRandGiftName) btnLiveRandGiftName.addEventListener('click', randGiftNameFn);
@@ -10418,7 +10484,7 @@ window.switchRightTab = function (mode) {
     function startLiveRoomAnimations() {
         liveRollTickCount = 0;
         if (liveSysNoticeEl) liveSysNoticeEl.style.display = '';
-        applyLiveGiftBannerState(true);
+        applyLiveGiftBannerState(true, true);
         renderLiveChatBubbles(false);
         renderLiveJoinTicker(false);
         restartLiveChatRollTimer();
@@ -10753,6 +10819,80 @@ window.switchRightTab = function (mode) {
     const txtLiveAiStatus = document.getElementById('txt-live-ai-status');
     const inLiveAiGeminiKey = document.getElementById('in-live-ai-gemini-key');
     const inLiveAiGasUrl = document.getElementById('in-live-ai-gas-url');
+    const btnLiveSaveAiKey = document.getElementById('btn-live-save-ai-key');
+    const btnLiveShareAiKey = document.getElementById('btn-live-share-ai-key');
+
+    // ★ 全站默认共享 AI API Key（如果把 Key 填在下面这个常量里推送到线上，全网所有人打开网站都无需手动填 Key 直接共用！）
+    const GLOBAL_SHARED_DEFAULT_AI_KEY = window.LAYA_GLOBAL_SHARED_AI_KEY || '';
+    const GLOBAL_SHARED_DEFAULT_AI_URL = window.LAYA_GLOBAL_SHARED_AI_URL || '';
+
+    // 支持从网址参数 ?ai_key=xxx 自动读取并持久化共享 Key
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedKeyFromUrl = (urlParams.get('ai_key') || '').trim();
+        const sharedUrlFromUrl = (urlParams.get('ai_url') || '').trim();
+        if (sharedKeyFromUrl) {
+            localStorage.setItem('LAYA_LIVE_SHARED_AI_KEY', sharedKeyFromUrl);
+            if (inLiveAiGeminiKey) inLiveAiGeminiKey.value = sharedKeyFromUrl;
+        }
+        if (sharedUrlFromUrl) {
+            localStorage.setItem('LAYA_LIVE_SHARED_AI_URL', sharedUrlFromUrl);
+            if (inLiveAiGasUrl) inLiveAiGasUrl.value = sharedUrlFromUrl;
+        }
+    } catch (e) {}
+
+    function getActiveLiveAiKeyAndUrl() {
+        const inputKey = (inLiveAiGeminiKey && inLiveAiGeminiKey.value.trim()) || '';
+        const storedKey = localStorage.getItem('LAYA_LIVE_SHARED_AI_KEY') || '';
+        const finalKey = inputKey || storedKey || GLOBAL_SHARED_DEFAULT_AI_KEY;
+
+        const inputUrl = (inLiveAiGasUrl && inLiveAiGasUrl.value.trim()) || '';
+        const storedUrl = localStorage.getItem('LAYA_LIVE_SHARED_AI_URL') || '';
+        const finalUrl = inputUrl || storedUrl || GLOBAL_SHARED_DEFAULT_AI_URL;
+
+        if (inLiveAiGeminiKey && !inLiveAiGeminiKey.value && finalKey) {
+            inLiveAiGeminiKey.value = finalKey;
+        }
+        if (inLiveAiGasUrl && !inLiveAiGasUrl.value && finalUrl) {
+            inLiveAiGasUrl.value = finalUrl;
+        }
+        return { apiKey: finalKey, apiUrl: finalUrl };
+    }
+    setTimeout(getActiveLiveAiKeyAndUrl, 160);
+
+    if (btnLiveSaveAiKey) {
+        btnLiveSaveAiKey.addEventListener('click', () => {
+            const k = (inLiveAiGeminiKey && inLiveAiGeminiKey.value.trim()) || '';
+            const u = (inLiveAiGasUrl && inLiveAiGasUrl.value.trim()) || '';
+            if (k) localStorage.setItem('LAYA_LIVE_SHARED_AI_KEY', k);
+            if (u) localStorage.setItem('LAYA_LIVE_SHARED_AI_URL', u);
+            if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+            autoMatchLiveDanmakuByVideoAI(true, null);
+        });
+    }
+    if (btnLiveShareAiKey) {
+        btnLiveShareAiKey.addEventListener('click', () => {
+            const { apiKey, apiUrl } = getActiveLiveAiKeyAndUrl();
+            if (!apiKey && !apiUrl) {
+                window.showToast('🔑 請先在下方輸入框粘貼你的 AI API Key');
+                if (inLiveAiGeminiKey) inLiveAiGeminiKey.focus();
+                return;
+            }
+            const shareUrl = new URL(window.location.origin + window.location.pathname);
+            if (apiKey) shareUrl.searchParams.set('ai_key', apiKey);
+            if (apiUrl) shareUrl.searchParams.set('ai_url', apiUrl);
+            const finalLink = shareUrl.toString();
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(finalLink).then(() => {
+                    window.showToast('🌐 已複製帶 Key 的全員共享連結！任何人打開該連結都會自動生效');
+                }).catch(() => {
+                    window.prompt('複製以下全員共享連結發給大家即可直接使用你的 AI Key：', finalLink);
+                });
+            } else {
+                window.prompt('複製以下全員共享連結發給大家即可直接使用你的 AI Key：', finalLink);
+            }
+        });
+    }
 
     if (inLiveDanmakuList) {
         inLiveDanmakuList.addEventListener('input', () => {
@@ -10995,13 +11135,13 @@ window.switchRightTab = function (mode) {
         return { lines: merged.slice(0, 14), sceneLabel };
     }
 
-    // ★ 调用云端 Gemini Vision API 或 Google Apps Script 代理（可选）直接看视频关键帧写弹幕
+    // ★ 调用云端 Gemini Vision API、OpenAI/DeepSeek 兼容接口或 Google Apps Script 代理直接看视频关键帧/上下文写弹幕
     async function requestCloudVisionVideoDanmaku(frames, contextText) {
-        const geminiKey = inLiveAiGeminiKey ? inLiveAiGeminiKey.value.trim() : '';
-        const gasUrl = inLiveAiGasUrl ? inLiveAiGasUrl.value.trim() : '';
+        const { apiKey, apiUrl } = getActiveLiveAiKeyAndUrl();
         const promptText = `你是一個抖音/Laya直播間的真實觀眾彈幕生成助手。請仔細觀察這段直播視頻的抽幀畫面（參考標題信息：${contextText || '無'}），生成 14 條高度貼合畫面內容、人物動作、場景氛圍的直播間滾動彈幕。要求：1.全部使用繁體中文；2.每行一條，不要用逗號併成一行，不要編號；3.格式可以是「暱稱：彈幕內容」或直接是簡短自然的觀眾彈幕；4.只輸出這14行彈幕文本，不要任何解釋。`;
 
-        if (geminiKey && frames.length > 0) {
+        // 1. Google Gemini API Key (AIza...)
+        if (apiKey && /^AIza/i.test(apiKey) && frames.length > 0) {
             const parts = [{ text: promptText }];
             frames.slice(0, 3).forEach(dataUrl => {
                 const base64Data = String(dataUrl).split(',')[1];
@@ -11009,7 +11149,7 @@ window.switchRightTab = function (mode) {
                     parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Data } });
                 }
             });
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(geminiKey)}`;
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
             const res = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -11023,8 +11163,50 @@ window.switchRightTab = function (mode) {
             }
         }
 
-        if (gasUrl && gasUrl.startsWith('http')) {
-            const res = await fetch(gasUrl, {
+        // 2. OpenAI / DeepSeek / 硅基流动 等兼容 API Key (sk-...)
+        if (apiKey && !/^AIza/i.test(apiKey)) {
+            let endpoint = 'https://api.deepseek.com/v1/chat/completions';
+            let modelName = 'deepseek-chat';
+            let messagesPayload = [{ role: 'user', content: promptText }];
+
+            if (apiUrl && /^https?:\/\//i.test(apiUrl) && !/script\.google\.com/i.test(apiUrl)) {
+                endpoint = apiUrl.replace(/\/+$/, '');
+                if (!/\/chat\/completions$/i.test(endpoint)) {
+                    endpoint += (endpoint.endsWith('/v1') ? '/chat/completions' : '/v1/chat/completions');
+                }
+            } else if (/^sk-proj-|openai/i.test(apiKey)) {
+                endpoint = 'https://api.openai.com/v1/chat/completions';
+                modelName = 'gpt-4o-mini';
+                if (frames.length > 0) {
+                    const contentArr = [{ type: 'text', text: promptText }];
+                    frames.slice(0, 2).forEach(u => contentArr.push({ type: 'image_url', image_url: { url: u } }));
+                    messagesPayload = [{ role: 'user', content: contentArr }];
+                }
+            }
+
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                body: JSON.stringify({
+                    model: modelName,
+                    messages: messagesPayload,
+                    temperature: 0.8
+                })
+            });
+            if (res.ok) {
+                const json = await res.json();
+                const outTxt = json?.choices?.[0]?.message?.content || '';
+                const parsed = splitDanmakuTextToMultiline(outTxt);
+                if (parsed.length >= 4) return parsed;
+            }
+        }
+
+        // 3. Google Apps Script 代理 URL
+        if (apiUrl && /script\.google\.com/i.test(apiUrl)) {
+            const res = await fetch(apiUrl, {
                 method: 'POST',
                 headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({
