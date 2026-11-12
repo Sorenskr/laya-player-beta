@@ -252,17 +252,19 @@ main {
     background: #06070a;
     position: relative;
     overflow: hidden;
-    padding: 12px;
+    padding: 6px 10px 8px 10px;
 }
 
 .viewport-tabs {
     display: flex;
+    align-items: center;
     background: var(--panel-bg);
     padding: 3px;
     border-radius: 8px;
     border: 1px solid var(--card-border);
-    margin-bottom: 10px;
+    margin-bottom: 6px;
     z-index: 5;
+    flex-shrink: 0;
 }
 
 .tab-btn {
@@ -283,7 +285,67 @@ main {
     color: #fff;
 }
 
+.viewport-tabs-sep {
+    width: 1px;
+    height: 18px;
+    background: rgba(148, 163, 184, 0.25);
+    margin: 0 5px;
+    align-self: center;
+}
+
+.stage-top-ctrl-btn {
+    padding: 5px 11px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 700;
+    margin: 0 2px;
+    transition: 0.15s ease;
+    white-space: nowrap;
+}
+
+.stage-top-ctrl-btn.stage-top-mag-btn {
+    background: rgba(14, 165, 233, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.42);
+    color: #7dd3fc;
+}
+
+.stage-top-ctrl-btn.stage-top-mag-btn:hover,
+.stage-top-ctrl-btn.stage-top-mag-btn.is-active {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    border-color: #7dd3fc;
+    color: #ffffff;
+}
+
+.stage-top-ctrl-btn.stage-top-pan-btn {
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(52, 211, 153, 0.38);
+    color: #6ee7b7;
+}
+
+.stage-top-ctrl-btn.stage-top-pan-btn:hover,
+.stage-top-ctrl-btn.stage-top-pan-btn.is-active {
+    background: linear-gradient(135deg, #059669, #10b981);
+    border-color: #a7f3d0;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.45);
+}
+
+.stage-top-ctrl-btn.stage-top-reset-btn {
+    background: rgba(245, 158, 11, 0.14);
+    border: 1px solid rgba(251, 191, 36, 0.42);
+    color: #fde68a;
+}
+
+.stage-top-ctrl-btn.stage-top-reset-btn:hover {
+    background: linear-gradient(135deg, #d97706, #ea580c);
+    border-color: #fde68a;
+    color: #ffffff;
+}
+
 .player-stage {
+    position: relative;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -300,7 +362,165 @@ main {
     border: none !important;
     outline: none !important;
     border-radius: 0 !important;
-    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), height 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center center;
+    transform: translate3d(var(--stage-pan-x, 0px), var(--stage-pan-y, 0px), 0) scale(calc(var(--stage-fit-scale, 1) * var(--stage-zoom-scale, 1)));
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), height 0.25s cubic-bezier(0.4, 0, 0.2, 1), transform 0.14s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.player-stage.is-stage-panning .player-box,
+.player-stage.is-stage-wheel-zooming .player-box,
+.player-box.stage-mag-export-suspend {
+    transition: width 0.25s cubic-bezier(0.4, 0, 0.2, 1), height 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+}
+
+.player-box.stage-mag-export-suspend {
+    transform: none !important;
+}
+
+.player-stage.is-stage-pan-mode,
+.player-stage.is-stage-pan-mode .player-box,
+.player-stage.is-stage-pan-mode .player-box * {
+    cursor: grab !important;
+    user-select: none !important;
+}
+
+.player-stage.is-stage-panning,
+.player-stage.is-stage-panning .player-box,
+.player-stage.is-stage-panning .player-box * {
+    cursor: grabbing !important;
+    user-select: none !important;
+}
+
+/* 全局素材画面放大镜悬浮控制栏 */
+.stage-magnifier-bar {
+    position: absolute;
+    left: 14px;
+    bottom: 14px;
+    z-index: 130;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 10px;
+    background: rgba(11, 15, 25, 0.88);
+    border: 1px solid rgba(56, 189, 248, 0.42);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 14px rgba(14, 165, 233, 0.18);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    user-select: none;
+}
+
+.stage-mag-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    height: 27px;
+    padding: 0 9px;
+    border-radius: 6px;
+    border: 1px solid rgba(148, 163, 184, 0.28);
+    background: rgba(30, 41, 59, 0.85);
+    color: #e2e8f0;
+    font-size: 11.5px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.14s ease;
+    white-space: nowrap;
+}
+
+.stage-mag-btn:hover {
+    background: rgba(51, 65, 85, 0.95);
+    border-color: #38bdf8;
+    color: #ffffff;
+}
+
+.stage-mag-btn.stage-mag-step {
+    width: 26px;
+    padding: 0;
+    font-size: 11px;
+}
+
+.stage-mag-btn.stage-mag-toggle {
+    background: linear-gradient(135deg, rgba(2, 132, 199, 0.35), rgba(37, 99, 235, 0.35));
+    border-color: rgba(56, 189, 248, 0.55);
+    color: #bae6fd;
+}
+
+.stage-mag-btn.stage-mag-toggle.is-active {
+    background: linear-gradient(135deg, #0284c7, #2563eb);
+    border-color: #7dd3fc;
+    color: #ffffff;
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+}
+
+.stage-mag-btn.stage-mag-pan {
+    background: rgba(16, 185, 129, 0.16);
+    border-color: rgba(52, 211, 153, 0.45);
+    color: #6ee7b7;
+}
+
+.stage-mag-btn.stage-mag-pan.is-active {
+    background: linear-gradient(135deg, #059669, #10b981);
+    border-color: #a7f3d0;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.55);
+}
+
+.stage-mag-btn.stage-mag-reset {
+    background: rgba(245, 158, 11, 0.18);
+    border-color: rgba(251, 191, 36, 0.48);
+    color: #fde68a;
+}
+
+.stage-mag-btn.stage-mag-reset:hover {
+    background: linear-gradient(135deg, #d97706, #ea580c);
+    border-color: #fde68a;
+    color: #ffffff;
+}
+
+.stage-mag-slider {
+    width: 88px;
+    height: 4px;
+    accent-color: #38bdf8;
+    cursor: pointer;
+}
+
+.stage-mag-pct {
+    min-width: 42px;
+    text-align: center;
+    font-size: 11.5px;
+    font-weight: 800;
+    color: #38bdf8;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(56, 189, 248, 0.32);
+    border-radius: 5px;
+    padding: 3px 5px;
+    cursor: pointer;
+}
+
+.stage-mag-divider {
+    width: 1px;
+    height: 18px;
+    background: rgba(148, 163, 184, 0.25);
+    margin: 0 2px;
+}
+
+.stage-pan-hint-pill {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 135;
+    padding: 6px 14px;
+    border-radius: 999px;
+    background: rgba(6, 78, 59, 0.92);
+    border: 1px solid rgba(52, 211, 153, 0.75);
+    color: #ecfdf5;
+    font-size: 12px;
+    font-weight: 600;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+    white-space: nowrap;
 }
 
 .mode-pc {
@@ -3158,10 +3378,10 @@ main {
    9. 右侧 Studio 控制后台
    ========================================================================== */
 .sidebar {
-    width: 375px;
+    width: clamp(540px, 37vw, 680px);
     background: var(--panel-bg);
     border-left: 1px solid var(--card-border);
-    padding: 12px;
+    padding: 14px 16px 55vh 16px;
     overflow-y: auto;
     display: flex;
     flex-direction: column;
@@ -6252,6 +6472,52 @@ input[type="range"] {
     border-color: rgba(56, 189, 248, 0.6) !important;
 }
 
+/* 进入直播间时将【🔴 直播间专属设置】自动置顶到竖屏面板最上方 */
+#panel-dy-settings.live-priority-order #card-dy-live-settings {
+    order: -10;
+}
+
+/* 点击左侧画面任意元素时，右侧对应编辑行/区块的醒目定位高亮框 */
+@keyframes sidebarFieldLocatePulse {
+    0% {
+        box-shadow: 0 0 0 2px #fde047, 0 0 22px rgba(250, 204, 21, 0.75);
+        background-color: rgba(250, 204, 21, 0.16);
+    }
+    50% {
+        box-shadow: 0 0 0 2px #38bdf8, 0 0 18px rgba(56, 189, 248, 0.65);
+        background-color: rgba(56, 189, 248, 0.14);
+    }
+    100% {
+        box-shadow: 0 0 0 1.5px rgba(56, 189, 248, 0.45), 0 0 8px rgba(56, 189, 248, 0.2);
+        background-color: transparent;
+    }
+}
+
+.sidebar-locate-flash {
+    position: relative !important;
+    border-radius: 7px !important;
+    animation: sidebarFieldLocatePulse 1.8s ease-out forwards !important;
+    transition: box-shadow 0.2s ease, background-color 0.2s ease;
+}
+
+.sidebar-locate-flash::after {
+    content: "📍 修改此处";
+    position: absolute;
+    top: -9px;
+    right: 6px;
+    z-index: 40;
+    padding: 1px 7px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, #f59e0b, #ec4899);
+    border: 1px solid #fef08a;
+    color: #ffffff;
+    font-size: 10px;
+    font-weight: 800;
+    line-height: 1.4;
+    pointer-events: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+}
+
 
 
 /* 输入框旁边的骰子按钮组合样式 (严格约束宽度，防止双列网格右侧骰子被挤出边框) */
@@ -8004,25 +8270,35 @@ input[type="range"] {
     align-items: center;
     gap: 3px;
     flex-wrap: nowrap;
-    width: 96%;
+    width: 98%;
     margin-bottom: 2px;
-    padding: 3px 5px;
+    padding: 2.5px 5px;
     border-radius: 999px;
-    background: rgba(15, 23, 42, 0.82);
-    border: 1px solid rgba(56, 189, 248, 0.55);
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.55);
-    opacity: 0.96;
-    pointer-events: auto;
-    transition: opacity 0.18s ease, transform 0.15s ease;
+    background: rgba(15, 23, 42, 0.88);
+    border: 1px solid rgba(56, 189, 248, 0.65);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.58);
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transform: translateY(3px);
+    transition: opacity 0.16s ease, visibility 0.16s ease, transform 0.16s ease;
     z-index: 38;
 }
-.laya-live-room-overlay:hover .live-dm-edit-toolbar,
-.live-bottom-section:hover .live-dm-edit-toolbar,
+.live-bottom-section.is-touching-dm-zone .live-dm-edit-toolbar,
 .live-bottom-section.is-zoom-editing .live-dm-edit-toolbar,
-.live-chat-scroll-box:hover .live-dm-edit-toolbar,
-.live-chat-scroll-box.is-resizing-dm .live-dm-edit-toolbar {
+.live-chat-scroll-box.is-resizing-dm ~ .live-dm-edit-toolbar,
+.live-dm-edit-toolbar:hover,
+.live-gift-combo-slot:hover ~ .live-dm-edit-toolbar {
     opacity: 1;
+    visibility: visible;
     pointer-events: auto;
+    transform: translateY(0);
+}
+.live-bottom-section.is-touching-dm-zone .live-chat-scroll-box,
+.live-chat-scroll-box.is-resizing-dm {
+    outline: 1px dashed rgba(192, 132, 252, 0.62);
+    outline-offset: 2px;
+    border-radius: 8px;
 }
 .live-dm-tool-btn {
     border: 1px solid rgba(192, 132, 252, 0.65);
@@ -8073,8 +8349,28 @@ input[type="range"] {
     border-radius: 6px;
     white-space: nowrap;
 }
-.live-dm-resize-handle {
+.live-dm-move-handle {
     margin-left: auto;
+    background: rgba(14, 165, 233, 0.88);
+    border: 1px solid rgba(125, 211, 252, 0.8);
+    color: #ffffff;
+    font-size: 8.2px;
+    font-weight: 800;
+    padding: 2px 5.5px;
+    border-radius: 999px;
+    cursor: move;
+    pointer-events: auto;
+    user-select: none;
+    transition: transform 0.15s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
+    white-space: nowrap;
+}
+.live-dm-move-handle:hover,
+.live-dm-resize-handle:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.1);
+}
+.live-dm-resize-handle {
     background: rgba(124, 58, 237, 0.88);
     border: 1px solid rgba(216, 180, 254, 0.75);
     color: #ffffff;
@@ -8430,5 +8726,84 @@ input[type="range"] {
     background: rgba(22, 24, 35, 0.12);
     border-color: rgba(22, 24, 35, 0.16);
 }
+
+/* 顶部与左下放大镜「📐 独立取景框」按键样式 */
+.stage-top-crop-btn,
+.stage-mag-crop {
+    background: rgba(16, 185, 129, 0.16) !important;
+    border-color: rgba(52, 211, 153, 0.45) !important;
+    color: #a7f3d0 !important;
+    font-weight: 800 !important;
+}
+.stage-top-crop-btn:hover,
+.stage-mag-crop:hover {
+    background: rgba(16, 185, 129, 0.28) !important;
+    border-color: rgba(52, 211, 153, 0.75) !important;
+    color: #ffffff !important;
+}
+.stage-top-crop-btn.is-active,
+.stage-mag-crop.is-active {
+    background: linear-gradient(135deg, #059669, #10b981) !important;
+    border-color: #fde047 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.45) !important;
+}
+
+/* 直播间全元素显隐总控矩阵与单项内联开关样式 */
+.live-vis-matrix-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+}
+.live-vis-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    background: rgba(30, 41, 59, 0.65);
+    border: 1px solid rgba(148, 163, 184, 0.24);
+    font-size: 10.5px;
+    font-weight: 600;
+    color: #e2e8f0;
+    cursor: pointer;
+    user-select: none;
+    margin: 0 !important;
+    transition: all 0.14s ease;
+}
+.live-vis-chip:hover {
+    background: rgba(51, 65, 85, 0.78);
+    border-color: rgba(192, 132, 252, 0.55);
+}
+.live-vis-chip input[type="checkbox"] {
+    width: 12px;
+    height: 12px;
+    margin: 0;
+    accent-color: #a855f7;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+.live-inline-vis-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    background: rgba(168, 85, 247, 0.18);
+    border: 1px solid rgba(192, 132, 252, 0.45);
+    color: #e9d5ff;
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    user-select: none;
+}
+.live-inline-vis-wrap input[type="checkbox"] {
+    width: 11px;
+    height: 11px;
+    margin: 0;
+    accent-color: #10b981;
+    cursor: pointer;
+}
+
 
 

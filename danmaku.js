@@ -58,12 +58,12 @@ window.DanmakuEngine = {
     },
 
     refresh() {
-        renderDanmakuStage();
-        renderDanmakuTracksUI();
+        if (typeof window.renderDanmakuStage === 'function') window.renderDanmakuStage();
+        if (typeof window.renderDanmakuTracksUI === 'function') window.renderDanmakuTracksUI();
     },
 
     renderEditorList() {
-        renderDanmakuTracksUI();
+        if (typeof window.renderDanmakuTracksUI === 'function') window.renderDanmakuTracksUI();
     },
 
     togglePause(forceState) {

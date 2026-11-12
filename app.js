@@ -161,6 +161,7 @@ window.switchRightTab = function (mode) {
 
     let isQaProgrammaticScroll = false;
     let qaScrollTimer = null;
+    let locateFlashTimer = null;
 
     function setActiveQuickAccessItem(targetCardId, scrollRailIntoView = true) {
         if (!qaRailList || !targetCardId) return;
@@ -168,11 +169,152 @@ window.switchRightTab = function (mode) {
         qaItems.forEach(btn => {
             const isMatch = btn.getAttribute('data-target-card') === targetCardId;
             btn.classList.toggle('active', isMatch);
+            // 直接设置快速访问栏 scrollTop，严禁调用 smooth scrollIntoView 以免打断右侧编辑栏的平滑滚动
             if (isMatch && scrollRailIntoView) {
-                btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                const targetRailTop = Math.max(0, btn.offsetTop - (qaRailList.clientHeight / 2) + (btn.offsetHeight / 2));
+                qaRailList.scrollTop = targetRailTop;
             }
         });
     }
+
+    // ★ 全局核心：点击左侧画面任意位置 -> 右侧编辑栏立即切换对应选项卡、滑动置顶到要修改的具体输入框/区块并醒目高亮
+    window.locateSidebarControl = function (opts = {}) {
+        if (!rightSidebarEl || window.__isRestoringStorage) return;
+        const {
+            tab,
+            cardId,
+            targetSelector,
+            highlightSelector,
+            focusInput = false,
+            expandSubtitleStudio = false
+        } = opts;
+
+        isQaProgrammaticScroll = true;
+        if (qaScrollTimer) clearTimeout(qaScrollTimer);
+        qaScrollTimer = setTimeout(() => {
+            isQaProgrammaticScroll = false;
+        }, 850);
+
+        ensureRightPanelCardIds();
+
+        // 1. 切换到对应的右侧控制面板 Tab
+        if (tab && tab !== 'keep' && typeof window.switchRightTab === 'function') {
+            window.switchRightTab(tab);
+            if (qaModeBadge) {
+                const badgeMap = { 'dy': '竖屏社区', 'web': '电脑网页', 'm-cinema': '手机横屏', 'dm': '弹幕工坊' };
+                qaModeBadge.textContent = badgeMap[tab] || '全板块';
+            }
+        }
+
+        // 2. 若当前处于直播间模式或定位直播间设置，确保【🔴 直播间专属设置】自动排在竖屏面板最上方
+        const panelDyEl = document.getElementById('panel-dy-settings');
+        const rtEl = document.getElementById('render-target');
+        if (panelDyEl && rtEl) {
+            panelDyEl.classList.toggle('live-priority-order', rtEl.classList.contains('dy-live-open') || cardId === 'card-dy-live-settings');
+        }
+
+        // 3. 若目标是智能字幕工坊且处于折叠态，自动展开
+        if (expandSubtitleStudio || cardId === 'card-dy-subtitle') {
+            const subBody = document.getElementById('sub-studio-body');
+            const subArrow = document.getElementById('sub-collapse-arrow');
+            if (subBody && subBody.style.display === 'none') {
+                subBody.style.display = 'flex';
+                if (subArrow) subArrow.style.transform = 'rotate(180deg)';
+            }
+        }
+
+        // 4. 查找具体目标控件与所属卡片
+        let targetEl = null;
+        if (typeof targetSelector === 'string' && targetSelector) {
+            targetEl = rightSidebarEl.querySelector(targetSelector) || document.querySelector(targetSelector);
+        } else if (targetSelector && targetSelector.nodeType === 1) {
+            targetEl = targetSelector;
+        }
+
+        const cardEl = (cardId && document.getElementById(cardId))
+            || (targetEl && targetEl.closest && targetEl.closest('.panel-card'))
+            || null;
+
+        if (!targetEl && cardEl) {
+            targetEl = cardEl;
+        }
+        if (!targetEl) return;
+
+        const resolvedCardId = (cardEl && cardEl.id) || cardId;
+        if (resolvedCardId) {
+            setActiveQuickAccessItem(resolvedCardId, true);
+        }
+
+        // 确定需要高亮与置顶对齐的具体行/区块
+        let highlightEl = null;
+        if (typeof highlightSelector === 'string' && highlightSelector) {
+            highlightEl = rightSidebarEl.querySelector(highlightSelector) || document.querySelector(highlightSelector);
+        } else if (highlightSelector && highlightSelector.nodeType === 1) {
+            highlightEl = highlightSelector;
+        }
+        if (!highlightEl) {
+            if (targetEl.classList && targetEl.classList.contains('panel-card')) {
+                highlightEl = targetEl;
+            } else if (targetEl.id && /^live-cfg-box-/.test(targetEl.id)) {
+                highlightEl = targetEl;
+            } else if (targetEl.closest) {
+                highlightEl = targetEl.closest('#live-cfg-box-gift, #live-cfg-box-welcome, #live-cfg-box-danmaku, .dy-cmt-ed-card, .dm-track-card, .sub-cue-item, .form-row, .switch-tile') || targetEl;
+            } else {
+                highlightEl = targetEl;
+            }
+        }
+
+        rightSidebarEl.querySelectorAll('.panel-card.qa-card-focus-glow').forEach(c => c.classList.remove('qa-card-focus-glow'));
+        rightSidebarEl.querySelectorAll('.sidebar-locate-flash').forEach(el => el.classList.remove('sidebar-locate-flash'));
+
+        const performScrollAndGlow = () => {
+            const sideRect = rightSidebarEl.getBoundingClientRect();
+            const anchorEl = highlightEl || targetEl || cardEl;
+            if (!anchorEl) return;
+            const elRect = anchorEl.getBoundingClientRect();
+            const nextTop = Math.max(0, rightSidebarEl.scrollTop + (elRect.top - sideRect.top) - 14);
+            rightSidebarEl.scrollTo({ top: nextTop, behavior: 'smooth' });
+
+            if (cardEl) {
+                void cardEl.offsetWidth;
+                cardEl.classList.add('qa-card-focus-glow');
+            }
+            if (highlightEl && highlightEl !== cardEl) {
+                void highlightEl.offsetWidth;
+                highlightEl.classList.add('sidebar-locate-flash');
+            } else if (cardEl) {
+                const headerEl = cardEl.querySelector('.card-header') || cardEl;
+                void headerEl.offsetWidth;
+                headerEl.classList.add('sidebar-locate-flash');
+            }
+        };
+
+        requestAnimationFrame(performScrollAndGlow);
+        setTimeout(() => {
+            const sideRect = rightSidebarEl.getBoundingClientRect();
+            const anchorEl = highlightEl || targetEl || cardEl;
+            if (anchorEl) {
+                const elRect = anchorEl.getBoundingClientRect();
+                const desiredTop = Math.max(0, rightSidebarEl.scrollTop + (elRect.top - sideRect.top) - 14);
+                if (Math.abs(rightSidebarEl.scrollTop - desiredTop) > 24) {
+                    rightSidebarEl.scrollTo({ top: desiredTop, behavior: 'smooth' });
+                }
+            }
+            if (focusInput && targetEl) {
+                const focusNode = (targetEl.matches && targetEl.matches('input[type="text"], textarea, select'))
+                    ? targetEl
+                    : (targetEl.querySelector && targetEl.querySelector('input[type="text"], textarea, select'));
+                if (focusNode) {
+                    try { focusNode.focus({ preventScroll: true }); } catch (e) {}
+                }
+            }
+        }, 120);
+
+        if (locateFlashTimer) clearTimeout(locateFlashTimer);
+        locateFlashTimer = setTimeout(() => {
+            rightSidebarEl.querySelectorAll('.sidebar-locate-flash').forEach(el => el.classList.remove('sidebar-locate-flash'));
+        }, 2200);
+    };
 
     if (qaRailList && rightSidebarEl) {
         const qaItems = qaRailList.querySelectorAll('.qa-item');
@@ -6913,7 +7055,7 @@ window.switchRightTab = function (mode) {
             if (typeof setRightAvatarFollowedByTab === 'function') {
                 setRightAvatarFollowedByTab(savedTopIdx === 0);
             }
-            if (data.viewportMode && window.PlayerEngine && typeof window.PlayerEngine.activateViewportMode === 'function') {
+            if (data.viewportMode && ['mode-pc', 'mode-mobile-land', 'mode-mobile-port', 'mode-dy-land'].includes(data.viewportMode) && window.PlayerEngine && typeof window.PlayerEngine.activateViewportMode === 'function') {
                 window.PlayerEngine.activateViewportMode(data.viewportMode);
             }
 
@@ -7026,7 +7168,7 @@ window.switchRightTab = function (mode) {
                 }
             }
 
-            // 若刷新前用户正在直播间内，刷新后自动停留在直播间页面并恢复放大查看状态与右侧滚动位置
+            // 若刷新前用户正在直播间内，刷新后自动停留在直播间页面并恢复放大查看状态，且右侧直接对齐【🔴 直播间专属设置】
             if (data.viewportMode === 'mode-mobile-port' && data.liveRoomOpen) {
                 if (typeof window.enterLayaLiveRoom === 'function') {
                     window.enterLayaLiveRoom({ silentToast: true, preserveScroll: true });
@@ -7034,16 +7176,27 @@ window.switchRightTab = function (mode) {
                 if (data.liveZoomEditing && typeof window.syncLiveZoomEditingUI === 'function') {
                     window.syncLiveZoomEditingUI(true);
                 }
-            }
-            if (data.activeQaCardId && typeof setActiveQuickAccessItem === 'function') {
-                setActiveQuickAccessItem(data.activeQaCardId, true);
-            }
-            if (typeof data.rightSidebarScrollTop === 'number' && data.rightSidebarScrollTop > 0) {
+                setActiveQuickAccessItem('card-dy-live-settings', true);
                 const rightSideEl = document.getElementById('right-sidebar');
-                if (rightSideEl) {
+                const liveCardEl = document.getElementById('card-dy-live-settings');
+                if (rightSideEl && liveCardEl) {
                     setTimeout(() => {
-                        rightSideEl.scrollTop = data.rightSidebarScrollTop;
+                        const sideRect = rightSideEl.getBoundingClientRect();
+                        const cardRect = liveCardEl.getBoundingClientRect();
+                        rightSideEl.scrollTop = Math.max(0, rightSideEl.scrollTop + (cardRect.top - sideRect.top) - 12);
                     }, 90);
+                }
+            } else {
+                if (data.activeQaCardId && typeof setActiveQuickAccessItem === 'function') {
+                    setActiveQuickAccessItem(data.activeQaCardId, true);
+                }
+                if (typeof data.rightSidebarScrollTop === 'number' && data.rightSidebarScrollTop > 0) {
+                    const rightSideEl = document.getElementById('right-sidebar');
+                    if (rightSideEl) {
+                        setTimeout(() => {
+                            rightSideEl.scrollTop = data.rightSidebarScrollTop;
+                        }, 90);
+                    }
                 }
             }
 
@@ -7565,13 +7718,14 @@ window.switchRightTab = function (mode) {
     function drawSeamlessHudGradients(targetCtx, outW, outH) {
         if (!renderTarget || !targetCtx) return;
         const targetRect = renderTarget.getBoundingClientRect();
-        if (!targetRect.height) return;
+        const baseTargetH = renderTarget.offsetHeight || targetRect.height;
+        if (!baseTargetH) return;
         const isLightMode = renderTarget.classList.contains('theme-light');
         const rgbBase = isLightMode ? '255, 255, 255' : '0, 0, 0';
 
         const topBar = document.getElementById('web-player-top');
         if (topBar && topBar.offsetWidth > 0 && topBar.offsetHeight > 0) {
-            const topH = Math.round((topBar.offsetHeight / targetRect.height) * outH * 1.15);
+            const topH = Math.round((topBar.offsetHeight / baseTargetH) * outH * 1.15);
             const gTop = targetCtx.createLinearGradient(0, 0, 0, topH);
             gTop.addColorStop(0, `rgba(${rgbBase}, ${isLightMode ? '0.92' : '0.86'})`);
             gTop.addColorStop(0.5, `rgba(${rgbBase}, ${isLightMode ? '0.52' : '0.42'})`);
@@ -7588,7 +7742,7 @@ window.switchRightTab = function (mode) {
             const botBar = document.getElementById(id);
             if (botBar && botBar.offsetWidth > 0 && botBar.offsetHeight > 0) {
                 const isDyl = (id === 'dyl-wrap-bottom');
-                const botH = Math.round((botBar.offsetHeight / targetRect.height) * outH * 1.2);
+                const botH = Math.round((botBar.offsetHeight / baseTargetH) * outH * 1.2);
                 const gBot = targetCtx.createLinearGradient(0, outH, 0, outH - botH);
                 gBot.addColorStop(0, `rgba(${rgbBase}, ${isLightMode ? '0.92' : (isDyl ? '0.72' : '0.90')})`);
                 gBot.addColorStop(0.5, `rgba(${rgbBase}, ${isLightMode ? '0.55' : (isDyl ? '0.25' : '0.44')})`);
@@ -7614,6 +7768,9 @@ window.switchRightTab = function (mode) {
             btnSaveImg.textContent = '⏳ 正在合成超清截图...';
             btnSaveImg.disabled = true;
             window.showToast('📸 正在抓取当前画面帧并生成无白边超高清截图...');
+            if (typeof window.suspendStageMagnifierForExport === 'function') {
+                window.suspendStageMagnifierForExport();
+            }
 
             try {
                 const mediaWrapEl = document.getElementById('player-media-wrap');
@@ -7732,6 +7889,9 @@ window.switchRightTab = function (mode) {
                     allowTaint: false,
                     backgroundColor: directMediaDrawn ? null : '#000000',
                     ignoreElements: (el) => {
+                        if (el.id === 'live-dm-onstage-toolbar' || (el.classList && el.classList.contains('live-dm-edit-toolbar'))) {
+                            return true;
+                        }
                         if (directMediaDrawn && (el.id === 'player-media-wrap' || el.id === 'preview-video' || el.id === 'preview-img')) {
                             return true;
                         }
@@ -7830,6 +7990,9 @@ window.switchRightTab = function (mode) {
                 console.error(err);
                 window.showToast('❌ 截图导出失败，请重试');
             } finally {
+                if (typeof window.restoreStageMagnifierAfterExport === 'function') {
+                    window.restoreStageMagnifierAfterExport();
+                }
                 btnSaveImg.textContent = origBtnTxt;
                 btnSaveImg.disabled = false;
             }
@@ -7885,19 +8048,12 @@ window.switchRightTab = function (mode) {
                 exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.5)));
                 recordSeconds = Math.max(0.5, Math.min(trimRange.duration, vidTotalDur - exportStartSec));
             } else {
-                const curPos = previewVideo.currentTime || 0;
-                if (vidTotalDur <= 15 && curPos < 0.8) {
-                    exportStartSec = 0;
-                    recordSeconds = vidTotalDur;
+                // ★ 默认始终从时间轴导出区间起点 (00:00.0) 开始完整录制，绝不因预览播放头走到半路而漏掉前半段视频
+                exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.5)));
+                if (vidTotalDur <= 15 || dropdownSec >= vidTotalDur) {
+                    recordSeconds = Math.max(0.5, vidTotalDur - exportStartSec);
                 } else {
-                    recordSeconds = Math.min(dropdownSec, vidTotalDur);
-                    if (curPos >= vidTotalDur - 0.8) {
-                        exportStartSec = 0;
-                    } else if (curPos + recordSeconds > vidTotalDur) {
-                        exportStartSec = Math.max(0, vidTotalDur - recordSeconds);
-                    } else {
-                        exportStartSec = curPos;
-                    }
+                    recordSeconds = Math.min(dropdownSec, Math.max(0.5, vidTotalDur - exportStartSec));
                 }
             }
             // ★ 绝不超出源视频剩余时长（3秒视频严格只导出3秒）
@@ -7951,6 +8107,10 @@ window.switchRightTab = function (mode) {
                     window.PlayerEngine.updatePlayStateUI(true);
                 }
 
+                if (typeof window.suspendStageMagnifierForExport === 'function') {
+                    window.suspendStageMagnifierForExport();
+                }
+
                 const targetRect = renderTarget.getBoundingClientRect();
                 const scaleRatioX = outW / targetRect.width;
                 const scaleRatioY = outH / targetRect.height;
@@ -7986,11 +8146,17 @@ window.switchRightTab = function (mode) {
                 const liveJoinTickerBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-join-ticker-row')) : null;
                 const liveScrollBoxRect = isLiveOpenVid ? measureRelBox(document.getElementById('live-chat-scroll-box')) : null;
                 const liveGiftSlotBox = isLiveOpenVid ? measureRelBox(document.querySelector('.live-gift-combo-slot') || document.getElementById('live-gift-combo-banner')) : null;
+                const liveBotBarBox = isLiveOpenVid ? measureRelBox(document.querySelector('.live-bottom-bar')) : null;
+                const liveSysNoticeBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-sys-notice')) : null;
+                const liveRoomWelcomeBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-room-welcome')) : null;
                 window.__liveExportLayout = isLiveOpenVid ? {
                     chatBox: liveChatListBox,
                     joinBox: liveJoinTickerBox,
                     scrollBox: liveScrollBoxRect,
-                    giftBox: liveGiftSlotBox
+                    giftBox: liveGiftSlotBox,
+                    botBarBox: liveBotBarBox,
+                    sysNoticeBox: liveSysNoticeBox,
+                    welcomeBox: liveRoomWelcomeBox
                 } : null;
 
                 // 抓取静态透明 UI 覆层（通过 ignoreElements 完全跳过媒体与弹幕节点，并强制移除容器黑色背景）
@@ -8000,6 +8166,9 @@ window.switchRightTab = function (mode) {
                     useCORS: true,
                     allowTaint: false,
                     ignoreElements: (el) => {
+                        if (el.id === 'live-dm-onstage-toolbar' || (el.classList && el.classList.contains('live-dm-edit-toolbar'))) {
+                            return true;
+                        }
                         return el.id === 'player-media-wrap' || el.id === 'preview-video' || el.id === 'preview-img' || el.id === 'danmaku-container' || el.id === 'live-floating-dm-stage' || el.id === 'live-floating-hearts';
                     },
                     onclone: (clonedDoc) => {
@@ -8030,14 +8199,12 @@ window.switchRightTab = function (mode) {
                             const el = clonedDoc.getElementById(id);
                             if (el) el.style.visibility = 'hidden';
                         });
-                        // 若处于直播间模式导出视频，隐藏静态快照中的礼物横幅、评论列表与底部进场条，改由 30fps 动态画布逐帧绘制
+                        // 若处于直播间模式导出视频，隐藏静态快照中的礼物横幅、防诈提示、欢迎语、评论列表与底部进场条，统一由 30fps 动态画布无缝流式绘制（彻底杜绝间距断层）
                         if (isLiveOpenVid) {
-                            const clonedGiftEl = clonedDoc.getElementById('live-gift-combo-banner');
-                            if (clonedGiftEl) clonedGiftEl.style.visibility = 'hidden';
-                            const clonedChatList = clonedDoc.getElementById('live-chat-list');
-                            if (clonedChatList) clonedChatList.style.visibility = 'hidden';
-                            const clonedJoinRow = clonedDoc.getElementById('live-join-ticker-row');
-                            if (clonedJoinRow) clonedJoinRow.style.visibility = 'hidden';
+                            ['live-gift-combo-banner', 'live-sys-notice', 'live-room-welcome', 'live-chat-list', 'live-join-ticker-row'].forEach(lid => {
+                                const lEl = clonedDoc.getElementById(lid);
+                                if (lEl) lEl.style.visibility = 'hidden';
+                            });
                         }
                         const mTrack = clonedDoc.querySelector('.m-progress-track');
                         if (mTrack) mTrack.style.visibility = 'hidden';
@@ -8157,6 +8324,10 @@ window.switchRightTab = function (mode) {
                             speed: (isFixedDm || lockedX || isDmPaused) ? 0 : ((outW + tw) / (durSec * 30))
                         });
                     });
+                }
+
+                if (typeof window.restoreStageMagnifierAfterExport === 'function') {
+                    window.restoreStageMagnifierAfterExport();
                 }
 
                 const baseStartSec = window.PlayerEngine.timeToSec(inStartTime.value);
@@ -8663,6 +8834,9 @@ window.switchRightTab = function (mode) {
                                 finalizeWebCodecsExport();
                                 return;
                             }
+                            if (previewVideo.paused && !previewVideo.ended) {
+                                previewVideo.play().catch(() => {});
+                            }
 
                             const exactElapsedSec = encodedFrameCount / TARGET_FPS;
                             const now = performance.now();
@@ -8859,6 +9033,9 @@ window.switchRightTab = function (mode) {
                     if (elapsed >= recordSeconds || previewVideo.ended || (previewVideo.currentTime >= exportStartSec + recordSeconds + 0.05)) {
                         finishRecording();
                         return;
+                    }
+                    if (previewVideo.paused && !previewVideo.ended) {
+                        previewVideo.play().catch(() => {});
                     }
                     renderSingleFrame(now, elapsed);
                     if (videoTrack && typeof videoTrack.requestFrame === 'function') {
@@ -9218,6 +9395,10 @@ window.switchRightTab = function (mode) {
     const inLiveGiftCount = document.getElementById('in-live-gift-count');
     const btnLiveRandGiftCount = document.getElementById('btn-live-rand-gift-count');
     const btnLiveRandGiftCountBtn = document.getElementById('btn-live-rand-gift-count-btn');
+    const inLiveGiftMinQty = document.getElementById('in-live-gift-min-qty');
+    const inLiveGiftMaxQty = document.getElementById('in-live-gift-max-qty');
+    const txtLiveGiftQtyRange = document.getElementById('txt-live-gift-qty-range');
+    const giftQtyPresetBtns = document.querySelectorAll('.btn-gift-qty-preset');
     const inLiveGiftColor = document.getElementById('in-live-gift-color');
     const inLiveGiftColorHex = document.getElementById('in-live-gift-color-hex');
     const btnLiveRandGiftColor = document.getElementById('btn-live-rand-gift-color');
@@ -9261,6 +9442,17 @@ window.switchRightTab = function (mode) {
     const liveSubSquarePill = document.getElementById('live-sub-square-pill');
     const liveSubTxtSquare = document.getElementById('live-sub-txt-square');
     const liveSysNoticeEl = document.getElementById('live-sys-notice');
+    const liveSysNoticeTxt = document.getElementById('live-sys-notice-txt');
+    const liveRoomWelcomeEl = document.getElementById('live-room-welcome');
+    const liveRoomWelcomeTxt = document.getElementById('live-room-welcome-txt');
+    const inLiveWelcomeTxt = document.getElementById('in-live-welcome-txt');
+    const btnLiveRandWelcome = document.getElementById('btn-live-rand-welcome');
+    const btnLiveRandWelcomeBtn = document.getElementById('btn-live-rand-welcome-btn');
+    const swLiveShowWelcome = document.getElementById('sw-live-show-welcome');
+    const inLiveNoticeTxt = document.getElementById('in-live-notice-txt');
+    const btnLiveRandNotice = document.getElementById('btn-live-rand-notice');
+    const btnLiveRandNoticeBtn = document.getElementById('btn-live-rand-notice-btn');
+    const swLiveShowNotice = document.getElementById('sw-live-show-notice');
 
     // ★ 1. 右上角观众头像：直接采用内置抖音直播观众真实头像库 (Base64 高清原图秒开，绝不使用假剪影小人或蓝色 Laya 图标)
     function getDouyinLiveAudiencePool(mode) {
@@ -9798,35 +9990,43 @@ window.switchRightTab = function (mode) {
 
     function getLiveDmSpeedVal() {
         const v = inLiveDmSpeed ? parseInt(inLiveDmSpeed.value, 10) : 5;
-        return Number.isNaN(v) ? 5 : Math.min(10, Math.max(1, v));
+        return Number.isNaN(v) ? 5 : Math.min(10, Math.max(0, v));
     }
 
-    // ★ 1~10 档直播间评论滚动间隔映射表（单位 ms）：
-    // 1档(极慢)=1600ms，5档(标准)=480ms，7档(快速)=220ms，8档(高速)=145ms，9档(飙速)=95ms，10档(万人狂刷)=65ms(约每秒滚出15条！)
-    const LIVE_DM_SPEED_INTERVAL_MAP = [1600, 1600, 1200, 900, 680, 480, 330, 220, 145, 95, 65];
-    const LIVE_JOIN_SPEED_INTERVAL_MAP = [2000, 2000, 1650, 1350, 1100, 880, 680, 500, 360, 260, 180];
+    // ★ 0~10 档直播间评论滚动间隔映射表（单位 ms）：
+    // 0档=静止不动(0ms)，1档(超级慢)=12000ms(12秒/条)，2档(极慢)=7000ms(7秒/条)，3档(慢速)=4000ms(4秒/条)，4档(舒缓)=2500ms，5档(标准)=1500ms，6档=950ms，7档=580ms，8档=350ms，9档=200ms，10档=110ms
+    const LIVE_DM_SPEED_INTERVAL_MAP = [0, 12000, 7000, 4000, 2500, 1500, 950, 580, 350, 200, 110];
+    const LIVE_JOIN_SPEED_INTERVAL_MAP = [0, 15000, 9000, 5500, 3500, 2200, 1400, 900, 580, 380, 240];
 
     function getLiveDmIntervalMs(speedLv) {
-        const lv = Math.min(10, Math.max(1, parseInt(speedLv, 10) || 5));
-        return LIVE_DM_SPEED_INTERVAL_MAP[lv] || 480;
+        const lv = Math.min(10, Math.max(0, Number.isNaN(parseInt(speedLv, 10)) ? 5 : parseInt(speedLv, 10)));
+        if (lv === 0) return 0;
+        return LIVE_DM_SPEED_INTERVAL_MAP[lv] || 1500;
     }
 
     function getLiveJoinIntervalMs(speedLv) {
-        const lv = Math.min(10, Math.max(1, parseInt(speedLv, 10) || 5));
-        return LIVE_JOIN_SPEED_INTERVAL_MAP[lv] || 880;
+        const lv = Math.min(10, Math.max(0, Number.isNaN(parseInt(speedLv, 10)) ? 5 : parseInt(speedLv, 10)));
+        if (lv === 0) return 0;
+        return LIVE_JOIN_SPEED_INTERVAL_MAP[lv] || 2200;
     }
 
     function formatLiveDmSpeedLabel(speedLv) {
-        const lv = Math.min(10, Math.max(1, parseInt(speedLv, 10) || 5));
+        const lv = Math.min(10, Math.max(0, Number.isNaN(parseInt(speedLv, 10)) ? 5 : parseInt(speedLv, 10)));
+        if (lv === 0) return '0档 (⏸️ 静止不动)';
         const ms = getLiveDmIntervalMs(lv);
-        const perSec = (1000 / ms).toFixed(ms >= 400 ? 1 : 0);
-        const tag = lv <= 2 ? '極慢' : (lv <= 4 ? '慢速' : (lv <= 6 ? '標準' : (lv <= 8 ? '高速刷屏' : '萬人狂刷')));
-        return `${lv} (${tag}·${perSec}條/秒)`;
+        if (ms >= 1000) {
+            const sec = (ms / 1000).toFixed(ms % 1000 === 0 ? 0 : 1);
+            const slowTag = lv === 1 ? '🐢超级慢' : (lv === 2 ? '🐢极慢' : (lv === 3 ? '慢速' : (lv === 4 ? '舒缓' : '标准')));
+            return `${lv}档 (${slowTag}·${sec}秒/条)`;
+        }
+        const perSec = (1000 / ms).toFixed(1).replace(/\.0$/, '');
+        const fastTag = lv <= 6 ? '轻快' : (lv <= 8 ? '热闹刷屏' : '万人狂刷');
+        return `${lv}档 (${fastTag}·${perSec}条/秒)`;
     }
 
     function getLiveHeartDensityVal() {
         const v = inLiveHeartDensity ? parseInt(inLiveHeartDensity.value, 10) : 6;
-        return Number.isNaN(v) ? 6 : Math.min(10, Math.max(1, v));
+        return Number.isNaN(v) ? 6 : Math.min(10, Math.max(0, v));
     }
 
     function escapeHtmlSafe(str) {
@@ -10232,19 +10432,28 @@ window.switchRightTab = function (mode) {
     }
 
     function restartLiveHeartTimer() {
-        if (liveHeartTimer) clearInterval(liveHeartTimer);
+        if (liveHeartTimer) {
+            clearInterval(liveHeartTimer);
+            liveHeartTimer = null;
+        }
         if (!isLiveRoomOpenNow()) return;
+        if (liveFloatingHearts && liveFloatingHearts.dataset.liveHidden === 'true') return;
         const density = getLiveHeartDensityVal();
-        // 一启动即连发 3 颗不同表情（礼花/火花/笑脸），画面瞬间热闹起来
+        if (density <= 0) {
+            if (liveFloatingHearts) liveFloatingHearts.innerHTML = '';
+            return;
+        }
+        const HEART_INTERVAL_MAP = [0, 4500, 2800, 1800, 1200, 820, 520, 360, 260, 190, 140];
+        const intervalMs = HEART_INTERVAL_MAP[density] || 520;
         spawnSingleLiveHeart();
-        setTimeout(spawnSingleLiveHeart, 110);
-        setTimeout(spawnSingleLiveHeart, 230);
-        // 密度 1 -> 900ms；默认密度 6 -> 480ms；密度 10 -> 170ms 高频欢快飘动
-        const intervalMs = Math.max(170, Math.round(980 - density * 82));
+        if (density >= 4) {
+            setTimeout(spawnSingleLiveHeart, 140);
+        }
         liveHeartTimer = setInterval(() => {
             if (!isLiveRoomOpenNow()) return;
+            if (liveFloatingHearts && liveFloatingHearts.dataset.liveHidden === 'true') return;
             spawnSingleLiveHeart();
-            if (density >= 5) {
+            if (density >= 6) {
                 setTimeout(spawnSingleLiveHeart, Math.round(intervalMs * 0.45));
             }
         }, intervalMs);
@@ -10253,7 +10462,7 @@ window.switchRightTab = function (mode) {
     if (inLiveHeartDensity) {
         inLiveHeartDensity.addEventListener('input', () => {
             const d = getLiveHeartDensityVal();
-            const desc = d <= 3 ? '轻柔' : (d <= 7 ? '热闹' : '满屏暴击');
+            const desc = d === 0 ? '⏸️静止关闭' : (d === 1 ? '🐢超级慢' : (d <= 3 ? '轻柔慢速' : (d <= 7 ? '热闹' : '满屏暴击')));
             if (txtLiveHeartDensity) txtLiveHeartDensity.textContent = `${d} (${desc})`;
             restartLiveHeartTimer();
         });
@@ -10366,14 +10575,120 @@ window.switchRightTab = function (mode) {
         return `rgba(${r}, ${g}, ${b}, ${alpha})`;
     }
 
+    // ★ 礼物进场数量（最少多少个 ~ 最多多少个）自由控制与持久化
+    const GIFT_QTY_RANGE_STORAGE_KEY = 'LAYA_LIVE_GIFT_QTY_RANGE_V1';
+    try {
+        const savedQtyRange = JSON.parse(localStorage.getItem(GIFT_QTY_RANGE_STORAGE_KEY) || 'null');
+        if (savedQtyRange && typeof savedQtyRange === 'object') {
+            const sMin = Math.max(1, Math.min(99999, parseInt(savedQtyRange.minQty, 10) || 1));
+            const sMax = Math.max(sMin, Math.min(99999, parseInt(savedQtyRange.maxQty, 10) || 10));
+            if (inLiveGiftMinQty) inLiveGiftMinQty.value = String(sMin);
+            if (inLiveGiftMaxQty) inLiveGiftMaxQty.value = String(sMax);
+        }
+    } catch (_e) {}
+
+    function getLiveGiftQtyRange() {
+        const rawMin = inLiveGiftMinQty ? (parseInt(inLiveGiftMinQty.value, 10) || 1) : 1;
+        const rawMax = inLiveGiftMaxQty ? (parseInt(inLiveGiftMaxQty.value, 10) || 10) : 10;
+        const clampedMin = Math.max(1, Math.min(99999, rawMin));
+        const clampedMax = Math.max(1, Math.min(99999, rawMax));
+        return {
+            minQty: Math.min(clampedMin, clampedMax),
+            maxQty: Math.max(clampedMin, clampedMax)
+        };
+    }
+
+    function pickRandomGiftQtyInRange(preferLowStart = false) {
+        const { minQty, maxQty } = getLiveGiftQtyRange();
+        if (minQty >= maxQty) return 'x' + minQty;
+        const span = maxQty - minQty;
+        if (preferLowStart && span >= 3) {
+            const lowSpan = Math.max(1, Math.ceil(span * 0.6));
+            const picked = minQty + Math.floor(Math.random() * (lowSpan + 1));
+            return 'x' + Math.min(maxQty, Math.max(minQty, picked));
+        }
+        const picked = minQty + Math.floor(Math.random() * (span + 1));
+        return 'x' + picked;
+    }
+
+    const GIFT_NICE_MILESTONES = [1, 2, 3, 5, 6, 8, 9, 10, 15, 18, 25, 28, 36, 52, 66, 88, 99, 138, 188, 288, 520, 666, 888, 999, 1314, 3344, 5200, 9999];
+    function getNextGiftComboInRange(curNumInput, stepCount = 1) {
+        const { minQty, maxQty } = getLiveGiftQtyRange();
+        if (minQty >= maxQty) return 'x' + minQty;
+
+        const ladder = [minQty];
+        if (maxQty - minQty <= 12) {
+            for (let v = minQty + 1; v < maxQty; v++) {
+                ladder.push(v);
+            }
+        } else {
+            GIFT_NICE_MILESTONES.forEach(m => {
+                if (m > minQty && m < maxQty) ladder.push(m);
+            });
+            if (ladder.length < 3) {
+                const step = Math.max(1, Math.round((maxQty - minQty) / 4));
+                for (let v = minQty + step; v < maxQty; v += step) {
+                    ladder.push(v);
+                }
+            }
+        }
+        if (ladder[ladder.length - 1] !== maxQty) ladder.push(maxQty);
+
+        let curNum = parseInt(String(curNumInput || '').replace(/[^\d]/g, ''), 10);
+        if (Number.isNaN(curNum) || curNum < minQty || curNum > maxQty) {
+            curNum = minQty;
+        }
+        let baseIdx = 0;
+        for (let i = 0; i < ladder.length; i++) {
+            if (ladder[i] <= curNum) baseIdx = i;
+        }
+        const nextIdx = (baseIdx + Math.max(1, stepCount)) % ladder.length;
+        return 'x' + ladder[nextIdx];
+    }
+
+    function syncGiftQtyRangeUI(clampCurrent = true) {
+        const { minQty, maxQty } = getLiveGiftQtyRange();
+        if (txtLiveGiftQtyRange) {
+            txtLiveGiftQtyRange.textContent = (minQty === maxQty)
+                ? `当前固定：x${minQty}`
+                : `当前范围：x${minQty} ~ x${maxQty}`;
+        }
+        if (giftQtyPresetBtns && giftQtyPresetBtns.length) {
+            giftQtyPresetBtns.forEach(btn => {
+                const bMin = parseInt(btn.getAttribute('data-min'), 10);
+                const bMax = parseInt(btn.getAttribute('data-max'), 10);
+                const isMatch = (bMin === minQty && bMax === maxQty);
+                btn.style.background = isMatch ? 'rgba(245, 158, 11, 0.32)' : 'rgba(245, 158, 11, 0.14)';
+                btn.style.borderColor = isMatch ? 'rgba(251, 191, 36, 0.85)' : 'rgba(245, 158, 11, 0.35)';
+                btn.style.color = isMatch ? '#fef08a' : '#fde68a';
+            });
+        }
+        try {
+            localStorage.setItem(GIFT_QTY_RANGE_STORAGE_KEY, JSON.stringify({ minQty, maxQty }));
+        } catch (_e) {}
+
+        if (clampCurrent && inLiveGiftCount) {
+            const curNum = parseInt(String(inLiveGiftCount.value || '').replace(/[^\d]/g, ''), 10) || minQty;
+            if (curNum < minQty || curNum > maxQty) {
+                const clamped = Math.min(maxQty, Math.max(minQty, curNum));
+                inLiveGiftCount.value = 'x' + clamped;
+                applyLiveGiftBannerState(true, false);
+            }
+        }
+    }
+
     function applyLiveGiftBannerState(playSlideAnim = false, changeAvatar = false) {
         if (!liveGiftComboBanner) return;
         const userTxt = (inLiveGiftUser && inLiveGiftUser.value.trim()) ? inLiveGiftUser.value.trim() : '皓哥';
         const giftTxt = (inLiveGiftName && inLiveGiftName.value.trim()) ? inLiveGiftName.value.trim() : '送 嘉年華';
-        let countTxt = (inLiveGiftCount && inLiveGiftCount.value.trim()) ? inLiveGiftCount.value.trim() : 'x9';
-        if (/^\d+$/.test(countTxt)) {
-            countTxt = 'x' + countTxt;
-            if (inLiveGiftCount) inLiveGiftCount.value = countTxt;
+        const { minQty, maxQty } = getLiveGiftQtyRange();
+        let rawCountTxt = (inLiveGiftCount && inLiveGiftCount.value.trim()) ? inLiveGiftCount.value.trim() : ('x' + Math.min(maxQty, Math.max(minQty, 9)));
+        let parsedCountNum = parseInt(rawCountTxt.replace(/[^\d]/g, ''), 10);
+        if (Number.isNaN(parsedCountNum)) parsedCountNum = minQty;
+        parsedCountNum = Math.min(maxQty, Math.max(minQty, parsedCountNum));
+        const countTxt = 'x' + parsedCountNum;
+        if (inLiveGiftCount && inLiveGiftCount.value !== countTxt) {
+            inLiveGiftCount.value = countTxt;
         }
         const baseColor = (inLiveGiftColor && inLiveGiftColor.value) ? inLiveGiftColor.value : '#9333ea';
         const inferredIcon = inferGiftIconFromName(giftTxt);
@@ -10434,12 +10749,12 @@ window.switchRightTab = function (mode) {
                 lastGiftUserIdx = uIdx;
                 const u = giftUserPresets[uIdx];
 
-                // 2) 随机挑选一款与上一次不同的礼物（带专属图标、文案、主题色与连击数）
+                // 2) 随机挑选一款与上一次不同的礼物（带专属图标、文案、主题色，数量严格受用户「最少~最多」范围控制）
                 let gIdx = Math.floor(Math.random() * LIVE_GIFT_CATALOG.length);
                 if (gIdx === lastGiftCatalogIdx) gIdx = (gIdx + 1) % LIVE_GIFT_CATALOG.length;
                 lastGiftCatalogIdx = gIdx;
                 const giftItem = LIVE_GIFT_CATALOG[gIdx];
-                const c = giftItem.counts[Math.floor(Math.random() * giftItem.counts.length)];
+                const c = pickRandomGiftQtyInRange(true);
 
                 currentGiftEndColor = giftItem.endColor;
                 if (inLiveGiftUser) inLiveGiftUser.value = u;
@@ -10491,7 +10806,22 @@ window.switchRightTab = function (mode) {
             }
         });
     }
-    if (inLiveGiftCount) inLiveGiftCount.addEventListener('input', () => applyLiveGiftBannerState(true, false));
+    if (inLiveGiftCount) {
+        inLiveGiftCount.addEventListener('input', () => {
+            const typedNum = parseInt(String(inLiveGiftCount.value || '').replace(/[^\d]/g, ''), 10);
+            if (!Number.isNaN(typedNum) && typedNum >= 1) {
+                const { minQty, maxQty } = getLiveGiftQtyRange();
+                if (typedNum < minQty && inLiveGiftMinQty) {
+                    inLiveGiftMinQty.value = String(typedNum);
+                    syncGiftQtyRangeUI(false);
+                } else if (typedNum > maxQty && inLiveGiftMaxQty) {
+                    inLiveGiftMaxQty.value = String(typedNum);
+                    syncGiftQtyRangeUI(false);
+                }
+            }
+            applyLiveGiftBannerState(true, false);
+        });
+    }
     if (inLiveGiftColor) inLiveGiftColor.addEventListener('input', (e) => applyLiveGiftColor(e.target.value, false));
     if (inLiveGiftColorHex) {
         inLiveGiftColorHex.addEventListener('input', (e) => {
@@ -10554,10 +10884,50 @@ window.switchRightTab = function (mode) {
     };
     const randGiftCountFn = (e) => {
         if (e) e.preventDefault();
-        const pick = giftCountPresets[Math.floor(Math.random() * giftCountPresets.length)];
+        const pick = pickRandomGiftQtyInRange(false);
         if (inLiveGiftCount) inLiveGiftCount.value = pick;
         applyLiveGiftBannerState(true, false);
     };
+    if (inLiveGiftMinQty) {
+        inLiveGiftMinQty.addEventListener('input', () => syncGiftQtyRangeUI(true));
+        inLiveGiftMinQty.addEventListener('change', () => {
+            const { minQty, maxQty } = getLiveGiftQtyRange();
+            inLiveGiftMinQty.value = String(minQty);
+            if (inLiveGiftMaxQty) inLiveGiftMaxQty.value = String(maxQty);
+            syncGiftQtyRangeUI(true);
+            window.showToast(`🎁 禮物進場數量已設為：最少 x${minQty} ~ 最多 x${maxQty}`);
+        });
+    }
+    if (inLiveGiftMaxQty) {
+        inLiveGiftMaxQty.addEventListener('input', () => syncGiftQtyRangeUI(true));
+        inLiveGiftMaxQty.addEventListener('change', () => {
+            const { minQty, maxQty } = getLiveGiftQtyRange();
+            if (inLiveGiftMinQty) inLiveGiftMinQty.value = String(minQty);
+            inLiveGiftMaxQty.value = String(maxQty);
+            syncGiftQtyRangeUI(true);
+            window.showToast(`🎁 禮物進場數量已設為：最少 x${minQty} ~ 最多 x${maxQty}`);
+        });
+    }
+    if (giftQtyPresetBtns && giftQtyPresetBtns.length) {
+        giftQtyPresetBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const pMin = Math.max(1, parseInt(btn.getAttribute('data-min'), 10) || 1);
+                const pMax = Math.max(pMin, parseInt(btn.getAttribute('data-max'), 10) || 10);
+                if (inLiveGiftMinQty) inLiveGiftMinQty.value = String(pMin);
+                if (inLiveGiftMaxQty) inLiveGiftMaxQty.value = String(pMax);
+                syncGiftQtyRangeUI(true);
+                const picked = pickRandomGiftQtyInRange(false);
+                if (inLiveGiftCount) inLiveGiftCount.value = picked;
+                applyLiveGiftBannerState(true, false);
+                window.showToast(pMin === pMax
+                    ? `🎁 已固定禮物進場數量為 x${pMin}`
+                    : `🎁 已切換禮物數量範圍為：最少 x${pMin} ~ 最多 x${pMax}`);
+            });
+        });
+    }
+    syncGiftQtyRangeUI(false);
     const randGiftColorFn = (e) => {
         if (e) e.preventDefault();
         const pick = giftColorPresets[Math.floor(Math.random() * giftColorPresets.length)];
@@ -10716,11 +11086,109 @@ window.switchRightTab = function (mode) {
             applyLiveDmScaleAndArea(true);
         });
     }
+    const liveBottomSectionEl = liveOverlayEl ? liveOverlayEl.querySelector('.live-bottom-section') : null;
+    const liveGiftComboSlotEl = document.getElementById('live-gift-combo-slot');
+    const liveDmOnstageToolbar = document.getElementById('live-dm-onstage-toolbar');
+    const liveDmMoveHandle = document.getElementById('live-dm-move-handle');
+    const btnLiveOnstageSpdDown = document.getElementById('btn-live-onstage-spd-down');
+    const btnLiveOnstageSpdUp = document.getElementById('btn-live-onstage-spd-up');
+    const txtLiveOnstageSpd = document.getElementById('txt-live-onstage-spd');
+
+    // ★ 公屏礼物与弹幕区位置偏移 (支持按住「✥ 挪位置」自由拖动位置，点「↺ 重置大小」一键归零)
+    const LIVE_DM_OFFSET_STORAGE_KEY = 'LAYA_LIVE_DM_OFFSET_V1';
+    let liveDmOffsetX = 0;
+    let liveDmOffsetY = 0;
+    try {
+        const savedOff = JSON.parse(localStorage.getItem(LIVE_DM_OFFSET_STORAGE_KEY) || 'null');
+        if (savedOff && typeof savedOff === 'object') {
+            liveDmOffsetX = Math.max(-140, Math.min(140, Number(savedOff.x) || 0));
+            liveDmOffsetY = Math.max(-220, Math.min(80, Number(savedOff.y) || 0));
+        }
+    } catch (_e) {}
+
+    function applyLiveDmPositionOffset(saveToLocal = false) {
+        const tf = (liveDmOffsetX === 0 && liveDmOffsetY === 0)
+            ? ''
+            : `translate(${liveDmOffsetX}px, ${liveDmOffsetY}px)`;
+        [liveDmOnstageToolbar, liveGiftComboSlotEl, liveChatScrollBox].forEach(el => {
+            if (el) el.style.transform = tf;
+        });
+        if (saveToLocal) {
+            try {
+                localStorage.setItem(LIVE_DM_OFFSET_STORAGE_KEY, JSON.stringify({ x: liveDmOffsetX, y: liveDmOffsetY }));
+            } catch (_e) {}
+        }
+    }
+    applyLiveDmPositionOffset(false);
+
+    // ★「碰了就有，不碰就没有」：仅当鼠标碰触/操作礼物槽、弹幕区或悬浮工具栏本身（或正在拖拽改大小/挪位置）时才显示工具栏与虚线框
+    let isDraggingDmSizeOrPos = false;
+    let dmZoneHoverCount = 0;
+    let dmZoneLeaveTimer = null;
+    const enterDmInteractiveZone = () => {
+        if (dmZoneLeaveTimer) {
+            clearTimeout(dmZoneLeaveTimer);
+            dmZoneLeaveTimer = null;
+        }
+        dmZoneHoverCount++;
+        if (liveBottomSectionEl) liveBottomSectionEl.classList.add('is-touching-dm-zone');
+    };
+    const leaveDmInteractiveZone = () => {
+        dmZoneHoverCount = Math.max(0, dmZoneHoverCount - 1);
+        if (dmZoneLeaveTimer) clearTimeout(dmZoneLeaveTimer);
+        dmZoneLeaveTimer = setTimeout(() => {
+            if (!isDraggingDmSizeOrPos && dmZoneHoverCount <= 0 && liveBottomSectionEl) {
+                liveBottomSectionEl.classList.remove('is-touching-dm-zone');
+            }
+        }, 90);
+    };
+    [liveDmOnstageToolbar, liveGiftComboSlotEl, liveChatScrollBox].forEach(zEl => {
+        if (!zEl) return;
+        zEl.addEventListener('mouseenter', enterDmInteractiveZone);
+        zEl.addEventListener('mouseleave', leaveDmInteractiveZone);
+    });
+
+    if (liveDmMoveHandle) {
+        liveDmMoveHandle.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            isDraggingDmSizeOrPos = true;
+            if (liveBottomSectionEl) liveBottomSectionEl.classList.add('is-touching-dm-zone');
+            if (liveChatScrollBox) liveChatScrollBox.classList.add('is-resizing-dm');
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const initX = liveDmOffsetX;
+            const initY = liveDmOffsetY;
+
+            const onMovePos = (ev) => {
+                const dx = ev.clientX - startX;
+                const dy = ev.clientY - startY;
+                liveDmOffsetX = Math.max(-140, Math.min(140, Math.round(initX + dx)));
+                liveDmOffsetY = Math.max(-220, Math.min(80, Math.round(initY + dy)));
+                applyLiveDmPositionOffset(false);
+            };
+            const onUpPos = () => {
+                isDraggingDmSizeOrPos = false;
+                if (liveChatScrollBox) liveChatScrollBox.classList.remove('is-resizing-dm');
+                if (dmZoneHoverCount <= 0 && liveBottomSectionEl) {
+                    liveBottomSectionEl.classList.remove('is-touching-dm-zone');
+                }
+                window.removeEventListener('mousemove', onMovePos);
+                window.removeEventListener('mouseup', onUpPos);
+                applyLiveDmPositionOffset(true);
+            };
+            window.addEventListener('mousemove', onMovePos);
+            window.addEventListener('mouseup', onUpPos);
+        });
+    }
+
     if (liveDmResizeHandle && liveChatScrollBox) {
         // 1) 鼠标按住拖拽手柄：左右拖动调弹幕区域宽度 (55%~100%)，上下拖动调弹幕区域高度/同屏行数 (2~9行)
         liveDmResizeHandle.addEventListener('mousedown', (e) => {
             e.preventDefault();
             e.stopPropagation();
+            isDraggingDmSizeOrPos = true;
+            if (liveBottomSectionEl) liveBottomSectionEl.classList.add('is-touching-dm-zone');
             const startX = e.clientX;
             const startY = e.clientY;
             const startWidth = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
@@ -10738,7 +11206,11 @@ window.switchRightTab = function (mode) {
                 applyLiveDmScaleAndArea(nextRows !== prevRows);
             };
             const onUp = () => {
+                isDraggingDmSizeOrPos = false;
                 liveChatScrollBox.classList.remove('is-resizing-dm');
+                if (dmZoneHoverCount <= 0 && liveBottomSectionEl) {
+                    liveBottomSectionEl.classList.remove('is-touching-dm-zone');
+                }
                 window.removeEventListener('mousemove', onMove);
                 window.removeEventListener('mouseup', onUp);
                 if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
@@ -10749,7 +11221,7 @@ window.switchRightTab = function (mode) {
             window.addEventListener('mouseup', onUp);
         });
 
-        // 2) 在拖拽手柄或整个评论区按住滚轮：直接缩放整体弹幕文字与徽章大小 (75%~220%)
+        // 2) 在拖拽手柄、悬浮工具栏或整个评论区滚动滚轮：直接缩放整体弹幕文字与徽章大小 (75%~220%)
         const handleWheelScale = (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -10763,6 +11235,9 @@ window.switchRightTab = function (mode) {
             }
         };
         liveDmResizeHandle.addEventListener('wheel', handleWheelScale, { passive: false });
+        if (liveDmOnstageToolbar) {
+            liveDmOnstageToolbar.addEventListener('wheel', handleWheelScale, { passive: false });
+        }
         liveChatScrollBox.addEventListener('wheel', (e) => {
             if (e.ctrlKey || e.altKey || liveChatScrollBox.closest('.live-bottom-section.is-zoom-editing')) {
                 handleWheelScale(e);
@@ -10771,7 +11246,6 @@ window.switchRightTab = function (mode) {
     }
     applyLiveDmScaleAndArea(false);
 
-    const liveBottomSectionEl = liveOverlayEl ? liveOverlayEl.querySelector('.live-bottom-section') : null;
     const btnLiveCanvasZoomEdit = document.getElementById('btn-live-canvas-zoom-edit');
     const btnLiveCanvasResetSize = document.getElementById('btn-live-canvas-reset-size');
     const btnLiveHeaderZoomEdit = document.getElementById('btn-live-header-zoom-edit');
@@ -10817,6 +11291,9 @@ window.switchRightTab = function (mode) {
             e.stopPropagation();
         }
         syncLiveZoomEditingUI(false);
+        liveDmOffsetX = 0;
+        liveDmOffsetY = 0;
+        applyLiveDmPositionOffset(true);
         if (inLiveDmScale) inLiveDmScale.value = '100';
         if (inLiveDmAreaWidth) inLiveDmAreaWidth.value = '93';
         if (inLiveDmMaxRows) inLiveDmMaxRows.value = '5';
@@ -10824,7 +11301,7 @@ window.switchRightTab = function (mode) {
         if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
             triggerSaveStorage();
         }
-        window.showToast('↺ 已重置評論區放大狀態與標準尺寸（100% · 寬93% · 5行）');
+        window.showToast('↺ 已重置評論區放大狀態、標準尺寸（100% · 寬93% · 5行）與默認位置');
     }
 
     [btnLiveResetDmSize, btnLiveCanvasResetSize, btnLiveHeaderResetSize, btnLiveDmReset2].forEach(rBtn => {
@@ -10848,41 +11325,46 @@ window.switchRightTab = function (mode) {
 
     function adjustLiveSpeedByStep(deltaStep) {
         const cur = getLiveDmSpeedVal();
-        const next = Math.min(10, Math.max(1, cur + deltaStep));
+        const next = Math.min(10, Math.max(0, cur + deltaStep));
         if (inLiveDmSpeed) inLiveDmSpeed.value = String(next);
         if (txtLiveDmSpeed) txtLiveDmSpeed.textContent = formatLiveDmSpeedLabel(next);
-        if (txtLiveCanvasSpd) txtLiveCanvasSpd.textContent = `⚡${next}檔`;
+        const spdBadgeTxt = next === 0 ? '⏸️靜止' : `⚡${next}檔`;
+        if (txtLiveCanvasSpd) txtLiveCanvasSpd.textContent = spdBadgeTxt;
+        if (txtLiveOnstageSpd) txtLiveOnstageSpd.textContent = spdBadgeTxt;
         if (inLiveGiftSpeed) {
             const curGiftSpd = getLiveGiftSpeedVal();
-            const nextGiftSpd = Math.min(10, Math.max(1, curGiftSpd + deltaStep));
+            const nextGiftSpd = Math.min(10, Math.max(0, curGiftSpd + deltaStep));
             inLiveGiftSpeed.value = String(nextGiftSpd);
             if (txtLiveGiftSpeed) txtLiveGiftSpeed.textContent = formatLiveGiftSpeedLabel(nextGiftSpd);
+            if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = nextGiftSpd > 0;
         }
-        if (swLiveAutoRollDm && !swLiveAutoRollDm.checked) swLiveAutoRollDm.checked = true;
-        if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) swLiveAutoCycleGift.checked = true;
+        if (swLiveAutoRollDm) swLiveAutoRollDm.checked = next > 0;
         syncAutoGiftToggleBadgeUI();
-        renderLiveChatBubbles(true);
-        cycleNextGiftBannerWithSlide(true);
+        if (next > 0) renderLiveChatBubbles(true);
         restartLiveChatRollTimer();
         restartLiveGiftAutoCycleTimer();
         if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
-        window.showToast(`⚡ 直播間評論與禮物速度已調至：${formatLiveDmSpeedLabel(next)}`);
+        window.showToast(next === 0 ? '⏸️ 直播間評論與禮物已設為 0 檔：完全靜止不動' : `⚡ 直播間評論與禮物速度已調至：${formatLiveDmSpeedLabel(next)}`);
     }
 
-    if (btnLiveCanvasSpdDown) {
-        btnLiveCanvasSpdDown.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            adjustLiveSpeedByStep(-1);
-        });
-    }
-    if (btnLiveCanvasSpdUp) {
-        btnLiveCanvasSpdUp.addEventListener('click', (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            adjustLiveSpeedByStep(1);
-        });
-    }
+    [btnLiveCanvasSpdDown, btnLiveOnstageSpdDown].forEach(b => {
+        if (b) {
+            b.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                adjustLiveSpeedByStep(-1);
+            });
+        }
+    });
+    [btnLiveCanvasSpdUp, btnLiveOnstageSpdUp].forEach(b => {
+        if (b) {
+            b.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                adjustLiveSpeedByStep(1);
+            });
+        }
+    });
     if (btnLiveCanvasAiDm) {
         btnLiveCanvasAiDm.addEventListener('click', (e) => {
             e.preventDefault();
@@ -10899,45 +11381,46 @@ window.switchRightTab = function (mode) {
         liveChatScrollBox.addEventListener('mouseleave', () => { isHoveringLiveChatBox = false; });
     }
 
-    // ★ 礼物弹窗连击数字跳动（x1 -> x2 -> x5 -> x9 -> x18 -> x52 -> x66 -> x99）+ 自动轮播下一位真人送礼
-    // ★ 礼物弹窗连击数字跳动（x1 -> x2 -> x5 -> x9 -> x18 -> x52 -> x66 -> x99）+ 自动弹出轮播下一位真人送礼 + 1~10档独立速度调节
+    // ★ 礼物弹窗连击数字跳动 + 自动弹出轮播下一位真人送礼 + 0~10档独立速度调节（0档完全静止固定不动，1~3档超级慢速，4~10档常速至狂暴）
     const inLiveGiftSpeed = document.getElementById('in-live-gift-speed');
     const txtLiveGiftSpeed = document.getElementById('txt-live-gift-speed');
+    const btnLiveGiftSpdPause = document.getElementById('btn-live-gift-spd-pause');
     const btnLiveGiftSpdDown = document.getElementById('btn-live-gift-spd-down');
     const btnLiveGiftSpdUp = document.getElementById('btn-live-gift-spd-up');
+    const btnLiveDmSpdPause = document.getElementById('btn-live-dm-spd-pause');
     const txtLiveAutoGiftState = document.getElementById('txt-live-auto-gift-state');
 
-    const GIFT_SWITCH_MS_TABLE = [3500, 2900, 2400, 2000, 1700, 1400, 1100, 850, 680, 520];
-    const GIFT_BOUNCE_MS_TABLE = [820, 690, 580, 480, 400, 330, 270, 220, 180, 150];
-    const GIFT_SPEED_DESC_TABLE = ['悠闲弹出', '慢速弹出', '舒缓轮播', '标准弹出', '热闹送礼', '欢快连发', '高频刷礼', '狂飙刷礼', '大哥屠屏', '满屏暴击'];
+    // 0~10档礼物切换间隔与连击跳动间隔表（0档=静止，1档=25秒/个超级慢，2档=15秒/个极慢，3档=9秒/个慢速，5档=3.5秒/个标准）
+    const GIFT_SWITCH_MS_TABLE = [0, 25000, 15000, 9000, 5500, 3500, 2200, 1500, 1000, 700, 450];
+    const GIFT_BOUNCE_MS_TABLE = [0, 5500, 3500, 2200, 1300, 850, 550, 380, 280, 200, 150];
+    const GIFT_SPEED_DESC_TABLE = ['⏸️静止不动', '🐢超级慢', '🐢极慢速', '慢速弹出', '舒缓轮播', '标准弹出', '欢快连发', '高频刷礼', '狂飙刷礼', '大哥屠屏', '满屏暴击'];
 
     function getLiveGiftSpeedVal() {
-        const raw = inLiveGiftSpeed ? parseInt(inLiveGiftSpeed.value, 10) : 6;
-        return Math.min(10, Math.max(1, isNaN(raw) ? 6 : raw));
+        const raw = inLiveGiftSpeed ? parseInt(inLiveGiftSpeed.value, 10) : 5;
+        return Math.min(10, Math.max(0, Number.isNaN(raw) ? 5 : raw));
     }
 
     function formatLiveGiftSpeedLabel(lv) {
-        const idx = Math.min(10, Math.max(1, parseInt(lv, 10) || 6)) - 1;
-        const secStr = (GIFT_SWITCH_MS_TABLE[idx] / 1000).toFixed(1).replace(/\.0$/, '');
-        return `${idx + 1}档 · ${secStr}秒/个 (${GIFT_SPEED_DESC_TABLE[idx]})`;
+        const clamped = Math.min(10, Math.max(0, Number.isNaN(parseInt(lv, 10)) ? 5 : parseInt(lv, 10)));
+        if (clamped === 0) {
+            return '0档 · ⏸️ 静止不动 (固定不弹)';
+        }
+        const secStr = (GIFT_SWITCH_MS_TABLE[clamped] / 1000).toFixed(1).replace(/\.0$/, '');
+        return `${clamped}档 · ${secStr}秒/个 (${GIFT_SPEED_DESC_TABLE[clamped]})`;
     }
 
     const GIFT_COMBO_STEP_SEQ = ['x1', 'x2', 'x5', 'x9', 'x18', 'x52', 'x66', 'x99', 'x188', 'x520'];
     function bumpLiveGiftComboOnce() {
         if (!liveGiftComboNum || isEditingGiftBanner) return;
-        const curTxt = (liveGiftComboNum.textContent || 'x9').trim();
-        const curNum = parseInt(curTxt.replace(/[^\d]/g, ''), 10) || 1;
-        let nextTxt = 'x9';
-        const seqIdx = GIFT_COMBO_STEP_SEQ.indexOf('x' + curNum);
-        if (seqIdx >= 0 && seqIdx < GIFT_COMBO_STEP_SEQ.length - 1) {
-            nextTxt = GIFT_COMBO_STEP_SEQ[seqIdx + 1];
-        } else if (curNum < 99) {
-            nextTxt = 'x' + (curNum + Math.max(1, Math.floor(Math.random() * 5)));
-        } else {
-            nextTxt = GIFT_COMBO_STEP_SEQ[Math.floor(Math.random() * 5)];
-        }
+        const { minQty, maxQty } = getLiveGiftQtyRange();
+        const curTxt = (liveGiftComboNum.textContent || ('x' + minQty)).trim();
+        const curNum = parseInt(curTxt.replace(/[^\d]/g, ''), 10) || minQty;
+        const nextTxt = getNextGiftComboInRange(curNum, 1);
         liveGiftComboNum.textContent = nextTxt;
         if (inLiveGiftCount) inLiveGiftCount.value = nextTxt;
+        if (minQty >= maxQty) {
+            return;
+        }
         liveGiftComboNum.classList.remove('is-bouncing');
         void liveGiftComboNum.offsetWidth;
         liveGiftComboNum.classList.add('is-bouncing');
@@ -10954,9 +11437,10 @@ window.switchRightTab = function (mode) {
     }
 
     function syncAutoGiftToggleBadgeUI() {
-        const isOn = !swLiveAutoCycleGift || swLiveAutoCycleGift.checked;
+        const giftSpdLv = getLiveGiftSpeedVal();
+        const isOn = (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) && giftSpdLv > 0;
         if (txtLiveAutoGiftState) {
-            txtLiveAutoGiftState.textContent = isOn ? '自动弹出轮播中' : '已暂停(点此开启)';
+            txtLiveAutoGiftState.textContent = isOn ? '自动弹出轮播中' : '⏸️ 已固定静止(点此开启)';
         }
     }
 
@@ -10974,44 +11458,59 @@ window.switchRightTab = function (mode) {
             txtLiveGiftSpeed.textContent = formatLiveGiftSpeedLabel(giftSpdLv);
         }
         syncAutoGiftToggleBadgeUI();
+        if (giftSpdLv <= 0) {
+            return;
+        }
         if (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) {
-            const idx = giftSpdLv - 1;
-            const switchGiftMs = GIFT_SWITCH_MS_TABLE[idx] || 1400;
-            const bounceComboMs = GIFT_BOUNCE_MS_TABLE[idx] || 330;
+            const switchGiftMs = GIFT_SWITCH_MS_TABLE[giftSpdLv] || 3500;
+            const bounceComboMs = GIFT_BOUNCE_MS_TABLE[giftSpdLv] || 850;
             liveGiftComboBounceTimer = setInterval(() => {
                 if (!isLiveRoomOpenNow() || isEditingGiftBanner) return;
                 if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) return;
+                if (getLiveGiftSpeedVal() <= 0) return;
                 bumpLiveGiftComboOnce();
             }, bounceComboMs);
             liveGiftComboTimer = setInterval(() => {
                 if (!isLiveRoomOpenNow() || isEditingGiftBanner) return;
                 if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) return;
+                if (getLiveGiftSpeedVal() <= 0) return;
                 cycleNextGiftBannerWithSlide(true);
             }, switchGiftMs);
         }
     }
 
     function setLiveGiftSpeedLevel(nextLv, showToastMsg = true) {
-        const lv = Math.min(10, Math.max(1, parseInt(nextLv, 10) || 6));
+        const parsed = parseInt(nextLv, 10);
+        const lv = Math.min(10, Math.max(0, Number.isNaN(parsed) ? 5 : parsed));
         if (inLiveGiftSpeed) inLiveGiftSpeed.value = String(lv);
         if (txtLiveGiftSpeed) txtLiveGiftSpeed.textContent = formatLiveGiftSpeedLabel(lv);
-        if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) {
-            swLiveAutoCycleGift.checked = true;
+        if (lv === 0) {
+            if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = false;
+        } else {
+            if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) {
+                swLiveAutoCycleGift.checked = true;
+            }
         }
         syncAutoGiftToggleBadgeUI();
-        cycleNextGiftBannerWithSlide(true);
         restartLiveGiftAutoCycleTimer();
         if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
             triggerSaveStorage();
         }
         if (showToastMsg) {
-            window.showToast(`🎁 禮物彈出與連擊速度已設為：${formatLiveGiftSpeedLabel(lv)}`);
+            window.showToast(lv === 0 ? '⏸️ 禮物小彈窗已設為 0 檔：完全固定靜止不動' : `🎁 禮物彈出與連擊速度已設為：${formatLiveGiftSpeedLabel(lv)}`);
         }
     }
 
     if (inLiveGiftSpeed) {
         inLiveGiftSpeed.addEventListener('input', () => {
             setLiveGiftSpeedLevel(inLiveGiftSpeed.value, false);
+        });
+    }
+    if (btnLiveGiftSpdPause) {
+        btnLiveGiftSpdPause.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setLiveGiftSpeedLevel(0, true);
         });
     }
     if (btnLiveGiftSpdDown) {
@@ -11025,17 +11524,18 @@ window.switchRightTab = function (mode) {
         btnLiveGiftSpdUp.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            setLiveGiftSpeedLevel(getLiveGiftSpeedVal() + 1, true);
+            const cur = getLiveGiftSpeedVal();
+            setLiveGiftSpeedLevel(cur <= 0 ? 1 : cur + 1, true);
         });
     }
     if (swLiveAutoCycleGift) {
         swLiveAutoCycleGift.addEventListener('change', () => {
+            if (swLiveAutoCycleGift.checked && getLiveGiftSpeedVal() <= 0) {
+                if (inLiveGiftSpeed) inLiveGiftSpeed.value = '3';
+            }
             syncAutoGiftToggleBadgeUI();
             restartLiveGiftAutoCycleTimer();
-            if (swLiveAutoCycleGift.checked) {
-                cycleNextGiftBannerWithSlide(true);
-            }
-            window.showToast(swLiveAutoCycleGift.checked ? '🔄 已開啟禮物彈窗自動輪播與連擊跳動' : '⏸️ 已固定當前禮物彈窗（點篩子或手動修改後文字不再自動跳變）');
+            window.showToast(swLiveAutoCycleGift.checked ? '🔄 已開啟禮物彈窗自動輪播與連擊跳動' : '⏸️ 已固定當前禮物彈窗（完全靜止不動）');
         });
     }
 
@@ -11053,61 +11553,71 @@ window.switchRightTab = function (mode) {
         if (txtLiveDmSpeed) {
             txtLiveDmSpeed.textContent = formatLiveDmSpeedLabel(speedLv);
         }
+        const spdBadgeLabel = speedLv === 0 ? '⏸️靜止' : `⚡${speedLv}檔`;
         if (txtLiveCanvasSpd) {
-            txtLiveCanvasSpd.textContent = `⚡${speedLv}檔`;
+            txtLiveCanvasSpd.textContent = spdBadgeLabel;
         }
-        // 始终保持定时器就绪（不管是否上传视频，只要打开直播间就默认源源不断向上滚动）
+        if (txtLiveOnstageSpd) {
+            txtLiveOnstageSpd.textContent = spdBadgeLabel;
+        }
+        if (speedLv <= 0) {
+            return;
+        }
         if (!swLiveAutoRollDm || swLiveAutoRollDm.checked) {
             const intervalMs = getLiveDmIntervalMs(speedLv);
-            liveChatRollTimer = setInterval(() => {
-                if (isLiveRoomOpenNow() && liveDmVisible) {
-                    renderLiveChatBubbles(true);
-                }
-            }, intervalMs);
+            if (intervalMs > 0) {
+                liveChatRollTimer = setInterval(() => {
+                    if (isLiveRoomOpenNow() && liveDmVisible && getLiveDmSpeedVal() > 0 && (!swLiveAutoRollDm || swLiveAutoRollDm.checked)) {
+                        renderLiveChatBubbles(true);
+                    }
+                }, intervalMs);
+            }
         }
 
-        // 最底部单行「足弟 来了 / 💎17 足弟 来了」进场通道：随弹幕速度滑块同步加速切换进场观众
         const joinIntervalMs = getLiveJoinIntervalMs(speedLv);
-        liveJoinTickerTimer = setInterval(() => {
-            if (isLiveRoomOpenNow() && liveDmVisible && liveEditingDmIdx === null) {
-                renderLiveJoinTicker(true);
-            }
-        }, joinIntervalMs);
+        if (joinIntervalMs > 0 && (!swLiveAutoRollDm || swLiveAutoRollDm.checked)) {
+            liveJoinTickerTimer = setInterval(() => {
+                if (isLiveRoomOpenNow() && liveDmVisible && liveEditingDmIdx === null && getLiveDmSpeedVal() > 0 && (!swLiveAutoRollDm || swLiveAutoRollDm.checked)) {
+                    renderLiveJoinTicker(true);
+                }
+            }, joinIntervalMs);
+        }
+    }
+    if (btnLiveDmSpdPause) {
+        btnLiveDmSpdPause.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (inLiveDmSpeed) inLiveDmSpeed.value = '0';
+            if (swLiveAutoRollDm) swLiveAutoRollDm.checked = false;
+            restartLiveChatRollTimer();
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('⏸️ 公屏彈幕已設為 0 檔：完全靜止固定不動');
+        });
     }
     if (swLiveAutoRollDm) {
         swLiveAutoRollDm.addEventListener('change', () => {
+            if (swLiveAutoRollDm.checked && getLiveDmSpeedVal() <= 0) {
+                if (inLiveDmSpeed) inLiveDmSpeed.value = '3';
+            }
             restartLiveChatRollTimer();
-            window.showToast(swLiveAutoRollDm.checked ? '🔄 已開啟公屏彈幕自動滾動' : '⏸️ 已固定公屏彈幕展示（文字不再自動滾動跳變）');
+            window.showToast(swLiveAutoRollDm.checked ? '🔄 已開啟公屏彈幕自動滾動' : '⏸️ 已固定公屏彈幕展示（文字完全靜止不再滾動）');
         });
     }
 
-    // ★ 根据视频画面进度（播放中或手动拖动底部进度条/时间轴）实时联动推进直播间评论、进场、礼物与点赞飘心
+    // ★ 仅当用户在暂停状态下手动拖动底部视频时间轴游标时，才按需联动预览；正常播放时严格按照用户设定的 0~10 档定时器速度运行（支持超级慢与完全静止）
     window.__onLiveVideoProgressSync = function (curTimeSec, isPaused) {
-        if (!isLiveRoomOpenNow()) return;
+        if (!isLiveRoomOpenNow() || !isPaused) return;
         const t = Number(curTimeSec) || 0;
         if (lastLiveVideoSyncTime < 0) {
             lastLiveVideoSyncTime = t;
             return;
         }
         const diff = Math.abs(t - lastLiveVideoSyncTime);
-        const speedLv = getLiveDmSpeedVal();
-        const stepThresholdSec = Math.max(0.08, (getLiveDmIntervalMs(speedLv) / 1000) * 0.85);
-        // 当用户手动拖拽进度条游标(isPaused 或跳跃较大)或播放推进达到阈值时，同步推进公屏与礼物/点赞
-        if ((isPaused && diff >= 0.12) || diff >= stepThresholdSec) {
+        if (diff >= 0.35) {
             lastLiveVideoSyncTime = t;
-            if (liveDmVisible && (!swLiveAutoRollDm || swLiveAutoRollDm.checked)) {
+            if (liveDmVisible && getLiveDmSpeedVal() > 0 && (!swLiveAutoRollDm || swLiveAutoRollDm.checked)) {
                 renderLiveChatBubbles(true);
                 renderLiveJoinTicker(true);
-            }
-            if (isPaused && diff >= 0.15) {
-                spawnSingleLiveHeart();
-                if (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) {
-                    if (Math.round(t * 2) % 3 === 0) {
-                        cycleNextGiftBannerWithSlide(true);
-                    } else {
-                        bumpLiveGiftComboOnce();
-                    }
-                }
             }
         }
     };
@@ -11139,36 +11649,24 @@ window.switchRightTab = function (mode) {
         liveRollTickCount = 0;
         liveDmVisible = true;
         liveEditingDmIdx = null;
-        if (swLiveAutoRollDm) swLiveAutoRollDm.checked = true;
-        if (swLiveAutoCycleGift) swLiveAutoCycleGift.checked = true;
         if (liveChatList) liveChatList.style.opacity = '1';
         if (liveJoinTickerRow) liveJoinTickerRow.style.opacity = '1';
-        if (liveSysNoticeEl) {
-            liveSysNoticeEl.style.display = (!swLiveShowNotice || swLiveShowNotice.checked) ? '' : 'none';
+        if (typeof applyAllLiveElementVisibility === 'function') {
+            applyAllLiveElementVisibility();
+        } else {
+            if (liveSysNoticeEl) {
+                liveSysNoticeEl.style.display = (!swLiveShowNotice || swLiveShowNotice.checked) ? '' : 'none';
+            }
+            if (liveRoomWelcomeEl) {
+                liveRoomWelcomeEl.style.display = (!swLiveShowWelcome || swLiveShowWelcome.checked) ? '' : 'none';
+            }
         }
-        if (liveRoomWelcomeEl) {
-            liveRoomWelcomeEl.style.display = (!swLiveShowWelcome || swLiveShowWelcome.checked) ? '' : 'none';
-        }
-        applyLiveGiftBannerState(true, true);
+        applyLiveGiftBannerState(false, false);
         renderLiveChatBubbles(false);
         renderLiveJoinTicker(false);
         restartLiveChatRollTimer();
         restartLiveHeartTimer();
         restartLiveGiftAutoCycleTimer();
-
-        // 一打开直播间立即启动评论滚动、礼物连击跳动与点赞飘心，无论是否上传了视频都默认全自动开启
-        setTimeout(() => {
-            if (isLiveRoomOpenNow()) {
-                renderLiveChatBubbles(true);
-                bumpLiveGiftComboOnce();
-                spawnSingleLiveHeart();
-            }
-        }, 120);
-        setTimeout(() => {
-            if (isLiveRoomOpenNow()) {
-                spawnSingleLiveHeart();
-            }
-        }, 280);
 
         if (liveHeaderFlipTimer) {
             clearInterval(liveHeaderFlipTimer);
@@ -11208,28 +11706,24 @@ window.switchRightTab = function (mode) {
         syncLiveZoomEditingUI(false);
     }
 
-    // ★ 右侧编辑栏瞬间跳转并高亮【🔴 直播间专属设置】卡片
-    function scrollToLiveSettingsCardImmediately() {
+    // ★ 右侧编辑栏瞬间跳转并高亮【🔴 直播间专属设置】卡片（置顶对齐）
+    function scrollToLiveSettingsCardImmediately(targetSubSelector = '#card-dy-live-settings') {
+        const panelDyEl = document.getElementById('panel-dy-settings');
+        if (panelDyEl) panelDyEl.classList.add('live-priority-order');
+        if (typeof window.locateSidebarControl === 'function') {
+            window.locateSidebarControl({
+                tab: 'dy',
+                cardId: 'card-dy-live-settings',
+                targetSelector: targetSubSelector || '#card-dy-live-settings',
+                highlightSelector: targetSubSelector || '#card-dy-live-settings'
+            });
+            return;
+        }
         if (typeof window.switchRightTab === 'function') {
             window.switchRightTab('dy');
         }
         if (typeof setActiveQuickAccessItem === 'function') {
             setActiveQuickAccessItem('card-dy-live-settings', true);
-        }
-        const liveCard = document.getElementById('card-dy-live-settings');
-        const rightSide = document.getElementById('right-sidebar');
-        if (liveCard && rightSide) {
-            rightSide.querySelectorAll('.panel-card.qa-card-focus-glow').forEach(c => c.classList.remove('qa-card-focus-glow'));
-            const jumpNow = () => {
-                const sideRect = rightSide.getBoundingClientRect();
-                const cardRect = liveCard.getBoundingClientRect();
-                const targetTop = rightSide.scrollTop + (cardRect.top - sideRect.top) - 10;
-                rightSide.scrollTo({ top: Math.max(0, targetTop), behavior: 'smooth' });
-                void liveCard.offsetWidth;
-                liveCard.classList.add('qa-card-focus-glow');
-            };
-            requestAnimationFrame(jumpNow);
-            setTimeout(jumpNow, 65);
         }
     }
 
@@ -11250,6 +11744,8 @@ window.switchRightTab = function (mode) {
         // 若评论区打开则先收起，并切换为直播间内页态
         renderTarget.classList.remove('dy-comment-open', 'dy-comment-expanded', 'dy-live-preview');
         renderTarget.classList.add('dy-live-open');
+        const panelDyEl = document.getElementById('panel-dy-settings');
+        if (panelDyEl) panelDyEl.classList.add('live-priority-order');
         if (liveOverlayEl) liveOverlayEl.style.display = 'flex';
         syncLiveAudienceAvatars(0);
 
@@ -11283,6 +11779,8 @@ window.switchRightTab = function (mode) {
         qaLiveItemBtn.addEventListener('click', () => {
             if (!isLiveRoomOpenNow()) {
                 enterLayaLiveRoom();
+            } else {
+                scrollToLiveSettingsCardImmediately();
             }
         });
     }
@@ -11297,19 +11795,22 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // ★ 700ms 自愈巡检守护：只要直播间处于开启状态，确保公屏评论滚动、底部进场、礼物连击轮播、右侧飘心 4 大定时器始终活跃运行，绝不因任何时序或切换而停摆
+    // ★ 700ms 自愈巡检守护：仅当用户开启了对应自动开关且档位 > 0 时才守护运行，若设为 0 档或关闭了自动开关则严格保持静止
     setInterval(() => {
         if (!isLiveRoomOpenNow()) return;
-        if ((!swLiveAutoRollDm || swLiveAutoRollDm.checked) && !liveChatRollTimer) {
+        const dmSpd = getLiveDmSpeedVal();
+        if (dmSpd > 0 && (!swLiveAutoRollDm || swLiveAutoRollDm.checked) && !liveChatRollTimer) {
             restartLiveChatRollTimer();
         }
-        if (!liveJoinTickerTimer) {
+        if (dmSpd > 0 && (!swLiveAutoRollDm || swLiveAutoRollDm.checked) && !liveJoinTickerTimer) {
             restartLiveChatRollTimer();
         }
-        if ((!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) && (!liveGiftComboTimer || !liveGiftComboBounceTimer)) {
+        const giftSpd = getLiveGiftSpeedVal();
+        if (giftSpd > 0 && (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) && (!liveGiftComboTimer || !liveGiftComboBounceTimer)) {
             restartLiveGiftAutoCycleTimer();
         }
-        if (!liveHeartTimer) {
+        const heartDen = getLiveHeartDensityVal();
+        if (heartDen > 0 && (!liveFloatingHearts || liveFloatingHearts.dataset.liveHidden !== 'true') && !liveHeartTimer) {
             restartLiveHeartTimer();
         }
     }, 700);
@@ -11321,6 +11822,8 @@ window.switchRightTab = function (mode) {
         if (!renderTarget) return;
         const wasOpen = renderTarget.classList.contains('dy-live-open') || renderTarget.classList.contains('dy-live-preview');
         renderTarget.classList.remove('dy-live-open', 'dy-live-preview');
+        const panelDyEl = document.getElementById('panel-dy-settings');
+        if (panelDyEl) panelDyEl.classList.remove('live-priority-order');
         if (liveOverlayEl) liveOverlayEl.style.display = 'none';
         stopLiveRoomAnimations();
 
@@ -11367,10 +11870,10 @@ window.switchRightTab = function (mode) {
     }
 
     // 切换顶部 4 大模式时，若离开 9:16 竖屏则自动退出直播间待命状态
-    document.querySelectorAll('.viewport-tabs .tab-btn').forEach(btn => {
+    document.querySelectorAll('.viewport-tabs .tab-btn[data-mode]').forEach(btn => {
         btn.addEventListener('click', () => {
             const mode = btn.getAttribute('data-mode');
-            if (mode !== 'mode-mobile-port') {
+            if (mode && mode !== 'mode-mobile-port') {
                 exitLayaLiveRoom(false);
             }
         });
@@ -11670,6 +12173,10 @@ window.switchRightTab = function (mode) {
     );
 
     const btnLiveAiMatchDm = document.getElementById('btn-live-ai-match-dm');
+    const btnDmStudioAiGen = document.getElementById('btn-dm-studio-ai-gen');
+    const swDmStudioAutoAi = document.getElementById('sw-dm-studio-auto-ai');
+    const txtDmStudioAiStatus = document.getElementById('txt-dm-studio-ai-status');
+    const btnWebAiDm = document.getElementById('btn-web-ai-dm');
     const btnLiveRandDmBatch = document.getElementById('btn-live-rand-dm-batch');
     const btnLiveSplitDmLines = document.getElementById('btn-live-split-dm-lines');
     const btnLiveToggleAiCfg = document.getElementById('btn-live-toggle-ai-cfg');
@@ -11681,16 +12188,16 @@ window.switchRightTab = function (mode) {
     const btnLiveSaveAiKey = document.getElementById('btn-live-save-ai-key');
     const btnLiveShareAiKey = document.getElementById('btn-live-share-ai-key');
 
-    // ★ 全站默认共享 AI API Key（已内置团队专属 Gemini 3.8 Flash 秘钥 + 8人防刷限流保护）
+    // ★ 全站默认共享 AI API Key（已内置团队专属 Gemini 3.8 Flash 秘钥 + 严格 30 秒最小调用间隔防刷保护）
     const _TEAM_BUILTIN_KEY_PARTS = ['AQ.Ab8RN6JEu2BzQVh7cehw', 'LxkkCOnsQG4E4a8_I3RTKtzd5AIS6w'];
     const GLOBAL_SHARED_DEFAULT_AI_KEY = window.LAYA_GLOBAL_SHARED_AI_KEY || _TEAM_BUILTIN_KEY_PARTS.join('');
     const GLOBAL_SHARED_DEFAULT_AI_URL = window.LAYA_GLOBAL_SHARED_AI_URL || '';
     const TEAM_AI_PASSCODE = '0000';
     const TEAM_AI_DAILY_LIMIT = 40;       // 每人每天最多调用 40 次（8人合计最多 320 次/天）
-    const TEAM_AI_COOLDOWN_SEC = 5;       // 每次手动调用冷却 5 秒，既防连点刷爆又保证响应流畅
-    let lastAiCallTimestamp = 0;
+    const TEAM_AI_COOLDOWN_SEC = 30;      // ★ 每次使用 AI 间隔严格不能低于 30 秒
+    let lastAiCallTimestamp = parseInt(localStorage.getItem('LAYA_GLOBAL_LAST_AI_TS') || '0', 10) || 0;
     let aiCooldownTimer = null;
-    const videoAiResultCache = new Map(); // 同视频自动触发时的防重复消耗缓存
+    const videoAiResultCache = new Map(); // 同视频/图片自动触发时的防重复消耗缓存
 
     function getTodayDateKey() {
         const d = new Date();
@@ -11719,9 +12226,10 @@ window.switchRightTab = function (mode) {
     }
 
     function updateLiveAiQuotaStatusText(prefixMsg = '⚡ Gemini 3.8 Flash 就緒') {
-        if (!txtLiveAiStatus) return;
         const { remain } = getDailyAiQuotaState();
-        txtLiveAiStatus.textContent = `${prefixMsg} (今日剩餘 ${remain}/${TEAM_AI_DAILY_LIMIT})`;
+        const statusStr = `${prefixMsg} (30s冷卻 · 今日剩餘 ${remain}/${TEAM_AI_DAILY_LIMIT})`;
+        if (txtLiveAiStatus) txtLiveAiStatus.textContent = statusStr;
+        if (txtDmStudioAiStatus) txtDmStudioAiStatus.textContent = statusStr;
     }
 
     function verifyTeamAiPasscode(isInteractive = true) {
@@ -11747,28 +12255,54 @@ window.switchRightTab = function (mode) {
         return false;
     }
 
-    function startAiButtonCooldown() {
-        lastAiCallTimestamp = Date.now();
-        if (aiCooldownTimer) clearInterval(aiCooldownTimer);
-        if (!btnLiveAiMatchDm) return;
-        const origText = '🤖 AI 識別視頻自動配彈幕';
-        btnLiveAiMatchDm.disabled = true;
-        btnLiveAiMatchDm.textContent = '✅ 已配好新彈幕！';
-        aiCooldownTimer = setInterval(() => {
-            const elapsedSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
-            const leftSec = TEAM_AI_COOLDOWN_SEC - elapsedSec;
-            if (leftSec <= 0) {
+    const allAiDanmakuButtons = [
+        { el: btnLiveAiMatchDm, defaultLabel: '🤖 AI 識別視頻/圖片配彈幕' },
+        { el: btnLiveCanvasAiDm, defaultLabel: '🤖 AI畫面生詞' },
+        { el: btnDmStudioAiGen, defaultLabel: '🤖 AI 识别视频/图片获取弹幕话术' },
+        { el: btnWebAiDm, defaultLabel: '🤖 AI 识别视频/图片配弹幕' }
+    ];
+
+    function syncAllAiButtonsCooldownUI() {
+        const elapsedMs = Date.now() - lastAiCallTimestamp;
+        const elapsedSec = Math.floor(elapsedMs / 1000);
+        const leftSec = TEAM_AI_COOLDOWN_SEC - elapsedSec;
+        if (lastAiCallTimestamp <= 0 || leftSec <= 0) {
+            if (aiCooldownTimer) {
                 clearInterval(aiCooldownTimer);
                 aiCooldownTimer = null;
-                btnLiveAiMatchDm.disabled = false;
-                btnLiveAiMatchDm.style.opacity = '1';
-                btnLiveAiMatchDm.textContent = origText;
-            } else if (elapsedSec >= 1) {
-                btnLiveAiMatchDm.disabled = true;
-                btnLiveAiMatchDm.style.opacity = '0.85';
-                btnLiveAiMatchDm.textContent = `⏳ 冷卻 ${leftSec}s...`;
             }
+            allAiDanmakuButtons.forEach(({ el, defaultLabel }) => {
+                if (!el) return;
+                el.disabled = false;
+                el.style.opacity = '1';
+                el.textContent = defaultLabel;
+            });
+            return false;
+        }
+        allAiDanmakuButtons.forEach(({ el }) => {
+            if (!el) return;
+            el.disabled = true;
+            el.style.opacity = '0.82';
+            el.textContent = `⏳ 冷卻 ${leftSec}s (間隔≥30s)`;
+        });
+        return true;
+    }
+
+    function startAiButtonCooldown(initialTimestamp = Date.now()) {
+        lastAiCallTimestamp = initialTimestamp;
+        try {
+            localStorage.setItem('LAYA_GLOBAL_LAST_AI_TS', String(lastAiCallTimestamp));
+        } catch (e) {}
+        if (aiCooldownTimer) clearInterval(aiCooldownTimer);
+        syncAllAiButtonsCooldownUI();
+        aiCooldownTimer = setInterval(() => {
+            syncAllAiButtonsCooldownUI();
         }, 400);
+    }
+
+    // 页面加载时若仍在 30 秒冷却期内，自动恢复倒计时状态
+    if (lastAiCallTimestamp > 0 && (Date.now() - lastAiCallTimestamp) < TEAM_AI_COOLDOWN_SEC * 1000) {
+        startAiButtonCooldown(lastAiCallTimestamp);
     }
 
     // 支持从网址参数 ?ai_key=xxx 自动读取并持久化共享 Key
@@ -11965,9 +12499,24 @@ window.switchRightTab = function (mode) {
         const previewVid = document.getElementById('preview-video');
         const previewImg = document.getElementById('preview-img');
         const rawCandidates = [];
+        const isImgMode = (window.PlayerEngine && window.PlayerEngine.isVideoMode === false)
+            || (previewImg && previewImg.style.display !== 'none' && (!previewVid || previewVid.style.display === 'none'));
 
-        // 1) 优先截取当前画面正在展示的实时视频帧（若视频刚加载停在 0.0s 片头黑屏且处于暂停状态，自动微调到 0.8s 抓取真实画面）
-        if (previewVid && previewVid.videoWidth > 0 && previewVid.style.display !== 'none') {
+        // 0) 若当前处于图片模式（用户上传的是图片），优先直接截取当前图片画面！
+        if (isImgMode && previewImg && previewImg.naturalWidth > 0) {
+            try {
+                const c = document.createElement('canvas');
+                const iw = previewImg.naturalWidth || 640;
+                const ih = previewImg.naturalHeight || 360;
+                c.width = Math.min(420, iw);
+                c.height = Math.round(c.width * (ih / iw)) || 236;
+                c.getContext('2d').drawImage(previewImg, 0, 0, c.width, c.height);
+                rawCandidates.push(c.toDataURL('image/jpeg', 0.75));
+            } catch (e) {}
+        }
+
+        // 1) 若当前为视频模式，截取当前画面正在展示的实时视频帧（若视频刚加载停在 0.0s 片头黑屏且处于暂停状态，自动微调到 0.8s 抓取真实画面）
+        if (!isImgMode && previewVid && previewVid.videoWidth > 0 && previewVid.style.display !== 'none') {
             try {
                 if (previewVid.paused && previewVid.currentTime < 0.18 && previewVid.duration > 1.0) {
                     await new Promise((resolve) => {
@@ -12004,7 +12553,7 @@ window.switchRightTab = function (mode) {
                 if (f && rawCandidates.length < 4) rawCandidates.push(f);
             });
         }
-        if (rawCandidates.length === 0 && previewImg && previewImg.naturalWidth > 0 && previewImg.style.display !== 'none') {
+        if (rawCandidates.length === 0 && previewImg && previewImg.naturalWidth > 0) {
             try {
                 const c = document.createElement('canvas');
                 const iw = previewImg.naturalWidth || 640;
@@ -12250,40 +12799,48 @@ window.switchRightTab = function (mode) {
         return null;
     }
 
-    // ★ 核心主入口：上传视频后或点击「🤖 AI 識別視頻自動配彈幕」时自动分析视频画面并填充弹幕（含 8 人团队 5 层防刷限制）
-    async function autoMatchLiveDanmakuByVideoAI(isManualClick = true, preFrames = null) {
-        // 1) 冷却时间检查（防连点狂刷，间隔 5 秒）
-        if (isManualClick) {
-            const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
-            if (lastAiCallTimestamp > 0 && sinceLastSec < TEAM_AI_COOLDOWN_SEC) {
-                window.showToast(`⏳ 請等待 ${TEAM_AI_COOLDOWN_SEC - sinceLastSec} 秒冷卻後再試`);
-                return;
+    // ★ 核心主入口：无论上传的是视频还是图片，只要有弹幕的地方（直播间弹幕 / 飘屏弹幕工坊 / 电脑端弹幕）均可通过 AI 获取话术，且严格执行每次调用间隔 ≥ 30 秒！
+    async function autoMatchLiveDanmakuByVideoAI(isManualClick = true, preFrames = null, targetScope = 'all') {
+        // 1) 严格 30 秒冷却时间检查（无论手动点击还是上传自动触发，两次 AI 调用之间绝不低于 30 秒）
+        const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
+        if (lastAiCallTimestamp > 0 && sinceLastSec < TEAM_AI_COOLDOWN_SEC) {
+            const waitSec = TEAM_AI_COOLDOWN_SEC - sinceLastSec;
+            syncAllAiButtonsCooldownUI();
+            if (isManualClick) {
+                window.showToast(`⏳ 每次使用 AI 間隔不能低於 ${TEAM_AI_COOLDOWN_SEC} 秒，請等待 ${waitSec} 秒後再試`);
             }
-            // 若用户在手机竖屏模式下点击右侧「🤖 AI 識別視頻自動配彈幕」，但左侧还未切入直播间，自动打开直播间让用户立刻看到效果
+            return;
+        }
+
+        if (isManualClick && targetScope === 'live') {
             if (renderTarget && renderTarget.classList.contains('mode-mobile-port') && !renderTarget.classList.contains('dy-live-open')) {
                 enterLayaLiveRoom();
             }
         }
 
-        if (txtLiveAiStatus) txtLiveAiStatus.textContent = '🔍 Gemini 3.8 Flash 正在識別畫面並生成彈幕...';
-        if (btnLiveAiMatchDm) {
-            btnLiveAiMatchDm.disabled = true;
-            btnLiveAiMatchDm.style.opacity = '0.82';
-            btnLiveAiMatchDm.textContent = '🔍 AI 正在識別畫面...';
-        }
+        if (txtLiveAiStatus) txtLiveAiStatus.textContent = '🔍 Gemini 3.8 Flash 正在識別視頻/圖片畫面並生成彈幕...';
+        if (txtDmStudioAiStatus) txtDmStudioAiStatus.textContent = '🔍 AI 正在識別畫面生成彈幕話術...';
+        allAiDanmakuButtons.forEach(({ el }) => {
+            if (!el) return;
+            el.disabled = true;
+            el.style.opacity = '0.82';
+            el.textContent = '🔍 AI 正在識別畫面...';
+        });
 
         try {
             const { frames, stats } = await extractCurrentVideoFramesAndStats(preFrames);
             const rawDesc = document.getElementById('in-dy-desc')?.value || '';
             const rawTags = document.getElementById('in-dy-tags')?.value || '';
-            const rawTitle = document.getElementById('in-m-main-title')?.value || '';
+            const rawTitle = document.getElementById('in-m-main-title')?.value || document.getElementById('in-title')?.value || '';
             const fileName = window.__lastUploadedMediaName || '';
             const contextText = [fileName, rawDesc, rawTags, rawTitle].filter(Boolean).join(' ');
 
-            // 生成当前视频与标题的特征签名，用于上传同视频自动触发时的防重复扣额度缓存
             const cacheSig = `${fileName}|${contextText}|${stats.avgLuma}|${stats.skinRatio.toFixed(2)}`;
             let matchedLines = null;
             let sceneLabel = 'Gemini 3.8 Flash 視覺大模型';
+
+            // 无论云端或本地，一旦发起本次 AI 识别，立即启动 30 秒全局冷却计时
+            startAiButtonCooldown(Date.now());
 
             if (!isManualClick && videoAiResultCache.has(cacheSig)) {
                 matchedLines = videoAiResultCache.get(cacheSig);
@@ -12297,7 +12854,6 @@ window.switchRightTab = function (mode) {
                         if (matchedLines && matchedLines.length >= 4) {
                             consumeOneDailyAiQuota();
                             videoAiResultCache.set(cacheSig, matchedLines);
-                            if (isManualClick) startAiButtonCooldown();
                         }
                     } catch (err) {
                         matchedLines = null;
@@ -12311,9 +12867,9 @@ window.switchRightTab = function (mode) {
                 const localRes = buildSmartLocalVideoAiDanmaku(stats, contextText);
                 matchedLines = localRes.lines;
                 sceneLabel = localRes.sceneLabel;
-                if (isManualClick) startAiButtonCooldown();
             }
 
+            // A) 填充直播间公屏滚动弹幕列表
             if (inLiveDanmakuList && matchedLines.length > 0) {
                 inLiveDanmakuList.value = matchedLines.join('\n');
                 inLiveDanmakuList.style.borderColor = '#10b981';
@@ -12325,59 +12881,102 @@ window.switchRightTab = function (mode) {
                     }
                 }, 1200);
             }
-            if (isManualClick && swLiveAutoRollDm && !swLiveAutoRollDm.checked) {
-                swLiveAutoRollDm.checked = true;
-            }
             liveChatCursor = 0;
             renderLiveChatBubbles(false);
             restartLiveChatRollTimer();
 
-            // 同步前 6 条纯弹幕正文到画面顶部飘屏弹幕轨道（方便短视频与直播双端复用）
-            if (window.DanmakuEngine && Array.isArray(window.DanmakuEngine.list) && matchedLines.length > 0) {
-                const topLanes = [10, 13, 16, 19, 22];
-                window.DanmakuEngine.list = matchedLines.slice(0, 6).map((line, idx) => {
+            // B) 提取纯弹幕话术（剥离「昵称：」与「XXX 来了」进场行），同步到全模式飘屏弹幕工坊 (DanmakuEngine) 与底部弹幕输入框
+            const pureDanmakuMsgs = matchedLines
+                .filter(line => !/(\s|^|：|:)(來了|来了|進入直播間|进入直播间)[！!~～]*$/.test(String(line).trim()))
+                .map(line => {
                     const cIdx = line.indexOf('：') !== -1 ? line.indexOf('：') : line.indexOf(':');
-                    const pureMsg = cIdx > 0 ? line.slice(cIdx + 1).trim() : line.trim();
-                    return {
-                        id: 'ai_dm_' + Date.now() + '_' + idx,
-                        text: pureMsg,
-                        top: topLanes[idx % topLanes.length],
-                        left: (12 + idx * 17) % 75,
-                        color: '#ffffff',
-                        size: 14,
-                        speed: 9 + (idx % 4),
-                        visible: true
-                    };
-                });
+                    return cIdx > 0 ? line.slice(cIdx + 1).trim() : line.trim();
+                })
+                .filter(Boolean);
+
+            const batchDmTextarea = document.getElementById('in-batch-danmaku');
+            if (batchDmTextarea && pureDanmakuMsgs.length > 0) {
+                batchDmTextarea.value = pureDanmakuMsgs.join('\n');
+            }
+
+            if (window.DanmakuEngine && Array.isArray(window.DanmakuEngine.list) && pureDanmakuMsgs.length > 0) {
+                const topLanes = [10, 14, 18, 22, 26, 30];
+                const colors = ['#ffffff', '#ffeaa7', '#81ecec', '#ffffff', '#fab1a0', '#ffffff'];
+                window.DanmakuEngine.list = pureDanmakuMsgs.slice(0, 8).map((pureMsg, idx) => ({
+                    id: 'ai_dm_' + Date.now() + '_' + idx,
+                    text: pureMsg,
+                    top: topLanes[idx % topLanes.length],
+                    left: (10 + idx * 14) % 76,
+                    color: colors[idx % colors.length],
+                    size: parseInt(document.getElementById('in-danmaku-size')?.value, 10) || 14,
+                    speed: 9 + (idx % 4),
+                    visible: true
+                }));
+                if (targetScope === 'studio' || targetScope === 'web') {
+                    const swDmEl = document.getElementById('sw-danmaku');
+                    if (swDmEl && !swDmEl.checked) {
+                        swDmEl.checked = true;
+                        swDmEl.dispatchEvent(new Event('change'));
+                    }
+                }
+                if (typeof window.DanmakuEngine.renderTrackList === 'function') {
+                    window.DanmakuEngine.renderTrackList();
+                }
                 if (typeof window.DanmakuEngine.refresh === 'function') {
                     window.DanmakuEngine.refresh();
                 }
             }
 
+            // C) 同步更新电脑网页端与全屏横屏底部弹幕占位骚话
+            if (pureDanmakuMsgs.length > 0) {
+                const firstHotDm = pureDanmakuMsgs[0];
+                const inWebDm = document.getElementById('in-dm-placeholder');
+                const dispWebDm = document.getElementById('disp-dm-placeholder');
+                if (inWebDm && (targetScope === 'web' || targetScope === 'studio')) {
+                    inWebDm.value = firstHotDm;
+                    if (dispWebDm) dispWebDm.textContent = firstHotDm;
+                }
+            }
+
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
             updateLiveAiQuotaStatusText(`✅ AI 已匹配 (${sceneLabel})`);
+            const mediaKindLabel = (window.PlayerEngine && window.PlayerEngine.isVideoMode === false) ? '圖片' : '視頻';
             if (isManualClick) {
-                window.showToast(`🤖 AI 已分析視頻畫面（${sceneLabel}）並自動填充 ${matchedLines.length} 條分行彈幕！`);
+                window.showToast(`🤖 AI 已識別${mediaKindLabel}畫面（${sceneLabel}）並同步生成彈幕話術！（冷卻 30 秒）`);
             }
         } finally {
-            if (btnLiveAiMatchDm && !aiCooldownTimer) {
-                btnLiveAiMatchDm.disabled = false;
-                btnLiveAiMatchDm.style.opacity = '1';
-                btnLiveAiMatchDm.textContent = '🤖 AI 識別視頻自動配彈幕';
-            }
+            syncAllAiButtonsCooldownUI();
         }
     }
     window.autoMatchLiveDanmakuByVideoAI = autoMatchLiveDanmakuByVideoAI;
 
     window.onVideoUploadedForLiveAi = function (fileName, aiFrames) {
-        if (swLiveAutoAiDm && !swLiveAutoAiDm.checked) return;
-        autoMatchLiveDanmakuByVideoAI(false, aiFrames);
-        window.showToast('🤖 AI 已根據新上傳視頻自動匹配並填充直播彈幕');
+        const allowLiveAuto = !swLiveAutoAiDm || swLiveAutoAiDm.checked;
+        const allowStudioAuto = !swDmStudioAutoAi || swDmStudioAutoAi.checked;
+        if (!allowLiveAuto && !allowStudioAuto) return;
+        const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
+        if (lastAiCallTimestamp > 0 && sinceLastSec < TEAM_AI_COOLDOWN_SEC) {
+            syncAllAiButtonsCooldownUI();
+            return;
+        }
+        autoMatchLiveDanmakuByVideoAI(false, aiFrames, 'all');
+        const mediaKindLabel = (window.PlayerEngine && window.PlayerEngine.isVideoMode === false) ? '圖片' : '視頻';
+        window.showToast(`🤖 AI 已根據新上傳${mediaKindLabel}自動識別並填充彈幕話術`);
     };
 
     if (btnLiveAiMatchDm) {
         btnLiveAiMatchDm.addEventListener('click', () => {
-            autoMatchLiveDanmakuByVideoAI(true, null);
+            autoMatchLiveDanmakuByVideoAI(true, null, 'live');
+        });
+    }
+    if (btnDmStudioAiGen) {
+        btnDmStudioAiGen.addEventListener('click', () => {
+            autoMatchLiveDanmakuByVideoAI(true, null, 'studio');
+        });
+    }
+    if (btnWebAiDm) {
+        btnWebAiDm.addEventListener('click', () => {
+            autoMatchLiveDanmakuByVideoAI(true, null, 'web');
         });
     }
     if (swLiveRainbowNick) {
@@ -12438,13 +13037,147 @@ window.switchRightTab = function (mode) {
         inLiveDmSpeed.addEventListener('input', () => {
             const v = getLiveDmSpeedVal();
             if (txtLiveDmSpeed) txtLiveDmSpeed.textContent = formatLiveDmSpeedLabel(v);
-            if (txtLiveCanvasSpd) txtLiveCanvasSpd.textContent = `⚡${v}檔`;
-            if (swLiveAutoRollDm && !swLiveAutoRollDm.checked) swLiveAutoRollDm.checked = true;
-            renderLiveChatBubbles(true);
+            if (txtLiveCanvasSpd) txtLiveCanvasSpd.textContent = v === 0 ? '⏸️靜止' : `⚡${v}檔`;
+            if (v === 0) {
+                if (swLiveAutoRollDm) swLiveAutoRollDm.checked = false;
+            } else {
+                if (swLiveAutoRollDm && !swLiveAutoRollDm.checked) swLiveAutoRollDm.checked = true;
+                renderLiveChatBubbles(true);
+            }
             restartLiveChatRollTimer();
-            restartLiveGiftAutoCycleTimer();
         });
     }
+
+    // ★ 直播间全元素显隐开关系统（支持顶部总控「全部显示 / 全部关闭」与下方各模块旁的单独「显示」开关双向同步）
+    const LIVE_VIS_TARGETS = {
+        'host-info': ['#live-host-avatar-wrap', '#live-host-name-row'],
+        'host-likes': ['#live-host-id-row'],
+        'follow-btn': ['#live-btn-follow'],
+        'aud-avatars': ['#live-aud-avatars'],
+        'top-viewers': ['#live-viewer-pill-top'],
+        'exit-btn': ['#live-btn-exit-top'],
+        'live-pill': ['#live-left-live-pill'],
+        'rank-pill': ['#live-sub-rank-pill'],
+        'brand-pill': ['#live-laya-brand-pill'],
+        'square-pill': ['#live-sub-square-pill'],
+        'sys-notice': ['#live-sys-notice'],
+        'welcome-bar': ['#live-room-welcome'],
+        'gift-banner': ['#live-gift-combo-slot', '#live-gift-combo-banner'],
+        'chat-list': ['#live-chat-list'],
+        'join-ticker': ['#live-join-ticker-row'],
+        'float-hearts': ['#live-floating-hearts'],
+        'bottom-input': ['.live-input-row'],
+        'bottom-icons': ['.live-bottom-bar']
+    };
+    const liveVisStateMap = {};
+    Object.keys(LIVE_VIS_TARGETS).forEach(k => { liveVisStateMap[k] = true; });
+    try {
+        const savedVis = JSON.parse(localStorage.getItem('LAYA_LIVE_VIS_MAP_V1') || '{}');
+        if (savedVis && typeof savedVis === 'object') {
+            Object.keys(LIVE_VIS_TARGETS).forEach(k => {
+                if (typeof savedVis[k] === 'boolean') liveVisStateMap[k] = savedVis[k];
+            });
+        }
+    } catch (e) {}
+
+    function setLiveElementVisibility(visKey, isVisible, saveToStorage = true) {
+        if (!LIVE_VIS_TARGETS[visKey]) return;
+        const flag = !!isVisible;
+        liveVisStateMap[visKey] = flag;
+
+        // 1) 同步所有同名的 [data-live-vis] 复选框（包含顶部总控矩阵与每个设置项旁边的独立开关）
+        document.querySelectorAll(`input[type="checkbox"][data-live-vis="${visKey}"]`).forEach(cb => {
+            if (cb.checked !== flag) cb.checked = flag;
+        });
+
+        // 2) 同步原有的欢迎语与系统提示语复选框
+        if (visKey === 'welcome-bar' && swLiveShowWelcome && swLiveShowWelcome.checked !== flag) {
+            swLiveShowWelcome.checked = flag;
+        }
+        if (visKey === 'sys-notice' && swLiveShowNotice && swLiveShowNotice.checked !== flag) {
+            swLiveShowNotice.checked = flag;
+        }
+
+        // 3) 控制直播间对应 DOM 节点显隐
+        const root = liveOverlayEl || document;
+        LIVE_VIS_TARGETS[visKey].forEach(sel => {
+            root.querySelectorAll(sel).forEach(el => {
+                el.style.display = flag ? '' : 'none';
+                el.dataset.liveHidden = flag ? 'false' : 'true';
+            });
+        });
+
+        // 若主播头像与本场点赞都关闭了，则自动隐藏左上角主播胶囊背景框；只要有一个开启则显示
+        const hostPillEl = root.querySelector('.live-host-pill');
+        if (hostPillEl) {
+            const anyHostPartOn = liveVisStateMap['host-info'] || liveVisStateMap['host-likes'] || liveVisStateMap['follow-btn'];
+            hostPillEl.style.display = anyHostPartOn ? '' : 'none';
+        }
+        const hostMetaEl = root.querySelector('.live-host-meta');
+        if (hostMetaEl) {
+            hostMetaEl.style.display = (liveVisStateMap['host-info'] || liveVisStateMap['host-likes']) ? '' : 'none';
+        }
+
+        if (visKey === 'float-hearts') {
+            if (!flag) {
+                if (liveHeartTimer) { clearInterval(liveHeartTimer); liveHeartTimer = null; }
+                if (liveFloatingHearts) liveFloatingHearts.innerHTML = '';
+            } else if (isLiveRoomOpenNow()) {
+                restartLiveHeartTimer();
+            }
+        }
+
+        if (saveToStorage && !window.__isRestoringStorage) {
+            try {
+                localStorage.setItem('LAYA_LIVE_VIS_MAP_V1', JSON.stringify(liveVisStateMap));
+            } catch (e) {}
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        }
+    }
+
+    function applyAllLiveElementVisibility() {
+        Object.keys(LIVE_VIS_TARGETS).forEach(k => {
+            setLiveElementVisibility(k, liveVisStateMap[k], false);
+        });
+    }
+
+    document.querySelectorAll('input[type="checkbox"][data-live-vis]').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const k = cb.getAttribute('data-live-vis');
+            setLiveElementVisibility(k, cb.checked, true);
+        });
+    });
+
+    if (swLiveShowWelcome) {
+        swLiveShowWelcome.addEventListener('change', () => {
+            setLiveElementVisibility('welcome-bar', swLiveShowWelcome.checked, true);
+        });
+    }
+    if (swLiveShowNotice) {
+        swLiveShowNotice.addEventListener('change', () => {
+            setLiveElementVisibility('sys-notice', swLiveShowNotice.checked, true);
+        });
+    }
+
+    const btnLiveVisAllOn = document.getElementById('btn-live-vis-all-on');
+    const btnLiveVisAllOff = document.getElementById('btn-live-vis-all-off');
+    if (btnLiveVisAllOn) {
+        btnLiveVisAllOn.addEventListener('click', () => {
+            Object.keys(LIVE_VIS_TARGETS).forEach(k => setLiveElementVisibility(k, true, false));
+            try { localStorage.setItem('LAYA_LIVE_VIS_MAP_V1', JSON.stringify(liveVisStateMap)); } catch (e) {}
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('✅ 已開啟直播間全部元素顯示');
+        });
+    }
+    if (btnLiveVisAllOff) {
+        btnLiveVisAllOff.addEventListener('click', () => {
+            Object.keys(LIVE_VIS_TARGETS).forEach(k => setLiveElementVisibility(k, false, false));
+            try { localStorage.setItem('LAYA_LIVE_VIS_MAP_V1', JSON.stringify(liveVisStateMap)); } catch (e) {}
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('🚫 已關閉直播間全部元素（純淨畫面模式）');
+        });
+    }
+    setTimeout(applyAllLiveElementVisibility, 60);
 
     // 直播间内部交互：顶部关注按钮、底部发送弹幕、最底部 4 个圆形图标
     if (liveBtnFollow) {
@@ -12667,18 +13400,54 @@ window.switchRightTab = function (mode) {
         return w;
     }
 
-    // ★ 在录屏 Canvas 上绘制单行滚动弹幕胶囊气泡（支持无灯牌普通观众「名字：文案」、纯「名字 来了」进场行、以及带牌老粉行）
-    function drawSingleLiveChatBubbleOnCanvas(ctx, baseX, rowTopY, maxBubbleW, rowData, badgeSeedIdx, s, dmTextColor, showRowHeart, fontStack) {
+    // ★ 辅助函数：将长文本按最大像素宽度自动拆分为多行（100% 完整保留全部文字，绝不截断加省略号 ...）
+    function wrapCanvasTextLines(ctx, text, maxW) {
+        const str = String(text || '');
+        if (!str) return [''];
+        const chars = Array.from(str);
+        const lines = [];
+        let cur = '';
+        for (let i = 0; i < chars.length; i++) {
+            const next = cur + chars[i];
+            if (cur && ctx.measureText(next).width > maxW) {
+                lines.push(cur);
+                cur = chars[i];
+            } else {
+                cur = next;
+            }
+        }
+        if (cur) lines.push(cur);
+        return lines.length > 0 ? lines : [''];
+    }
+
+    // ★ 预加载真人头像 Image 池供视频导出时礼物弹窗轮换使用
+    const exportGiftAvatarImages = [];
+    function ensureExportGiftAvatarPoolLoaded() {
+        if (exportGiftAvatarImages.length > 0) return;
+        const db = window.LAYA_ASIAN_AVATARS || {};
+        const pool = [...(Array.isArray(db.guys) ? db.guys : []), ...(Array.isArray(db.beauties) ? db.beauties : [])];
+        pool.slice(0, 16).forEach(url => {
+            if (!url) return;
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = url;
+            exportGiftAvatarImages.push(img);
+        });
+    }
+    setTimeout(ensureExportGiftAvatarPoolLoaded, 500);
+
+    // ★ 在录屏 Canvas 上绘制单条或多行自动换行弹幕胶囊气泡（1:1 还原预览画面 flex-wrap 换行效果，绝不截断成 ...）
+    function drawSingleLiveChatBubbleOnCanvas(ctx, baseX, rowTopY, maxBubbleW, rowData, badgeSeedIdx, s, dmTextColor, showRowHeart, fontStack, dryRun = false) {
         const { lv, fanLv, isAdmin, nickPart, msg, isJoinRow } = rowData;
         const hasBadges = (lv > 0 || fanLv > 0 || isAdmin);
-        const rowH = Math.round(18.8 * s);
         const padX = Math.round(7.5 * s);
+        const padY = Math.round(3.2 * s);
         const itemGap = Math.round(3.5 * s);
         const badgeH = Math.round(13.2 * s);
         const fontPx = Math.round(10 * s);
+        const lineStepH = Math.round(14.2 * s);
 
         ctx.save();
-        // 先测量内部元素总宽度以确定黑色毛玻璃胶囊气泡宽度
         ctx.font = `800 ${fontPx}px "Inter", ${fontStack}`;
         const lvW = lv > 0 ? Math.ceil((lv >= 10 ? 26.5 : 21.5) * s) : 0;
         const fanW = fanLv > 0 ? Math.ceil((fanLv >= 10 ? 26.2 : 21.2) * s) : 0;
@@ -12686,30 +13455,125 @@ window.switchRightTab = function (mode) {
         const nickFull = isJoinRow ? `${nickPart} ` : `${nickPart}：`;
         const nickW = ctx.measureText(nickFull).width;
 
+        let prefixContentW = 0;
+        if (lvW > 0) prefixContentW += lvW + itemGap;
+        if (fanW > 0) prefixContentW += fanW + itemGap;
+        if (admW > 0) prefixContentW += admW + itemGap;
+        prefixContentW += nickW;
+
         ctx.font = `600 ${fontPx}px ${fontStack}`;
-        let displayMsg = String(msg || '');
+        const displayMsg = String(msg || '');
         const effectiveShowHeart = showRowHeart && !isJoinRow;
         const heartW = effectiveShowHeart ? Math.ceil(12 * s) : 0;
+        const msgW = ctx.measureText(displayMsg).width;
+        const innerMaxW = Math.max(85 * s, maxBubbleW - padX * 2);
 
-        let prefixW = padX;
-        if (lvW > 0) prefixW += lvW + itemGap;
-        if (fanW > 0) prefixW += fanW + itemGap;
-        if (admW > 0) prefixW += admW + itemGap;
-        prefixW += nickW;
+        // 判断是否单行即可放下，或者像预览画面 (.live-chat-bubble flex-wrap: wrap) 一样将长弹幕换到第二行完整展示
+        const fitsSingleLine = isJoinRow || ((prefixContentW + msgW + heartW) <= innerMaxW);
 
-        const availMsgW = Math.max(40 * s, maxBubbleW - prefixW - heartW - padX);
-        let msgW = ctx.measureText(displayMsg).width;
-        if (msgW > availMsgW && displayMsg.length > 4) {
-            while (displayMsg.length > 2 && ctx.measureText(displayMsg + '…').width > availMsgW) {
-                displayMsg = displayMsg.slice(0, -1);
+        if (fitsSingleLine) {
+            const rowH = Math.round(19.2 * s);
+            const totalBubbleW = Math.min(maxBubbleW, Math.ceil(padX * 2 + prefixContentW + msgW + heartW));
+            if (dryRun) {
+                ctx.restore();
+                return rowH;
             }
-            displayMsg += '…';
-            msgW = ctx.measureText(displayMsg).width;
+
+            // 1) 圆角深色半透明气泡背景
+            drawLiveRoundRect(ctx, baseX, rowTopY, totalBubbleW, rowH, Math.round(10.5 * s));
+            ctx.fillStyle = 'rgba(10, 12, 20, 0.50)';
+            ctx.fill();
+            ctx.lineWidth = Math.max(1, 0.8 * s);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
+            ctx.stroke();
+
+            // 2) 绘制徽章 + 昵称 + 弹幕文字
+            let curX = baseX + padX;
+            const badgeY = rowTopY + Math.round((rowH - badgeH) / 2);
+            if (lv > 0) {
+                const actualLvW = drawCanvasLvBadge(ctx, curX, badgeY, lv, s, fontStack);
+                curX += actualLvW + itemGap;
+            }
+            if (fanLv > 0) {
+                const actualFanW = drawCanvasFanBadge(ctx, curX, badgeY, fanLv, s, fontStack);
+                curX += actualFanW + itemGap;
+            }
+            if (isAdmin) {
+                const aw = Math.round(14.2 * s);
+                drawLiveRoundRect(ctx, curX, badgeY, aw, badgeH, 3.5 * s);
+                const agrad = ctx.createLinearGradient(curX, badgeY, curX + aw, badgeY);
+                agrad.addColorStop(0, '#ef4444');
+                agrad.addColorStop(1, '#f43f5e');
+                ctx.fillStyle = agrad;
+                ctx.fill();
+                ctx.font = `800 ${Math.round(8 * s)}px ${fontStack}`;
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('管', curX + aw / 2, badgeY + badgeH * 0.52);
+                curX += aw + itemGap;
+            }
+
+            const textMidY = rowTopY + rowH * 0.53;
+            ctx.font = `800 ${fontPx}px ${fontStack}`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            const useRainbow = !swLiveRainbowNick || swLiveRainbowNick.checked;
+            if (!useRainbow) {
+                ctx.fillStyle = '#93c5fd';
+                ctx.fillText(nickFull, curX, textMidY);
+                curX += ctx.measureText(nickFull).width;
+            } else if (!hasBadges || isJoinRow) {
+                ctx.fillStyle = PLAIN_VIEWER_NICK_PALETTE[badgeSeedIdx % PLAIN_VIEWER_NICK_PALETTE.length];
+                ctx.fillText(nickFull, curX, textMidY);
+                curX += ctx.measureText(nickFull).width;
+            } else if (badgeSeedIdx % 2 === 0 && nickPart.length >= 2) {
+                const chars = Array.from(nickPart);
+                for (let cIdx = 0; cIdx < chars.length; cIdx++) {
+                    const ch = chars[cIdx];
+                    ctx.fillStyle = RAINBOW_CHAR_COLORS[(badgeSeedIdx + cIdx) % RAINBOW_CHAR_COLORS.length];
+                    ctx.fillText(ch, curX, textMidY);
+                    curX += ctx.measureText(ch).width;
+                }
+                ctx.fillStyle = '#cbd5e1';
+                ctx.fillText('：', curX, textMidY);
+                curX += ctx.measureText('：').width;
+            } else {
+                ctx.fillStyle = COLORFUL_NICK_PALETTE[badgeSeedIdx % COLORFUL_NICK_PALETTE.length];
+                ctx.fillText(nickFull, curX, textMidY);
+                curX += ctx.measureText(nickFull).width;
+            }
+
+            ctx.font = `600 ${fontPx}px ${fontStack}`;
+            ctx.fillStyle = isJoinRow ? 'rgba(255, 255, 255, 0.88)' : (dmTextColor || '#ffffff');
+            ctx.fillText(displayMsg, curX, textMidY);
+            curX += msgW;
+
+            if (effectiveShowHeart) {
+                drawVectorHeartOnCanvas(ctx, curX + 6 * s, textMidY, 9.5 * s, '#c084fc', 0.95);
+            }
+            ctx.restore();
+            return rowH;
         }
 
-        const totalBubbleW = Math.min(maxBubbleW, Math.ceil(prefixW + msgW + heartW + padX));
+        // ★ 多行完整换行模式（如预览图中「江南煙雨客：\n身材管理得太厲害了，愛了愛了」与「🧡19 浪漫遊蕩者：\n主播今天完全是在瘋狂試探邊緣啊」）
+        const msgWrapMaxW = Math.max(70 * s, innerMaxW - heartW);
+        const msgLines = wrapCanvasTextLines(ctx, displayMsg, msgWrapMaxW);
+        let maxMsgLineW = 0;
+        for (let mIdx = 0; mIdx < msgLines.length; mIdx++) {
+            const lw = ctx.measureText(msgLines[mIdx]).width + (mIdx === msgLines.length - 1 ? heartW : 0);
+            if (lw > maxMsgLineW) maxMsgLineW = lw;
+        }
+        const totalLines = 1 + msgLines.length;
+        const rowH = Math.round(padY * 2 + totalLines * lineStepH);
+        const totalBubbleW = Math.min(maxBubbleW, Math.ceil(padX * 2 + Math.max(prefixContentW, maxMsgLineW)));
 
-        // 1) 绘制圆角深色半透明气泡背景
+        if (dryRun) {
+            ctx.restore();
+            return rowH;
+        }
+
+        // 1) 绘制多行圆角深色半透明气泡背景
         drawLiveRoundRect(ctx, baseX, rowTopY, totalBubbleW, rowH, Math.round(10.5 * s));
         ctx.fillStyle = 'rgba(10, 12, 20, 0.50)';
         ctx.fill();
@@ -12717,9 +13581,10 @@ window.switchRightTab = function (mode) {
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
         ctx.stroke();
 
-        // 2) 依次绘制蓝牌、橙牌、红管字牌、彩色/彩虹昵称、弹幕文字、右侧紫心
+        // 2) 第一行：绘制蓝牌、橙牌、红管字牌、彩色/彩虹昵称
         let curX = baseX + padX;
-        const badgeY = rowTopY + Math.round((rowH - badgeH) / 2);
+        const line1MidY = rowTopY + padY + lineStepH * 0.52;
+        const badgeY = Math.round(line1MidY - badgeH / 2);
 
         if (lv > 0) {
             const actualLvW = drawCanvasLvBadge(ctx, curX, badgeY, lv, s, fontStack);
@@ -12745,46 +13610,45 @@ window.switchRightTab = function (mode) {
             curX += aw + itemGap;
         }
 
-        // 3) 发言人昵称（无灯牌普通观众与进场行用清爽浅蓝昵称，带牌老粉用彩虹或绚丽彩名）
-        const textMidY = rowTopY + rowH * 0.53;
         ctx.font = `800 ${fontPx}px ${fontStack}`;
         ctx.textAlign = 'left';
         ctx.textBaseline = 'middle';
         const useRainbow = !swLiveRainbowNick || swLiveRainbowNick.checked;
         if (!useRainbow) {
             ctx.fillStyle = '#93c5fd';
-            ctx.fillText(nickFull, curX, textMidY);
-            curX += ctx.measureText(nickFull).width;
-        } else if (!hasBadges || isJoinRow) {
+            ctx.fillText(nickFull, curX, line1MidY);
+        } else if (!hasBadges) {
             ctx.fillStyle = PLAIN_VIEWER_NICK_PALETTE[badgeSeedIdx % PLAIN_VIEWER_NICK_PALETTE.length];
-            ctx.fillText(nickFull, curX, textMidY);
-            curX += ctx.measureText(nickFull).width;
+            ctx.fillText(nickFull, curX, line1MidY);
         } else if (badgeSeedIdx % 2 === 0 && nickPart.length >= 2) {
             const chars = Array.from(nickPart);
             for (let cIdx = 0; cIdx < chars.length; cIdx++) {
                 const ch = chars[cIdx];
                 ctx.fillStyle = RAINBOW_CHAR_COLORS[(badgeSeedIdx + cIdx) % RAINBOW_CHAR_COLORS.length];
-                ctx.fillText(ch, curX, textMidY);
+                ctx.fillText(ch, curX, line1MidY);
                 curX += ctx.measureText(ch).width;
             }
             ctx.fillStyle = '#cbd5e1';
-            ctx.fillText('：', curX, textMidY);
-            curX += ctx.measureText('：').width;
+            ctx.fillText('：', curX, line1MidY);
         } else {
             ctx.fillStyle = COLORFUL_NICK_PALETTE[badgeSeedIdx % COLORFUL_NICK_PALETTE.length];
-            ctx.fillText(nickFull, curX, textMidY);
-            curX += ctx.measureText(nickFull).width;
+            ctx.fillText(nickFull, curX, line1MidY);
         }
 
-        // 4) 弹幕内容文字（或「来了」后缀）
+        // 3) 第二行及后续行：完整绘制弹幕正文内容（绝无省略号截断）
         ctx.font = `600 ${fontPx}px ${fontStack}`;
-        ctx.fillStyle = isJoinRow ? 'rgba(255, 255, 255, 0.88)' : (dmTextColor || '#ffffff');
-        ctx.fillText(displayMsg, curX, textMidY);
-        curX += msgW;
-
-        // 5) 右侧紫色小心心（若开启且非进场行）
-        if (effectiveShowHeart) {
-            drawVectorHeartOnCanvas(ctx, curX + 6 * s, textMidY, 9.5 * s, '#c084fc', 0.95);
+        ctx.fillStyle = dmTextColor || '#ffffff';
+        ctx.textAlign = 'left';
+        ctx.textBaseline = 'middle';
+        for (let mIdx = 0; mIdx < msgLines.length; mIdx++) {
+            const lineTxt = msgLines[mIdx];
+            const lineMidY = rowTopY + padY + (1 + mIdx + 0.54) * lineStepH;
+            const msgStartX = baseX + padX;
+            ctx.fillText(lineTxt, msgStartX, lineMidY);
+            if (effectiveShowHeart && mIdx === msgLines.length - 1) {
+                const lw = ctx.measureText(lineTxt).width;
+                drawVectorHeartOnCanvas(ctx, msgStartX + lw + 6 * s, lineMidY, 9.5 * s, '#c084fc', 0.95);
+            }
         }
 
         ctx.restore();
@@ -12794,68 +13658,115 @@ window.switchRightTab = function (mode) {
     window.__drawLiveRoomDynamicCanvas = function (ctx, outW, outH, scaleRatioX, scaleRatioY, elapsedSec, exportFontStack) {
         if (!ctx) return;
         const activeFont = exportFontStack || '"PingFang SC", "Microsoft YaHei", sans-serif';
+        const elapsedMs = Math.max(0, elapsedSec * 1000);
 
-        // 一、动态绘制直播间左下角公屏滚动弹幕列表 (#live-chat-list) 与底部进场提示条 (#live-join-ticker-row)
-        if (liveDmVisible) {
-            const speedLv = getLiveDmSpeedVal();
-            const intervalMs = getLiveDmIntervalMs(speedLv);
-            const joinIntervalMs = getLiveJoinIntervalMs(speedLv);
-            const autoRoll = !swLiveAutoRollDm || swLiveAutoRollDm.checked;
+        const scalePct = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
+        const dmScale = Math.min(1.55, Math.max(0.75, scalePct / 100));
+        const s = scaleRatioX * dmScale;
+        const rowGap = Math.round(3.5 * s);
 
-            const scalePct = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
-            const dmScale = Math.min(1.55, Math.max(0.75, scalePct / 100));
-            const s = scaleRatioX * dmScale;
+        const widthPct = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
+        const layout = window.__liveExportLayout || {};
+        const baseX = (layout.chatBox && layout.chatBox.x)
+            || (layout.scrollBox && layout.scrollBox.x)
+            || (layout.giftBox && layout.giftBox.x)
+            || Math.round(10 * scaleRatioX);
+        const maxBubbleW = Math.max(
+            180 * scaleRatioX,
+            (layout.chatBox && layout.chatBox.w)
+                || (layout.scrollBox && layout.scrollBox.w)
+                || Math.round((outW - 20 * scaleRatioX) * (widthPct / 100))
+        );
 
-            const widthPct = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
-            const layout = window.__liveExportLayout || {};
-            const chatBox = layout.chatBox || {
-                x: Math.round(12 * scaleRatioX),
-                y: Math.round(outH - 225 * scaleRatioY),
-                w: Math.round((outW - 24 * scaleRatioX) * (widthPct / 100)),
-                h: Math.round(115 * scaleRatioY)
-            };
-            const joinBox = layout.joinBox || {
-                x: chatBox.x,
-                y: chatBox.y + chatBox.h + Math.round(3.5 * s),
-                w: chatBox.w,
-                h: Math.round(21 * scaleRatioY)
-            };
+        // 计算底部锚点 Y（紧贴在底部「說點什麼...」输入栏上方，由下至上无缝堆叠：进场条 -> 滚动弹幕 -> 欢迎语 -> 防诈提示 -> 礼物弹窗）
+        let curBottomY = (layout.joinBox && (layout.joinBox.y + layout.joinBox.h))
+            || (layout.botBarBox && (layout.botBarBox.y - Math.round(4 * scaleRatioY)))
+            || (layout.chatBox && (layout.chatBox.y + layout.chatBox.h + Math.round(21 * s)))
+            || Math.round(outH - 92 * scaleRatioY);
 
+        const speedLv = getLiveDmSpeedVal();
+        const intervalMs = getLiveDmIntervalMs(speedLv);
+        const joinIntervalMs = getLiveJoinIntervalMs(speedLv);
+        const autoRoll = (speedLv > 0 && intervalMs > 0) && (!swLiveAutoRollDm || swLiveAutoRollDm.checked);
+        const autoJoin = (speedLv > 0 && joinIntervalMs > 0) && (!swLiveAutoRollDm || swLiveAutoRollDm.checked);
+
+        // 1) 第 1 层（最底部）：高频观众进场通道 (#live-join-ticker-row，如「漫渡 來了」)
+        const showJoinTicker = liveDmVisible
+            && (liveVisStateMap['join-ticker'] !== false)
+            && (!liveJoinTickerRow || liveJoinTickerRow.dataset.liveHidden !== 'true')
+            && liveJoinViewerPool.length > 0;
+
+        if (showJoinTicker) {
+            const joinSteps = autoJoin ? Math.floor(elapsedMs / joinIntervalMs) : 0;
+            const v = liveJoinViewerPool[(liveJoinCursor + joinSteps) % liveJoinViewerPool.length];
+            const isSimp = window.__currentLangMode === 'simp';
+            const joinTxt = isSimp ? ' 来了' : ' 來了';
+            const jRowH = Math.round(18.5 * s);
+            const jPadX = Math.round(7.5 * s);
+            const jFontPx = Math.round(9.6 * s);
+            const jY = curBottomY - jRowH;
+
+            ctx.save();
+            ctx.font = `800 ${jFontPx}px ${activeFont}`;
+            const nickW = ctx.measureText(v.nick).width;
+            ctx.font = `600 ${jFontPx}px ${activeFont}`;
+            const suffixW = ctx.measureText(joinTxt).width;
+            const lvEstW = v.lv > 0 ? Math.ceil((v.lv >= 10 ? 26.5 : 21.5) * s) + Math.round(4 * s) : 0;
+            const jPillW = Math.ceil(jPadX * 2 + lvEstW + nickW + suffixW);
+
+            drawLiveRoundRect(ctx, baseX, jY, jPillW, jRowH, Math.round(10 * s));
+            ctx.fillStyle = 'rgba(12, 14, 24, 0.48)';
+            ctx.fill();
+
+            let jCurX = baseX + jPadX;
+            if (v.lv > 0) {
+                const badgeH = Math.round(13.2 * s);
+                const badgeY = jY + Math.round((jRowH - badgeH) / 2);
+                const realLvW = drawCanvasLvBadge(ctx, jCurX, badgeY, v.lv, s, activeFont);
+                jCurX += realLvW + Math.round(4 * s);
+            }
+
+            const jMidY = jY + jRowH * 0.53;
+            ctx.font = `800 ${jFontPx}px ${activeFont}`;
+            ctx.fillStyle = '#93c5fd';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(v.nick, jCurX, jMidY);
+            jCurX += nickW;
+
+            ctx.font = `600 ${jFontPx}px ${activeFont}`;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
+            ctx.fillText(joinTxt, jCurX, jMidY);
+            ctx.restore();
+
+            curBottomY = jY - rowGap;
+        }
+
+        // 2) 第 2 层：公屏滚动弹幕列表 (#live-chat-list，支持多行自动换行且严丝合缝紧贴欢迎语)
+        const showChatList = liveDmVisible
+            && (liveVisStateMap['chat-list'] !== false)
+            && (!liveChatList || liveChatList.dataset.liveHidden !== 'true');
+
+        if (showChatList) {
             const allLines = parseLiveDanmakuTexts();
             const userMaxRows = getLiveMaxRowsVal();
-            const maxRows = (liveSysNoticeEl && liveSysNoticeEl.style.display !== 'none') ? Math.max(2, userMaxRows - 1) : userMaxRows;
+            const noticeVisNow = (liveVisStateMap['sys-notice'] !== false)
+                && (!swLiveShowNotice || swLiveShowNotice.checked)
+                && (!liveSysNoticeEl || (liveSysNoticeEl.style.display !== 'none' && liveSysNoticeEl.dataset.liveHidden !== 'true'));
+            const maxRows = noticeVisNow ? Math.max(2, userMaxRows - 1) : userMaxRows;
             const count = Math.max(2, maxRows);
             const dmTextColor = getLiveDmColor();
             const showRowHeart = !!(swLiveDmRowHeart && swLiveDmRowHeart.checked);
+            const hasJoinInPool = allLines.some(l => /(\s|^|：|:)(來了|来了)$/.test(String(l).trim()));
 
-            const rowH = Math.round(18.8 * s);
-            const rowGap = Math.round(3.5 * s);
-            const stepPx = rowH + rowGap;
-
-            // 根据录制已用时 elapsedSec 计算当前推进了多少行，以及当前步内的平滑上滑位移
-            const elapsedMs = Math.max(0, elapsedSec * 1000);
             const stepsAdvanced = autoRoll ? Math.floor(elapsedMs / intervalMs) : 0;
             const stepElapsedMs = autoRoll ? (elapsedMs % intervalMs) : intervalMs;
-            const animDurationMs = Math.min(220, Math.max(45, intervalMs * 0.78));
-            const animProgress = autoRoll ? Math.min(1, stepElapsedMs / animDurationMs) : 1;
+            const animDurationMs = autoRoll ? Math.min(220, Math.max(45, intervalMs * 0.78)) : 170;
+            const animProgress = (autoRoll && stepsAdvanced > 0) ? Math.min(1, stepElapsedMs / animDurationMs) : 1;
             const easeOut = 1 - Math.pow(1 - animProgress, 3);
-            const ySlideOffset = autoRoll && stepsAdvanced > 0 ? Math.round((1 - easeOut) * stepPx) : 0;
 
-            const totalListH = count * rowH + (count - 1) * rowGap;
-            const listTopY = (chatBox.y + chatBox.h) - totalListH;
-            const maxBubbleW = Math.max(160 * scaleRatioX, chatBox.w);
-
-            ctx.save();
-            // 裁剪公屏弹幕可视窗口，让顶部旧弹幕平滑滑出、底部新弹幕平滑滑入
-            ctx.beginPath();
-            ctx.rect(chatBox.x - 4 * scaleRatioX, listTopY - 2 * scaleRatioY, maxBubbleW + 12 * scaleRatioX, totalListH + 4 * scaleRatioY);
-            ctx.clip();
-
-            // 若正在向上滑动过渡中，多画顶部即将滑出的一行 (i = -1)
-            const hasJoinInPool = allLines.some(l => /(\s|^|：|:)(來了|来了)$/.test(String(l).trim()));
-            const startI = (ySlideOffset > 0) ? -1 : 0;
-            for (let i = startI; i < count; i++) {
-                const virtualStep = liveRollTickCount + stepsAdvanced + i;
+            const resolveRowSpec = (offsetIdx) => {
+                const virtualStep = liveRollTickCount + stepsAdvanced + offsetIdx;
                 const safeStep = ((virtualStep % 100000) + 100000) % 100000;
                 const globalIdx = safeStep % allLines.length;
                 let rawLine = allLines[globalIdx];
@@ -12865,92 +13776,203 @@ window.switchRightTab = function (mode) {
                 }
                 const badgeSeedIdx = allLines.length <= count ? safeStep : globalIdx;
                 const parsedRow = parseSingleLiveDanmakuRow(rawLine, badgeSeedIdx);
-                const rowY = listTopY + i * stepPx + ySlideOffset;
-
-                drawSingleLiveChatBubbleOnCanvas(
-                    ctx,
-                    chatBox.x,
-                    rowY,
-                    maxBubbleW,
-                    parsedRow,
-                    badgeSeedIdx,
-                    s,
-                    dmTextColor,
-                    showRowHeart,
-                    activeFont
+                const h = drawSingleLiveChatBubbleOnCanvas(
+                    ctx, baseX, 0, maxBubbleW, parsedRow, badgeSeedIdx, s, dmTextColor, showRowHeart, activeFont, true
                 );
+                return { parsedRow, badgeSeedIdx, h };
+            };
+
+            const curSpecs = [];
+            let curTotalH = 0;
+            for (let i = 0; i < count; i++) {
+                const sp = resolveRowSpec(i);
+                curSpecs.push(sp);
+                curTotalH += sp.h;
+            }
+            curTotalH += Math.max(0, count - 1) * rowGap;
+
+            let winH = curTotalH;
+            let outSpec = null;
+            if (animProgress < 1) {
+                outSpec = resolveRowSpec(-1);
+                const incomingSpec = curSpecs[count - 1];
+                const prevTotalH = curTotalH - incomingSpec.h + outSpec.h;
+                winH = Math.round(prevTotalH + (curTotalH - prevTotalH) * easeOut);
+            }
+
+            const listTopY = curBottomY - winH;
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(baseX - 4 * scaleRatioX, listTopY - 2 * scaleRatioY, maxBubbleW + 12 * scaleRatioX, winH + 4 * scaleRatioY);
+            ctx.clip();
+
+            let drawY = listTopY;
+            if (animProgress < 1 && outSpec) {
+                const slideShift = Math.round(easeOut * (outSpec.h + rowGap));
+                drawY = listTopY - slideShift;
+                drawSingleLiveChatBubbleOnCanvas(
+                    ctx, baseX, drawY, maxBubbleW, outSpec.parsedRow, outSpec.badgeSeedIdx, s, dmTextColor, showRowHeart, activeFont, false
+                );
+                drawY += outSpec.h + rowGap;
+            }
+
+            for (let i = 0; i < curSpecs.length; i++) {
+                const sp = curSpecs[i];
+                drawSingleLiveChatBubbleOnCanvas(
+                    ctx, baseX, drawY, maxBubbleW, sp.parsedRow, sp.badgeSeedIdx, s, dmTextColor, showRowHeart, activeFont, false
+                );
+                drawY += sp.h + rowGap;
             }
             ctx.restore();
 
-            // 二、动态绘制底部高频进场通道 (#live-join-ticker-row：支持无牌「再次邂逅說愛你 來了」与有牌「💎17 足弟 來了」)
-            if (liveJoinViewerPool.length > 0) {
-                const joinSteps = Math.floor(elapsedMs / joinIntervalMs);
-                const v = liveJoinViewerPool[(liveJoinCursor + joinSteps) % liveJoinViewerPool.length];
-                const isSimp = window.__currentLangMode === 'simp';
-                const joinTxt = isSimp ? ' 来了' : ' 來了';
-                const jRowH = Math.round(18 * s);
-                const jPadX = Math.round(7.5 * s);
-                const jFontPx = Math.round(9.6 * s);
-                const jY = joinBox.y;
+            curBottomY = listTopY - rowGap;
+        }
 
-                ctx.save();
-                ctx.font = `800 ${jFontPx}px ${activeFont}`;
-                const nickW = ctx.measureText(v.nick).width;
-                ctx.font = `600 ${jFontPx}px ${activeFont}`;
-                const suffixW = ctx.measureText(joinTxt).width;
-                const lvEstW = v.lv > 0 ? Math.ceil((v.lv >= 10 ? 26.5 : 21.5) * s) + Math.round(4 * s) : 0;
-                const jPillW = Math.ceil(jPadX * 2 + lvEstW + nickW + suffixW);
+        // 3) 第 3 层：直播间欢迎语气泡 (#live-room-welcome，带 🎧 图标，紧贴在弹幕列表正上方，0断层)
+        const showWelcomeBar = (liveVisStateMap['welcome-bar'] !== false)
+            && (!swLiveShowWelcome || swLiveShowWelcome.checked)
+            && (!liveRoomWelcomeEl || (liveRoomWelcomeEl.style.display !== 'none' && liveRoomWelcomeEl.dataset.liveHidden !== 'true'));
 
-                drawLiveRoundRect(ctx, joinBox.x, jY, jPillW, jRowH, Math.round(10 * s));
-                ctx.fillStyle = 'rgba(12, 14, 24, 0.46)';
-                ctx.fill();
+        if (showWelcomeBar) {
+            const welcomeStr = (liveRoomWelcomeTxt && liveRoomWelcomeTxt.textContent.trim())
+                || (inLiveWelcomeTxt && inLiveWelcomeTxt.value.trim())
+                || liveWelcomePresets[0];
+            const wFontPx = Math.round(9 * s);
+            const wPadX = Math.round(7.5 * s);
+            const wPadY = Math.round(3.4 * s);
+            const wLineH = Math.round(13 * s);
+            const iconBoxW = Math.round(13.5 * s);
 
-                let jCurX = joinBox.x + jPadX;
-                if (v.lv > 0) {
-                    const badgeH = Math.round(13.2 * s);
-                    const badgeY = jY + Math.round((jRowH - badgeH) / 2);
-                    const realLvW = drawCanvasLvBadge(ctx, jCurX, badgeY, v.lv, s, activeFont);
-                    jCurX += realLvW + Math.round(4 * s);
-                }
+            ctx.save();
+            ctx.font = `700 ${wFontPx}px ${activeFont}`;
+            const wLines = wrapCanvasTextLines(ctx, welcomeStr, Math.max(80 * s, maxBubbleW - wPadX * 2 - iconBoxW));
+            let maxWL = 0;
+            wLines.forEach(l => {
+                const lw = ctx.measureText(l).width;
+                if (lw > maxWL) maxWL = lw;
+            });
+            const wH = Math.round(wPadY * 2 + wLines.length * wLineH);
+            const wW = Math.min(maxBubbleW, Math.ceil(wPadX * 2 + iconBoxW + maxWL));
+            const wY = curBottomY - wH;
 
-                const jMidY = jY + jRowH * 0.53;
-                ctx.font = `800 ${jFontPx}px ${activeFont}`;
-                ctx.fillStyle = '#93c5fd';
-                ctx.textAlign = 'left';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(v.nick, jCurX, jMidY);
-                jCurX += nickW;
+            drawLiveRoundRect(ctx, baseX, wY, wW, wH, Math.round(8.5 * s));
+            ctx.fillStyle = 'rgba(12, 14, 24, 0.54)';
+            ctx.fill();
+            ctx.lineWidth = Math.max(1, 0.85 * s);
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.28)';
+            ctx.stroke();
 
-                ctx.font = `600 ${jFontPx}px ${activeFont}`;
-                ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
-                ctx.fillText(joinTxt, jCurX, jMidY);
-                ctx.restore();
+            // 左侧白色小耳机矢量图标 (避免 Emoji 在不同系统色差)
+            const hcX = baseX + wPadX + iconBoxW * 0.38;
+            const hcY = wY + wH * 0.5;
+            const hr = 4.2 * s;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(243, 232, 255, 0.92)';
+            ctx.lineWidth = Math.max(1.2, 1.35 * s);
+            ctx.beginPath();
+            ctx.arc(hcX, hcY, hr, Math.PI, 0, false);
+            ctx.stroke();
+            ctx.fillStyle = 'rgba(243, 232, 255, 0.92)';
+            ctx.fillRect(hcX - hr - 0.8 * s, hcY - 0.5 * s, 2 * s, 3.6 * s);
+            ctx.fillRect(hcX + hr - 1.2 * s, hcY - 0.5 * s, 2 * s, 3.6 * s);
+            ctx.restore();
+
+            ctx.font = `700 ${wFontPx}px ${activeFont}`;
+            ctx.fillStyle = '#f3e8ff';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            for (let idx = 0; idx < wLines.length; idx++) {
+                const ly = wY + wPadY + (idx + 0.54) * wLineH;
+                ctx.fillText(wLines[idx], baseX + wPadX + iconBoxW, ly);
             }
+            ctx.restore();
 
-            // 二点五、动态绘制礼物进场提示条 (#live-gift-combo-banner：随礼物速度滑块自动滑入切换不同礼物并跳动连击数字)
-            const giftBox = layout.giftBox || {
-                x: chatBox.x,
-                y: Math.max(80 * scaleRatioY, (layout.scrollBox ? layout.scrollBox.y : chatBox.y) - Math.round(35 * scaleRatioY)),
-                w: Math.round(170 * scaleRatioX),
-                h: Math.round(31 * scaleRatioY)
-            };
+            curBottomY = wY - rowGap;
+        }
+
+        // 4) 第 4 层：系统绿色健康直播防诈提示语气泡 (#live-sys-notice，紧贴在欢迎语正上方)
+        const showSysNotice = (liveVisStateMap['sys-notice'] !== false)
+            && (!swLiveShowNotice || swLiveShowNotice.checked)
+            && (!liveSysNoticeEl || (liveSysNoticeEl.style.display !== 'none' && liveSysNoticeEl.dataset.liveHidden !== 'true'));
+
+        if (showSysNotice) {
+            const noticeElRef = liveSysNoticeTxt || liveSysNoticeEl;
+            const noticeStr = (noticeElRef && noticeElRef.textContent.trim())
+                || (inLiveNoticeTxt && inLiveNoticeTxt.value.trim())
+                || liveNoticePresets[0];
+            const nFontPx = Math.round(8.8 * s);
+            const nPadX = Math.round(7.5 * s);
+            const nPadY = Math.round(3.5 * s);
+            const nLineH = Math.round(12.8 * s);
+
+            ctx.save();
+            ctx.font = `600 ${nFontPx}px ${activeFont}`;
+            const nLines = wrapCanvasTextLines(ctx, noticeStr, Math.max(80 * s, maxBubbleW - nPadX * 2));
+            let maxNL = 0;
+            nLines.forEach(l => {
+                const lw = ctx.measureText(l).width;
+                if (lw > maxNL) maxNL = lw;
+            });
+            const nH = Math.round(nPadY * 2 + nLines.length * nLineH);
+            const nW = Math.min(maxBubbleW, Math.ceil(nPadX * 2 + maxNL));
+            const nY = curBottomY - nH;
+
+            drawLiveRoundRect(ctx, baseX, nY, nW, nH, Math.round(8.5 * s));
+            ctx.fillStyle = 'rgba(12, 14, 24, 0.54)';
+            ctx.fill();
+            ctx.lineWidth = Math.max(1, 0.85 * s);
+            ctx.strokeStyle = 'rgba(168, 85, 247, 0.24)';
+            ctx.stroke();
+
+            ctx.fillStyle = '#c4b5fd';
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            for (let idx = 0; idx < nLines.length; idx++) {
+                const ly = nY + nPadY + (idx + 0.54) * nLineH;
+                ctx.fillText(nLines[idx], baseX + nPadX, ly);
+            }
+            ctx.restore();
+
+            curBottomY = nY - Math.round(4.5 * scaleRatioY);
+        }
+
+        // 5) 第 5 层（位于公屏最上方）：礼物进场小弹窗 (#live-gift-combo-banner，严格按 0~10 档速度运行，支持 0 档完全静止与 1~3 档超级慢)
+        const showGiftBanner = (liveVisStateMap['gift-banner'] !== false)
+            && (!liveGiftComboBanner || liveGiftComboBanner.dataset.liveHidden !== 'true');
+
+        if (showGiftBanner) {
             const giftSpdLv = getLiveGiftSpeedVal();
-            const gSpdIdx = Math.min(9, Math.max(0, giftSpdLv - 1));
-            const switchGiftMs = GIFT_SWITCH_MS_TABLE[gSpdIdx] || 1400;
-            const bounceComboMs = GIFT_BOUNCE_MS_TABLE[gSpdIdx] || 330;
-            const autoGiftOn = !swLiveAutoCycleGift || swLiveAutoCycleGift.checked;
+            const switchGiftMs = GIFT_SWITCH_MS_TABLE[giftSpdLv] || 0;
+            const bounceComboMs = GIFT_BOUNCE_MS_TABLE[giftSpdLv] || 0;
+            const autoGiftOn = (giftSpdLv > 0 && switchGiftMs > 0) && (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked);
 
             const giftCycleStep = autoGiftOn ? Math.floor(elapsedMs / switchGiftMs) : 0;
-            const giftPhaseMs = autoGiftOn ? (elapsedMs % switchGiftMs) : 500;
-            const comboStepInCycle = autoGiftOn ? Math.floor(giftPhaseMs / bounceComboMs) : 0;
-            const comboBouncePhase = autoGiftOn ? ((giftPhaseMs % bounceComboMs) / bounceComboMs) : 1;
+            const giftPhaseMs = autoGiftOn ? (elapsedMs % switchGiftMs) : 9999;
+            const comboStepInCycle = (autoGiftOn && bounceComboMs > 0) ? Math.floor(giftPhaseMs / bounceComboMs) : 0;
+            const comboBouncePhase = (autoGiftOn && bounceComboMs > 0) ? ((giftPhaseMs % bounceComboMs) / bounceComboMs) : 1;
 
-            let expSender = (inLiveGiftUser && inLiveGiftUser.value.trim()) || '皓哥';
-            let expGiftDesc = (inLiveGiftName && inLiveGiftName.value.trim()) || '送 嘉年華';
-            let expGiftIcon = (inLiveGiftIcon && inLiveGiftIcon.value.trim()) || '🎠';
-            let expBaseColor = (inLiveGiftColor && inLiveGiftColor.value) || '#9333ea';
-            let expEndColor = currentGiftEndColor || 'rgba(245, 158, 11, 0.85)';
-            let expComboTxt = (inLiveGiftCount && inLiveGiftCount.value.trim()) || 'x9';
+            // 优先读取画面上当前正在显示的礼物昵称、文案、图标、连击数与配色，确保与预览截图 100% 一致
+            let expSender = (liveGiftSenderName && liveGiftSenderName.textContent.trim())
+                || (inLiveGiftUser && inLiveGiftUser.value.trim())
+                || '夜色有點濃';
+            let expGiftDesc = (liveGiftDescTxt && liveGiftDescTxt.textContent.trim())
+                || (inLiveGiftName && inLiveGiftName.value.trim())
+                || '贈送 璀璨鑽石';
+            let expGiftIcon = (liveGiftItemIcon && liveGiftItemIcon.textContent.trim())
+                || (inLiveGiftIcon && inLiveGiftIcon.value.trim())
+                || '💎';
+            let expBaseColor = (inLiveGiftColor && inLiveGiftColor.value) || '#0284c7';
+            const matchedInitCat = LIVE_GIFT_CATALOG.find(item => item.icon === expGiftIcon || expGiftDesc.includes(item.name.replace(/^[^\s]+\s+/, '')));
+            let expEndColor = matchedInitCat ? matchedInitCat.endColor : (currentGiftEndColor || 'rgba(56, 189, 248, 0.85)');
+            const { minQty: expMinQty, maxQty: expMaxQty } = getLiveGiftQtyRange();
+            let rawExpComboTxt = (liveGiftComboNum && liveGiftComboNum.textContent.trim())
+                || (inLiveGiftCount && inLiveGiftCount.value.trim())
+                || ('x' + expMinQty);
+            let expComboNumVal = parseInt(rawExpComboTxt.replace(/[^\d]/g, ''), 10);
+            if (Number.isNaN(expComboNumVal)) expComboNumVal = expMinQty;
+            expComboNumVal = Math.min(expMaxQty, Math.max(expMinQty, expComboNumVal));
+            let expComboTxt = 'x' + expComboNumVal;
 
             if (autoGiftOn && giftCycleStep > 0) {
                 expSender = giftUserPresets[(lastGiftUserIdx + giftCycleStep) % giftUserPresets.length];
@@ -12961,20 +13983,30 @@ window.switchRightTab = function (mode) {
                     expBaseColor = catItem.color;
                     expEndColor = catItem.endColor;
                 }
+                if (expMaxQty > expMinQty) {
+                    const span = expMaxQty - expMinQty;
+                    const startOffset = (giftCycleStep * 3) % Math.max(1, Math.ceil(span * 0.6) + 1);
+                    expComboNumVal = Math.min(expMaxQty, Math.max(expMinQty, expMinQty + startOffset));
+                    expComboTxt = 'x' + expComboNumVal;
+                } else {
+                    expComboNumVal = expMinQty;
+                    expComboTxt = 'x' + expMinQty;
+                }
             }
-            if (autoGiftOn) {
-                expComboTxt = GIFT_COMBO_STEP_SEQ[comboStepInCycle % GIFT_COMBO_STEP_SEQ.length] || 'x9';
+            if (autoGiftOn && comboStepInCycle > 0 && expMaxQty > expMinQty) {
+                expComboTxt = getNextGiftComboInRange(expComboNumVal, comboStepInCycle);
             }
 
-            // 滑入位移动画（前 260ms 从左侧滑入）
-            const slideInProgress = autoGiftOn ? Math.min(1, giftPhaseMs / 260) : 1;
+            // 仅在切换到新礼物 (giftCycleStep > 0) 的前 260ms 执行左侧滑入动效；首帧及静止态保持 100% 稳定清晰
+            const isSlidingNewGift = autoGiftOn && giftCycleStep > 0 && giftPhaseMs < 260;
+            const slideInProgress = isSlidingNewGift ? Math.min(1, giftPhaseMs / 260) : 1;
             const slideEase = 1 - Math.pow(1 - slideInProgress, 3);
             const slideOffsetX = Math.round((1 - slideEase) * (-28 * scaleRatioX));
-            const bannerAlpha = autoGiftOn ? Math.min(1, 0.25 + slideEase * 0.75) : 1;
+            const bannerAlpha = isSlidingNewGift ? Math.min(1, 0.25 + slideEase * 0.75) : 1;
 
             const gH = Math.round(30 * scaleRatioY);
-            const gY = giftBox.y;
-            const gX = giftBox.x + slideOffsetX;
+            const gY = Math.max(78 * scaleRatioY, curBottomY - gH);
+            const gX = baseX + slideOffsetX;
             const avSize = Math.round(24 * scaleRatioX);
             const senderFontPx = Math.round(9.8 * scaleRatioX);
             const descFontPx = Math.round(8.2 * scaleRatioX);
@@ -13004,23 +14036,30 @@ window.switchRightTab = function (mode) {
             ctx.strokeStyle = hexToRgba(expBaseColor, 0.75);
             ctx.stroke();
 
-            // 左侧圆形真人送礼头像
+            // 左侧圆形真人送礼头像（若切换到新礼物则自动轮换预加载的真人头像）
             const avX = gX + Math.round(3.5 * scaleRatioX);
             const avY = gY + Math.round((gH - avSize) / 2);
+            let avatarImgToDraw = liveGiftSenderAv;
+            if (autoGiftOn && giftCycleStep > 0 && exportGiftAvatarImages.length > 0) {
+                const candidateImg = exportGiftAvatarImages[(Math.max(0, lastGiftRealAvatarIdx) + giftCycleStep) % exportGiftAvatarImages.length];
+                if (candidateImg && candidateImg.complete && candidateImg.naturalWidth > 0) {
+                    avatarImgToDraw = candidateImg;
+                }
+            }
             ctx.save();
             ctx.beginPath();
             ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2);
             ctx.closePath();
             ctx.clip();
-            if (liveGiftSenderAv && liveGiftSenderAv.complete && liveGiftSenderAv.naturalWidth > 0) {
+            if (avatarImgToDraw && avatarImgToDraw.complete && avatarImgToDraw.naturalWidth > 0) {
                 try {
-                    ctx.drawImage(liveGiftSenderAv, avX, avY, avSize, avSize);
+                    ctx.drawImage(avatarImgToDraw, avX, avY, avSize, avSize);
                 } catch (avDrawErr) {
-                    ctx.fillStyle = '#7c3aed';
+                    ctx.fillStyle = '#0284c7';
                     ctx.fillRect(avX, avY, avSize, avSize);
                 }
             } else {
-                ctx.fillStyle = '#7c3aed';
+                ctx.fillStyle = '#0284c7';
                 ctx.fillRect(avX, avY, avSize, avSize);
             }
             ctx.restore();
@@ -13041,9 +14080,9 @@ window.switchRightTab = function (mode) {
             ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
             ctx.fillText(expGiftDesc, metaX, gY + gH * 0.72);
 
-            // 礼物图标与连击数字跳动脉冲
-            const bounceScale = (autoGiftOn && comboBouncePhase < 0.36)
-                ? (1 + Math.sin((comboBouncePhase / 0.36) * Math.PI) * 0.32)
+            // 礼物图标与连击数字跳动脉冲（仅在产生连击步进时轻微脉冲）
+            const bounceScale = (autoGiftOn && comboStepInCycle > 0 && comboBouncePhase < 0.32)
+                ? (1 + Math.sin((comboBouncePhase / 0.32) * Math.PI) * 0.25)
                 : 1;
             const iconCenterX = metaX + metaW + Math.round(6 * scaleRatioX) + iconFontPx * 0.5;
             const iconCenterY = gY + gH * 0.52;
@@ -13071,33 +14110,39 @@ window.switchRightTab = function (mode) {
             ctx.restore();
         }
 
-        // 三、动态绘制右侧向上飘动的火花、笑脸、礼花、礼炮与彩色爱心混搭粒子
-        const EXPORT_CHEER_EMOJIS = ['🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩', '🎆', '😍', '🌟', '🎇', '💖', '🎈', '👍'];
-        const heartSizePx = Math.round(18.5 * scaleRatioX);
-        const baseRightX = outW - 30 * scaleRatioX;
-        const baseBottomY = outH - 148 * scaleRatioY;
-        const floatHeight = 205 * scaleRatioY;
+        // 6) 动态绘制右侧向上飘动的火花、笑脸、礼花、礼炮与彩色爱心混搭粒子（支持显隐开关与 0 档关闭）
         const density = getLiveHeartDensityVal();
-        const particleCount = Math.max(3, Math.min(9, Math.round(density * 0.85)));
+        const showFloatingHearts = density > 0
+            && (liveVisStateMap['floating-hearts'] !== false)
+            && (!liveFloatingHearts || liveFloatingHearts.dataset.liveHidden !== 'true');
 
-        for (let i = 0; i < particleCount; i++) {
-            const phase = (elapsedSec * (0.58 + density * 0.032) + i * (1 / particleCount)) % 1;
-            const curY = baseBottomY - phase * floatHeight;
-            const swayX = Math.sin((phase * Math.PI * 2) + i * 1.7) * (12 * scaleRatioX);
-            const alpha = phase < 0.15 ? (phase / 0.15) : (phase > 0.72 ? Math.max(0, (1 - phase) / 0.28) : 0.96);
-            if (i % 5 === 4) {
-                const col = EXPORT_HEART_COLORS[i % EXPORT_HEART_COLORS.length];
-                drawVectorHeartOnCanvas(ctx, baseRightX + swayX, curY, heartSizePx, col, alpha);
-            } else {
-                const cycleStep = Math.floor(elapsedSec * (0.58 + density * 0.032) + i * (1 / particleCount));
-                const em = EXPORT_CHEER_EMOJIS[(i * 3 + cycleStep) % EXPORT_CHEER_EMOJIS.length];
-                ctx.save();
-                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-                ctx.font = `${heartSizePx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(em, baseRightX + swayX, curY);
-                ctx.restore();
+        if (showFloatingHearts) {
+            const EXPORT_CHEER_EMOJIS = ['🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩', '🎆', '😍', '🌟', '🎇', '💖', '🎈', '👍'];
+            const heartSizePx = Math.round(18.5 * scaleRatioX);
+            const baseRightX = outW - 30 * scaleRatioX;
+            const baseBottomY = outH - 148 * scaleRatioY;
+            const floatHeight = 205 * scaleRatioY;
+            const particleCount = Math.max(1, Math.min(9, Math.round(density * 0.85)));
+
+            for (let i = 0; i < particleCount; i++) {
+                const phase = (elapsedSec * (0.42 + density * 0.04) + i * (1 / particleCount)) % 1;
+                const curY = baseBottomY - phase * floatHeight;
+                const swayX = Math.sin((phase * Math.PI * 2) + i * 1.7) * (12 * scaleRatioX);
+                const alpha = phase < 0.15 ? (phase / 0.15) : (phase > 0.72 ? Math.max(0, (1 - phase) / 0.28) : 0.96);
+                if (i % 5 === 4) {
+                    const col = EXPORT_HEART_COLORS[i % EXPORT_HEART_COLORS.length];
+                    drawVectorHeartOnCanvas(ctx, baseRightX + swayX, curY, heartSizePx, col, alpha);
+                } else {
+                    const cycleStep = Math.floor(elapsedSec * (0.42 + density * 0.04) + i * (1 / particleCount));
+                    const em = EXPORT_CHEER_EMOJIS[(i * 3 + cycleStep) % EXPORT_CHEER_EMOJIS.length];
+                    ctx.save();
+                    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                    ctx.font = `${heartSizePx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(em, baseRightX + swayX, curY);
+                    ctx.restore();
+                }
             }
         }
     };
@@ -13198,4 +14243,766 @@ window.switchRightTab = function (mode) {
     if (!shouldStayInLiveOnBoot) {
         exitLayaLiveRoom(false);
     }
+
+    /* ==========================================================================
+       ★ 全局素材画面最大化自适应 + 放大镜 & 拖动查看控制器 (支持全部 4 种画幅)
+         - 自动最大化：无论在电脑网页/手机横屏/手机竖屏社区/竖屏全屏观看，在不遮挡顶部栏与底部视频时间轴的前提下自动等比最大化撑满舞台
+         - 鼠标滚轮：在空白区域或画面上滚动滚轮即可放大/缩小 (50% ~ 350%)，并默认自动开启拖动查看模式
+         - 键盘 M 键 / ✋ 拖动(M) 按钮：随时切换拖动查看模式的开启/关闭
+         - ↺ 重置按键：一键还原 100% 默认最大化尺寸与居中位置
+       ========================================================================== */
+    (function initGlobalStageMagnifier() {
+        const workspaceEl = document.getElementById('left-workspace') || document.querySelector('.workspace');
+        const stageEl = document.getElementById('player-stage') || document.querySelector('.player-stage');
+        const boxEl = document.getElementById('render-target');
+        const trimmerEl = document.getElementById('jy-trimmer-panel');
+        if (!stageEl || !boxEl) return;
+
+        // 自愈防护：若本地缓存曾导致 render-target 丢失画幅类名（出现 undefined），立即恢复为当前激活标签的画幅
+        const VALID_MODES = ['mode-pc', 'mode-mobile-land', 'mode-mobile-port', 'mode-dy-land'];
+        function ensureValidModeClass() {
+            const hasValid = VALID_MODES.some(m => boxEl.classList.contains(m));
+            if (!hasValid) {
+                boxEl.classList.remove('undefined', 'null');
+                const activeTab = document.querySelector('.viewport-tabs .tab-btn.active[data-mode]');
+                const fallbackMode = (activeTab && activeTab.dataset.mode) || (window.PlayerEngine && VALID_MODES.includes(window.PlayerEngine.currentMode) ? window.PlayerEngine.currentMode : 'mode-pc');
+                boxEl.classList.add(fallbackMode);
+                if (window.PlayerEngine) window.PlayerEngine.currentMode = fallbackMode;
+            }
+        }
+        ensureValidModeClass();
+
+        const btnStageMagToggle = document.getElementById('btn-stage-mag-toggle');
+        const btnStageZoomOut = document.getElementById('btn-stage-zoom-out');
+        const inStageZoomSlider = document.getElementById('in-stage-zoom-slider');
+        const txtStageZoomPct = document.getElementById('txt-stage-zoom-pct');
+        const btnStageZoomIn = document.getElementById('btn-stage-zoom-in');
+        const btnStagePanToggle = document.getElementById('btn-stage-pan-toggle');
+        const txtStagePanBtn = document.getElementById('txt-stage-pan-btn');
+        const btnStageZoomReset = document.getElementById('btn-stage-zoom-reset');
+        const stagePanHintPill = document.getElementById('stage-pan-hint-pill');
+
+        const btnTopStageMag = document.getElementById('btn-top-stage-mag');
+        const txtTopStageZoom = document.getElementById('txt-top-stage-zoom');
+        const btnTopStagePan = document.getElementById('btn-top-stage-pan');
+        const btnTopStageReset = document.getElementById('btn-top-stage-reset');
+
+        let stageFitScale = 1;
+        let stageZoomPct = 100;
+        let stagePanX = 0;
+        let stagePanY = 0;
+        let isStagePanMode = false;
+        let userLockedPanOff = false; // 当用户手动按 M 或点按钮关闭拖动模式时记录，直到再次在空白处滚轮或再次按 M
+
+        let isDraggingStage = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragOriginPanX = 0;
+        let dragOriginPanY = 0;
+        let didMoveDuringDrag = false;
+        let suppressClickUntil = 0;
+        let wheelZoomTimer = null;
+
+        function isEditableInputFocused(target) {
+            const el = target || document.activeElement;
+            if (!el) return false;
+            const tag = (el.tagName || '').toUpperCase();
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') {
+                const inputType = (el.type || '').toLowerCase();
+                if (tag === 'INPUT' && (inputType === 'range' || inputType === 'checkbox' || inputType === 'button')) {
+                    return false;
+                }
+                return true;
+            }
+            return !!el.isContentEditable;
+        }
+
+        // 计算四端画面在当前舞台可用空间内的等比最大化倍率（不与其他元素重叠，底部有时间轴时自动留出空间并向上居中）
+        const sidebarEl = document.querySelector('.sidebar');
+        if (sidebarEl) {
+            sidebarEl.style.width = 'clamp(540px, 37vw, 680px)';
+            sidebarEl.style.padding = '14px 16px 55vh 16px';
+        }
+
+        // ★ 顶部「↺ 重置」旁与左下放大镜「↺ 重置」旁的「📐 独立取景框」按钮双向联动
+        const btnTopCropWindow = document.getElementById('btn-top-crop-window');
+        const btnStageCropWindow = document.getElementById('btn-stage-crop-window');
+        const swCropWindowEl = document.getElementById('sw-crop-window');
+        const cropWinEl = document.getElementById('crop-inspector-window');
+        const btnCloseCropWinEl = document.getElementById('btn-close-crop-window');
+
+        function syncCropWindowButtonsUI() {
+            const isOpen = !!(swCropWindowEl && swCropWindowEl.checked) || !!(cropWinEl && cropWinEl.style.display !== 'none' && cropWinEl.style.display !== '');
+            if (btnTopCropWindow) btnTopCropWindow.classList.toggle('is-active', isOpen);
+            if (btnStageCropWindow) btnStageCropWindow.classList.toggle('is-active', isOpen);
+        }
+
+        function toggleCropInspectorWindowFromStage(e) {
+            if (e) {
+                e.preventDefault();
+                e.stopPropagation();
+            }
+            if (!swCropWindowEl) return;
+            swCropWindowEl.checked = !swCropWindowEl.checked;
+            swCropWindowEl.dispatchEvent(new Event('change'));
+            syncCropWindowButtonsUI();
+            if (typeof window.showToast === 'function') {
+                window.showToast(swCropWindowEl.checked ? '📐 已开启独立取景框（支持绿框拖拽构图与滚轮缩放）' : '📐 已关闭独立取景框');
+            }
+        }
+
+        if (btnTopCropWindow) btnTopCropWindow.addEventListener('click', toggleCropInspectorWindowFromStage);
+        if (btnStageCropWindow) btnStageCropWindow.addEventListener('click', toggleCropInspectorWindowFromStage);
+        if (swCropWindowEl) swCropWindowEl.addEventListener('change', syncCropWindowButtonsUI);
+        if (btnCloseCropWinEl) btnCloseCropWinEl.addEventListener('click', () => setTimeout(syncCropWindowButtonsUI, 20));
+        setTimeout(syncCropWindowButtonsUI, 80);
+
+        function applyBoxTransformNow() {
+            if (boxEl.classList.contains('stage-mag-export-suspend')) {
+                boxEl.style.transform = 'none';
+                return;
+            }
+            const zoomScale = Math.round(stageZoomPct) / 100;
+            const totalScale = Number((stageFitScale * zoomScale).toFixed(4));
+            boxEl.style.transformOrigin = 'center center';
+            boxEl.style.transform = `translate3d(${Math.round(stagePanX)}px, ${Math.round(stagePanY)}px, 0px) scale(${totalScale})`;
+        }
+
+        function updateStageFitScale() {
+            ensureValidModeClass();
+            if (boxEl.parentElement && boxEl.parentElement.id === 'preview-stage-wrap') {
+                stageFitScale = 1;
+                boxEl.style.setProperty('--stage-fit-scale', '1');
+                applyBoxTransformNow();
+                return;
+            }
+            const stageW = stageEl.clientWidth || Math.max(600, (window.innerWidth || 1440) - 540);
+            const stageH = stageEl.clientHeight || Math.max(620, (window.innerHeight || 920) - 104);
+            const baseW = boxEl.offsetWidth || (boxEl.classList.contains('mode-mobile-port') ? 366 : 1040);
+            const baseH = boxEl.offsetHeight || (boxEl.classList.contains('mode-mobile-port') ? 650 : 585);
+            if (baseW <= 0 || baseH <= 0) return;
+
+            const padX = 12;
+            const padY = 6;
+            const availW = Math.max(180, stageW - padX);
+            const availH = Math.max(180, stageH - padY);
+            const nextFit = Math.max(0.45, Math.min(2.6, Math.min(availW / baseW, availH / baseH)));
+            stageFitScale = Number(nextFit.toFixed(4));
+            boxEl.style.setProperty('--stage-fit-scale', String(stageFitScale));
+            applyBoxTransformNow();
+        }
+        window.updateStageFitScale = updateStageFitScale;
+
+        function syncStageMagnifierUI() {
+            ensureValidModeClass();
+            const roundedPct = Math.round(stageZoomPct);
+            const scaleVal = roundedPct / 100;
+            boxEl.style.setProperty('--stage-zoom-scale', String(scaleVal));
+            boxEl.style.setProperty('--stage-pan-x', `${Math.round(stagePanX)}px`);
+            boxEl.style.setProperty('--stage-pan-y', `${Math.round(stagePanY)}px`);
+            applyBoxTransformNow();
+
+            if (inStageZoomSlider) inStageZoomSlider.value = String(roundedPct);
+            if (txtStageZoomPct) txtStageZoomPct.textContent = `${roundedPct}%`;
+            if (txtTopStageZoom) txtTopStageZoom.textContent = `${roundedPct}%`;
+
+            const isModified = roundedPct !== 100 || Math.abs(stagePanX) > 1 || Math.abs(stagePanY) > 1;
+            if (btnStageMagToggle) btnStageMagToggle.classList.toggle('is-active', isModified);
+            if (btnTopStageMag) btnTopStageMag.classList.toggle('is-active', isModified);
+
+            stageEl.classList.toggle('is-stage-pan-mode', isStagePanMode);
+            if (btnStagePanToggle) btnStagePanToggle.classList.toggle('is-active', isStagePanMode);
+            if (btnTopStagePan) btnTopStagePan.classList.toggle('is-active', isStagePanMode);
+            if (txtStagePanBtn) txtStagePanBtn.textContent = isStagePanMode ? '✋ 拖动中 (M)' : '✋ 拖动 (M)';
+            if (btnTopStagePan) btnTopStagePan.textContent = isStagePanMode ? '✋ 拖动中(M)' : '✋ 拖动(M)';
+            if (stagePanHintPill) stagePanHintPill.style.display = isStagePanMode ? 'block' : 'none';
+        }
+
+        function setStageZoom(nextPct, clientX, clientY, fromWheel, autoEnablePan = false) {
+            const clamped = Math.max(50, Math.min(350, Math.round(Number(nextPct) || 100)));
+            const oldScale = stageZoomPct / 100;
+            const newScale = clamped / 100;
+
+            if (typeof clientX === 'number' && typeof clientY === 'number' && oldScale > 0 && clamped !== stageZoomPct) {
+                const stRect = stageEl.getBoundingClientRect();
+                const cx = stRect.left + stRect.width / 2;
+                const cy = stRect.top + stRect.height / 2;
+                const dx = clientX - cx;
+                const dy = clientY - cy;
+                const ratio = newScale / oldScale;
+                stagePanX = dx - (dx - stagePanX) * ratio;
+                stagePanY = dy - (dy - stagePanY) * ratio;
+            }
+
+            stageZoomPct = clamped;
+            if (stageZoomPct === 100 && Math.abs(stagePanX) < 16 && Math.abs(stagePanY) < 16) {
+                stagePanX = 0;
+                stagePanY = 0;
+            }
+
+            // 在空白处使用滚轮或放大查看时，默认自动开启拖动查看模式（除非用户按 M 键或点按钮手动关闭了拖动）
+            if (autoEnablePan && !userLockedPanOff) {
+                isStagePanMode = true;
+            }
+
+            if (fromWheel) {
+                stageEl.classList.add('is-stage-wheel-zooming');
+                if (wheelZoomTimer) clearTimeout(wheelZoomTimer);
+                wheelZoomTimer = setTimeout(() => {
+                    stageEl.classList.remove('is-stage-wheel-zooming');
+                }, 150);
+            }
+
+            syncStageMagnifierUI();
+        }
+
+        function resetStageMagnifier(showTip = true) {
+            stageZoomPct = 100;
+            stagePanX = 0;
+            stagePanY = 0;
+            isStagePanMode = false;
+            userLockedPanOff = false;
+            isDraggingStage = false;
+            stageEl.classList.remove('is-stage-panning', 'is-stage-wheel-zooming', 'is-stage-pan-mode');
+            updateStageFitScale();
+            syncStageMagnifierUI();
+            if (showTip && typeof window.showToast === 'function') {
+                window.showToast('↺ 素材画面已重置为 100% 最大化默认尺寸并恢复居中');
+            }
+        }
+
+        function toggleStagePanMode(forceState, showTip = true) {
+            isStagePanMode = typeof forceState === 'boolean' ? forceState : !isStagePanMode;
+            userLockedPanOff = !isStagePanMode;
+            if (!isStagePanMode) {
+                isDraggingStage = false;
+                stageEl.classList.remove('is-stage-panning');
+            }
+            syncStageMagnifierUI();
+            if (showTip && typeof window.showToast === 'function') {
+                window.showToast(isStagePanMode
+                    ? '✋ 已开启拖动查看模式（按住鼠标左键任意拖动画面，滚轮放大缩小，按 M 键或点此按钮可退出拖动）'
+                    : '✋ 已关闭拖动查看模式（滚轮仍可放大缩小，按 M 键可再次开启拖动）');
+            }
+        }
+
+        function quickToggleMagnifier() {
+            if (stageZoomPct === 100 && Math.abs(stagePanX) < 2 && Math.abs(stagePanY) < 2) {
+                userLockedPanOff = false;
+                isStagePanMode = true;
+                setStageZoom(150, undefined, undefined, false, true);
+                if (typeof window.showToast === 'function') {
+                    window.showToast('🔍 已放大至 150% 并开启拖动查看模式（直接按住左键拖动画面，滚轮放大缩小，按 M 键切换）');
+                }
+            } else {
+                resetStageMagnifier(true);
+            }
+        }
+
+        // 1. 按钮与滑块事件绑定
+        if (btnStageMagToggle) btnStageMagToggle.addEventListener('click', (e) => { e.stopPropagation(); quickToggleMagnifier(); });
+        if (btnTopStageMag) btnTopStageMag.addEventListener('click', (e) => { e.stopPropagation(); quickToggleMagnifier(); });
+
+        if (btnStageZoomIn) {
+            btnStageZoomIn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setStageZoom(stageZoomPct + 20, undefined, undefined, false, true);
+            });
+        }
+        if (btnStageZoomOut) {
+            btnStageZoomOut.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setStageZoom(stageZoomPct - 20, undefined, undefined, false, true);
+            });
+        }
+        if (inStageZoomSlider) {
+            inStageZoomSlider.addEventListener('input', () => {
+                setStageZoom(Number(inStageZoomSlider.value) || 100, undefined, undefined, true, true);
+            });
+        }
+        if (txtStageZoomPct) {
+            txtStageZoomPct.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const presets = [100, 150, 200, 250];
+                const nextIdx = (presets.indexOf(Math.round(stageZoomPct)) + 1) % presets.length;
+                setStageZoom(presets[nextIdx], undefined, undefined, false, presets[nextIdx] !== 100);
+            });
+        }
+        if (btnStagePanToggle) {
+            btnStagePanToggle.addEventListener('click', (e) => { e.stopPropagation(); toggleStagePanMode(undefined, true); });
+        }
+        if (btnTopStagePan) {
+            btnTopStagePan.addEventListener('click', (e) => { e.stopPropagation(); toggleStagePanMode(undefined, true); });
+        }
+        if (btnStageZoomReset) {
+            btnStageZoomReset.addEventListener('click', (e) => { e.stopPropagation(); resetStageMagnifier(true); });
+        }
+        if (btnTopStageReset) {
+            btnTopStageReset.addEventListener('click', (e) => { e.stopPropagation(); resetStageMagnifier(true); });
+        }
+
+        const btnGlobalResetEl = document.getElementById('btn-global-reset');
+        if (btnGlobalResetEl) {
+            btnGlobalResetEl.addEventListener('click', () => resetStageMagnifier(false));
+        }
+
+        // 2. 鼠标滚轮放大/缩小整个素材画面：在空白区域使用滚轮时默认自动开启拖动查看模式
+        const wheelTargetEl = workspaceEl || stageEl;
+        wheelTargetEl.addEventListener('wheel', (e) => {
+            if (e.target && e.target.closest && (e.target.closest('.viewport-tabs') || e.target.closest('#jy-trimmer-panel') || e.target.closest('#crop-inspector-window'))) {
+                return;
+            }
+            const isOverEmptyArea = !boxEl.contains(e.target);
+            // 若在未开启拖动模式且 100% 大小时，鼠标正悬停在打开的竖屏评论列表内部滚动，则保留评论滚动
+            if (!isOverEmptyArea && !isStagePanMode && stageZoomPct === 100 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                if (boxEl.classList.contains('dy-comment-open') && e.target && e.target.closest && e.target.closest('#dy-comment-list')) {
+                    return;
+                }
+            }
+            e.preventDefault();
+            // 若用户在空白处滚动滚轮，默认开启拖动查看模式（除非用户之后按 M 或点按钮关闭）
+            if (isOverEmptyArea && !userLockedPanOff) {
+                isStagePanMode = true;
+            }
+            const delta = e.deltaY < 0 ? 15 : -15;
+            setStageZoom(stageZoomPct + delta, e.clientX, e.clientY, true, isOverEmptyArea || (stageZoomPct + delta > 100));
+        }, { passive: false });
+
+        // 3. 键盘 M 键一键切换拖动查看模式（开启/关闭）
+        window.addEventListener('keydown', (e) => {
+            if (e.ctrlKey || e.metaKey || e.altKey) return;
+            if (isEditableInputFocused(e.target)) return;
+            if (e.key === 'm' || e.key === 'M' || e.code === 'KeyM') {
+                if (e.repeat) return;
+                e.preventDefault();
+                toggleStagePanMode(!isStagePanMode, true);
+            }
+        });
+
+        // 4. 鼠标拖拽平移整个素材画面（在拖动查看模式开启时、或在空白区域按住左键拖拽时、或按鼠标中键时均生效）
+        stageEl.addEventListener('mousedown', (e) => {
+            if (e.target && e.target.closest && (e.target.closest('#stage-magnifier-bar') || e.target.closest('#crop-inspector-window'))) return;
+            const isOverEmptyStage = !boxEl.contains(e.target);
+            const canPanNow = isStagePanMode || e.button === 1 || (e.button === 0 && isOverEmptyStage);
+            if (!canPanNow) return;
+            if (e.button !== 0 && e.button !== 1) return;
+
+            isDraggingStage = true;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            dragOriginPanX = stagePanX;
+            dragOriginPanY = stagePanY;
+            didMoveDuringDrag = false;
+            stageEl.classList.add('is-stage-panning');
+            e.preventDefault();
+            e.stopPropagation();
+        }, true);
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingStage) return;
+            const dx = e.clientX - dragStartX;
+            const dy = e.clientY - dragStartY;
+            if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+                didMoveDuringDrag = true;
+            }
+            stagePanX = dragOriginPanX + dx;
+            stagePanY = dragOriginPanY + dy;
+            syncStageMagnifierUI();
+        }, { passive: true });
+
+        window.addEventListener('mouseup', () => {
+            if (!isDraggingStage) return;
+            isDraggingStage = false;
+            stageEl.classList.remove('is-stage-panning');
+            if (didMoveDuringDrag || isStagePanMode) {
+                suppressClickUntil = performance.now() + 200;
+            }
+        });
+
+        // 在拖动查看模式下或刚拖拽完画面时，拦截内部点击与双击，防止误触暂停视频或弹出上传框
+        ['click', 'dblclick'].forEach(evtName => {
+            stageEl.addEventListener(evtName, (e) => {
+                if (e.target && e.target.closest && e.target.closest('#stage-magnifier-bar')) return;
+                if (isStagePanMode || performance.now() < suppressClickUntil) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                }
+            }, true);
+        });
+
+        // 5. 监听舞台尺寸变化、窗口缩放与底部视频时间轴显隐，实时保持画面最大化且不与其他元素重叠
+        if (typeof ResizeObserver !== 'undefined') {
+            const ro = new ResizeObserver(() => {
+                updateStageFitScale();
+            });
+            ro.observe(stageEl);
+            if (workspaceEl) ro.observe(workspaceEl);
+        } else {
+            window.addEventListener('resize', updateStageFitScale);
+        }
+
+        if (typeof MutationObserver !== 'undefined') {
+            const mo = new MutationObserver(() => {
+                updateStageFitScale();
+            });
+            mo.observe(boxEl, { attributes: true, attributeFilter: ['class'] });
+            if (trimmerEl) {
+                mo.observe(trimmerEl, { attributes: true, attributeFilter: ['style', 'class'] });
+            }
+        }
+
+        // 6. 截图与录屏导出时的无损暂挂/恢复钩子（确保导出的截图与 MP4 视频永远 100% 原始满画幅无偏移）
+        window.suspendStageMagnifierForExport = function () {
+            boxEl.classList.add('stage-mag-export-suspend');
+            boxEl.style.transform = 'none';
+            void boxEl.offsetWidth;
+        };
+        window.restoreStageMagnifierAfterExport = function () {
+            boxEl.classList.remove('stage-mag-export-suspend');
+            updateStageFitScale();
+            syncStageMagnifierUI();
+        };
+        window.resetStageMagnifier = resetStageMagnifier;
+
+        updateStageFitScale();
+        syncStageMagnifierUI();
+        setTimeout(() => {
+            updateStageFitScale();
+            syncStageMagnifierUI();
+        }, 120);
+    })();
+
+    /* ==========================================================================
+       ★ 全画面点击即定位引擎：点击左侧预览屏幕任意元素/区域，右侧编辑栏立即切换对应板块、
+         自动滑动置顶到要修改的具体输入框/区块并闪烁高亮（无需人工逐个上下翻找）
+       ========================================================================== */
+    (function initScreenClickToSidebarLocator() {
+        const boxEl = document.getElementById('render-target');
+        const stageEl = document.getElementById('player-stage');
+        if (!boxEl || typeof window.locateSidebarControl !== 'function') return;
+
+        boxEl.addEventListener('click', (e) => {
+            if (window.__isRestoringStorage) return;
+            if (stageEl && (stageEl.classList.contains('is-stage-pan-mode') || stageEl.classList.contains('is-stage-panning'))) return;
+            const t = e.target;
+            if (!t || !t.closest) return;
+
+            // 忽略画布内双击原地编辑条的内部操作按钮
+            if (t.closest('.live-row-inline-editor')) return;
+
+            const locate = (tab, cardId, targetSelector, highlightSelector, extra = {}) => {
+                window.locateSidebarControl({
+                    tab,
+                    cardId,
+                    targetSelector,
+                    highlightSelector: highlightSelector || undefined,
+                    ...extra
+                });
+            };
+
+            // ------------------------------------------------------------------
+            // 0. 全局通用层：智能字幕覆层 & 跑马灯弹幕层
+            // ------------------------------------------------------------------
+            if (t.closest('#dyl-wrap-subtitle, #dy-disp-box-sub')) {
+                locate('dy', 'card-dy-subtitle', '#sub-cue-list', '#card-dy-subtitle', { expandSubtitleStudio: true });
+                return;
+            }
+            if (t.closest('#danmaku-container, .danmaku-item')) {
+                locate('dm', 'card-dm-studio', '#danmaku-track-list', '#card-dm-studio');
+                return;
+            }
+
+            // ------------------------------------------------------------------
+            // 1. 手机竖屏社区模式 (mode-mobile-port)
+            // ------------------------------------------------------------------
+            if (boxEl.classList.contains('mode-mobile-port')) {
+                // 1A. 点击顶部导航栏中的「直播」标签
+                const navTabEl = t.closest('#laya-app-nav-tabs .laya-app-nav-item, .laya-nav-tabs > span, .dy-nav-tabs > span');
+                if (navTabEl) {
+                    const navTxt = (navTabEl.textContent || '').trim();
+                    if (navTxt.includes('直播')) {
+                        locate('dy', 'card-dy-live-settings', '#card-dy-live-settings', '#card-dy-live-settings');
+                        return;
+                    }
+                    locate('dy', 'card-dy-skin', '#sel-mobile-skin');
+                    return;
+                }
+
+                // 1B. 处于直播间内页 (dy-live-open) 时点击直播间各区域
+                if (boxEl.classList.contains('dy-live-open') && t.closest('#laya-live-room-overlay')) {
+                    if (t.closest('#live-btn-exit-top')) return;
+
+                    // 主播头像 / 主播昵称
+                    if (t.closest('#live-host-avatar-wrap, #live-host-name-row, #live-disp-host-name')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-host-name');
+                        return;
+                    }
+                    // 本场点赞
+                    if (t.closest('#live-host-id-row, #live-disp-host-id')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-host-id');
+                        return;
+                    }
+                    // 关注按钮
+                    if (t.closest('#live-btn-follow')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-follow-color');
+                        return;
+                    }
+                    // 右上角 3 位观众头像
+                    if (t.closest('#live-aud-avatars')) {
+                        locate('dy', 'card-dy-live-settings', '#sel-live-aud-avatar-mode');
+                        return;
+                    }
+                    // 右上角在线人数 / 第二行红色 LIVE 在线人数
+                    if (t.closest('#live-viewer-pill-top, #live-left-live-pill')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-viewers-text');
+                        return;
+                    }
+                    // Laya 精选品牌胶囊
+                    if (t.closest('#live-laya-brand-pill')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-brand-tag');
+                        return;
+                    }
+                    // 人气榜 / 直播广场胶囊
+                    if (t.closest('#live-sub-rank-pill, #live-sub-square-pill')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-rank-tag');
+                        return;
+                    }
+                    // 公屏顶部绿色系统提示语
+                    if (t.closest('#live-sys-notice')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-notice-txt', '#live-cfg-box-welcome');
+                        return;
+                    }
+                    // 公屏顶部直播间欢迎语
+                    if (t.closest('#live-room-welcome')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-welcome-txt', '#live-cfg-box-welcome');
+                        return;
+                    }
+                    // 紫色礼物进场小弹窗 / 底部黄色礼物盒按钮
+                    if (t.closest('#live-gift-combo-banner, .live-gift-combo-slot, #live-bot-btn-gift')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-gift-user', '#live-cfg-box-gift');
+                        return;
+                    }
+                    // 画布弹幕精修小工具栏
+                    if (t.closest('#live-dm-edit-toolbar')) {
+                        if (t.closest('#btn-live-canvas-spd-down, #btn-live-canvas-spd-up, #txt-live-canvas-spd')) {
+                            locate('dy', 'card-dy-live-settings', '#in-live-dm-speed');
+                        } else if (t.closest('#btn-live-canvas-ai-dm')) {
+                            locate('dy', 'card-dy-live-settings', '#in-live-danmaku-list', '#live-cfg-box-danmaku');
+                        } else {
+                            locate('dy', 'card-dy-live-settings', '#in-live-dm-scale');
+                        }
+                        return;
+                    }
+                    // 公屏滚动弹幕列表 / 底部进场提示 / 底部「說點什麼...」输入框
+                    if (t.closest('#live-chat-list, .live-chat-bubble, #live-join-ticker-row, .live-input-pill, #live-chat-input, #live-bot-btn-emoji')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-danmaku-list', '#live-cfg-box-danmaku');
+                        return;
+                    }
+                    // 右侧飘心区 / 底部粉色爱心按钮
+                    if (t.closest('#live-floating-hearts, #live-bot-btn-like')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-heart-density');
+                        return;
+                    }
+                    // 点击直播间其他区域默认置顶【🔴 直播间专属设置】
+                    locate('dy', 'card-dy-live-settings', '#card-dy-live-settings', '#card-dy-live-settings');
+                    return;
+                }
+
+                // 1C. 竖屏顶部手机状态栏 (#dy-status-bar)
+                if (t.closest('#dy-status-bar')) {
+                    if (t.closest('#dy-sb-time, #dy-sb-rec')) {
+                        locate('dy', 'card-dy-statusbar', '#in-dy-sb-time');
+                    } else if (t.closest('#dy-sb-cutout-wrap')) {
+                        locate('dy', 'card-dy-statusbar', '#sel-dy-cutout');
+                    } else if (t.closest('#dy-sb-carrier')) {
+                        locate('dy', 'card-dy-statusbar', '#sel-dy-sb-carrier');
+                    } else if (t.closest('#dy-sb-netspeed')) {
+                        locate('dy', 'card-dy-statusbar', '#in-dy-sb-speed');
+                    } else if (t.closest('#dy-sb-battery-group')) {
+                        locate('dy', 'card-dy-statusbar', '#in-dy-sb-battery');
+                    } else if (t.closest('#dy-sb-signal, #dy-sb-wifi, #dy-sb-net-txt')) {
+                        locate('dy', 'card-dy-statusbar', '#sel-dy-sb-signal');
+                    } else {
+                        locate('dy', 'card-dy-statusbar', '#sel-dy-phone-model');
+                    }
+                    return;
+                }
+
+                // 1D. 竖屏评论区抽屉 (#dy-comment-drawer)
+                if (t.closest('#dy-comment-drawer')) {
+                    if (t.closest('#dy-cmt-collection-bar')) {
+                        locate('dy', 'card-dy-comment-studio', '#in-cmt-col-title');
+                        return;
+                    }
+                    if (t.closest('.dy-cmt-tabs-bar, #dy-cmt-head-count')) {
+                        locate('dy', 'card-dy-comment-studio', '#in-cmt-head-count');
+                        return;
+                    }
+                    const cmtItem = t.closest('.dy-cmt-item[data-idx]');
+                    if (cmtItem) {
+                        const idx = cmtItem.getAttribute('data-idx');
+                        const edCard = document.querySelector(`#dy-cmt-editor-list .dy-cmt-ed-card[data-idx="${idx}"]`);
+                        if (edCard) {
+                            locate('dy', 'card-dy-comment-studio', edCard, edCard);
+                            return;
+                        }
+                    }
+                    locate('dy', 'card-dy-comment-studio', '#card-dy-comment-studio');
+                    return;
+                }
+
+                // 1E. 竖屏右侧互动图标列 (#dy-wrap-right-bar)
+                if (t.closest('#dy-wrap-right-bar')) {
+                    if (t.closest('#dy-avatar-click, #dy-btn-follow')) {
+                        locate('dy', 'card-dy-author', '#sel-author-avatar-gender');
+                    } else if (t.closest('#dy-btn-like')) {
+                        locate('dy', 'card-dy-author', '#in-dy-likes');
+                    } else if (t.closest('#dy-btn-comment')) {
+                        locate('dy', 'card-dy-comment-studio', '#card-dy-comment-studio');
+                    } else if (t.closest('#dy-btn-star')) {
+                        locate('dy', 'card-dy-author', '#in-dy-stars');
+                    } else if (t.closest('#dy-btn-share')) {
+                        locate('dy', 'card-dy-author', '#in-dy-shares');
+                    } else if (t.closest('#dy-vinyl-wrap')) {
+                        locate('dy', 'card-dy-right-icons', '#sw-dy-icon-vinyl');
+                    }
+                    return;
+                }
+
+                // 1F. 竖屏全屏观看按钮或内嵌横屏水印
+                if (t.closest('#dy-fullscreen-pill, #dy-land-frame-overlay')) {
+                    locate('dy', 'card-dy-fullscreen', '#inp-dy-lf-title');
+                    return;
+                }
+
+                // 1G. 竖屏左下角文案/热搜/热点/弹幕信息区 (.dy-left-info)
+                if (t.closest('.dy-left-info, #dy-dm-compose-bar')) {
+                    if (t.closest('#dy-btn-dm-round, #dy-dm-compose-bar')) {
+                        locate('dm', 'card-dm-studio', '#in-dm-port-min');
+                    } else if (t.closest('#dy-wrap-featured')) {
+                        locate('dy', 'card-dy-hotspot', '#in-dy-featured-title');
+                    } else if (t.closest('#dy-disp-author, .dy-author-row')) {
+                        locate('dy', 'card-dy-author', '#in-dy-author', null, { focusInput: true });
+                    } else if (t.closest('#dy-disp-tags')) {
+                        locate('dy', 'card-dy-author', '#in-dy-tags', null, { focusInput: true });
+                    } else if (t.closest('#dy-disp-desc, .dy-desc-row')) {
+                        locate('dy', 'card-dy-author', '#in-dy-desc', null, { focusInput: true });
+                    } else if (t.closest('#dy-wrap-campaign')) {
+                        locate('dy', 'card-dy-hotspot', '#in-dy-campaign', null, { focusInput: true });
+                    } else if (t.closest('#dy-wrap-gold, #dy-search-bar-row')) {
+                        locate('dy', 'card-dy-hotspot', '#in-dy-gold-title', null, { focusInput: true });
+                    } else if (t.closest('#dy-disp-hotspot-views, .dy-hotspot-right')) {
+                        locate('dy', 'card-dy-hotspot', '#in-dy-hotspot-views');
+                    } else if (t.closest('#dy-wrap-hotspot')) {
+                        locate('dy', 'card-dy-hotspot', '#in-dy-hotspot-title', null, { focusInput: true });
+                    }
+                    return;
+                }
+
+                // 1H. 竖屏底部导航栏 (#laya-app-wrap-bottom-bar / #laya-wrap-bottom-bar / #dy-wrap-bottom-bar)
+                if (t.closest('#laya-app-wrap-bottom-bar, #laya-wrap-bottom-bar, #dy-wrap-bottom-bar')) {
+                    const tabItem = t.closest('.laya-app-tab-item, .laya-tab-item, .dy-tab-item');
+                    if (tabItem && (tabItem.textContent || '').includes('消息')) {
+                        locate('dy', 'card-dy-author', '#in-dy-msg-count');
+                    } else {
+                        locate('dy', 'card-dy-skin', '#sel-mobile-skin');
+                    }
+                    return;
+                }
+                return;
+            }
+
+            // ------------------------------------------------------------------
+            // 2. 竖屏全屏观看模式 (mode-dy-land)
+            // ------------------------------------------------------------------
+            if (boxEl.classList.contains('mode-dy-land')) {
+                if (t.closest('#dyl-wrap-status, #dyl-disp-clock')) {
+                    locate('dy', 'card-dyl-switches', '#in-dyl-clock-time');
+                } else if (t.closest('#dyl-disp-title, .dyl-title-scroll')) {
+                    locate('dy', 'card-dy-fullscreen', '#inp-dy-lf-title', null, { focusInput: true });
+                } else if (t.closest('#dyl-wrap-author, #dyl-disp-author')) {
+                    locate('dy', 'card-dy-fullscreen', '#inp-dy-lf-brand', null, { focusInput: true });
+                } else if (t.closest('#dyl-wrap-dm-pill')) {
+                    locate('dy', 'card-dyl-switches', '#sw-dyl-dm-pill');
+                } else if (t.closest('#dyl-wrap-time, #dyl-progress-wrap')) {
+                    locate('dy', 'card-dyl-switches', '#sw-dyl-time');
+                } else if (t.closest('#dyl-wrap-social')) {
+                    locate('dy', 'card-dyl-switches', '#sw-dyl-bottom');
+                } else if (t.closest('#dyl-wrap-right-opts')) {
+                    locate('dy', 'card-dyl-switches', '#sw-dyl-right-opts');
+                } else if (t.closest('#dyl-wrap-bright')) {
+                    locate('dy', 'card-dyl-switches', '#sw-dyl-bright');
+                } else if (t.closest('#dyl-wrap-right-tools')) {
+                    locate('dy', 'card-dyl-switches', '#sw-dyl-right-tools');
+                } else if (t.closest('#dyl-wrap-top-actions')) {
+                    locate('dy', 'card-dyl-switches', '#sw-dyl-top-act');
+                } else if (t.closest('#dyl-wrap-center-pause')) {
+                    locate('dy', 'card-dyl-switches', '#sw-dyl-pause');
+                }
+                return;
+            }
+
+            // ------------------------------------------------------------------
+            // 3. 手机横屏影音模式 (mode-mobile-land)
+            // ------------------------------------------------------------------
+            if (boxEl.classList.contains('mode-mobile-land')) {
+                if (t.closest('#m-status-bar')) {
+                    if (t.closest('#m-signal-group')) {
+                        locate('m-cinema', 'card-mc-statusbar', '#sel-m-signal');
+                    } else if (t.closest('.m-battery-icon')) {
+                        locate('m-cinema', 'card-mc-statusbar', '#in-m-battery-pct');
+                    } else {
+                        locate('m-cinema', 'card-mc-statusbar', '#in-m-status-time');
+                    }
+                } else if (t.closest('#m-wrap-logo')) {
+                    locate('m-cinema', 'card-mc-badge', '#in-m-logo-scale');
+                } else if (t.closest('#m-disp-res-badge')) {
+                    locate('m-cinema', 'card-mc-badge', '#sel-m-res-badge');
+                } else if (t.closest('#m-disp-main-title')) {
+                    locate('m-cinema', 'card-mc-badge', '#in-m-main-title', null, { focusInput: true });
+                } else if (t.closest('#m-disp-sub-title')) {
+                    locate('m-cinema', 'card-mc-badge', '#in-m-sub-title', null, { focusInput: true });
+                } else if (t.closest('#m-wrap-center-play')) {
+                    locate('m-cinema', 'card-mc-switches', '#sw-m-center-play');
+                } else if (t.closest('#m-bot-right-actions')) {
+                    locate('m-cinema', 'card-mc-switches', '#sw-m-right-actions');
+                } else if (t.closest('#m-bottom-bar')) {
+                    locate('m-cinema', 'card-mc-time', '#in-m-start-time');
+                }
+                return;
+            }
+
+            // ------------------------------------------------------------------
+            // 4. 电脑网页模式 (mode-pc)
+            // ------------------------------------------------------------------
+            if (boxEl.classList.contains('mode-pc')) {
+                if (t.closest('#wrap-back-btn')) {
+                    locate('web', 'card-web-switches', '#sw-back-btn');
+                } else if (t.closest('#wrap-laya-badge')) {
+                    locate('web', 'card-web-text', '#in-laya-label', null, { focusInput: true });
+                } else if (t.closest('#wrap-free-pill')) {
+                    locate('web', 'card-web-text', '#in-free-pill-text', null, { focusInput: true });
+                } else if (t.closest('#wrap-viewer-pill')) {
+                    locate('web', 'card-web-text', '#in-viewer-text', null, { focusInput: true });
+                } else if (t.closest('#disp-title')) {
+                    locate('web', 'card-web-text', '#in-title', null, { focusInput: true });
+                } else if (t.closest('#wrap-vip-tag')) {
+                    locate('web', 'card-web-switches', '#sw-vip-tag');
+                } else if (t.closest('#wrap-top-right')) {
+                    locate('web', 'card-web-switches', '#sw-top-right');
+                } else if (t.closest('#wrap-banner')) {
+                    locate('web', 'card-web-text', '#in-banner-body', null, { focusInput: true });
+                } else if (t.closest('#wrap-center-all')) {
+                    locate('web', 'card-web-switches', '#sw-center-btn');
+                } else if (t.closest('#wrap-waveform')) {
+                    locate('web', 'card-web-wave', '#sel-waveform-preset');
+                } else if (t.closest('#wrap-bot-dm-group')) {
+                    locate('web', 'card-web-text', '#in-dm-placeholder', null, { focusInput: true });
+                } else if (t.closest('#wrap-bottom-bar')) {
+                    locate('web', 'card-web-time', '#in-start-time');
+                }
+            }
+        }, true);
+    })();
 })();

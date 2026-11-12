@@ -259,8 +259,14 @@ window.PlayerEngine = {
     /* ==========================================================================
        1. 视口画幅切换器 (支持 mode-pc / mode-mobile-land / mode-mobile-port / mode-dy-land)
        ========================================================================== */
-    const tabButtons = document.querySelectorAll('.tab-btn');
+    const VALID_VIEWPORT_MODES = ['mode-pc', 'mode-mobile-land', 'mode-mobile-port', 'mode-dy-land'];
+    const tabButtons = document.querySelectorAll('.viewport-tabs .tab-btn[data-mode]');
     function activateViewportMode(targetMode) {
+        if (!targetMode || !VALID_VIEWPORT_MODES.includes(targetMode)) {
+            targetMode = VALID_VIEWPORT_MODES.includes(window.PlayerEngine.currentMode)
+                ? window.PlayerEngine.currentMode
+                : 'mode-pc';
+        }
         tabButtons.forEach(b => {
             b.classList.toggle('active', b.dataset.mode === targetMode);
         });
@@ -289,8 +295,14 @@ window.PlayerEngine = {
         }
         checkMediaAspect();
         updateTransform();
+        if (typeof window.updateStageFitScale === 'function') {
+            window.updateStageFitScale();
+        }
         setTimeout(() => {
             updateTransform();
+            if (typeof window.updateStageFitScale === 'function') {
+                window.updateStageFitScale();
+            }
             if (typeof window.drawWaveform === 'function') window.drawWaveform();
         }, 60);
         if (!window.__isRestoringStorage && typeof window.triggerSaveStorage === 'function') {
@@ -301,7 +313,9 @@ window.PlayerEngine = {
 
     tabButtons.forEach(btn => {
         btn.addEventListener('click', () => {
-            activateViewportMode(btn.dataset.mode);
+            if (btn.dataset.mode) {
+                activateViewportMode(btn.dataset.mode);
+            }
         });
     });
 
@@ -468,7 +482,7 @@ window.PlayerEngine = {
             });
 
             if (jyTrimmerPanel) jyTrimmerPanel.style.display = 'flex';
-            buildJianyingTimeline(vidUrl);
+            buildJianyingTimeline(vidUrl, isRestoring);
             if (!isRestoring) {
                 toast('🎬 视频加载成功！已自动开启跨刷新保存（刷新页面视频不会消失，点一键重置可清除）');
             }
@@ -493,6 +507,19 @@ window.PlayerEngine = {
                 }
                 checkMediaAspect();
                 updateTransform();
+                try {
+                    const iw = previewImg.naturalWidth || 640;
+                    const ih = previewImg.naturalHeight || 360;
+                    const c = document.createElement('canvas');
+                    c.width = Math.min(480, iw);
+                    c.height = Math.round(c.width * (ih / iw)) || 270;
+                    c.getContext('2d').drawImage(previewImg, 0, 0, c.width, c.height);
+                    const imgFrameUrl = c.toDataURL('image/jpeg', 0.78);
+                    window.__lastExtractedVideoFrames = [imgFrameUrl];
+                    if (!isRestoring && typeof window.onVideoUploadedForLiveAi === 'function') {
+                        window.onVideoUploadedForLiveAi(window.__lastUploadedMediaName || '', [imgFrameUrl]);
+                    }
+                } catch (e) {}
             };
             updatePlayStateUI(false);
             if (!isRestoring) {
@@ -668,7 +695,7 @@ window.PlayerEngine = {
         }
     }
 
-    function buildJianyingTimeline(vidUrl) {
+    function buildJianyingTimeline(vidUrl, isRestoring = false) {
         const tempVid = document.createElement('video');
         tempVid.src = vidUrl;
         tempVid.muted = true;
@@ -742,7 +769,7 @@ window.PlayerEngine = {
             }
 
             window.__lastExtractedVideoFrames = aiFrames;
-            if (typeof window.onVideoUploadedForLiveAi === 'function') {
+            if (!isRestoring && typeof window.onVideoUploadedForLiveAi === 'function') {
                 try {
                     window.onVideoUploadedForLiveAi(window.__lastUploadedMediaName || '', aiFrames);
                 } catch (e) {}

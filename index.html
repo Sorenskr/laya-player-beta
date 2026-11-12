@@ -12,7 +12,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20261111_v28">
+    <link rel="stylesheet" href="style.css?v=20261112_v36">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
         .sidebar .tab-panel.active {
@@ -213,9 +213,38 @@
             <button class="tab-btn" data-mode="mode-mobile-land">📱 手机横屏影音 (16:9)</button>
             <button class="tab-btn" data-mode="mode-mobile-port">📲 手机竖屏社区 (9:16)</button>
             <button class="tab-btn" data-mode="mode-dy-land" id="tab-btn-dy-land">🔄 竖屏全屏观看 (16:9)</button>
+            <span class="viewport-tabs-sep" aria-hidden="true"></span>
+            <button type="button" class="stage-top-ctrl-btn stage-top-mag-btn" id="btn-top-stage-mag" title="放大整个素材画面查看细节（滚轮缩放 / 按 M 键切换拖动 / 一键重置）">🔍 放大镜 <span id="txt-top-stage-zoom">100%</span></button>
+            <button type="button" class="stage-top-ctrl-btn stage-top-pan-btn" id="btn-top-stage-pan" title="按键盘 M 键或点击此按钮开启/关闭画面拖动查看模式">✋ 拖动(M)</button>
+            <button type="button" class="stage-top-ctrl-btn stage-top-reset-btn" id="btn-top-stage-reset" title="重置整个素材画面缩放为 100% 并恢复居中">↺ 重置</button>
+            <button type="button" class="stage-top-ctrl-btn stage-top-crop-btn" id="btn-top-crop-window" title="点击开启或关闭独立取景框浮窗（支持绿框拖拽/滚轮缩放构图）">📐 独立取景框</button>
         </div>
 
-        <div class="player-stage">
+        <div class="player-stage" id="player-stage">
+            <!-- 全局素材画面放大镜悬浮控制栏（不随画布缩放、不进入截图与录屏导出） -->
+            <div class="stage-magnifier-bar" id="stage-magnifier-bar" data-html2canvas-ignore="true">
+                <button type="button" class="stage-mag-btn stage-mag-toggle" id="btn-stage-mag-toggle" title="点击快速放大/还原整个素材画面（支持鼠标滚轮自由放大缩小）">
+                    <span>🔍 放大镜</span>
+                </button>
+                <button type="button" class="stage-mag-btn stage-mag-step" id="btn-stage-zoom-out" title="缩小素材画面 (也可向下滚动鼠标滚轮)">➖</button>
+                <input type="range" class="stage-mag-slider" id="in-stage-zoom-slider" min="50" max="350" step="5" value="100" title="拖动滑块或在画面上滚动鼠标滚轮缩放 (50% ~ 350%)">
+                <span class="stage-mag-pct" id="txt-stage-zoom-pct" title="点击循环切换常用放大倍率 (100% / 150% / 200% / 250%)">100%</span>
+                <button type="button" class="stage-mag-btn stage-mag-step" id="btn-stage-zoom-in" title="放大素材画面 (也可向上滚动鼠标滚轮)">➕</button>
+                <span class="stage-mag-divider"></span>
+                <button type="button" class="stage-mag-btn stage-mag-pan" id="btn-stage-pan-toggle" title="按键盘 M 键或点击此按钮，拖动整个素材画面查看任意角落细节">
+                    <span id="txt-stage-pan-btn">✋ 拖动 (M)</span>
+                </button>
+                <button type="button" class="stage-mag-btn stage-mag-reset" id="btn-stage-zoom-reset" title="一键重置素材画面为 100% 原始大小并居中">
+                    <span>↺ 重置</span>
+                </button>
+                <button type="button" class="stage-mag-btn stage-mag-crop" id="btn-stage-crop-window" title="点击开启或关闭独立取景框浮窗">
+                    <span>📐 独立取景框</span>
+                </button>
+            </div>
+            <div class="stage-pan-hint-pill" id="stage-pan-hint-pill" data-html2canvas-ignore="true" style="display: none;">
+                ✋ 画面拖动模式已开启：按住鼠标左键任意拖动画面 · 滚轮放大/缩小 · 再按 <strong>M</strong> 键或点「↺ 重置」退出
+            </div>
+
             <!-- 播放器核心容器 -->
             <div class="player-box mode-pc skin-laya-app" id="render-target">
                 <!-- 媒体底层容器 -->
@@ -923,21 +952,20 @@
                         <!-- 右側：點贊飄心動畫區 -->
                         <div class="live-floating-hearts" id="live-floating-hearts"></div>
 
-                        <!-- 下方公屏區域：頂部醒目編輯工具欄 + 紫色漸變禮物進場提示條 + 滾動彈幕列表 + 底部輸入欄與四圓形按鈕 -->
-                        <div class="live-bottom-section">
-                            <!-- 畫布常駐醒目精修工具欄（導出截圖/視頻時自動隱藏，不入畫） -->
-                            <div class="live-dm-edit-toolbar interactive-elem" id="live-dm-edit-toolbar" data-html2canvas-ignore="true">
-                                <button type="button" class="live-dm-tool-btn is-zoom-highlight" id="btn-live-canvas-zoom-edit" title="一鍵放大整個底部評論與禮物區域，方便看清並精修燈牌、等級、名字和文案細節（導出時自動還原）">🔍 放大查看</button>
-                                <button type="button" class="live-dm-tool-btn is-reset-highlight" id="btn-live-canvas-reset-size" title="一鍵重置評論區放大狀態、字號比例(100%)、寬度(93%)與行數(5行)">↺ 重置大小</button>
-                                <button type="button" class="live-dm-tool-btn" id="btn-live-canvas-spd-down" title="放慢彈幕與禮物滾動速度">➖慢</button>
-                                <span class="live-dm-tool-spd" id="txt-live-canvas-spd" title="當前滾動速度檔位（1~10檔）">⚡5檔</span>
-                                <button type="button" class="live-dm-tool-btn" id="btn-live-canvas-spd-up" title="加快彈幕與禮物滾動速度">➕快</button>
-                                <button type="button" class="live-dm-tool-btn is-ai" id="btn-live-canvas-ai-dm" title="根據當前視頻畫面AI識別並同步生成直播間滾動評論">🤖 畫面生詞</button>
-                                <div class="live-dm-resize-handle interactive-elem" id="live-dm-resize-handle" title="按住拖動可自由調整彈幕區域寬度與高度 · 鼠標滾輪可無級放大縮小">⤡ 拖動/滾輪</div>
+                        <!-- 下方公屏區域：懸停/操作時才浮現的大小位置調節欄 + 紫色漸變禮物進場提示條 + 滾動彈幕列表 + 底部輸入欄 -->
+                        <div class="live-bottom-section" id="live-bottom-section">
+                            <!-- 僅在鼠標碰觸/操作禮物與彈幕區時浮現的大小與位置控制欄（不碰完全隱藏，截圖與導出自動忽略） -->
+                            <div class="live-dm-edit-toolbar" id="live-dm-onstage-toolbar">
+                                <button type="button" class="live-dm-tool-btn is-zoom-highlight" id="btn-live-canvas-zoom-edit" title="點擊放大底部禮物與評論區看細節（再點還原）">🔍 放大查看</button>
+                                <button type="button" class="live-dm-tool-btn is-reset-highlight" id="btn-live-canvas-reset-size" title="一鍵重置字號大小(100%)、寬度(93%)、行數(5行)與位置偏移">↺ 重置大小</button>
+                                <button type="button" class="live-dm-tool-btn" id="btn-live-onstage-spd-down" title="放慢彈幕與禮物速度">➖慢</button>
+                                <span class="live-dm-tool-spd" id="txt-live-onstage-spd">⚡5檔</span>
+                                <button type="button" class="live-dm-tool-btn" id="btn-live-onstage-spd-up" title="加快彈幕與禮物速度">➕快</button>
+                                <span class="live-dm-move-handle" id="live-dm-move-handle" title="按住左鍵上下左右拖動：自由調整禮物與彈幕區的位置">✥ 挪位置</span>
+                                <span class="live-dm-resize-handle" id="live-dm-resize-handle" title="按住左鍵左右拖拉改寬度、上下拖拉改高度/行數；滾動滾輪直接縮放字號與徽章大小">⤡ 拖拉/滾輪改大小</span>
                             </div>
-
                             <!-- 三、禮物進場提示條：左側真人圓頭像 + 用戶名 + 送禮文案 + 專屬禮物圖標 + 大號連擊數字（每次彈出不同頭像/禮物/主題） -->
-                            <div class="live-gift-combo-slot">
+                            <div class="live-gift-combo-slot" id="live-gift-combo-slot">
                                 <div class="live-gift-combo-banner interactive-elem" id="live-gift-combo-banner" title="單擊隨機切換下一位真人送禮 · 雙擊原地編輯禮物彈窗內容">
                                     <img src="Laya.png" class="live-gift-sender-av" id="live-gift-sender-av" alt="送禮頭像" title="點擊更換送禮真人頭像">
                                     <div class="live-gift-meta">
@@ -1802,7 +1830,10 @@
                     <input type="text" id="in-banner-body" value="已解鎖完整無碼未刪減版，點擊任意處播放">
                 </div>
                 <div class="form-row">
-                    <label>底部输入框骚话预设</label>
+                    <label style="display:flex; justify-content:space-between; align-items:center;">
+                        <span>底部输入框骚话预设</span>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-web-ai-dm" style="padding:1px 7px; font-size:10px; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none;" title="使用 AI 识别当前上传的视频或图片画面，自动生成匹配的弹幕话术（每次间隔不少于30秒）">🤖 AI 识别视频/图片配弹幕</button>
+                    </label>
                     <select id="sel-dm-preset">
                         <option value="這身材太頂了吧...">這身材太頂了吧...</option>
                         <option value="已備好衛生紙，感謝樓主！">已備好衛生紙，感謝樓主！</option>
@@ -2454,18 +2485,56 @@
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-live-back-to-video" style="background: rgba(168, 85, 247, 0.22); border-color: rgba(168, 85, 247, 0.55); color: #e9d5ff; font-weight: 700;" title="立即退出直播页面，切回默认短视频（推薦）界面">🎬 切回短視頻</button>
                 </div>
 
-                <!-- 顶部醒目快捷精修栏：一键放大评论与礼物区调细节 + 一键重置大小 -->
-                <div style="margin: 2px 0 10px 0; padding: 8px 10px; border-radius: 9px; background: linear-gradient(90deg, rgba(14, 165, 233, 0.22) 0%, rgba(124, 58, 237, 0.26) 55%, rgba(236, 72, 153, 0.22) 100%); border: 1.5px solid rgba(56, 189, 248, 0.65); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; box-shadow: 0 4px 14px rgba(14, 165, 233, 0.18);">
+                <!-- 顶部醒目快捷精修与控制栏（已将原手机画面中间突兀的悬浮工具条整合至此处，画面100%干净无遮挡） -->
+                <div id="live-dm-edit-toolbar" style="margin: 2px 0 8px 0; padding: 8px 10px; border-radius: 9px; background: linear-gradient(90deg, rgba(14, 165, 233, 0.22) 0%, rgba(124, 58, 237, 0.26) 55%, rgba(236, 72, 153, 0.22) 100%); border: 1.5px solid rgba(56, 189, 248, 0.65); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; box-shadow: 0 4px 14px rgba(14, 165, 233, 0.18);">
                     <span style="font-size: 12px; font-weight: 800; color: #f0f9ff; display: inline-flex; align-items: center; gap: 4px;">✨ 評論與禮物區細節精修：</span>
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                        <button type="button" id="btn-live-header-zoom-edit" style="background: linear-gradient(90deg, #0284c7, #7c3aed); color: #ffffff; border: 1.5px solid #fde047; border-radius: 999px; padding: 4px 12px; font-size: 12px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 10px rgba(2, 132, 199, 0.55);" title="点击将左侧手机直播间的礼物与评论区整体放大，方便看清并双击修改灯牌、等级、名字与评论细节（导出时自动还原标准大小）">🔍 放大查看調細節</button>
-                        <button type="button" id="btn-live-header-reset-size" style="background: rgba(245, 158, 11, 0.28); color: #fef08a; border: 1.5px solid rgba(250, 204, 21, 0.75); border-radius: 999px; padding: 4px 11px; font-size: 12px; font-weight: 800; cursor: pointer;" title="一键收起放大状态，并将字号比例(100%)、区域宽度(93%)、同屏行数(5行)全部还原为默认标准大小">↺ 重置大小</button>
+                    <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
+                        <button type="button" id="btn-live-header-zoom-edit" style="background: linear-gradient(90deg, #0284c7, #7c3aed); color: #ffffff; border: 1.5px solid #fde047; border-radius: 999px; padding: 3px 10px; font-size: 11.5px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 10px rgba(2, 132, 199, 0.55);" title="点击将左侧手机直播间的礼物与评论区整体放大，方便看清并双击修改灯牌、等级、名字与评论细节（导出时自动还原标准大小）">🔍 放大查看調細節</button>
+                        <button type="button" id="btn-live-header-reset-size" style="background: rgba(245, 158, 11, 0.28); color: #fef08a; border: 1.5px solid rgba(250, 204, 21, 0.75); border-radius: 999px; padding: 3px 9px; font-size: 11.5px; font-weight: 800; cursor: pointer;" title="一键收起放大状态，并将字号比例(100%)、区域宽度(93%)、同屏行数(5行)全部还原为默认标准大小">↺ 重置大小</button>
+                        <button type="button" class="sub-mini-act" id="btn-live-canvas-spd-down" title="放慢弹幕与礼物速度">➖慢</button>
+                        <span class="sub-mini-act" id="txt-live-canvas-spd" style="background:rgba(15,23,42,0.8); color:#fde047; font-weight:800; cursor:default;">⚡5檔</span>
+                        <button type="button" class="sub-mini-act" id="btn-live-canvas-spd-up" title="加快弹幕与礼物速度">➕快</button>
+                        <button type="button" class="sub-mini-act" id="btn-live-canvas-ai-dm" style="background:linear-gradient(90deg,#7c3aed,#ec4899); color:#fff; border:none; font-weight:800;" title="使用 AI 识别当前上传的视频或图片画面生成弹幕（每次间隔不少于30秒）">🤖 AI畫面生詞</button>
+                    </div>
+                </div>
+
+                <!-- ★ 新增：直播间全元素显隐总控面板（支持一键全开/全关 + 全部组件开关，且下方每项设置旁均配有同步独立开关） -->
+                <div id="live-cfg-box-visibility" style="margin: 0 0 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(15, 23, 42, 0.75); border: 1px solid rgba(168, 85, 247, 0.42);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                        <span style="font-size:12px; font-weight:800; color:#e9d5ff;">👁️ 直播间全元素显示/关闭开关 (支持总控与下方单项独立控制)</span>
+                        <div style="display:flex; gap:5px;">
+                            <button type="button" class="sub-mini-act" id="btn-live-vis-all-on" style="background:rgba(16,185,129,0.28); color:#a7f3d0; border-color:rgba(52,211,153,0.6); font-weight:800;">✅ 全部显示</button>
+                            <button type="button" class="sub-mini-act" id="btn-live-vis-all-off" style="background:rgba(244,63,94,0.25); color:#fecdd3; border-color:rgba(251,113,133,0.6); font-weight:800;">🚫 全部关闭(纯净画面)</button>
+                        </div>
+                    </div>
+                    <div class="live-vis-matrix-grid">
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="host-info" checked><span>👤 主播头像与昵称</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="host-likes" checked><span>👍 本场点赞数</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="follow-btn" checked><span>💗 关注按钮</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="aud-avatars" checked><span>👥 右上角观众头像</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="top-viewers" checked><span>🔥 右上在线人数</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="exit-btn" checked><span>✕ 右上关闭按钮</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="live-pill" checked><span>🔴 LIVE在线红标</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="rank-pill" checked><span>🏆 人气榜标签</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="brand-pill" checked><span>🏷️ 品牌精选标签</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="square-pill" checked><span>🧭 直播广场标签</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="sys-notice" checked><span>🛡️ 顶部绿色提示语</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="welcome-bar" checked><span>🎧 直播间欢迎语</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="gift-banner" checked><span>🎁 礼物进场小弹窗</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="chat-list" checked><span>💬 滚动弹幕列表</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="join-ticker" checked><span>🏃 底部「来了」进场条</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="float-hearts" checked><span>💜 右侧点赞飘心</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="bottom-input" checked><span>⌨️ 底部说点什么输入栏</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="bottom-icons" checked><span>🔘 底部右侧4个互动圆钮</span></label>
                     </div>
                 </div>
 
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>主播名与头像 <a href="javascript:void(0)" id="btn-live-rand-name" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机名</a> · <a href="javascript:void(0)" id="btn-live-rand-host-av" style="color:#a855f7; text-decoration:none;">🎲随机头像</a> · <a href="javascript:void(0)" id="btn-live-upload-host-av" style="color:#38bdf8; font-weight:700; text-decoration:none;">📤上传头像</a></label>
+                        <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px;">
+                            <span>主播名与头像 <a href="javascript:void(0)" id="btn-live-rand-name" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机名</a> · <a href="javascript:void(0)" id="btn-live-rand-host-av" style="color:#a855f7; text-decoration:none;">🎲头像</a> · <a href="javascript:void(0)" id="btn-live-upload-host-av" style="color:#38bdf8; font-weight:700; text-decoration:none;">📤上传</a></span>
+                            <span class="live-inline-vis-wrap" title="单独显示或关闭左上角主播头像与昵称"><input type="checkbox" data-live-vis="host-info" checked>显示</span>
+                        </label>
                         <div class="input-with-dice">
                             <input type="text" id="in-live-host-name" value="小王小王" placeholder="输入主播昵称">
                             <button type="button" class="btn-inline-dice" id="btn-live-rand-name-btn" title="随机切换主播名">🎲</button>
@@ -2474,7 +2543,10 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <label>本场点赞 (1千~200万) <a href="javascript:void(0)" id="btn-live-rand-id" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px;">
+                            <span>本场点赞 (1千~200万) <a href="javascript:void(0)" id="btn-live-rand-id" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></span>
+                            <span class="live-inline-vis-wrap" title="单独显示或关闭本场点赞文字"><input type="checkbox" data-live-vis="host-likes" checked>显示</span>
+                        </label>
                         <div class="input-with-dice">
                             <input type="text" id="in-live-host-id" value="25.6萬" placeholder="如 25.6萬、138.5萬">
                             <button type="button" class="btn-inline-dice" id="btn-live-rand-id-btn" title="随机切换本场点赞 (1000~200万)">🎲</button>
@@ -2484,7 +2556,10 @@
 
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <label>👤 抖音观众头像 <a href="javascript:void(0)" id="btn-live-rand-aud-av" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a> · <a href="javascript:void(0)" id="btn-live-upload-aud-av" style="color:#38bdf8; text-decoration:none;">📤上传</a></label>
+                        <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px;">
+                            <span>👤 抖音观众头像 <a href="javascript:void(0)" id="btn-live-rand-aud-av" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a> · <a href="javascript:void(0)" id="btn-live-upload-aud-av" style="color:#38bdf8; text-decoration:none;">📤上传</a></span>
+                            <span class="live-inline-vis-wrap" title="单独显示或关闭右上角3位观众头像"><input type="checkbox" data-live-vis="aud-avatars" checked>显示</span>
+                        </label>
                         <div class="input-with-dice">
                             <select id="sel-live-aud-avatar-mode" style="flex:1;">
                                 <option value="douyin-mix" selected>抖音观众随机 (生活照/萌宠/二次元)</option>
@@ -2498,7 +2573,10 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <label>🔥 在线人数 (1千~200万) <a href="javascript:void(0)" id="btn-live-rand-viewers" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px;">
+                            <span>🔥 在线人数 (1千~200万) <a href="javascript:void(0)" id="btn-live-rand-viewers" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></span>
+                            <span class="live-inline-vis-wrap" title="单独显示或关闭右上角在线人数胶囊"><input type="checkbox" data-live-vis="top-viewers" checked>显示</span>
+                        </label>
                         <div class="input-with-dice">
                             <input type="text" id="in-live-viewers-text" value="10.2萬" placeholder="如 10.2萬、25.3萬、168.5萬">
                             <button type="button" class="btn-inline-dice" id="btn-live-rand-viewers-btn" title="随机生成 1000 ~ 200万 在线人数">🎲</button>
@@ -2508,7 +2586,10 @@
 
                 <div class="form-row">
                     <div class="range-box">
-                        <label>📊 在线人数滑块调节 (联动右上角与左上角 LIVE，画面文字单击随机/双击可改)</label>
+                        <label style="display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span>📊 在线人数滑块调节 (联动右上角与左上角 LIVE)</span>
+                            <span class="live-inline-vis-wrap" title="单独显示或关闭左上角红色 LIVE 在线人数胶囊"><input type="checkbox" data-live-vis="live-pill" checked>显示LIVE红标</span>
+                        </label>
                         <span class="range-value" id="txt-live-viewers">10.2萬</span>
                     </div>
                     <input type="range" id="in-live-viewers" min="1000" max="2000000" step="1000" value="102000">
@@ -2516,14 +2597,23 @@
 
                 <div class="form-grid-2" style="margin-top:4px;">
                     <div class="form-row">
-                        <label>🏷️ 品牌精选标签 (双击画面可改) <a href="javascript:void(0)" id="btn-live-rand-brand-tag" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px;">
+                            <span>🏷️ 品牌精选标签 <a href="javascript:void(0)" id="btn-live-rand-brand-tag" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></span>
+                            <span class="live-inline-vis-wrap" title="单独显示或关闭品牌精选胶囊标签"><input type="checkbox" data-live-vis="brand-pill" checked>显示</span>
+                        </label>
                         <div class="input-with-dice">
                             <input type="text" id="in-live-brand-tag" value="Laya 精選" placeholder="如 Laya 精選、Laya 官方">
                             <button type="button" class="btn-inline-dice" id="btn-live-rand-brand-tag-btn" title="随机切换品牌精选标签">🎲</button>
                         </div>
                     </div>
                     <div class="form-row">
-                        <label>🏆 榜单与广场标签 (双击画面可改) <a href="javascript:void(0)" id="btn-live-rand-rank-tag" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px;">
+                            <span>🏆 榜单与广场标签 <a href="javascript:void(0)" id="btn-live-rand-rank-tag" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></span>
+                            <span style="display:inline-flex; gap:4px;">
+                                <span class="live-inline-vis-wrap" title="单独显示或关闭人气榜标签"><input type="checkbox" data-live-vis="rank-pill" checked>榜单</span>
+                                <span class="live-inline-vis-wrap" title="单独显示或关闭直播广场标签"><input type="checkbox" data-live-vis="square-pill" checked>广场</span>
+                            </span>
+                        </label>
                         <div class="input-with-dice" style="gap:4px;">
                             <input type="text" id="in-live-rank-tag" value="人氣榜" placeholder="如 人氣榜" style="width:46%;">
                             <input type="text" id="in-live-square-tag" value="直播廣場" placeholder="如 直播廣場" style="width:46%;">
@@ -2533,7 +2623,7 @@
                 </div>
 
                 <!-- 二点五、公屏上方官方精选欢迎语 & 系统提示语设置（支持自定义修改、随机切换、双击画面编辑、开关隐藏） -->
-                <div style="margin: 6px 0; padding: 7px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.55); border: 1px solid rgba(148, 163, 184, 0.28);">
+                <div id="live-cfg-box-welcome" style="margin: 6px 0; padding: 7px 10px; border-radius: 8px; background: rgba(30, 41, 59, 0.55); border: 1px solid rgba(148, 163, 184, 0.28);">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
                         <span style="font-size:12px; font-weight:700; color:#e2e8f0;">📢 公屏顶部欢迎语 & 官方提示 (双击画面那段话可直接改)</span>
                         <div style="display:flex; gap:10px; font-size:11.5px;">
@@ -2564,11 +2654,14 @@
                 </div>
 
                 <!-- 三、礼物进场提示条专属设置 -->
-                <div style="margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(168, 85, 247, 0.35);">
+                <div id="live-cfg-box-gift" style="margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(124, 58, 237, 0.14); border: 1px solid rgba(168, 85, 247, 0.35);">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:6px;">
-                        <span style="font-size:12px; font-weight:700; color:#e9d5ff;">🎁 礼物进场小弹窗 (自动弹出轮播 + 连击跳动，双击画面可改)</span>
+                        <span style="font-size:12px; font-weight:700; color:#e9d5ff; display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span>🎁 礼物进场小弹窗 (双击画面可改)</span>
+                            <label class="live-inline-vis-wrap" title="单独显示或关闭礼物进场小弹窗"><input type="checkbox" data-live-vis="gift-banner" checked>显示弹窗</label>
+                        </span>
                         <div style="display:flex; align-items:center; gap:5px; flex-wrap:wrap;">
-                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:800; color:#fef08a; background:rgba(16,185,129,0.28); border:1px solid rgba(52,211,153,0.75); padding:2px 8px; border-radius:999px; cursor:pointer; margin:0;" title="默认自动开启：源源不断弹出不同真人送礼并带有连击数字跳动；取消勾选则固定当前礼物">
+                            <label style="display:inline-flex; align-items:center; gap:4px; font-size:11.5px; font-weight:800; color:#fef08a; background:rgba(16,185,129,0.28); border:1px solid rgba(52,211,153,0.75); padding:2px 8px; border-radius:999px; cursor:pointer; margin:0;" title="默认自动开启：源源不断弹出不同真人送礼并带有连击数字跳动；取消勾选或将速度调为0档则完全静止固定不动">
                                 <input type="checkbox" id="sw-live-auto-cycle-gift" checked>
                                 <span id="txt-live-auto-gift-state">自动弹出轮播中</span>
                             </label>
@@ -2578,17 +2671,43 @@
                             <button type="button" class="sub-mini-act" id="btn-live-rand-gift-all" style="background:linear-gradient(90deg,#7c3aed,#ec4899); color:#ffffff; border-color:#fde047; font-weight:800;">🚀 立即弹一个</button>
                         </div>
                     </div>
-                    <!-- 礼物独立弹出与连击速度调节栏 -->
+                    <!-- 礼物独立弹出与连击速度调节栏 (0~10档：0档静止不动，1~3档超级慢，4~10档常速至狂暴) -->
                     <div class="form-row" style="margin-bottom:6px; padding:6px 8px; border-radius:7px; background:rgba(15,23,42,0.65); border:1px solid rgba(192,132,252,0.35);">
                         <div class="range-box" style="margin-bottom:3px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px;">
-                            <label style="margin:0; font-size:11.5px; font-weight:800; color:#f3e8ff;">⚡ 礼物弹出与连击速度 (1~10档自由调节)</label>
-                            <div style="display:inline-flex; align-items:center; gap:4px;">
-                                <button type="button" class="sub-mini-act" id="btn-live-gift-spd-down" style="padding:1px 7px; font-weight:800;" title="放慢礼物弹出与连击速度">➖慢</button>
-                                <span class="range-value" id="txt-live-gift-speed" style="color:#fde047; font-weight:800;">6档 · 1.6秒/个 (欢快连发)</span>
+                            <label style="margin:0; font-size:11.5px; font-weight:800; color:#f3e8ff;">⚡ 礼物弹出与连击速度 (0档静止不动 · 1~3档超慢 · 10档极速)</label>
+                            <div style="display:inline-flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                                <button type="button" class="sub-mini-act" id="btn-live-gift-spd-pause" style="padding:1px 7px; font-weight:800; background:rgba(244,63,94,0.25); color:#fecdd3; border-color:rgba(251,113,133,0.55);" title="一键设为 0 档：礼物固定静止不动，不自动轮播">⏸️静止</button>
+                                <button type="button" class="sub-mini-act" id="btn-live-gift-spd-down" style="padding:1px 7px; font-weight:800;" title="放慢礼物弹出与连击速度（最低可至25秒/个或0档静止）">➖慢</button>
+                                <span class="range-value" id="txt-live-gift-speed" style="color:#fde047; font-weight:800;">5档 · 3.5秒/个 (标准)</span>
                                 <button type="button" class="sub-mini-act" id="btn-live-gift-spd-up" style="padding:1px 7px; font-weight:800;" title="加快礼物弹出与连击速度">➕快</button>
                             </div>
                         </div>
-                        <input type="range" id="in-live-gift-speed" min="1" max="10" step="1" value="6">
+                        <input type="range" id="in-live-gift-speed" min="0" max="10" step="1" value="5">
+                    </div>
+                    <!-- ★ 新增：礼物入场数量自定义范围控制（最少几个 ~ 最多几个，全权由用户自己控制） -->
+                    <div class="form-row" style="margin-bottom:6px; padding:6px 8px; border-radius:7px; background:rgba(15,23,42,0.65); border:1px solid rgba(56,189,248,0.42);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
+                            <label style="margin:0; font-size:11.5px; font-weight:800; color:#bae6fd;">🔢 礼物入场数量范围 (自定义最少几个 ~ 最多几个)</label>
+                            <span id="txt-live-gift-qty-range" style="font-size:11px; font-weight:800; color:#fde047;">当前范围：x1 ~ x10</span>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <div style="display:inline-flex; align-items:center; gap:4px; flex:1; min-width:115px;">
+                                <span style="font-size:11px; color:#cbd5e1; white-space:nowrap;">最少(个)</span>
+                                <input type="number" id="in-live-gift-min-qty" min="1" max="99999" step="1" value="1" style="width:68px; text-align:center; font-weight:800; color:#fde047;" title="礼物入场最少数量（最小为1）">
+                            </div>
+                            <span style="color:#94a3b8; font-weight:800;">~</span>
+                            <div style="display:inline-flex; align-items:center; gap:4px; flex:1; min-width:115px;">
+                                <span style="font-size:11px; color:#cbd5e1; white-space:nowrap;">最多(个)</span>
+                                <input type="number" id="in-live-gift-max-qty" min="1" max="99999" step="1" value="10" style="width:68px; text-align:center; font-weight:800; color:#fde047;" title="礼物入场最多数量（填与最少相同则固定该数量不变）">
+                            </div>
+                            <div style="display:inline-flex; align-items:center; gap:3px; flex-wrap:wrap;">
+                                <button type="button" class="sub-mini-act btn-gift-qty-preset" data-min="1" data-max="1" style="padding:2px 6px;" title="固定只送 1 个 (x1)">固定1个</button>
+                                <button type="button" class="sub-mini-act btn-gift-qty-preset" data-min="1" data-max="5" style="padding:2px 6px;" title="最少 1 个，最多 5 个 (适合嘉年华/火箭等大礼物)">1~5个</button>
+                                <button type="button" class="sub-mini-act btn-gift-qty-preset" data-min="1" data-max="10" style="padding:2px 6px;" title="最少 1 个，最多 10 个">1~10个</button>
+                                <button type="button" class="sub-mini-act btn-gift-qty-preset" data-min="1" data-max="99" style="padding:2px 6px;" title="最少 1 个，最多 99 个">1~99个</button>
+                                <button type="button" class="sub-mini-act btn-gift-qty-preset" data-min="10" data-max="520" style="padding:2px 6px;" title="最少 10 个，最多 520 个 (适合小心心/玫瑰等小礼物)">10~520个</button>
+                            </div>
+                        </div>
                     </div>
                     <div class="form-grid-2">
                         <div class="form-row">
@@ -2643,13 +2762,17 @@
                     </div>
                 </div>
 
-                <div class="form-row">
+                <div class="form-row" id="live-cfg-box-danmaku">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
-                        <label style="margin:0;">💬 滚动弹幕列表 (双击手机画面上任意一条弹幕，即可单独修改它的等级/管字标/昵称/内容)</label>
+                        <label style="margin:0; display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span>💬 滚动弹幕列表 (双击画面任意弹幕可改等级/管/昵称/内容)</span>
+                            <span class="live-inline-vis-wrap" title="单独显示或关闭公屏滚动弹幕列表"><input type="checkbox" data-live-vis="chat-list" checked>显示弹幕</span>
+                            <span class="live-inline-vis-wrap" title="单独显示或关闭底部「XXX 来了」进场提示条"><input type="checkbox" data-live-vis="join-ticker" checked>显示进场条</span>
+                        </label>
                         <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
                             <button type="button" class="sub-mini-act" id="btn-live-dm-zoom-2" style="background:linear-gradient(90deg,#0284c7,#7c3aed); color:#fff; border:1px solid #fde047; font-weight:800; padding:3px 9px;" title="放大直播间底部评论与礼物区，方便看清并调整细节">🔍 放大查看</button>
                             <button type="button" class="sub-mini-act" id="btn-live-dm-reset-2" style="background:rgba(245,158,11,0.28); color:#fef08a; border:1px solid rgba(250,204,21,0.75); font-weight:800; padding:3px 8px;" title="一键还原放大状态与默认标准尺寸">↺ 重置大小</button>
-                            <button type="button" class="sub-mini-act" id="btn-live-ai-match-dm" style="background:linear-gradient(90deg,#7c3aed,#ec4899); color:#fff; border:none; font-weight:700; padding:3px 8px;">🤖 AI 識別視頻自動配彈幕</button>
+                            <button type="button" class="sub-mini-act" id="btn-live-ai-match-dm" style="background:linear-gradient(90deg,#7c3aed,#ec4899); color:#fff; border:none; font-weight:700; padding:3px 8px;" title="使用 AI 识别当前上传的视频或图片画面，自动生成匹配的弹幕话术（每次间隔不少于30秒）">🤖 AI 識別視頻/圖片配彈幕</button>
                             <button type="button" class="sub-mini-act" id="btn-live-rand-dm-batch" title="从多场景弹幕库随机换一批分行弹幕">🎲 換一批</button>
                             <button type="button" class="sub-mini-act" id="btn-live-split-dm-lines" title="把逗号或空格分隔的弹幕一键拆分为每行一条">↵ 一鍵分行</button>
                             <button type="button" class="sub-mini-act" id="btn-live-toggle-ai-cfg" title="配置可选的云端视觉大模型 Key (Gemini / GAS)">⚙️ 雲端AI</button>
@@ -2658,13 +2781,13 @@
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px; font-size:11.5px; color:#cbd5e1;">
                         <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:#e9d5ff;">
                             <input type="checkbox" id="sw-live-auto-ai-dm" checked>
-                            <span>上傳視頻時自動抽幀讓 AI 匹配並填充彈幕 (已內置團隊共享 Flash 模型 + 8人防刷保護)</span>
+                            <span>上傳視頻或圖片時自動讓 AI 匹配並填充彈幕 (每次使用 AI 間隔 ≥ 30秒)</span>
                         </label>
-                        <span id="txt-live-ai-status" style="color:#34d399; font-size:11px; font-weight:700;">⚡ Flash AI 就緒 (今日剩餘 40/40)</span>
+                        <span id="txt-live-ai-status" style="color:#34d399; font-size:11px; font-weight:700;">⚡ Flash AI 就緒 (30s冷卻 · 今日剩餘 40/40)</span>
                     </div>
                     <div id="box-live-ai-vision-cfg" style="display:none; margin-bottom:6px; padding:8px 10px; border-radius:7px; background:rgba(15,23,42,0.92); border:1px solid rgba(168,85,247,0.55); font-size:11.5px;">
                         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
-                            <span style="color:#e9d5ff; font-weight:700;">🔑 團隊共享 Gemini 3.8 Flash 已內置 (口令: 0000 · 5秒冷卻 · 每人每日40次)</span>
+                            <span style="color:#e9d5ff; font-weight:700;">🔑 團隊共享 Gemini 3.8 Flash 已內置 (口令: 0000 · 30秒冷卻 · 每人每日40次)</span>
                             <div style="display:flex; gap:4px;">
                                 <button type="button" class="sub-mini-act" id="btn-live-save-ai-key" style="background:rgba(16,185,129,0.28); color:#a7f3d0; border-color:rgba(52,211,153,0.5);">💾 保存並測試AI</button>
                                 <button type="button" class="sub-mini-act" id="btn-live-share-ai-key" style="background:rgba(56,189,248,0.25); color:#bae6fd; border-color:rgba(56,189,248,0.5);" title="複製帶此 Key 的全員共享連結">🌐 生成全員共享連結</button>
@@ -2706,7 +2829,10 @@
                         </div>
                     </div>
                     <div class="form-row">
-                        <label>💗 关注按钮颜色 (粉色默认)</label>
+                        <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px;">
+                            <span>💗 关注按钮颜色 (粉色默认)</span>
+                            <span class="live-inline-vis-wrap" title="单独显示或关闭左上角关注按钮"><input type="checkbox" data-live-vis="follow-btn" checked>显示关注</span>
+                        </label>
                         <div style="display:flex; align-items:center; gap:6px;">
                             <input type="color" id="in-live-follow-color" value="#f43f5e" style="width:34px; height:28px; padding:0; border:1px solid #334155; border-radius:5px; background:transparent; cursor:pointer;">
                             <input type="text" id="in-live-follow-color-hex" value="#f43f5e" style="flex:1; font-family:monospace; font-size:11.5px;">
@@ -2736,18 +2862,24 @@
 
                 <div class="form-grid-2">
                     <div class="form-row">
-                        <div class="range-box">
-                            <label>⚡ 弹幕滚动速度</label>
-                            <span class="range-value" id="txt-live-dm-speed">5 (标准)</span>
+                        <div class="range-box" style="flex-wrap:wrap; gap:4px;">
+                            <label style="display:inline-flex; align-items:center; gap:5px;">
+                                <span>⚡ 弹幕滚动速度 (0档静止·1~3超慢)</span>
+                                <button type="button" class="sub-mini-act" id="btn-live-dm-spd-pause" style="padding:0 6px; font-size:10.5px; background:rgba(244,63,94,0.25); color:#fecdd3; border-color:rgba(251,113,133,0.55);" title="一键将弹幕设为 0 档静止不动">⏸️静止</button>
+                            </label>
+                            <span class="range-value" id="txt-live-dm-speed">5 (标准·1.5秒/条)</span>
                         </div>
-                        <input type="range" id="in-live-dm-speed" min="1" max="10" step="1" value="5">
+                        <input type="range" id="in-live-dm-speed" min="0" max="10" step="1" value="5">
                     </div>
                     <div class="form-row">
                         <div class="range-box">
-                            <label>💜 右侧飘心密度</label>
+                            <label style="display:inline-flex; align-items:center; gap:5px;">
+                                <span>💜 右侧飘心密度 (0档关闭)</span>
+                                <span class="live-inline-vis-wrap" title="单独显示或关闭右侧彩色点赞飘心"><input type="checkbox" data-live-vis="float-hearts" checked>显示</span>
+                            </label>
                             <span class="range-value" id="txt-live-heart-density">6 (热闹)</span>
                         </div>
-                        <input type="range" id="in-live-heart-density" min="1" max="10" step="1" value="6">
+                        <input type="range" id="in-live-heart-density" min="0" max="10" step="1" value="6">
                     </div>
                 </div>
 
@@ -2770,6 +2902,27 @@
                         <span>💜 弹幕行右侧紫心</span>
                         <label class="ios-toggle">
                             <input type="checkbox" id="sw-live-dm-row-heart">
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>⌨️ 底部「说点什么」输入栏</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" data-live-vis="bottom-input" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>🔘 底部右侧 4 个圆形互动图标</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" data-live-vis="bottom-icons" checked>
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+                    <div class="switch-tile">
+                        <span>✕ 右上角关闭按钮</span>
+                        <label class="ios-toggle">
+                            <input type="checkbox" data-live-vis="exit-btn" checked>
                             <span class="slider-round"></span>
                         </label>
                     </div>
@@ -3233,6 +3386,20 @@
                     </select>
                 </div>
 
+                <div class="form-row" style="margin-top: 4px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 8px 10px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
+                        <span style="font-size:11.5px; font-weight:800; color:#6ee7b7;">🤖 AI 视觉识别视频/图片生成弹幕话术 (全模式通用)</span>
+                        <span id="txt-dm-studio-ai-status" style="font-size:10px; color:#34d399; font-weight:700;">⚡ 每次调用间隔 ≥ 30秒</span>
+                    </div>
+                    <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
+                        <button type="button" class="btn btn-sm" id="btn-dm-studio-ai-gen" style="flex:1; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; font-weight:800; padding:6px 10px;" title="无论上传的是视频还是图片，一键通过 AI 识别画面内容并生成弹幕话术（每次间隔不少于30秒）">🤖 AI 识别视频/图片获取弹幕话术</button>
+                    </div>
+                    <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:#a7f3d0; cursor:pointer; user-select:none;">
+                        <input type="checkbox" id="sw-dm-studio-auto-ai" checked style="accent-color:#10b981; width:13px; height:13px; cursor:pointer;">
+                        <span>上传视频或图片时自动通过 AI 获取并填充弹幕 (30秒冷却保护)</span>
+                    </label>
+                </div>
+
                 <div class="form-row" style="margin-top: 4px;">
                     <label>预设案例库 (点击一键装载)：</label>
                     <div style="display: flex; flex-direction: column; gap: 5px;">
@@ -3330,10 +3497,10 @@
     </div>
 </main>
 
-<script src="logos.js?v=20261111_v28"></script>
-<script src="player.js?v=20261111_v28"></script>
-<script src="danmaku.js?v=20261111_v28"></script>
-<script src="app.js?v=20261111_v28"></script>
+<script src="logos.js?v=20261112_v36"></script>
+<script src="player.js?v=20261112_v36"></script>
+<script src="danmaku.js?v=20261112_v36"></script>
+<script src="app.js?v=20261112_v36"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {
