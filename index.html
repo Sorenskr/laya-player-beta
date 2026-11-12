@@ -3,6 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>Laya 播放器 · 全真机录屏与截图工作台</title>
     <!-- 浏览器标签页图标 (上传到 GitHub Pages 后不再显示地球图标) -->
     <link rel="icon" href="favicon.png" type="image/png">
@@ -12,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20261112_v36">
+    <link rel="stylesheet" href="style.css?v=20261112_v51">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
         .sidebar .tab-panel.active {
@@ -195,7 +198,7 @@
                 <option value="15">录制 15 秒</option>
                 <option value="custom">自定义秒数...</option>
             </select>
-            <input type="number" id="in-custom-sec" value="8" min="1" max="120" style="display: none;" title="输入自定义秒数">
+            <input type="number" id="in-custom-sec" value="10" min="0.5" max="600" step="0.1" style="display: none;" title="输入自定义秒数">
         </div>
         <button class="btn btn-save-vid" id="btn-save-vid">🎥 录屏导出视频</button>
         <button class="btn btn-theme-toggle" id="btn-toggle-theme" title="切换日间/夜间模式（对全部 4 种模式预览与截图/录屏导出生效）">
@@ -1663,10 +1666,13 @@
                 </div>
                 <div class="form-row">
                     <div class="range-box">
-                        <label>当前播放进度占比</label>
+                        <label>当前播放进度占比 (拖动定位起始时间)</label>
                         <span class="range-value" id="txt-progress">5%</span>
                     </div>
-                    <input type="range" id="in-progress" min="0" max="100" value="5">
+                    <input type="range" id="in-progress" min="0" max="100" step="0.1" value="5">
+                </div>
+                <div class="form-row" style="margin-top:2px; padding:6px 8px; border-radius:6px; background:rgba(14,165,233,0.10); border:1px solid rgba(56,189,248,0.28); font-size:11.5px; color:#bae6fd; line-height:1.45;">
+                    🎯 <span id="txt-virtual-range-web">虚拟播放范围：00:04:07 ～ 00:04:27 / 总长 02:06:21（走完即停）</span>
                 </div>
                 <div class="form-row">
                     <div class="range-box">
@@ -1880,10 +1886,13 @@
                 </div>
                 <div class="form-row">
                     <div class="range-box">
-                        <label>当前播放进度占比</label>
+                        <label>当前播放进度占比 (拖动定位起始时间)</label>
                         <span class="range-value" id="txt-m-progress">5%</span>
                     </div>
-                    <input type="range" id="in-m-progress" min="0" max="100" value="5">
+                    <input type="range" id="in-m-progress" min="0" max="100" step="0.1" value="5">
+                </div>
+                <div class="form-row" style="margin-top:2px; padding:6px 8px; border-radius:6px; background:rgba(14,165,233,0.10); border:1px solid rgba(56,189,248,0.28); font-size:11.5px; color:#bae6fd; line-height:1.45;">
+                    🎯 <span id="txt-virtual-range-m">虚拟播放范围：00:04:07 ～ 00:04:27 / 总长 02:06:21（走完即停）</span>
                 </div>
                 <div class="form-row">
                     <div class="range-box">
@@ -2395,7 +2404,31 @@
                         <button type="button" class="btn-inline-dice" id="btn-dyl-random-time-btn" title="点击随机切换全屏顶部状态栏时间">🎲</button>
                     </div>
                 </div>
-                <div style="display:none;">
+                <div class="form-grid-2" style="margin-bottom: 6px;">
+                    <div class="form-row">
+                        <label>当前起始时间 <a href="javascript:void(0)" id="btn-random-dyl-start-time-link" style="color:#5dade2; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-dyl-start-time" value="00:04:07">
+                            <button type="button" class="btn-inline-dice" id="btn-random-dyl-start-time" title="点击随机切换当前起始播放时间">🎲</button>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <label>结尾总时长 <a href="javascript:void(0)" id="btn-random-dyl-total-time-link" style="color:#5dade2; text-decoration:none; margin-left:2px;">🎲随机</a></label>
+                        <div class="input-with-dice">
+                            <input type="text" id="in-dyl-total-time" value="02:06:21">
+                            <button type="button" class="btn-inline-dice" id="btn-random-dyl-total-time" title="点击随机切换结尾总时长 (1:20:00~2:30:00)">🎲</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" style="margin-bottom: 4px;">
+                    <div class="range-box">
+                        <label>当前播放进度占比 (拖动定位起始时间)</label>
+                        <span class="range-value" id="txt-dyl-progress">5%</span>
+                    </div>
+                    <input type="range" id="in-dyl-progress" min="0" max="100" step="0.1" value="5">
+                </div>
+                <div class="form-row" style="margin-bottom: 8px; padding:6px 8px; border-radius:6px; background:rgba(14,165,233,0.10); border:1px solid rgba(56,189,248,0.28); font-size:11.5px; color:#bae6fd; line-height:1.45;">
+                    🎯 <span id="txt-virtual-range-dyl">虚拟播放范围：00:04:07 ～ 00:04:27 / 总长 02:06:21（走完即停）</span>
                 </div>
                 <div class="switch-grid">
                     <div class="switch-tile">
@@ -2562,12 +2595,15 @@
                         </label>
                         <div class="input-with-dice">
                             <select id="sel-live-aud-avatar-mode" style="flex:1;">
-                                <option value="douyin-mix" selected>抖音观众随机 (生活照/萌宠/二次元)</option>
-                                <option value="real">抖音真人观众 (美女+帅哥)</option>
-                                <option value="beauties">抖音美女观众头像</option>
-                                <option value="guys">抖音帅哥观众头像</option>
+                                <option value="overseas-mix" selected>🌏 海外华人真实社交混合 (IG自拍/生活照/萌宠/氛围)</option>
+                                <option value="real">👫 海外华人真人男女生活照 (IG/小红书男女自拍)</option>
+                                <option value="beauties">👩 海外华人美女日常自拍与探店生活照 (49+张)</option>
+                                <option value="guys">👦 海外华人潮男街拍与日常自拍 (36+张)</option>
+                                <option value="vibes">🌆 海外华人IG氛围感头像 (海边日落/跑车夜景/咖啡)</option>
+                                <option value="pets">🐱 海外华人真实居家猫狗萌宠实拍 (27+张)</option>
+                                <option value="anime">✨ 高质感二次元/潮流情头动漫头像</option>
                             </select>
-                            <button type="button" class="btn-inline-dice" id="btn-live-rand-aud-av-btn" title="点击随机更换右上角 3 位抖音观众头像">🎲</button>
+                            <button type="button" class="btn-inline-dice" id="btn-live-rand-aud-av-btn" title="点击随机更换右上角 3 位海外华人观众头像">🎲</button>
                             <button type="button" class="btn-inline-dice" id="btn-live-upload-aud-av-btn" title="上传自定义观众头像(可选1~3张)" style="font-size:12px;">📤</button>
                             <input type="file" id="in-live-aud-avatar-file" accept="image/*" multiple style="display:none;">
                         </div>
@@ -2707,6 +2743,45 @@
                                 <button type="button" class="sub-mini-act btn-gift-qty-preset" data-min="1" data-max="99" style="padding:2px 6px;" title="最少 1 个，最多 99 个">1~99个</button>
                                 <button type="button" class="sub-mini-act btn-gift-qty-preset" data-min="10" data-max="520" style="padding:2px 6px;" title="最少 10 个，最多 520 个 (适合小心心/玫瑰等小礼物)">10~520个</button>
                             </div>
+                        </div>
+                    </div>
+                    <!-- ★ 送礼停留时间（默认1秒）+ 消失动画时间 + 两次送礼间隔时间（没人送礼物空窗期）全自由控制 -->
+                    <div class="form-row" style="margin-bottom:6px; padding:6px 8px; border-radius:7px; background:rgba(15,23,42,0.68); border:1px solid rgba(16,185,129,0.45);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
+                            <label style="margin:0; font-size:11.5px; font-weight:800; color:#a7f3d0; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                                <input type="checkbox" id="sw-live-gift-empty-gap" checked style="width:13px; height:13px; margin:0; accent-color:#10b981; cursor:pointer;">
+                                <span>⏱️ 送完即消失 · 间隔再有人送礼 (每次换不同头像/名字/礼物)</span>
+                            </label>
+                            <div style="display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                                <span id="txt-live-gift-gap-status" style="font-size:11px; font-weight:800; color:#a7f3d0;">(🎁 停留1s · 消失0.4s · 间隔1~3s)</span>
+                                <button type="button" class="sub-mini-act" id="btn-live-toggle-gift-gap-now" style="padding:1px 7px; background:rgba(16,185,129,0.22); color:#a7f3d0; border-color:rgba(52,211,153,0.55); font-weight:800;" title="点击立即进入「没人送礼物」空窗隐藏状态，再点立即弹出下一位新送礼人">🙈 立即空窗/弹出</button>
+                            </div>
+                        </div>
+                        <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:6px; margin-bottom:5px;">
+                            <div style="display:flex; flex-direction:column; gap:2px; background:rgba(30,41,59,0.65); padding:4px 6px; border-radius:5px; border:1px solid rgba(250,204,21,0.3);">
+                                <span style="font-size:10.5px; color:#fef08a; white-space:nowrap; font-weight:700;">送礼停留(秒)</span>
+                                <input type="number" id="in-live-gift-stay-sec" min="0.3" max="60" step="0.1" value="1.0" style="width:100%; text-align:center; font-weight:800; color:#fde047;" title="每次有人送礼弹出后，在画面上停留展示几秒（默认 1.0 秒）">
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:2px; background:rgba(30,41,59,0.65); padding:4px 6px; border-radius:5px; border:1px solid rgba(244,114,182,0.3);">
+                                <span style="font-size:10.5px; color:#fbcfe8; white-space:nowrap; font-weight:700;">消失时间(秒)</span>
+                                <input type="number" id="in-live-gift-fade-sec" min="0.1" max="5" step="0.1" value="0.4" style="width:100%; text-align:center; font-weight:800; color:#f472b6;" title="送完礼物后弹窗淡出消失所花的时间（默认 0.4 秒）">
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:2px; background:rgba(30,41,59,0.65); padding:4px 6px; border-radius:5px; border:1px solid rgba(52,211,153,0.3);">
+                                <span style="font-size:10.5px; color:#a7f3d0; white-space:nowrap; font-weight:700;">最短间隔(秒)</span>
+                                <input type="number" id="in-live-gift-gap-min" min="0" max="300" step="0.5" value="1.0" style="width:100%; text-align:center; font-weight:800; color:#6ee7b7;" title="礼物消失后，最短隔多少秒没人送礼再弹出下一个人（填0为无空窗）">
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:2px; background:rgba(30,41,59,0.65); padding:4px 6px; border-radius:5px; border:1px solid rgba(52,211,153,0.3);">
+                                <span style="font-size:10.5px; color:#a7f3d0; white-space:nowrap; font-weight:700;">最长间隔(秒)</span>
+                                <input type="number" id="in-live-gift-gap-max" min="0" max="300" step="0.5" value="3.0" style="width:100%; text-align:center; font-weight:800; color:#6ee7b7;" title="礼物消失后，最长隔多少秒没人送礼再弹出下一个人">
+                            </div>
+                        </div>
+                        <div style="display:flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                            <span style="font-size:10.5px; color:#94a3b8;">快捷节奏：</span>
+                            <button type="button" class="sub-mini-act btn-gift-gap-preset" data-stay="1.0" data-fade="0.4" data-gap-min="1.0" data-gap-max="3.0" style="padding:2px 6px;" title="默认推荐：每次送礼停留1秒，0.4秒消失，间隔1~3秒换下一个人送礼">标准(停1s·隔1~3s)</button>
+                            <button type="button" class="sub-mini-act btn-gift-gap-preset" data-stay="1.0" data-fade="0.3" data-gap-min="0.5" data-gap-max="1.5" style="padding:2px 6px;" title="紧凑热闹：每次停留1秒，0.3秒消失，间隔0.5~1.5秒换下一个人">紧凑(停1s·隔0.5~1.5s)</button>
+                            <button type="button" class="sub-mini-act btn-gift-gap-preset" data-stay="1.5" data-fade="0.5" data-gap-min="2.0" data-gap-max="5.0" style="padding:2px 6px;" title="自然节奏：每次停留1.5秒，0.5秒消失，间隔2~5秒换下一个人">自然(停1.5s·隔2~5s)</button>
+                            <button type="button" class="sub-mini-act btn-gift-gap-preset" data-stay="2.0" data-fade="0.6" data-gap-min="4.0" data-gap-max="9.0" style="padding:2px 6px;" title="慢速冷清：每次停留2秒，0.6秒消失，间隔4~9秒换下一个人">慢间隔(停2s·隔4~9s)</button>
+                            <button type="button" class="sub-mini-act btn-gift-gap-preset" data-stay="1.0" data-fade="0.25" data-gap-min="0" data-gap-max="0" style="padding:2px 6px;" title="0秒空窗：前一个人停留1秒消失后立即弹出下一个人">连弹(停1s·0s间隔)</button>
                         </div>
                     </div>
                     <div class="form-grid-2">
@@ -3054,15 +3129,17 @@
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-random-viral-metrics" title="按上传视频时长规律 (5000~100万) 重新随机生成点赞、评论、收藏、分享与在看人数">🎲 按时长规律随机</button>
                 </div>
                 <div class="form-row">
-                    <label>作者真实中国风头像 (支持切换男/女/随机更换，或手动填指定头像URL)</label>
+                    <label>作者/主播真实海外华人社交头像 (150+ IG/小红书/台湾生活照，或手动填URL)</label>
                     <div style="display: flex; gap: 6px; margin-bottom: 6px;">
-                        <select id="sel-author-avatar-gender" style="width: 126px; flex-shrink: 0;" title="选择作者头像性别偏好">
-                            <option value="cn-mixed" selected>🇨🇳 男女随机</option>
-                            <option value="cn-female">👩 中国女生</option>
-                            <option value="cn-male">👦 中国男生</option>
+                        <select id="sel-author-avatar-gender" style="width: 152px; flex-shrink: 0;" title="选择作者/主播头像风格偏好">
+                            <option value="overseas-mix" selected>🌏 海外华人真实混搭</option>
+                            <option value="cn-female">👩 INS/小红书女生自拍</option>
+                            <option value="cn-male">👦 潮男/日常男生自拍</option>
+                            <option value="cn-vibes">🌅 IG氛围感风景/咖啡</option>
+                            <option value="cn-pets">🐱 真实猫狗萌宠</option>
                         </select>
                         <input type="file" id="dy-avatar-uploader" accept="image/*" style="display: none;">
-                        <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" id="btn-random-author-avatar" title="点击从真实中国风图库随机切换头像">🎲 随机换头像</button>
+                        <button type="button" class="btn btn-primary btn-sm" style="flex: 1;" id="btn-random-author-avatar" title="点击从150+海外华人真实社交图库随机切换头像">🎲 随机换头像</button>
                         <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('dy-avatar-uploader').click()">📁 上传</button>
                         <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-avatar" title="恢复官方默认头像">恢复</button>
                     </div>
@@ -3205,15 +3282,20 @@
                 </div>
 
                 <div class="form-row">
-                    <label>👤 评论区真实中国风头像库 (拒绝欧美脸/假人，支持换男/女/随机及单条改URL)</label>
-                    <div style="display: flex; gap: 6px;">
-                        <select id="sel-cmt-avatar-api" style="flex: 1;">
-                            <option value="cn-mixed" selected>🇨🇳 真实中国风 · 男女混合随机 (推荐)</option>
-                            <option value="cn-female">👩 真实中国风 · 纯女生头像 (自然生活照/自拍)</option>
-                            <option value="cn-male">👦 真实中国风 · 纯男生头像 (清爽阳光生活照)</option>
+                    <label>🌏 评论区海外华人真实社交头像库 (IG/Threads/小红书/抖音 150+高清自拍生活照·萌宠·氛围头)</label>
+                    <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+                        <select id="sel-cmt-avatar-api" style="flex: 1; min-width: 180px;">
+                            <option value="overseas-mix" selected>🌏 海外华人真实社交混合 (IG男女自拍+生活照+萌宠+氛围·推荐)</option>
+                            <option value="cn-mixed">👫 海外华人真人男女自拍混合 (IG/小红书生活照)</option>
+                            <option value="cn-female">👩 海外华人纯女生头像 (IG/小红书日常自拍/咖啡探店·49+张)</option>
+                            <option value="cn-male">👦 海外华人纯男生头像 (IG/Threads潮男街拍/车内生活照·36+张)</option>
+                            <option value="cn-vibes">🌆 海外华人IG氛围感头像 (海边日落/跑车夜景/咖啡背影)</option>
+                            <option value="cn-pets">🐱 海外华人真实居家猫狗萌宠实拍 (布偶/柴犬/柯基)</option>
+                            <option value="cn-anime">✨ 高质感二次元/潮流情头动漫头像</option>
                         </select>
-                        <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-switch-female" title="一键将所有评论换成真实中国女生头像">换女头</button>
-                        <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-switch-male" title="一键将所有评论换成真实中国男生头像">换男头</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-switch-female" title="一键将所有评论换成海外华人真实女生自拍头像">换女头</button>
+                        <button type="button" class="btn btn-secondary btn-sm" id="btn-cmt-switch-male" title="一键将所有评论换成海外华人真实男生头像">换男头</button>
+                        <button type="button" class="btn btn-primary btn-sm" id="btn-cmt-switch-overseas-mix" style="background:linear-gradient(90deg,#0284c7,#7c3aed); border:none;" title="一键为所有评论、直播间观众与送礼人重新分配不重复的海外华人真实社交头像">🎲 全换海外华人头</button>
                     </div>
                 </div>
 
@@ -3497,10 +3579,10 @@
     </div>
 </main>
 
-<script src="logos.js?v=20261112_v36"></script>
-<script src="player.js?v=20261112_v36"></script>
-<script src="danmaku.js?v=20261112_v36"></script>
-<script src="app.js?v=20261112_v36"></script>
+<script src="logos.js?v=20261112_v51"></script>
+<script src="player.js?v=20261112_v51"></script>
+<script src="danmaku.js?v=20261112_v51"></script>
+<script src="app.js?v=20261112_v51"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {

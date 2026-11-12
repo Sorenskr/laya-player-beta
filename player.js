@@ -23,20 +23,26 @@ window.PlayerEngine = {
 
     secToMinSec(sec, showTenths = false) {
         if (!isFinite(sec) || sec < 0) sec = 0;
-        const m = Math.floor(sec / 60);
-        const s = Math.floor(sec % 60);
-        const base = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
-        if (!showTenths) return base;
-        const tenth = Math.floor((sec - Math.floor(sec)) * 10);
-        return `${base}.${tenth}`;
+        if (!showTenths) {
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+        }
+        const totalTenths = Math.round(sec * 10);
+        const wholeSec = Math.floor(totalTenths / 10);
+        const tenth = totalTenths % 10;
+        const m = Math.floor(wholeSec / 60);
+        const s = wholeSec % 60;
+        return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${tenth}`;
     },
 
     timeToSec(timeStr) {
         if (!timeStr) return 0;
-        const parts = timeStr.trim().split(':').map(Number);
+        const normalized = String(timeStr).trim().replace(/：/g, ':');
+        const parts = normalized.split(':').map(Number);
         if (parts.length === 3) return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
         if (parts.length === 2) return (parts[0] || 0) * 60 + (parts[1] || 0);
-        return parseInt(timeStr, 10) || 0;
+        return parseInt(normalized, 10) || 0;
     },
     secToTime(totalSec) {
         if (isNaN(totalSec) || totalSec < 0) totalSec = 0;
@@ -51,6 +57,13 @@ window.PlayerEngine = {
         const m = Math.floor((totalSec % 3600) / 60);
         const s = Math.floor(totalSec % 60);
         return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    },
+    formatVirtualTimeForDyl(sec, totalSec) {
+        if (isNaN(sec) || sec < 0) sec = 0;
+        if ((totalSec && totalSec >= 3600) || sec >= 3600) {
+            return this.secToTime(sec);
+        }
+        return this.secToMinSec(sec, false);
     },
     getMediaNaturalDimensions() {
         if (this.isVideoMode && this.previewVideo) {
@@ -197,6 +210,12 @@ window.PlayerEngine = {
             btnHeaderSound.style.borderColor = isMuted ? 'rgba(148, 163, 184, 0.4)' : 'rgba(56, 189, 248, 0.5)';
             btnHeaderSound.style.color = isMuted ? '#94a3b8' : '#38bdf8';
         }
+        const dylSvgVolOn = document.getElementById('dyl-svg-vol-on');
+        const dylSvgVolOff = document.getElementById('dyl-svg-vol-off');
+        if (dylSvgVolOn) dylSvgVolOn.style.display = isMuted ? 'none' : 'block';
+        if (dylSvgVolOff) dylSvgVolOff.style.display = isMuted ? 'block' : 'none';
+        const mBtnVol = document.getElementById('m-btn-vol');
+        if (mBtnVol) mBtnVol.style.opacity = isMuted ? '0.55' : '1';
     }
 
     function setVideoSoundMuted(isMuted, showMsg = false) {
@@ -213,6 +232,7 @@ window.PlayerEngine = {
         }
     }
     window.PlayerEngine.setVideoSoundMuted = setVideoSoundMuted;
+    window.PlayerEngine.setSoundMuted = setVideoSoundMuted;
 
     function setPreviewPlaybackSpeed(rateVal, showMsg = false) {
         const rate = parseFloat(rateVal) || 1.0;
@@ -273,12 +293,27 @@ window.PlayerEngine = {
         window.PlayerEngine.currentMode = targetMode;
         const skinVal = document.getElementById('sel-mobile-skin')?.value || 'laya-app';
         const currentSkin = skinVal === 'laya-app' ? 'skin-laya-app' : (skinVal === 'laya' ? 'skin-laya' : 'skin-douyin');
-        const isCmtOpen = !!(document.getElementById('sw-dy-comment-drawer')?.checked);
-        const cmtClass = (targetMode === 'mode-mobile-port' && isCmtOpen) ? ' dy-comment-open' : '';
+        const isCmtOpen = !!(
+            (window.CommentEngine && window.CommentEngine.isOpen) ||
+            document.getElementById('sw-dy-cmt-open')?.checked ||
+            document.getElementById('sw-dy-cmt-open-card')?.checked ||
+            renderTarget.classList.contains('dy-comment-open')
+        );
+        const isCmtExpanded = renderTarget.classList.contains('dy-comment-expanded');
+        const cmtClass = (targetMode === 'mode-mobile-port' && isCmtOpen)
+            ? (' dy-comment-open' + (isCmtExpanded ? ' dy-comment-expanded' : ''))
+            : '';
         const liveOverlayNode = document.getElementById('laya-live-room-overlay');
         const wasLiveOpen = renderTarget.classList.contains('dy-live-open') || !!(liveOverlayNode && liveOverlayNode.style.display === 'flex');
-        const liveClass = (targetMode === 'mode-mobile-port' && wasLiveOpen) ? ' dy-live-open' : '';
-        renderTarget.className = `player-box ${targetMode} ${currentSkin}${cmtClass}${liveClass}`;
+        const wasLivePreview = renderTarget.classList.contains('dy-live-preview');
+        const liveClass = (targetMode === 'mode-mobile-port' && wasLiveOpen)
+            ? (' dy-live-open' + (wasLivePreview ? ' dy-live-preview' : ''))
+            : '';
+        const themeClass = renderTarget.classList.contains('theme-light') ? ' theme-light' : '';
+        const fontOsClass = renderTarget.classList.contains('font-os-android')
+            ? ' font-os-android'
+            : (renderTarget.classList.contains('font-os-ios') ? ' font-os-ios' : '');
+        renderTarget.className = `player-box ${targetMode} ${currentSkin}${cmtClass}${liveClass}${themeClass}${fontOsClass}`;
 
         if (targetMode === 'mode-mobile-land') {
             if (typeof window.switchRightTab === 'function') window.switchRightTab('m-cinema');
@@ -440,9 +475,10 @@ window.PlayerEngine = {
         if (isVideo) {
             window.PlayerEngine.isVideoMode = true;
             window.PlayerEngine._userExplicitlyPaused = false;
+            window.PlayerEngine._stoppedAtClipEnd = false;
             previewImg.style.display = 'none';
             previewVideo.style.display = 'block';
-            previewVideo.loop = true;
+            previewVideo.loop = false;
             previewVideo.playsInline = true;
             setVideoSoundMuted(false, false);
             const curSpeed = selPreviewSpeed ? (parseFloat(selPreviewSpeed.value) || 1.0) : 1.0;
@@ -457,8 +493,11 @@ window.PlayerEngine = {
             if (savedPlayState) {
                 const restoreMetaHandler = () => {
                     previewVideo.removeEventListener('loadedmetadata', restoreMetaHandler);
-                    if (typeof savedPlayState.currentTime === 'number' && isFinite(savedPlayState.currentTime) && savedPlayState.currentTime > 0 && savedPlayState.currentTime < (previewVideo.duration || 99999)) {
+                    const vidDur = previewVideo.duration || 99999;
+                    if (typeof savedPlayState.currentTime === 'number' && isFinite(savedPlayState.currentTime) && savedPlayState.currentTime > 0 && savedPlayState.currentTime < Math.max(0.2, vidDur - 0.25)) {
                         previewVideo.currentTime = savedPlayState.currentTime;
+                    } else {
+                        previewVideo.currentTime = 0;
                     }
                     if (savedPlayState.posX && inPosX) inPosX.value = savedPlayState.posX;
                     if (savedPlayState.posY && inPosY) inPosY.value = savedPlayState.posY;
@@ -613,19 +652,19 @@ window.PlayerEngine = {
         const inCustomSecEl = document.getElementById('in-custom-sec');
         if (!selRecSecEl || !inCustomSecEl) return;
         const rounded = Math.round(clipDur * 10) / 10;
-        if (Math.abs(rounded - 5) < 0.15) {
+        if (Math.abs(rounded - 5) < 0.05) {
             selRecSecEl.value = '5';
             inCustomSecEl.style.display = 'none';
-        } else if (Math.abs(rounded - 10) < 0.15) {
+        } else if (Math.abs(rounded - 10) < 0.05) {
             selRecSecEl.value = '10';
             inCustomSecEl.style.display = 'none';
-        } else if (Math.abs(rounded - 15) < 0.15) {
+        } else if (Math.abs(rounded - 15) < 0.05) {
             selRecSecEl.value = '15';
             inCustomSecEl.style.display = 'none';
         } else {
             selRecSecEl.value = 'custom';
             inCustomSecEl.style.display = 'inline-block';
-            inCustomSecEl.value = String(Math.max(1, Math.round(rounded)));
+            inCustomSecEl.value = String(Math.max(0.5, rounded));
         }
     }
 
@@ -657,18 +696,19 @@ window.PlayerEngine = {
         if (window.PlayerEngine.userHasTrimmed) {
             syncTopDurationControl(clipDur);
         }
+        if (typeof window.PlayerEngine.refreshTimeUI === 'function') {
+            window.PlayerEngine.refreshTimeUI();
+        }
     }
 
     window.PlayerEngine.applyDropdownDuration = function (sec) {
-        const targetSec = Math.max(1, parseFloat(sec) || 10);
+        const targetSec = Math.max(0.5, Math.round((parseFloat(sec) || 10) * 10) / 10);
         if (!window.PlayerEngine.isVideoMode || !previewVideo) return;
         const dur = (previewVideo.duration && isFinite(previewVideo.duration))
             ? previewVideo.duration
             : (window.PlayerEngine.videoDuration || targetSec);
         const clipLen = Math.min(targetSec, dur);
-        let anchorStart = window.PlayerEngine.userHasTrimmed
-            ? (window.PlayerEngine.trimStart || 0)
-            : (previewVideo.currentTime || 0);
+        let anchorStart = window.PlayerEngine.trimStart || 0;
         if (anchorStart + clipLen > dur) {
             anchorStart = Math.max(0, dur - clipLen);
         }
@@ -676,9 +716,11 @@ window.PlayerEngine = {
         window.PlayerEngine.trimEnd = Math.min(dur, anchorStart + clipLen);
         window.PlayerEngine.userHasTrimmed = true;
         window.PlayerEngine._allowPlayOutsideTrim = false;
+        window.PlayerEngine._stoppedAtClipEnd = false;
         previewVideo.currentTime = window.PlayerEngine.trimStart;
         updateJianyingTrimUI();
         updateJianyingPlayheadUI();
+        saveMediaPlayStateNow(true);
     };
 
     function updateJianyingPlayheadUI() {
@@ -704,19 +746,39 @@ window.PlayerEngine = {
         tempVid.addEventListener('loadedmetadata', async () => {
             const dur = (tempVid.duration && isFinite(tempVid.duration)) ? tempVid.duration : 10;
             window.PlayerEngine.videoDuration = dur;
-            window.PlayerEngine.trimStart = 0;
-            window.PlayerEngine.trimEnd = dur;
-            window.PlayerEngine.userHasTrimmed = false;
+            let restoredTrim = false;
+            if (isRestoring) {
+                try {
+                    const savedState = JSON.parse(localStorage.getItem('LAYA_LAST_MEDIA_STATE') || 'null');
+                    if (savedState && savedState.userHasTrimmed && isFinite(savedState.trimStart) && isFinite(savedState.trimEnd) && savedState.trimEnd > savedState.trimStart) {
+                        window.PlayerEngine.trimStart = Math.max(0, Math.min(dur - 0.5, Number(savedState.trimStart)));
+                        window.PlayerEngine.trimEnd = Math.min(dur, Math.max(window.PlayerEngine.trimStart + 0.5, Number(savedState.trimEnd)));
+                        window.PlayerEngine.userHasTrimmed = true;
+                        restoredTrim = true;
+                    }
+                } catch (_e) {}
+            }
+            if (!restoredTrim) {
+                window.PlayerEngine.trimStart = 0;
+                window.PlayerEngine.trimEnd = dur;
+                window.PlayerEngine.userHasTrimmed = false;
+            }
             window.PlayerEngine._allowPlayOutsideTrim = false;
 
-            if (dur > 0 && dur <= 15) {
-                syncTopDurationControl(dur);
+            if (dur > 0 && dur <= 300) {
+                const activeSpan = window.PlayerEngine.userHasTrimmed
+                    ? Math.max(0.5, window.PlayerEngine.trimEnd - window.PlayerEngine.trimStart)
+                    : dur;
+                syncTopDurationControl(activeSpan);
             }
 
             renderJianyingRuler(dur);
             renderJianyingWaveform();
             updateJianyingTrimUI();
             updateJianyingPlayheadUI();
+            if (typeof window.PlayerEngine.refreshTimeUI === 'function') {
+                window.PlayerEngine.refreshTimeUI();
+            }
 
             // 提取 8 张轻量帧缩略图铺满胶片轨道，完成后立即释放临时解码器防止主视频卡顿
             const thumbCount = 8;
@@ -807,6 +869,7 @@ window.PlayerEngine = {
             jyRangeInitialEnd = window.PlayerEngine.trimEnd || window.PlayerEngine.videoDuration || 1;
             window.PlayerEngine.userHasTrimmed = true;
             window.PlayerEngine._allowPlayOutsideTrim = false;
+            window.PlayerEngine._stoppedAtClipEnd = false;
             jyHandleLeft.classList.add('dragging');
             e.stopPropagation();
             e.preventDefault();
@@ -819,6 +882,7 @@ window.PlayerEngine = {
             jyRangeInitialEnd = window.PlayerEngine.trimEnd || window.PlayerEngine.videoDuration || 1;
             window.PlayerEngine.userHasTrimmed = true;
             window.PlayerEngine._allowPlayOutsideTrim = true;
+            window.PlayerEngine._stoppedAtClipEnd = false;
             jyHandleRight.classList.add('dragging');
             e.stopPropagation();
             e.preventDefault();
@@ -829,6 +893,7 @@ window.PlayerEngine = {
             if (e.target === jyHandleLeft || e.target === jyHandleRight || (jyHandleLeft && jyHandleLeft.contains(e.target)) || (jyHandleRight && jyHandleRight.contains(e.target))) {
                 return;
             }
+            window.PlayerEngine._stoppedAtClipEnd = false;
             const dur = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
             const curStart = window.PlayerEngine.trimStart || 0;
             const curEnd = window.PlayerEngine.trimEnd || dur;
@@ -850,6 +915,7 @@ window.PlayerEngine = {
         jyPlayhead.addEventListener('mousedown', (e) => {
             jyDragMode = 'playhead';
             window.PlayerEngine._allowPlayOutsideTrim = true;
+            window.PlayerEngine._stoppedAtClipEnd = false;
             e.stopPropagation();
             e.preventDefault();
         });
@@ -858,12 +924,14 @@ window.PlayerEngine = {
         jyTrackMain.addEventListener('mousedown', (e) => {
             if (e.target === jyHandleLeft || e.target === jyHandleRight) return;
             jyDragMode = 'playhead';
+            window.PlayerEngine._stoppedAtClipEnd = false;
             const t = getTrackTimeFromClientX(e.clientX);
             const range = window.PlayerEngine.getTrimRange();
             window.PlayerEngine._allowPlayOutsideTrim = (t < range.start || t >= range.end - 0.1);
             if (previewVideo && window.PlayerEngine.isVideoMode) {
                 previewVideo.currentTime = t;
                 updateJianyingPlayheadUI();
+                syncPreviewVideoProgress();
             }
         });
     }
@@ -949,6 +1017,7 @@ window.PlayerEngine = {
                 updateJianyingPlayheadUI();
             }
         }
+        saveMediaPlayStateNow(true);
     });
 
     if (jyBtnPlay) {
@@ -975,7 +1044,9 @@ window.PlayerEngine = {
             }
             window.PlayerEngine.userHasTrimmed = true;
             window.PlayerEngine._allowPlayOutsideTrim = false;
+            window.PlayerEngine._stoppedAtClipEnd = false;
             updateJianyingTrimUI();
+            saveMediaPlayStateNow(true);
             const clipDur = (window.PlayerEngine.trimEnd - window.PlayerEngine.trimStart).toFixed(1);
             toast(`✂️ 已设起点 ${window.PlayerEngine.secToMinSec(window.PlayerEngine.trimStart, true)}（当前区间 ${clipDur}s）`);
         });
@@ -1005,9 +1076,11 @@ window.PlayerEngine = {
             }
             window.PlayerEngine.userHasTrimmed = true;
             window.PlayerEngine._allowPlayOutsideTrim = false;
+            window.PlayerEngine._stoppedAtClipEnd = false;
             previewVideo.currentTime = window.PlayerEngine.trimStart;
             updateJianyingTrimUI();
             updateJianyingPlayheadUI();
+            saveMediaPlayStateNow(true);
             const clipDur = (window.PlayerEngine.trimEnd - window.PlayerEngine.trimStart).toFixed(1);
             toast(`✂️ 已设终点 ${window.PlayerEngine.secToMinSec(window.PlayerEngine.trimEnd, true)}（共截取 ${clipDur}s）`);
         });
@@ -1019,7 +1092,9 @@ window.PlayerEngine = {
             window.PlayerEngine.trimEnd = window.PlayerEngine.videoDuration || previewVideo.duration || 1;
             window.PlayerEngine.userHasTrimmed = false;
             window.PlayerEngine._allowPlayOutsideTrim = false;
+            window.PlayerEngine._stoppedAtClipEnd = false;
             updateJianyingTrimUI();
+            saveMediaPlayStateNow(true);
             toast('✂️ 已恢复完整视频导出区间');
         });
     }
@@ -1198,6 +1273,7 @@ window.PlayerEngine = {
     function ensureVideoPlayingIfActive(forceResume = false) {
         if (!window.PlayerEngine.isVideoMode || !previewVideo || !previewVideo.src) return;
         if (window.__isExportRecording || window.__isOcrScanning) return;
+        if (window.PlayerEngine._stoppedAtClipEnd) return;
         if (forceResume) {
             window.PlayerEngine._userExplicitlyPaused = false;
         }
@@ -1227,8 +1303,9 @@ window.PlayerEngine = {
         }
         if (previewVideo.paused) {
             window.PlayerEngine._userExplicitlyPaused = false;
+            window.PlayerEngine._stoppedAtClipEnd = false;
             const range = window.PlayerEngine.getTrimRange();
-            if (previewVideo.currentTime < range.start || previewVideo.currentTime >= range.end - 0.05) {
+            if (previewVideo.currentTime < range.start || previewVideo.currentTime >= range.end - 0.08) {
                 previewVideo.currentTime = range.start;
             }
             previewVideo.play().then(() => updatePlayStateUI(true)).catch(console.warn);
@@ -1247,7 +1324,7 @@ window.PlayerEngine = {
     if (dylBtnCenterPlay) dylBtnCenterPlay.addEventListener('click', togglePlayback);
 
     /* ==========================================================================
-       4. 三端时间码、随机总时长与双向同步系统
+       4. 三端时间码、虚拟超长总时长进度条与播完即停同步系统
        ========================================================================== */
     const swMSyncVideoTime = document.getElementById('sw-m-sync-video-time');
     const inMStartTime = document.getElementById('in-m-start-time');
@@ -1256,20 +1333,57 @@ window.PlayerEngine = {
     const txtMProgress = document.getElementById('txt-m-progress');
     const inMBuffer = document.getElementById('in-m-buffer');
     const txtMBuffer = document.getElementById('txt-m-buffer');
+    const inDylStartTime = document.getElementById('in-dyl-start-time');
+    const inDylTotalTime = document.getElementById('in-dyl-total-time');
+    const inDylProgress = document.getElementById('in-dyl-progress');
+    const txtDylProgress = document.getElementById('txt-dyl-progress');
+    const txtVirtualRangeWeb = document.getElementById('txt-virtual-range-web');
+    const txtVirtualRangeM = document.getElementById('txt-virtual-range-m');
+    const txtVirtualRangeDyl = document.getElementById('txt-virtual-range-dyl');
     const btnRandomTime = document.getElementById('btn-random-time');
+
+    function getActiveClipSpanSec() {
+        if (window.PlayerEngine.isVideoMode && previewVideo) {
+            const range = window.PlayerEngine.getTrimRange();
+            if (range && range.duration > 0) {
+                return Math.max(1, Math.round(range.duration));
+            }
+        }
+        return 20;
+    }
+
+    function updateVirtualRangeHintUI(baseStartSec, totalSec) {
+        const clipSpan = getActiveClipSpanSec();
+        const endSec = Math.min(totalSec, baseStartSec + clipSpan);
+        const startStr = window.PlayerEngine.secToTime(baseStartSec);
+        const endStr = window.PlayerEngine.secToTime(endSec);
+        const totalStr = window.PlayerEngine.secToTime(totalSec);
+        const msg = `虚拟播放范围：${startStr} ～ ${endStr}（片段 ${clipSpan}秒 / 总长 ${totalStr}，走完即停）`;
+        if (txtVirtualRangeWeb) txtVirtualRangeWeb.textContent = msg;
+        if (txtVirtualRangeM) txtVirtualRangeM.textContent = msg;
+        if (txtVirtualRangeDyl) txtVirtualRangeDyl.textContent = msg;
+    }
 
     function syncAllProgressBars(pct) {
         const clamped = Math.min(100, Math.max(0, Number(pct) || 0));
-        const widthStr = clamped.toFixed(2) + '%';
-        const intVal = Math.round(clamped);
+        const widthStr = clamped.toFixed(3) + '%';
+        const sliderVal = Number(clamped.toFixed(1));
+        const labelStr = (clamped % 1 === 0 ? Math.round(clamped) : clamped.toFixed(1).replace(/\.0$/, '')) + '%';
         if (dispProgressBar) dispProgressBar.style.width = widthStr;
         if (mDispProgress) mDispProgress.style.width = widthStr;
         if (dyTinyFill) dyTinyFill.style.width = widthStr;
         if (dylProgressFill) dylProgressFill.style.width = widthStr;
-        if (inProgress) inProgress.value = intVal;
-        if (inMProgress) inMProgress.value = intVal;
-        if (txtProgress) txtProgress.textContent = intVal + '%';
-        if (txtMProgress) txtMProgress.textContent = intVal + '%';
+        if (inProgress) inProgress.value = sliderVal;
+        if (inMProgress) inMProgress.value = sliderVal;
+        if (inDylProgress) inDylProgress.value = sliderVal;
+        if (txtProgress) txtProgress.textContent = labelStr;
+        if (txtMProgress) txtMProgress.textContent = labelStr;
+        if (txtDylProgress) txtDylProgress.textContent = labelStr;
+
+        const curBuf = inBuffer ? (parseFloat(inBuffer.value) || 0) : 68;
+        if (curBuf < clamped + 2) {
+            syncAllBufferBars(Math.min(100, Math.round(clamped + 12)));
+        }
     }
 
     function syncAllBufferBars(pct) {
@@ -1284,9 +1398,14 @@ window.PlayerEngine = {
         if (txtMBuffer) txtMBuffer.textContent = widthStr;
     }
 
-    function refreshTimeUI() {
-        const s = window.PlayerEngine.timeToSec(inStartTime.value);
-        const t = window.PlayerEngine.timeToSec(inTotalTime.value) || 1;
+    function refreshTimeUI(overrideCurSec = null) {
+        const baseStart = window.PlayerEngine.timeToSec(inStartTime ? inStartTime.value : '00:04:07');
+        const clipSpan = getActiveClipSpanSec();
+        const rawTotal = window.PlayerEngine.timeToSec(inTotalTime ? inTotalTime.value : '02:06:21');
+        const t = Math.max(baseStart + clipSpan, rawTotal || 7200);
+        const s = (overrideCurSec !== null && isFinite(overrideCurSec))
+            ? Math.max(0, Math.floor(overrideCurSec))
+            : baseStart;
         if (dispTime) {
             dispTime.textContent = `${window.PlayerEngine.secToTime(s)} / ${window.PlayerEngine.secToTime(t)}`;
         }
@@ -1294,51 +1413,67 @@ window.PlayerEngine = {
             mDispTime.textContent = `${window.PlayerEngine.secToShortTime(s)} / ${window.PlayerEngine.secToShortTime(t)}`;
         }
         if (dylDispCur) {
-            dylDispCur.textContent = window.PlayerEngine.secToMinSec(s % 3600, false);
+            dylDispCur.textContent = window.PlayerEngine.formatVirtualTimeForDyl(s, t);
         }
         if (dylDispDur) {
-            dylDispDur.textContent = window.PlayerEngine.secToMinSec(Math.min(3599, t), false);
+            dylDispDur.textContent = window.PlayerEngine.formatVirtualTimeForDyl(t, t);
         }
+        updateVirtualRangeHintUI(baseStart, t);
     }
     window.PlayerEngine.refreshTimeUI = refreshTimeUI;
 
-    function applyStartAndTotalTime(startStr, totalStr, save = true) {
+    function applyStartAndTotalTime(startStr, totalStr, save = true, isTyping = false) {
         if (startStr !== null && startStr !== undefined) {
-            if (inStartTime) inStartTime.value = startStr;
-            if (inMStartTime) inMStartTime.value = startStr;
+            if (inStartTime && inStartTime.value !== startStr) inStartTime.value = startStr;
+            if (inMStartTime && inMStartTime.value !== startStr) inMStartTime.value = startStr;
+            if (inDylStartTime && inDylStartTime.value !== startStr) inDylStartTime.value = startStr;
         }
         if (totalStr !== null && totalStr !== undefined) {
-            if (inTotalTime) inTotalTime.value = totalStr;
-            if (inMTotalTime) inMTotalTime.value = totalStr;
+            if (inTotalTime && inTotalTime.value !== totalStr) inTotalTime.value = totalStr;
+            if (inMTotalTime && inMTotalTime.value !== totalStr) inMTotalTime.value = totalStr;
+            if (inDylTotalTime && inDylTotalTime.value !== totalStr) inDylTotalTime.value = totalStr;
         }
-        refreshTimeUI();
-        let startSec = window.PlayerEngine.timeToSec(inStartTime.value);
-        const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value);
+        const wasStoppedAtClipEnd = !!window.PlayerEngine._stoppedAtClipEnd;
+        window.PlayerEngine._stoppedAtClipEnd = false;
+        const clipSpan = getActiveClipSpanSec();
+        let startSec = window.PlayerEngine.timeToSec(inStartTime ? inStartTime.value : '00:04:07');
+        let totalSec = window.PlayerEngine.timeToSec(inTotalTime ? inTotalTime.value : '02:06:21');
         if (totalSec > 0) {
-            if (startSec >= totalSec * 0.96) {
-                startSec = Math.max(5, Math.floor(totalSec * 0.28));
+            if (!isTyping && startSec > Math.max(0, totalSec - clipSpan)) {
+                startSec = Math.max(0, totalSec - clipSpan);
                 const fixedStart = window.PlayerEngine.secToTime(startSec);
                 if (inStartTime) inStartTime.value = fixedStart;
                 if (inMStartTime) inMStartTime.value = fixedStart;
-                refreshTimeUI();
+                if (inDylStartTime) inDylStartTime.value = fixedStart;
             }
-            const pct = Math.min(100, Math.max(0, (startSec / totalSec) * 100));
+            const effTotal = Math.max(startSec + clipSpan, totalSec);
+            if ((startStr !== null && startStr !== undefined || wasStoppedAtClipEnd) && window.PlayerEngine.isVideoMode && previewVideo) {
+                const range = window.PlayerEngine.getTrimRange();
+                try { previewVideo.currentTime = range.start; } catch (e) {}
+                updateJianyingPlayheadUI();
+                if (!isTyping && wasStoppedAtClipEnd && previewVideo.paused) {
+                    previewVideo.play().then(() => updatePlayStateUI(true)).catch(() => {});
+                }
+            }
+            const pct = Math.min(100, Math.max(0, (startSec / effTotal) * 100));
             syncAllProgressBars(pct);
         }
+        refreshTimeUI(startSec);
         if (save && typeof window.triggerSaveStorage === 'function') {
             window.triggerSaveStorage();
         }
     }
 
     function randomizeStartTimeOnly(showMsg = false) {
-        const totalSec = window.PlayerEngine.timeToSec(inTotalTime ? inTotalTime.value : '01:54:21') || 6861;
-        const maxStart = Math.max(15, Math.floor(totalSec * 0.78));
-        const randomStartSec = Math.floor(15 + Math.random() * (maxStart - 15));
+        const clipSpan = getActiveClipSpanSec();
+        const totalSec = Math.max(clipSpan + 60, window.PlayerEngine.timeToSec(inTotalTime ? inTotalTime.value : '01:54:21') || 6861);
+        const maxStart = Math.max(15, Math.min(totalSec - clipSpan, Math.floor(totalSec * 0.82)));
+        const randomStartSec = Math.floor(15 + Math.random() * Math.max(1, maxStart - 15));
         const formattedStart = window.PlayerEngine.secToTime(randomStartSec);
         const curTotalStr = inTotalTime ? inTotalTime.value : '01:54:21';
-        applyStartAndTotalTime(formattedStart, curTotalStr, true);
+        applyStartAndTotalTime(formattedStart, curTotalStr, true, false);
         if (showMsg) {
-            toast(`已随机切换起始时间：${window.PlayerEngine.secToShortTime(randomStartSec)}`);
+            toast(`已随机切换起始时间：${window.PlayerEngine.secToTime(randomStartSec)}（走 ${clipSpan}秒后停在 ${window.PlayerEngine.secToTime(randomStartSec + clipSpan)}）`);
         }
     }
     window.PlayerEngine.randomizeStartTimeOnly = randomizeStartTimeOnly;
@@ -1349,24 +1484,25 @@ window.PlayerEngine = {
         const randomTotalSec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
         const formattedTotal = window.PlayerEngine.secToTime(randomTotalSec);
         const curStartStr = inStartTime ? inStartTime.value : '00:04:07';
-        applyStartAndTotalTime(curStartStr, formattedTotal, showMsg);
+        applyStartAndTotalTime(curStartStr, formattedTotal, showMsg, false);
         if (showMsg) {
-            toast(`已随机切换结尾总时长：${window.PlayerEngine.secToShortTime(randomTotalSec)}`);
+            toast(`已随机切换结尾总时长：${window.PlayerEngine.secToTime(randomTotalSec)}`);
         }
     }
     window.PlayerEngine.randomizeDuration = randomizeDuration;
 
     function randomizeBothStartAndTotalTime(showMsg = false) {
+        const clipSpan = getActiveClipSpanSec();
         const minSec = 1 * 3600 + 20 * 60;
         const maxSec = 2 * 3600 + 30 * 60;
         const randomTotalSec = Math.floor(Math.random() * (maxSec - minSec + 1)) + minSec;
         const formattedTotal = window.PlayerEngine.secToTime(randomTotalSec);
-        const maxStart = Math.max(15, Math.floor(randomTotalSec * 0.65));
-        const randomStartSec = Math.floor(15 + Math.random() * (maxStart - 15));
+        const maxStart = Math.max(15, Math.min(randomTotalSec - clipSpan, Math.floor(randomTotalSec * 0.78)));
+        const randomStartSec = Math.floor(15 + Math.random() * Math.max(1, maxStart - 15));
         const formattedStart = window.PlayerEngine.secToTime(randomStartSec);
-        applyStartAndTotalTime(formattedStart, formattedTotal, true);
+        applyStartAndTotalTime(formattedStart, formattedTotal, true, false);
         if (showMsg) {
-            toast(`已随机切换时间：${window.PlayerEngine.secToShortTime(randomStartSec)} / ${window.PlayerEngine.secToShortTime(randomTotalSec)}`);
+            toast(`已随机切换时间区间：${window.PlayerEngine.secToTime(randomStartSec)} ～ ${window.PlayerEngine.secToTime(randomStartSec + clipSpan)} / 总长 ${window.PlayerEngine.secToTime(randomTotalSec)}`);
         }
     }
     window.PlayerEngine.randomizeBothStartAndTotalTime = randomizeBothStartAndTotalTime;
@@ -1375,7 +1511,9 @@ window.PlayerEngine = {
         'btn-random-start-time',
         'btn-random-start-time-link',
         'btn-random-m-start-time',
-        'btn-random-m-start-time-link'
+        'btn-random-m-start-time-link',
+        'btn-random-dyl-start-time',
+        'btn-random-dyl-start-time-link'
     ].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -1390,7 +1528,9 @@ window.PlayerEngine = {
         'btn-random-total-time',
         'btn-random-total-time-link',
         'btn-random-m-total-time',
-        'btn-random-m-total-time-link'
+        'btn-random-m-total-time-link',
+        'btn-random-dyl-total-time',
+        'btn-random-dyl-total-time-link'
     ].forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -1426,39 +1566,47 @@ window.PlayerEngine = {
         });
     }
 
-    if (inStartTime) {
-        inStartTime.addEventListener('input', (e) => applyStartAndTotalTime(e.target.value, null, true));
-    }
-    if (inMStartTime) {
-        inMStartTime.addEventListener('input', (e) => applyStartAndTotalTime(e.target.value, null, true));
-    }
-    if (inTotalTime) {
-        inTotalTime.addEventListener('input', (e) => applyStartAndTotalTime(null, e.target.value, true));
-    }
-    if (inMTotalTime) {
-        inMTotalTime.addEventListener('input', (e) => applyStartAndTotalTime(null, e.target.value, true));
-    }
+    [inStartTime, inMStartTime, inDylStartTime].forEach(inp => {
+        if (!inp) return;
+        inp.addEventListener('input', (e) => applyStartAndTotalTime(e.target.value, null, true, true));
+        inp.addEventListener('change', (e) => applyStartAndTotalTime(e.target.value, null, true, false));
+    });
+    [inTotalTime, inMTotalTime, inDylTotalTime].forEach(inp => {
+        if (!inp) return;
+        inp.addEventListener('input', (e) => applyStartAndTotalTime(null, e.target.value, true, true));
+        inp.addEventListener('change', (e) => applyStartAndTotalTime(null, e.target.value, true, false));
+    });
 
     function handleProgressSliderInput(val, seekVideo = true) {
         const numVal = Math.min(100, Math.max(0, parseFloat(val) || 0));
-        syncAllProgressBars(numVal);
-        if (seekVideo && window.PlayerEngine.isVideoMode && previewVideo) {
-            const vidDur = (previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
-                ? previewVideo.duration
-                : (window.PlayerEngine.videoDuration || 0);
-            if (vidDur > 0) {
-                try {
-                    previewVideo.currentTime = (numVal / 100) * vidDur;
-                } catch (e) {}
-                updateJianyingPlayheadUI();
-            }
-        }
-        const total = window.PlayerEngine.timeToSec(inTotalTime.value) || 7581;
-        const newSec = Math.round((numVal / 100) * total);
+        const clipSpan = getActiveClipSpanSec();
+        const total = Math.max(clipSpan + 10, window.PlayerEngine.timeToSec(inTotalTime ? inTotalTime.value : '02:06:21') || 7581);
+        const maxStartSec = Math.max(0, total - clipSpan);
+        const newSec = Math.min(maxStartSec, Math.max(0, Math.round((numVal / 100) * total)));
+        const actualPct = (newSec / total) * 100;
         const newStartStr = window.PlayerEngine.secToTime(newSec);
+
         if (inStartTime) inStartTime.value = newStartStr;
         if (inMStartTime) inMStartTime.value = newStartStr;
-        refreshTimeUI();
+        if (inDylStartTime) inDylStartTime.value = newStartStr;
+
+        const wasStoppedAtClipEnd = !!window.PlayerEngine._stoppedAtClipEnd;
+        window.PlayerEngine._stoppedAtClipEnd = false;
+
+        if (seekVideo && window.PlayerEngine.isVideoMode && previewVideo) {
+            const range = window.PlayerEngine.getTrimRange();
+            try {
+                previewVideo.currentTime = range.start;
+            } catch (e) {}
+            updateJianyingPlayheadUI();
+            if (wasStoppedAtClipEnd && previewVideo.paused) {
+                window.PlayerEngine._userExplicitlyPaused = false;
+                previewVideo.play().then(() => updatePlayStateUI(true)).catch(() => {});
+            }
+        }
+
+        syncAllProgressBars(actualPct);
+        refreshTimeUI(newSec);
         if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
     }
 
@@ -1467,6 +1615,9 @@ window.PlayerEngine = {
     }
     if (inMProgress) {
         inMProgress.addEventListener('input', (e) => handleProgressSliderInput(e.target.value));
+    }
+    if (inDylProgress) {
+        inDylProgress.addEventListener('input', (e) => handleProgressSliderInput(e.target.value));
     }
 
     if (inBuffer) {
@@ -1482,59 +1633,39 @@ window.PlayerEngine = {
         });
     }
 
-    if (progressClickBar) {
-        progressClickBar.addEventListener('click', (e) => {
-            const rect = progressClickBar.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const pct = Math.min(100, Math.max(0, Math.round((clickX / rect.width) * 100)));
-            handleProgressSliderInput(pct);
-        });
-    }
-
-    if (mProgressContainer) {
-        mProgressContainer.addEventListener('click', (e) => {
-            const rect = mProgressContainer.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const pct = Math.min(100, Math.max(0, Math.round((clickX / rect.width) * 100)));
-            handleProgressSliderInput(pct);
-        });
-    }
-
-    if (dylProgressWrap) {
-        dylProgressWrap.addEventListener('click', (e) => {
-            const rect = dylProgressWrap.getBoundingClientRect();
-            const clickX = e.clientX - rect.left;
-            const pct = Math.min(100, Math.max(0, Math.round((clickX / rect.width) * 100)));
-            handleProgressSliderInput(pct);
-        });
-    }
-
-    const dyTinyProgressbarEl = document.getElementById('dy-tiny-progressbar') || document.querySelector('.dy-tiny-progressbar');
-    if (dyTinyProgressbarEl) {
-        let isScrubbingDyBar = false;
-        const scrubDyBarAt = (clientX) => {
-            const rect = dyTinyProgressbarEl.getBoundingClientRect();
+    // 支持在电脑端、手机横屏、竖屏全屏观看及竖屏底部的进度条上直接点击或按住鼠标拖动定位虚拟起始时间
+    function bindStageProgressBarScrub(barEl) {
+        if (!barEl) return;
+        let isScrubbing = false;
+        const scrubAt = (clientX) => {
+            const rect = barEl.getBoundingClientRect();
             if (!rect.width) return;
             const pct = Math.min(100, Math.max(0, ((clientX - rect.left) / rect.width) * 100));
             handleProgressSliderInput(pct, true);
         };
-        dyTinyProgressbarEl.addEventListener('mousedown', (e) => {
-            isScrubbingDyBar = true;
-            scrubDyBarAt(e.clientX);
+        barEl.addEventListener('mousedown', (e) => {
+            isScrubbing = true;
+            scrubAt(e.clientX);
             e.stopPropagation();
         });
         window.addEventListener('mousemove', (e) => {
-            if (!isScrubbingDyBar) return;
-            scrubDyBarAt(e.clientX);
+            if (!isScrubbing) return;
+            scrubAt(e.clientX);
         });
         window.addEventListener('mouseup', () => {
-            isScrubbingDyBar = false;
+            isScrubbing = false;
         });
-        dyTinyProgressbarEl.addEventListener('click', (e) => {
-            scrubDyBarAt(e.clientX);
+        barEl.addEventListener('click', (e) => {
+            scrubAt(e.clientX);
             e.stopPropagation();
         });
     }
+
+    bindStageProgressBarScrub(progressClickBar);
+    bindStageProgressBarScrub(mProgressContainer);
+    bindStageProgressBarScrub(dylProgressWrap);
+    const dyTinyProgressbarEl = document.getElementById('dy-tiny-progressbar') || document.querySelector('.dy-tiny-progressbar');
+    bindStageProgressBarScrub(dyTinyProgressbarEl);
 
     function syncPreviewVideoProgress() {
         if (!window.PlayerEngine.isVideoMode || !previewVideo) return;
@@ -1546,33 +1677,37 @@ window.PlayerEngine = {
             window.SubtitleEngine.onTimeUpdate(previewVideo.currentTime);
         }
 
-        if (!jyDragMode && !previewVideo.paused && !window.PlayerEngine._allowPlayOutsideTrim) {
-            const range = window.PlayerEngine.getTrimRange();
-            if (previewVideo.currentTime >= range.end) {
-                previewVideo.currentTime = range.start;
-            }
-        }
-
-        const vidDur = (previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
-            ? previewVideo.duration
-            : (window.PlayerEngine.videoDuration || 1);
+        const range = window.PlayerEngine.getTrimRange();
+        const clipDur = Math.max(0.2, range.duration);
         const curVidSec = Math.max(0, previewVideo.currentTime || 0);
+        const baseStart = window.PlayerEngine.timeToSec(inStartTime ? inStartTime.value : '00:04:07');
+        const clipSpanInt = Math.max(1, Math.round(clipDur));
+        const totalSec = Math.max(baseStart + clipSpanInt, window.PlayerEngine.timeToSec(inTotalTime ? inTotalTime.value : '02:06:21') || 7581);
+        const syncOn = !swSyncVideoTime || swSyncVideoTime.checked;
 
-        // 预览播放视频时，底部进度条随上传视频的真实画面时长 (0% -> 100%) 实时丝滑移动
-        const vidPct = Math.min(100, Math.max(0, (curVidSec / vidDur) * 100));
-        syncAllProgressBars(vidPct);
-
-        if (dylDispCur) dylDispCur.textContent = window.PlayerEngine.secToMinSec(curVidSec, false);
-        if (dylDispDur) dylDispDur.textContent = window.PlayerEngine.secToMinSec(vidDur, false);
-
-        if (!swSyncVideoTime || swSyncVideoTime.checked) {
-            const baseStart = window.PlayerEngine.timeToSec(inStartTime.value);
-            const totalSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 7581;
-            const elapsed = Math.floor(curVidSec);
-            const curSec = baseStart + elapsed;
-            if (dispTime) dispTime.textContent = `${window.PlayerEngine.secToTime(curSec)} / ${window.PlayerEngine.secToTime(totalSec)}`;
-            if (mDispTime) mDispTime.textContent = `${window.PlayerEngine.secToShortTime(curSec)} / ${window.PlayerEngine.secToShortTime(totalSec)}`;
+        // ★ 当上传的 20 秒视频片段走完对应范围（例如 01:20:20 走到 01:20:40）后，立即停止在该结束秒数，不再循环重头跑
+        if (!jyDragMode && !window.PlayerEngine._allowPlayOutsideTrim && (window.PlayerEngine._stoppedAtClipEnd || (!previewVideo.paused && curVidSec >= range.end - 0.03))) {
+            if (!previewVideo.paused) {
+                window.PlayerEngine._stoppedAtClipEnd = true;
+                window.PlayerEngine._userExplicitlyPaused = true;
+                try { previewVideo.pause(); } catch (e) {}
+                updatePlayStateUI(false);
+            }
+            const endVirtualSec = syncOn ? (baseStart + clipSpanInt) : baseStart;
+            const endVirtualPct = Math.min(100, Math.max(0, (endVirtualSec / totalSec) * 100));
+            syncAllProgressBars(endVirtualPct);
+            refreshTimeUI(endVirtualSec);
+            return;
         }
+
+        // ★ 播放过程中：进度条严格按照用户设定的超长总时长（如 02:00:00）一秒一秒走过这 20 秒所在的区间，绝不变成 00:00~00:20
+        const elapsedInClip = Math.min(clipDur, Math.max(0, curVidSec - range.start));
+        const curVirtualSecFloat = syncOn ? (baseStart + elapsedInClip) : baseStart;
+        const curVirtualSecInt = syncOn ? (baseStart + Math.floor(elapsedInClip)) : baseStart;
+        const virtualPct = Math.min(100, Math.max(0, (curVirtualSecFloat / totalSec) * 100));
+
+        syncAllProgressBars(virtualPct);
+        refreshTimeUI(curVirtualSecInt);
     }
 
     let previewProgRafId = null;
@@ -1586,6 +1721,7 @@ window.PlayerEngine = {
     }
 
     previewVideo.addEventListener('play', () => {
+        window.PlayerEngine._stoppedAtClipEnd = false;
         if (previewProgRafId) cancelAnimationFrame(previewProgRafId);
         previewProgRafId = requestAnimationFrame(tickPreviewProgressRaf);
         updatePlayStateUI(true);
@@ -1596,8 +1732,8 @@ window.PlayerEngine = {
             previewProgRafId = null;
         }
         syncPreviewVideoProgress();
-        // 若非用户主动点击暂停且非导出/识别过程（例如打开/拖拽评论区弹窗导致容器重排或焦点转移引发浏览器暂停），立即自动恢复播放
-        if (window.PlayerEngine.isVideoMode && !window.PlayerEngine._userExplicitlyPaused && !window.__isExportRecording && !window.__isOcrScanning) {
+        // 若非用户主动点击暂停、非片段自然播完停止、且非导出/识别过程（例如打开评论区弹窗导致重排），才自动恢复播放
+        if (window.PlayerEngine.isVideoMode && !window.PlayerEngine._userExplicitlyPaused && !window.PlayerEngine._stoppedAtClipEnd && !window.__isExportRecording && !window.__isOcrScanning) {
             setTimeout(() => {
                 ensureVideoPlayingIfActive(false);
             }, 16);
@@ -1605,11 +1741,10 @@ window.PlayerEngine = {
     });
     previewVideo.addEventListener('ended', () => {
         if (!window.PlayerEngine.isVideoMode || window.__isExportRecording || window.__isOcrScanning) return;
-        if (!window.PlayerEngine._userExplicitlyPaused) {
-            const range = window.PlayerEngine.getTrimRange();
-            try { previewVideo.currentTime = range.start; } catch (e) {}
-            ensureVideoPlayingIfActive(false);
-        }
+        window.PlayerEngine._stoppedAtClipEnd = true;
+        window.PlayerEngine._userExplicitlyPaused = true;
+        syncPreviewVideoProgress();
+        updatePlayStateUI(false);
     });
     previewVideo.addEventListener('seeked', syncPreviewVideoProgress);
     previewVideo.addEventListener('timeupdate', syncPreviewVideoProgress);
@@ -1629,7 +1764,7 @@ window.PlayerEngine = {
         const fitMode = selCropFit ? selCropFit.value : 'cover';
         const rawScale = parseFloat(inMediaScale.value);
         const scaleVal = Number.isNaN(rawScale) ? 100 : rawScale;
-        const zoom = fitMode === 'cover' ? Math.max(1.02, scaleVal / 100) : (scaleVal / 100);
+        const zoom = fitMode === 'cover' ? Math.max(1.03, scaleVal / 100) : (scaleVal / 100);
         const rawX = parseFloat(inPosX.value);
         const rawY = parseFloat(inPosY.value);
         const xPct = Math.min(100, Math.max(0, Number.isNaN(rawX) ? 50 : rawX));
@@ -1654,8 +1789,8 @@ window.PlayerEngine = {
                 baseH = baseW / mAspect;
             }
         }
-        // ★ 边缘防白边出血量 (bleed=6px)：彻底消除亚像素取整缝隙及原视频自带边缘白线
-        const bleed = fitMode === 'cover' ? 6 : 0;
+        // ★ 边缘防白边出血量 (bleed=12px)：彻底裁切掉源视频自带的录屏窗口白边与亚像素亮线
+        const bleed = fitMode === 'cover' ? 12 : 0;
         const coreW = baseW * zoom;
         const coreH = baseH * zoom;
         const renderW = Math.ceil(coreW + bleed * 2);

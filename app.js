@@ -414,15 +414,43 @@ window.switchRightTab = function (mode) {
     const dyAvatarImg = document.getElementById('dy-avatar-img');
     const dylDispAvatar = document.getElementById('dyl-disp-avatar');
 
+    // ★ 通用跨域安全头像预缓存器：将任何在线 http/https 头像预转为 Base64 data-export-src，确保 html2canvas 与 Canvas drawImage 100% 不丢头像
+    function cacheAvatarExportSafeDataUrl(imgEl, urlStr) {
+        if (!imgEl || !urlStr) return;
+        if (urlStr.startsWith('data:')) {
+            imgEl.setAttribute('data-export-src', urlStr);
+            return;
+        }
+        if (/^https?:\/\//i.test(urlStr)) {
+            fetch(urlStr, { mode: 'cors', credentials: 'omit' })
+                .then(r => (r.ok ? r.blob() : Promise.reject(new Error('avatar fetch failed'))))
+                .then(blob => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                }))
+                .then(dataUrl => {
+                    if (typeof dataUrl === 'string' && dataUrl.startsWith('data:image/')) {
+                        imgEl.setAttribute('data-export-src', dataUrl);
+                    }
+                })
+                .catch(() => {});
+        }
+    }
+    window.cacheAvatarExportSafeDataUrl = cacheAvatarExportSafeDataUrl;
+
     // ★ 同步更新右侧中间作者头像、右侧最下方静态头像与全屏横屏头像（100% 实时联动）
     function syncAuthorAvatarEverywhere(src, isCustom = false) {
         if (!src) return;
         if (dyAvatarImg) {
             if (dyAvatarImg.src !== src) dyAvatarImg.src = src;
             dyAvatarImg.dataset.custom = isCustom ? 'true' : 'false';
+            cacheAvatarExportSafeDataUrl(dyAvatarImg, src);
         }
-        if (dylDispAvatar && dylDispAvatar.src !== src) {
-            dylDispAvatar.src = src;
+        if (dylDispAvatar) {
+            if (dylDispAvatar.src !== src) dylDispAvatar.src = src;
+            cacheAvatarExportSafeDataUrl(dylDispAvatar, src);
         }
     }
     window.syncAuthorAvatarEverywhere = syncAuthorAvatarEverywhere;
@@ -431,7 +459,11 @@ window.switchRightTab = function (mode) {
         const avatarObs = new MutationObserver(() => {
             const curSrc = dyAvatarImg.getAttribute('src') || dyAvatarImg.src;
             if (curSrc) {
-                if (dylDispAvatar && dylDispAvatar.getAttribute('src') !== curSrc) dylDispAvatar.src = curSrc;
+                cacheAvatarExportSafeDataUrl(dyAvatarImg, curSrc);
+                if (dylDispAvatar && dylDispAvatar.getAttribute('src') !== curSrc) {
+                    dylDispAvatar.src = curSrc;
+                    cacheAvatarExportSafeDataUrl(dylDispAvatar, curSrc);
+                }
             }
         });
         avatarObs.observe(dyAvatarImg, { attributes: true, attributeFilter: ['src'] });
@@ -624,9 +656,13 @@ window.switchRightTab = function (mode) {
     if (mBtnVol) {
         mBtnVol.addEventListener('click', () => {
             const previewVideo = document.getElementById('preview-video');
-            if (previewVideo && window.PlayerEngine.isVideoMode) {
-                previewVideo.muted = !previewVideo.muted;
-                window.showToast(previewVideo.muted ? '🔇 视频已静音' : '🔊 视频原声已开启');
+            if (previewVideo && window.PlayerEngine && window.PlayerEngine.isVideoMode) {
+                if (typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
+                    window.PlayerEngine.setVideoSoundMuted(!previewVideo.muted, true);
+                } else {
+                    previewVideo.muted = !previewVideo.muted;
+                    window.showToast(previewVideo.muted ? '🔇 视频已静音' : '🔊 视频原声已开启');
+                }
             } else {
                 window.showToast('🔊 音量控制');
             }
@@ -753,16 +789,22 @@ window.switchRightTab = function (mode) {
     const inCustomSec = document.getElementById('in-custom-sec');
     if (selRecordSec && inCustomSec) {
         selRecordSec.addEventListener('change', (e) => {
+            if (window.__isRestoringStorage) return;
             const isCustom = (e.target.value === 'custom');
             inCustomSec.style.display = isCustom ? 'inline-block' : 'none';
+            if (isCustom && window.PlayerEngine && window.PlayerEngine.isVideoMode && typeof window.PlayerEngine.getTrimRange === 'function') {
+                const curClipDur = Math.max(0.5, Math.round(window.PlayerEngine.getTrimRange().duration * 10) / 10);
+                inCustomSec.value = String(curClipDur);
+            }
             const sec = isCustom ? (parseFloat(inCustomSec.value) || 10) : (parseFloat(e.target.value) || 10);
             if (window.PlayerEngine && typeof window.PlayerEngine.applyDropdownDuration === 'function') {
                 window.PlayerEngine.applyDropdownDuration(sec);
             }
         });
         inCustomSec.addEventListener('input', () => {
+            if (window.__isRestoringStorage) return;
             const sec = parseFloat(inCustomSec.value);
-            if (sec >= 1 && window.PlayerEngine && typeof window.PlayerEngine.applyDropdownDuration === 'function') {
+            if (sec >= 0.5 && window.PlayerEngine && typeof window.PlayerEngine.applyDropdownDuration === 'function') {
                 window.PlayerEngine.applyDropdownDuration(sec);
             }
         });
@@ -1002,14 +1044,29 @@ window.switchRightTab = function (mode) {
 
     function getChineseFemalePool() {
         const db = window.LAYA_ASIAN_AVATARS || {};
-        // 优先使用内置真实亚洲/中国女生生活照 (Base64 秒开零跨域) + 在线中国女生人像
-        return [...(db.beauties || []), ...CN_REAL_FEMALE_URLS];
+        // 优先使用内置 49 张海外华人/IG/小红书/台湾女生真实自拍与生活照 (Base64 秒开零跨域) + 在线直连库
+        return [...(db.beauties || []), ...(db.onlineFemaleUrls || []), ...CN_REAL_FEMALE_URLS];
     }
 
     function getChineseMalePool() {
         const db = window.LAYA_ASIAN_AVATARS || {};
-        // 优先使用内置真实亚洲/中国男生生活照 (Base64 秒开零跨域) + 在线中国男生人像
-        return [...(db.guys || []), ...CN_REAL_MALE_URLS];
+        // 优先使用内置 36 张海外华人/IG/潮男/日常男生真实生活照 (Base64 秒开零跨域) + 在线直连库
+        return [...(db.guys || []), ...(db.onlineMaleUrls || []), ...CN_REAL_MALE_URLS];
+    }
+
+    function getChineseVibePool() {
+        const db = window.LAYA_ASIAN_AVATARS || {};
+        return [...(db.vibes || []), ...(db.onlineVibeUrls || [])];
+    }
+
+    function getChinesePetPool() {
+        const db = window.LAYA_ASIAN_AVATARS || {};
+        return [...(db.pets || []), ...(db.onlinePetUrls || [])];
+    }
+
+    function getChineseAnimePool() {
+        const db = window.LAYA_ASIAN_AVATARS || {};
+        return [...(db.anime || []), ...(db.onlineAnimeUrls || [])];
     }
 
     let __avatarCycleCounter = Math.floor(Math.random() * 100);
@@ -1023,24 +1080,52 @@ window.switchRightTab = function (mode) {
         return activePool[idx];
     }
 
-    // 生成真实中国风头像（支持男/女/男女混合随机，绝不出现欧美脸或卡通假人）
+    // 生成 150+ 海外华人/台湾/香港/IG/Threads/小红书真实社交头像（支持全风格混搭、纯女头、纯男头、IG氛围风景、萌宠猫狗、二次元）
     function buildOnlineAvatarUrl(seed, apiMode, avoidSet = null) {
         const females = getChineseFemalePool();
         const males = getChineseMalePool();
-        const mode = apiMode || 'cn-mixed';
+        const vibes = getChineseVibePool();
+        const pets = getChinesePetPool();
+        const animes = getChineseAnimePool();
+        const mode = apiMode || 'overseas-mix';
 
-        if (mode === 'cn-female' || mode === 'asian-beauty') {
+        if (mode === 'cn-female' || mode === 'asian-beauty' || mode === 'beauties') {
             return pickFromPoolAvoiding(females, avoidSet);
         }
-        if (mode === 'cn-male' || mode === 'asian-guy') {
+        if (mode === 'cn-male' || mode === 'asian-guy' || mode === 'guys') {
+            return pickFromPoolAvoiding(males.length ? males : females, avoidSet);
+        }
+        if (mode === 'cn-vibes' || mode === 'vibes') {
+            return pickFromPoolAvoiding(vibes.length ? vibes : females, avoidSet);
+        }
+        if (mode === 'cn-pets' || mode === 'pets') {
+            return pickFromPoolAvoiding(pets.length ? pets : females, avoidSet);
+        }
+        if (mode === 'cn-anime' || mode === 'anime') {
+            return pickFromPoolAvoiding(animes.length ? animes : females, avoidSet);
+        }
+        if (mode === 'cn-mixed' || mode === 'real-human' || mode === 'real') {
+            if (Math.random() < 0.60) {
+                return pickFromPoolAvoiding(females, avoidSet);
+            }
             return pickFromPoolAvoiding(males.length ? males : females, avoidSet);
         }
 
-        // 默认 cn-mixed / real-human：真实中国女生 (62%) + 真实中国男生 (38%)
-        if (Math.random() < 0.62) {
+        // 默认 overseas-mix：海外华人 IG / Threads / 小红书真实社交混搭（46% 女生自拍生活照 + 26% 潮男日常照 + 15% IG氛围感咖啡海边夜景 + 13% 真实猫狗萌宠）
+        const r = Math.random();
+        if (r < 0.46) {
             return pickFromPoolAvoiding(females, avoidSet);
         }
-        return pickFromPoolAvoiding(males.length ? males : females, avoidSet);
+        if (r < 0.72) {
+            return pickFromPoolAvoiding(males.length ? males : females, avoidSet);
+        }
+        if (r < 0.87 && vibes.length > 0) {
+            return pickFromPoolAvoiding(vibes, avoidSet);
+        }
+        if (pets.length > 0) {
+            return pickFromPoolAvoiding(pets, avoidSet);
+        }
+        return pickFromPoolAvoiding(females, avoidSet);
     }
 
     // 异步尝试国内真实头像接口（uomg 随机男女头像 API，带超时与内置中国风人像库兜底）
@@ -1158,7 +1243,7 @@ window.switchRightTab = function (mode) {
         isExpanded: false,
         drawerTopPct: null, // null 时使用收敛后的默认高度（标准 44.5% / 展开 33.5%），拖拽后记忆精确百分比
         fontScale: 1.0,     // 评论区整体字号缩放倍率 (0.8x ~ 1.5x，默认 1.0x，头像按比例同步微缩)
-        apiMode: 'cn-mixed',
+        apiMode: 'overseas-mix',
         ipRegion: 'tw-hk-my',
         pubWindowHours: 72,
         colPrefix: '觀看完整合集：',
@@ -3430,7 +3515,17 @@ window.switchRightTab = function (mode) {
         selCmtAvatarApi.addEventListener('change', (e) => {
             CommentEngine.apiMode = e.target.value;
             CommentEngine.randomizeAll(false, e.target.value);
-            window.showToast('已更新评论区真实中国风头像风格');
+            window.showToast('🌏 已切换评论区海外华人真实社交头像库风格');
+        });
+    }
+
+    const btnCmtSwitchOverseasMix = document.getElementById('btn-cmt-switch-overseas-mix');
+    if (btnCmtSwitchOverseasMix) {
+        btnCmtSwitchOverseasMix.addEventListener('click', () => {
+            if (selCmtAvatarApi) selCmtAvatarApi.value = 'overseas-mix';
+            CommentEngine.apiMode = 'overseas-mix';
+            CommentEngine.randomizeAll(false, 'overseas-mix');
+            window.showToast('🌏 已将所有评论一键切换为海外华人 IG/小红书真实混搭头像');
         });
     }
 
@@ -3440,7 +3535,7 @@ window.switchRightTab = function (mode) {
             if (selCmtAvatarApi) selCmtAvatarApi.value = 'cn-female';
             CommentEngine.apiMode = 'cn-female';
             CommentEngine.randomizeAll(false, 'cn-female');
-            window.showToast('👩 已将所有评论切换为真实中国女生头像');
+            window.showToast('👩 已将所有评论切换为 INS/小红书真实女生自拍头像');
         });
     }
 
@@ -3450,9 +3545,22 @@ window.switchRightTab = function (mode) {
             if (selCmtAvatarApi) selCmtAvatarApi.value = 'cn-male';
             CommentEngine.apiMode = 'cn-male';
             CommentEngine.randomizeAll(false, 'cn-male');
-            window.showToast('👦 已将所有评论切换为真实中国男生头像');
+            window.showToast('👦 已将所有评论切换为真实潮男/男生日常自拍头像');
         });
     }
+
+    // 首次升级至 v37 海外华人 153+ 真实头像库时，自动刷新一次默认头像池（避免旧缓存停留老头像）
+    try {
+        const AVATAR_UPGRADE_KEY = 'LAYA_OVERSEAS_AVATAR_POOL_V37';
+        if (!localStorage.getItem(AVATAR_UPGRADE_KEY)) {
+            localStorage.setItem(AVATAR_UPGRADE_KEY, '1');
+            setTimeout(() => {
+                if (CommentEngine && typeof CommentEngine.randomizeAll === 'function') {
+                    CommentEngine.randomizeAll(false, 'overseas-mix');
+                }
+            }, 90);
+        }
+    } catch (_avErr) {}
 
     // 绑定评论区回复与跟评后台控制栏 (CMS 可显隐、允许回复、允许发图、回复字数上限、显示跟评区)
     const btnToggleCmtReplyCms = document.getElementById('btn-toggle-cmt-reply-cms');
@@ -6063,72 +6171,76 @@ window.switchRightTab = function (mode) {
             if (isVid) {
                 const wasPlaying = !pv.paused;
                 const origTime = pv.currentTime;
-                pv.pause();
+                window.__isOcrScanning = true;
+                try {
+                    pv.pause();
 
-                const range = (window.PlayerEngine && window.PlayerEngine.getTrimRange)
-                    ? window.PlayerEngine.getTrimRange()
-                    : { start: 0, end: pv.duration || 8 };
-                const startT = range.start || 0;
-                const endT = Math.max(startT + 1, range.end || pv.duration || 8);
-                const totalSpan = endT - startT;
-                const segCount = Math.min(6, Math.max(3, Math.round(totalSpan / 2.2)));
-                const segDur = totalSpan / segCount;
+                    const range = (window.PlayerEngine && window.PlayerEngine.getTrimRange)
+                        ? window.PlayerEngine.getTrimRange()
+                        : { start: 0, end: pv.duration || 8 };
+                    const startT = range.start || 0;
+                    const endT = Math.max(startT + 1, range.end || pv.duration || 8);
+                    const totalSpan = endT - startT;
+                    const segCount = Math.min(6, Math.max(3, Math.round(totalSpan / 2.2)));
+                    const segDur = totalSpan / segCount;
 
-                const scanCanvas = document.createElement('canvas');
-                scanCanvas.width = 160;
-                scanCanvas.height = 44;
-                const sCtx = scanCanvas.getContext('2d');
+                    const scanCanvas = document.createElement('canvas');
+                    scanCanvas.width = 160;
+                    scanCanvas.height = 44;
+                    const sCtx = scanCanvas.getContext('2d');
 
-                for (let i = 0; i < segCount; i++) {
-                    const t0 = Number((startT + i * segDur).toFixed(1));
-                    const t1 = Number((startT + (i + 1) * segDur).toFixed(1));
-                    const sampleT = Math.min(endT - 0.05, t0 + segDur * 0.45);
+                    for (let i = 0; i < segCount; i++) {
+                        const t0 = Number((startT + i * segDur).toFixed(1));
+                        const t1 = Number((startT + (i + 1) * segDur).toFixed(1));
+                        const sampleT = Math.min(endT - 0.05, t0 + segDur * 0.45);
 
-                    setProg(15 + ((i + 1) / segCount) * 75, `🎞️ 正在扫描第 ${i + 1}/${segCount} 帧画面字幕 (${this.formatSec(sampleT)})...`);
+                        setProg(15 + ((i + 1) / segCount) * 75, `🎞️ 正在扫描第 ${i + 1}/${segCount} 帧画面字幕 (${this.formatSec(sampleT)})...`);
 
-                    await new Promise(resolve => {
-                        const onSeek = () => {
-                            pv.removeEventListener('seeked', onSeek);
-                            resolve();
-                        };
-                        pv.addEventListener('seeked', onSeek);
-                        pv.currentTime = sampleT;
-                        setTimeout(resolve, 220);
-                    });
+                        await new Promise(resolve => {
+                            const onSeek = () => {
+                                pv.removeEventListener('seeked', onSeek);
+                                resolve();
+                            };
+                            pv.addEventListener('seeked', onSeek);
+                            pv.currentTime = sampleT;
+                            setTimeout(resolve, 220);
+                        });
 
-                    let thumbUrl = '';
-                    let hasBrightSub = true;
-                    try {
-                        const vw = pv.videoWidth || 1280;
-                        const vh = pv.videoHeight || 720;
-                        // 截取视频底部 72% ~ 92% 字幕带区域
-                        sCtx.clearRect(0, 0, 160, 44);
-                        sCtx.drawImage(pv, vw * 0.1, vh * 0.72, vw * 0.8, vh * 0.2, 0, 0, 160, 44);
-                        thumbUrl = scanCanvas.toDataURL('image/jpeg', 0.82);
+                        let thumbUrl = '';
+                        let hasBrightSub = true;
+                        try {
+                            const vw = pv.videoWidth || 1280;
+                            const vh = pv.videoHeight || 720;
+                            // 截取视频底部 72% ~ 92% 字幕带区域
+                            sCtx.clearRect(0, 0, 160, 44);
+                            sCtx.drawImage(pv, vw * 0.1, vh * 0.72, vw * 0.8, vh * 0.2, 0, 0, 160, 44);
+                            thumbUrl = scanCanvas.toDataURL('image/jpeg', 0.82);
 
-                        const imgData = sCtx.getImageData(0, 0, 160, 44).data;
-                        let hiPixels = 0;
-                        for (let p = 0; p < imgData.length; p += 16) {
-                            const lum = imgData[p] * 0.299 + imgData[p + 1] * 0.587 + imgData[p + 2] * 0.114;
-                            if (lum > 185) hiPixels++;
+                            const imgData = sCtx.getImageData(0, 0, 160, 44).data;
+                            let hiPixels = 0;
+                            for (let p = 0; p < imgData.length; p += 16) {
+                                const lum = imgData[p] * 0.299 + imgData[p + 1] * 0.587 + imgData[p + 2] * 0.114;
+                                if (lum > 185) hiPixels++;
+                            }
+                            hasBrightSub = hiPixels > 8;
+                        } catch (e) {}
+
+                        let rawLine = sampleLines[i % sampleLines.length];
+                        if (!hasBrightSub && i === segCount - 1) {
+                            rawLine = '（画面精彩片段 · 点击可直接修改台词）';
                         }
-                        hasBrightSub = hiPixels > 8;
-                    } catch (e) {}
-
-                    let rawLine = sampleLines[i % sampleLines.length];
-                    if (!hasBrightSub && i === segCount - 1) {
-                        rawLine = '（画面精彩片段 · 点击可直接修改台词）';
+                        newCues.push({
+                            start: t0,
+                            end: t1,
+                            text: this.lang === 'trad' ? convertSubText(rawLine, true) : convertSubText(rawLine, false),
+                            thumb: thumbUrl
+                        });
                     }
-                    newCues.push({
-                        start: t0,
-                        end: t1,
-                        text: this.lang === 'trad' ? convertSubText(rawLine, true) : convertSubText(rawLine, false),
-                        thumb: thumbUrl
-                    });
+                } finally {
+                    window.__isOcrScanning = false;
+                    try { pv.currentTime = origTime; } catch (_e) {}
+                    if (wasPlaying) pv.play().catch(() => {});
                 }
-
-                pv.currentTime = origTime;
-                if (wasPlaying) pv.play().catch(() => {});
             } else {
                 // 图片模式：截取当前图片底部字幕区并生成可编辑字幕条目
                 setProg(55, '🖼️ 正在扫描图片底部字幕区域...');
@@ -6329,10 +6441,15 @@ window.switchRightTab = function (mode) {
     if (dylBtnVol) {
         dylBtnVol.addEventListener('click', () => {
             const vid = document.getElementById('preview-video');
-            const muted = vid ? (vid.muted = !vid.muted) : (dylSvgVolOff.style.display === 'none');
-            if (dylSvgVolOn) dylSvgVolOn.style.display = muted ? 'none' : 'block';
-            if (dylSvgVolOff) dylSvgVolOff.style.display = muted ? 'block' : 'none';
-            window.showToast(muted ? '🔇 已静音' : '🔊 已开启声音');
+            const nextMuted = vid ? !vid.muted : (dylSvgVolOff ? dylSvgVolOff.style.display === 'none' : true);
+            if (window.PlayerEngine && typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
+                window.PlayerEngine.setVideoSoundMuted(nextMuted, true);
+            } else {
+                if (vid) vid.muted = nextMuted;
+                if (dylSvgVolOn) dylSvgVolOn.style.display = nextMuted ? 'none' : 'block';
+                if (dylSvgVolOff) dylSvgVolOff.style.display = nextMuted ? 'block' : 'none';
+                window.showToast(nextMuted ? '🔇 已静音' : '🔊 已开启声音');
+            }
         });
     }
 
@@ -6370,6 +6487,8 @@ window.switchRightTab = function (mode) {
             const dmContainer = document.getElementById('danmaku-container');
             if (dmContainer) dmContainer.style.display = active ? 'block' : 'none';
             if (swDanmakuGlobal) swDanmakuGlobal.checked = active;
+            syncDmBarSwitchUI();
+            triggerSaveStorage();
             window.showToast(active ? '💬 弹幕已开启' : '🚫 弹幕已关闭');
         });
     }
@@ -6378,20 +6497,31 @@ window.switchRightTab = function (mode) {
     if (dylBtnDmInput) {
         dylBtnDmInput.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') {
-                const txt = dylBtnDmInput.value.trim();
-                if (!txt) return;
-                if (window.DanmakuEngine && Array.isArray(window.DanmakuEngine.list)) {
-                    window.DanmakuEngine.list.push({
-                        text: txt,
-                        color: '#ffffff',
-                        size: 18,
-                        top: Math.floor(Math.random() * 45) + 12,
-                        speed: 10
-                    });
-                    if (typeof window.DanmakuEngine.refresh === 'function') {
-                        window.DanmakuEngine.refresh();
+                e.preventDefault();
+                const rawTxt = dylBtnDmInput.value.trim();
+                if (!rawTxt) return;
+                const txt = toStageTrad(rawTxt);
+                if (swDanmakuGlobal && !swDanmakuGlobal.checked) {
+                    swDanmakuGlobal.checked = true;
+                    syncDmBarSwitchUI();
+                }
+                if (window.DanmakuEngine) {
+                    if (typeof window.DanmakuEngine.fireLive === 'function') {
+                        window.DanmakuEngine.fireLive(txt);
+                    } else if (Array.isArray(window.DanmakuEngine.list)) {
+                        window.DanmakuEngine.list.push({
+                            text: txt,
+                            color: '#ffffff',
+                            size: 18,
+                            top: Math.floor(Math.random() * 45) + 12,
+                            speed: 10
+                        });
+                        if (typeof window.DanmakuEngine.refresh === 'function') {
+                            window.DanmakuEngine.refresh();
+                        }
                     }
                 }
+                triggerSaveStorage();
                 dylBtnDmInput.value = '';
                 window.showToast(`🚀 弹幕已发送：「${txt}」`);
             }
@@ -6946,24 +7076,30 @@ window.switchRightTab = function (mode) {
             window.__isRestoringStorage = true;
 
             if (data.inputs) {
-                // 统一网页端与手机端的时间/进度缓存，防止旧版 23:18 覆盖导致进度条跳到 100% 最右端
+                // ★ V39 跨电脑全量同步迁移：自动清理其他电脑浏览器中残留的旧版直播间与底栏红点缓存（如「小鹿同學」「54.3萬」「高顏值精選」「粉絲螢光棒」「消息 3」）
+                if (!localStorage.getItem('LAYA_BETA_V39_FRESH_SYNC')) {
+                    if (data.inputs['in-dy-msg-count'] === '3') data.inputs['in-dy-msg-count'] = '99+';
+                    if (data.inputs['in-live-host-name'] === '小鹿同學') data.inputs['in-live-host-name'] = '小王小王';
+                    if (data.inputs['in-live-viewers-text'] === '54.3萬') data.inputs['in-live-viewers-text'] = '10.2萬';
+                    if (data.inputs['in-live-brand-tag'] === '高顏值精選') data.inputs['in-live-brand-tag'] = 'Laya 精選';
+                    if (data.inputs['in-live-gift-name'] === '揮舞 粉絲螢光棒') data.inputs['in-live-gift-name'] = '送 嘉年華';
+                    if (data.inputs['in-live-gift-count'] === 'x99') data.inputs['in-live-gift-count'] = 'x9';
+                    localStorage.setItem('LAYA_BETA_V39_FRESH_SYNC', '1');
+                }
+                // 统一网页端、手机横屏端与竖屏全屏观看端的时间/进度缓存，完全保留用户设置的起始时间与总时长（包括 00:00:00 开头）
                 if (data.inputs['in-total-time']) {
                     data.inputs['in-m-total-time'] = data.inputs['in-total-time'];
+                    data.inputs['in-dyl-total-time'] = data.inputs['in-total-time'];
                 }
                 if (data.inputs['in-start-time']) {
                     data.inputs['in-m-start-time'] = data.inputs['in-start-time'];
-                }
-                const savedProg = parseFloat(data.inputs['in-progress'] || data.inputs['in-m-progress'] || '26');
-                if (savedProg >= 92 || savedProg <= 1) {
-                    data.inputs['in-progress'] = '26';
-                    data.inputs['in-m-progress'] = '26';
-                    data.inputs['in-start-time'] = '00:28:15';
-                    data.inputs['in-m-start-time'] = '00:28:15';
-                    data.inputs['in-total-time'] = '01:54:21';
-                    data.inputs['in-m-total-time'] = '01:54:21';
+                    data.inputs['in-dyl-start-time'] = data.inputs['in-start-time'];
                 }
                 Object.entries(data.inputs).forEach(([id, val]) => {
-                    if (id === 'in-m-start-time' || id === 'in-m-total-time' || id === 'in-m-progress' || id === 'in-progress') return;
+                    if (id === 'in-m-start-time' || id === 'in-m-total-time' || id === 'in-m-progress' || id === 'in-dyl-start-time' || id === 'in-dyl-total-time' || id === 'in-dyl-progress' || id === 'in-progress' || id === 'in-custom-sec') return;
+                    // 送礼停留时间、消失时间、最短/最长空窗间隔由独立 V3 存储管理，防止旧版 V12 缓存将其覆盖回 3.0 秒
+                    if (id === 'in-live-gift-stay-sec' || id === 'in-live-gift-fade-sec' || id === 'in-live-gift-gap-min' || id === 'in-live-gift-gap-max') return;
+                    if (id === 'in-live-gift-speed' && Number(val) <= 0) return;
                     // 防止旧版直播间 8888 或 29/1000 缓存覆盖新版 1000~200万 点赞与在线人数
                     if (id === 'in-live-host-id' && (val === '8888' || val === '1.8萬')) return;
                     if (id === 'in-live-viewers' && (Number(val) <= 1000)) return;
@@ -6987,9 +7123,12 @@ window.switchRightTab = function (mode) {
                 Object.entries(data.checkboxes).forEach(([id, checked]) => {
                     const el = document.getElementById(id);
                     if (!el) return;
-                    // 每次打开页面始终默认开启直播间公屏弹幕自动滚动与礼物弹窗自动轮播跳动，并默认关闭每行末尾假紫心
+                    // 每次打开页面始终默认开启直播间公屏弹幕自动滚动、礼物弹窗自动轮播与送完消失间隔，并默认关闭每行末尾假紫心
                     if (id === 'sw-live-auto-roll-dm' || id === 'sw-live-auto-cycle-gift') {
                         el.checked = true;
+                        return;
+                    }
+                    if (id === 'sw-live-gift-empty-gap') {
                         return;
                     }
                     if (id === 'sw-live-dm-row-heart') {
@@ -7003,8 +7142,8 @@ window.switchRightTab = function (mode) {
 
             if (data.selects) {
                 Object.entries(data.selects).forEach(([id, val]) => {
-                    // 每次打开页面始终默认 1.0x 原速，防止历史缓存 3.0x 导致视频播放和录制被加速成 1/3 时长
-                    if (id === 'sel-preview-speed' || id === 'jy-sel-speed') return;
+                    // 每次打开页面始终默认 1.0x 原速，且录制秒数由视频时间轴区间 (LAYA_LAST_MEDIA_STATE) 精确接管
+                    if (id === 'sel-preview-speed' || id === 'jy-sel-speed' || id === 'sel-record-sec') return;
                     const el = document.getElementById(id);
                     if (el) {
                         el.value = val;
@@ -7266,6 +7405,7 @@ window.switchRightTab = function (mode) {
     if (btnToggleLang) {
         btnToggleLang.addEventListener('click', () => {
             isTraditional = !isTraditional;
+            window.__currentLangMode = isTraditional ? 'trad' : 'simp';
             const dict = isTraditional ? s2tDict : t2sDict;
             if (!renderTarget) return;
 
@@ -7282,6 +7422,8 @@ window.switchRightTab = function (mode) {
             if (window.SubtitleEngine && window.SubtitleEngine.enabled) {
                 window.SubtitleEngine.setLanguage(isTraditional ? 'trad' : 'simp', false);
             }
+            if (typeof renderLiveChatBubbles === 'function') renderLiveChatBubbles(false);
+            if (typeof renderLiveJoinTicker === 'function') renderLiveJoinTicker(false);
             window.showToast(isTraditional ? '画面已切换为：繁体中文' : '画面已切换为：简体中文');
         });
     }
@@ -7330,7 +7472,12 @@ window.switchRightTab = function (mode) {
             clonedGiftBanner.style.setProperty('transform', 'none', 'important');
         }
 
-        const avatarSrc = (dyAvatarImg && dyAvatarImg.dataset.custom === 'true') ? dyAvatarImg.src : activeRealSrc;
+        const rawDyAvSrc = dyAvatarImg
+            ? (dyAvatarImg.getAttribute('data-export-src') || dyAvatarImg.getAttribute('src') || dyAvatarImg.src || '')
+            : '';
+        const avatarSrc = (rawDyAvSrc && !rawDyAvSrc.endsWith('Laya.png') && !rawDyAvSrc.endsWith('Laya2.png'))
+            ? rawDyAvSrc
+            : activeRealSrc;
         const clonedAvatar = clonedDoc.getElementById('dy-avatar-img');
         if (clonedAvatar) clonedAvatar.src = avatarSrc;
         const clonedVinylAvatar = clonedDoc.getElementById('dy-vinyl-img');
@@ -7409,8 +7556,15 @@ window.switchRightTab = function (mode) {
             clonedLiveInp.parentNode.replaceChild(fakeLiveInp, clonedLiveInp);
         }
 
-        // ★ 截图导出时锁定直播间漂浮弹幕与右侧飘心在当前画面上的实时像素位置
+        // ★ 截图导出时锁定直播间漂浮弹幕与右侧飘心在当前画面上的实时像素位置，并同步礼物空窗期隐去状态
         if (renderTarget && renderTarget.classList.contains('dy-live-open')) {
+            const origGiftBanner = document.getElementById('live-gift-combo-banner');
+            const clonedGiftBanner = clonedDoc.getElementById('live-gift-combo-banner');
+            if (origGiftBanner && clonedGiftBanner && (origGiftBanner.dataset.inEmptyGap === 'true' || origGiftBanner.classList.contains('is-in-empty-gap'))) {
+                clonedGiftBanner.style.setProperty('display', 'none', 'important');
+                clonedGiftBanner.style.setProperty('opacity', '0', 'important');
+                clonedGiftBanner.style.setProperty('visibility', 'hidden', 'important');
+            }
             const origStage = document.getElementById('live-floating-dm-stage');
             const clonedStage = clonedDoc.getElementById('live-floating-dm-stage');
             if (origStage && clonedStage) {
@@ -7452,10 +7606,11 @@ window.switchRightTab = function (mode) {
         if (window.LAYA_APP_ASSETS) {
             clonedDoc.querySelectorAll('img[data-laya-asset]').forEach(img => {
                 const key = img.getAttribute('data-laya-asset');
-                if (isLightMode && window.LAYA_APP_ASSETS_LIGHT && window.LAYA_APP_ASSETS_LIGHT[key]) {
-                    img.src = window.LAYA_APP_ASSETS_LIGHT[key];
-                } else if (window.LAYA_APP_ASSETS[key]) {
-                    img.src = window.LAYA_APP_ASSETS[key];
+                const targetAssetSrc = (isLightMode && window.LAYA_APP_ASSETS_LIGHT && window.LAYA_APP_ASSETS_LIGHT[key])
+                    ? window.LAYA_APP_ASSETS_LIGHT[key]
+                    : window.LAYA_APP_ASSETS[key];
+                if (targetAssetSrc && img.getAttribute('src') !== targetAssetSrc) {
+                    img.src = targetAssetSrc;
                 }
             });
         }
@@ -7725,10 +7880,11 @@ window.switchRightTab = function (mode) {
 
         const topBar = document.getElementById('web-player-top');
         if (topBar && topBar.offsetWidth > 0 && topBar.offsetHeight > 0) {
-            const topH = Math.round((topBar.offsetHeight / baseTargetH) * outH * 1.15);
+            const topH = Math.round((topBar.offsetHeight / baseTargetH) * outH * 1.18);
             const gTop = targetCtx.createLinearGradient(0, 0, 0, topH);
-            gTop.addColorStop(0, `rgba(${rgbBase}, ${isLightMode ? '0.92' : '0.86'})`);
-            gTop.addColorStop(0.5, `rgba(${rgbBase}, ${isLightMode ? '0.52' : '0.42'})`);
+            gTop.addColorStop(0, `rgba(${rgbBase}, ${isLightMode ? '0.94' : '1.0'})`);
+            gTop.addColorStop(0.14, `rgba(${rgbBase}, ${isLightMode ? '0.88' : '0.90'})`);
+            gTop.addColorStop(0.55, `rgba(${rgbBase}, ${isLightMode ? '0.52' : '0.44'})`);
             gTop.addColorStop(0.82, `rgba(${rgbBase}, 0.08)`);
             gTop.addColorStop(1, `rgba(${rgbBase}, 0)`);
             targetCtx.save();
@@ -7757,6 +7913,66 @@ window.switchRightTab = function (mode) {
         }
     }
 
+    // ★ 预加载顶部导航栏「直播/推薦」选中态粉黄极光贴图 (top_glow)，并在导出截图/视频画布上原生 1:1 补绘，杜绝 html2canvas 裁切或白字遮挡导致顶部光效变淡
+    let preloadedTopGlowImg = null;
+    if (window.LAYA_APP_ASSETS && window.LAYA_APP_ASSETS.top_glow) {
+        preloadedTopGlowImg = new Image();
+        preloadedTopGlowImg.src = window.LAYA_APP_ASSETS.top_glow;
+    }
+    function drawTopNavActiveGlowOnCanvas(targetCtx, targetRect, scaleX, scaleY) {
+        if (!targetCtx || !renderTarget || !targetRect) return;
+        const topNavWrap = document.getElementById('laya-app-wrap-top-nav');
+        if (!topNavWrap || topNavWrap.offsetWidth <= 0 || topNavWrap.offsetHeight <= 0) return;
+        const csWrap = window.getComputedStyle(topNavWrap);
+        if (csWrap.display === 'none' || csWrap.visibility === 'hidden' || parseFloat(csWrap.opacity || '1') <= 0.01) return;
+
+        const activeNavItem = document.querySelector('#laya-app-nav-tabs .laya-app-nav-item.active');
+        if (!activeNavItem) return;
+        const glowEl = activeNavItem.querySelector('.laya-app-nav-glow');
+        const imgSource = (preloadedTopGlowImg && preloadedTopGlowImg.complete && preloadedTopGlowImg.naturalWidth > 0)
+            ? preloadedTopGlowImg
+            : (glowEl && glowEl.complete && glowEl.naturalWidth > 0 ? glowEl : null);
+        if (!imgSource) return;
+
+        const itemRect = activeNavItem.getBoundingClientRect();
+        if (itemRect.width <= 0 || itemRect.height <= 0) return;
+        const glowRect = (glowEl && glowEl.getBoundingClientRect().width > 0)
+            ? glowEl.getBoundingClientRect()
+            : null;
+
+        const gw = (glowRect ? glowRect.width : 48) * scaleX;
+        const gh = (glowRect ? glowRect.height : 27) * scaleY;
+        const gx = glowRect
+            ? (glowRect.left - targetRect.left) * scaleX
+            : ((itemRect.left + itemRect.width * 0.5 - 24) - targetRect.left) * scaleX;
+        const gy = glowRect
+            ? (glowRect.top - targetRect.top) * scaleY
+            : ((itemRect.top + itemRect.height * 0.5 - 12) - targetRect.top) * scaleY;
+
+        targetCtx.save();
+        targetCtx.globalAlpha = 0.88;
+        targetCtx.drawImage(imgSource, Math.round(gx), Math.round(gy), Math.round(gw), Math.round(gh));
+        targetCtx.restore();
+    }
+
+    // ★ 导出前自动收起画面上正在编辑的输入框与悬浮框，确保导出的截图和视频 100% 纯净无编辑虚线框
+    function prepareCleanStageBeforeExport() {
+        document.querySelectorAll('#render-target .live-inline-edit-input').forEach(inp => {
+            try { inp.blur(); } catch (_e) {}
+        });
+        document.querySelectorAll('#render-target .live-row-inline-editor .live-ed-btn.save').forEach(btn => {
+            try { btn.click(); } catch (_e) {}
+        });
+        const botSec = document.querySelector('#laya-live-room-overlay .live-bottom-section');
+        if (botSec) {
+            botSec.classList.remove('is-touching-dm-zone', 'is-zoom-editing');
+        }
+        const scrollBox = document.getElementById('live-chat-scroll-box');
+        if (scrollBox) {
+            scrollBox.classList.remove('is-resizing-dm');
+        }
+    }
+
     /* ==========================================================================
        10. 超高清截图导出 (1080P/2K 级清晰度、无任何上下白边、无圆角、支持暂停帧直出)
        ========================================================================== */
@@ -7768,6 +7984,7 @@ window.switchRightTab = function (mode) {
             btnSaveImg.textContent = '⏳ 正在合成超清截图...';
             btnSaveImg.disabled = true;
             window.showToast('📸 正在抓取当前画面帧并生成无白边超高清截图...');
+            prepareCleanStageBeforeExport();
             if (typeof window.suspendStageMagnifierForExport === 'function') {
                 window.suspendStageMagnifierForExport();
             }
@@ -7811,9 +8028,9 @@ window.switchRightTab = function (mode) {
                 ctx.fillStyle = isLightExport ? '#f5f6fa' : '#000000';
                 ctx.fillRect(0, 0, outW, outH);
 
-                // 2. 计算取景框在输出画布中的精确坐标与裁剪参数
+                // 2. 计算取景框在输出画布中的精确坐标与裁剪参数（直播间内同样完整保留 16:9 横屏框 port-land-box 构图）
                 const isLiveOpenImg = renderTarget.classList.contains('dy-live-open');
-                const isSpecialSubBox = !isLiveOpenImg && (renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box') || renderTarget.classList.contains('dy-comment-open'));
+                const isSpecialSubBox = renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box') || (!isLiveOpenImg && renderTarget.classList.contains('dy-comment-open'));
                 const mwRect = (isSpecialSubBox && mediaWrapEl && mediaWrapEl.clientWidth > 0 && mediaWrapEl.clientHeight > 0)
                     ? mediaWrapEl.getBoundingClientRect()
                     : targetRect;
@@ -7826,15 +8043,51 @@ window.switchRightTab = function (mode) {
                     }
                     : { x: 0, y: 0, w: outW, h: outH };
 
-                const cropRect = window.getPlayerCropRect
+                const measureImgRelBox = (el) => {
+                    if (!el) return null;
+                    const r = el.getBoundingClientRect();
+                    if (r.width === 0 || r.height === 0) return null;
+                    return {
+                        x: (r.left - targetRect.left) * scaleFactor,
+                        y: (r.top - targetRect.top) * scaleFactor,
+                        w: r.width * scaleFactor,
+                        h: r.height * scaleFactor
+                    };
+                };
+
+                if (isLiveOpenImg) {
+                    if (typeof window.__captureLiveExportInitialState === 'function') {
+                        window.__captureLiveExportInitialState();
+                    }
+                    window.__liveExportLayout = {
+                        chatBox: measureImgRelBox(document.getElementById('live-chat-list')),
+                        joinBox: measureImgRelBox(document.getElementById('live-join-ticker-row')),
+                        scrollBox: measureImgRelBox(document.getElementById('live-chat-scroll-box')),
+                        giftBox: measureImgRelBox(document.querySelector('.live-gift-combo-slot') || document.getElementById('live-gift-combo-banner')),
+                        botBarBox: measureImgRelBox(document.querySelector('.live-bottom-bar')),
+                        sysNoticeBox: measureImgRelBox(document.getElementById('live-sys-notice')),
+                        welcomeBox: measureImgRelBox(document.getElementById('live-room-welcome')),
+                        redDotBox: measureImgRelBox(document.getElementById('live-red-breath-dot') || document.getElementById('live-pulse-dot') || document.querySelector('#live-left-live-pill .live-red-dot'))
+                    };
+                }
+
+                const rawCropRectImg = window.getPlayerCropRect
                     ? window.getPlayerCropRect(mediaBox.w, mediaBox.h)
                     : { renderW: mediaBox.w + 12, renderH: mediaBox.h + 12, offX: -6, offY: -6 };
+                const cropRect = {
+                    offX: Math.round(rawCropRectImg.offX || 0),
+                    offY: Math.round(rawCropRectImg.offY || 0),
+                    renderW: Math.max(2, Math.round(rawCropRectImg.renderW || mediaBox.w)),
+                    renderH: Math.max(2, Math.round(rawCropRectImg.renderH || mediaBox.h))
+                };
 
                 // 3. 直接在底层画布绘制当前视频暂停帧/播放帧 或 底层图片
                 let directMediaDrawn = false;
                 if (isVidMode && previewVideo.readyState >= 2 && previewVideo.videoWidth > 0) {
                     try {
                         ctx.save();
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
                         if (mediaWrapEl && mediaWrapEl.style.filter) {
                             ctx.filter = mediaWrapEl.style.filter;
                         }
@@ -7862,6 +8115,8 @@ window.switchRightTab = function (mode) {
                         testCanvas.toDataURL('image/png');
 
                         ctx.save();
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
                         if (mediaWrapEl && mediaWrapEl.style.filter) {
                             ctx.filter = mediaWrapEl.style.filter;
                         }
@@ -7882,6 +8137,14 @@ window.switchRightTab = function (mode) {
                     }
                 }
 
+                if (!isLightExport && directMediaDrawn) {
+                    ctx.save();
+                    ctx.strokeStyle = '#000000';
+                    ctx.lineWidth = Math.max(4, Math.round(2 * scaleFactor));
+                    ctx.strokeRect(mediaBox.x, mediaBox.y, mediaBox.w, mediaBox.h);
+                    ctx.restore();
+                }
+
                 // 4. 渲染透明 UI 覆层（通过 ignoreElements 跳过媒体层克隆，且强制移除容器黑色背景，绝不遮挡底层画面）
                 const uiCanvas = await html2canvas(renderTarget, {
                     scale: scaleFactor,
@@ -7890,6 +8153,9 @@ window.switchRightTab = function (mode) {
                     backgroundColor: directMediaDrawn ? null : '#000000',
                     ignoreElements: (el) => {
                         if (el.id === 'live-dm-onstage-toolbar' || (el.classList && el.classList.contains('live-dm-edit-toolbar'))) {
+                            return true;
+                        }
+                        if (isLiveOpenImg && (el.id === 'live-floating-dm-stage' || el.id === 'live-floating-hearts')) {
                             return true;
                         }
                         if (directMediaDrawn && (el.id === 'player-media-wrap' || el.id === 'preview-video' || el.id === 'preview-img')) {
@@ -7920,6 +8186,16 @@ window.switchRightTab = function (mode) {
                             clonedMediaWrap.style.setProperty('display', 'none', 'important');
                             clonedMediaWrap.style.setProperty('background', 'transparent', 'important');
                             clonedMediaWrap.style.setProperty('background-color', 'transparent', 'important');
+                        }
+
+                        if (isLiveOpenImg) {
+                            ['live-gift-combo-banner', 'live-sys-notice', 'live-room-welcome', 'live-chat-list', 'live-join-ticker-row', 'live-red-breath-dot', 'live-pulse-dot'].forEach(lid => {
+                                const lEl = clonedDoc.getElementById(lid);
+                                if (lEl) lEl.style.visibility = 'hidden';
+                            });
+                            clonedDoc.querySelectorAll('#live-left-live-pill .live-red-dot').forEach(dotEl => {
+                                dotEl.style.visibility = 'hidden';
+                            });
                         }
 
                         if (!directMediaDrawn) {
@@ -7959,7 +8235,16 @@ window.switchRightTab = function (mode) {
 
                 // 5. 先用原生 Canvas 2D 绘制无缝顶/底渐变蒙层，再叠加透明 UI 覆层（100% 消除 html2canvas 渐变边界黑线与白边）
                 drawSeamlessHudGradients(ctx, outW, outH);
-                ctx.drawImage(uiCanvas, -4, -6, outW + 8, outH + 12);
+                ctx.drawImage(uiCanvas, 0, 0, outW, outH);
+                drawTopNavActiveGlowOnCanvas(ctx, targetRect, scaleFactor, scaleFactor);
+
+                // 5.2 若处于直播间模式，使用与视频导出完全一致的 Canvas 渲染管线绘制礼物弹窗、欢迎语、弹幕列表与飘心，确保截图与视频导出 100% 视觉同源
+                if (isLiveOpenImg && typeof window.__drawLiveRoomDynamicCanvas === 'function') {
+                    const activeExportFontImg = (typeof getActiveOsFontStack === 'function')
+                        ? getActiveOsFontStack()
+                        : '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", sans-serif';
+                    window.__drawLiveRoomDynamicCanvas(ctx, outW, outH, scaleFactor, scaleFactor, 0, activeExportFontImg);
+                }
 
                 // 使用 Blob URL 下载，避免超高清大图突破浏览器 base64 长度限制并确保后续视频录制流畅
                 await new Promise((resolve) => {
@@ -7990,6 +8275,9 @@ window.switchRightTab = function (mode) {
                 console.error(err);
                 window.showToast('❌ 截图导出失败，请重试');
             } finally {
+                if (typeof window.__restoreLiveExportAfterDone === 'function') {
+                    window.__restoreLiveExportAfterDone();
+                }
                 if (typeof window.restoreStageMagnifierAfterExport === 'function') {
                     window.restoreStageMagnifierAfterExport();
                 }
@@ -8025,8 +8313,10 @@ window.switchRightTab = function (mode) {
                 return;
             }
 
+            prepareCleanStageBeforeExport();
+
             // 计算录制起点与时长：
-            // 严格限制导出时长不超过源视频有效区间（防止 3 秒视频循环录制成 5~10 秒或帧率错乱变慢）
+            // 100% 严格按照用户在底部时间轴「✂️ 导出区间 (共 XX.Xs)」与顶部录制秒数框选定的秒数导出
             const vidTotalDur = (previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
                 ? previewVideo.duration
                 : (window.PlayerEngine.videoDuration || 10);
@@ -8041,39 +8331,42 @@ window.switchRightTab = function (mode) {
                     : (parseFloat(selRecSecEl.value) || 5);
             }
 
-            let exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.5)));
-            let recordSeconds = trimRange.duration;
+            let exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.2)));
+            let sourceClipSpan = trimRange.duration;
 
             if (window.PlayerEngine.userHasTrimmed) {
-                exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.5)));
-                recordSeconds = Math.max(0.5, Math.min(trimRange.duration, vidTotalDur - exportStartSec));
+                exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.2)));
+                sourceClipSpan = Math.max(0.5, Math.min(trimRange.duration, vidTotalDur - exportStartSec));
             } else {
                 // ★ 默认始终从时间轴导出区间起点 (00:00.0) 开始完整录制，绝不因预览播放头走到半路而漏掉前半段视频
-                exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.5)));
-                if (vidTotalDur <= 15 || dropdownSec >= vidTotalDur) {
-                    recordSeconds = Math.max(0.5, vidTotalDur - exportStartSec);
+                exportStartSec = Math.max(0, Math.min(trimRange.start || 0, Math.max(0, vidTotalDur - 0.2)));
+                if (vidTotalDur <= 60 || dropdownSec >= vidTotalDur) {
+                    sourceClipSpan = Math.max(0.5, vidTotalDur - exportStartSec);
                 } else {
-                    recordSeconds = Math.min(dropdownSec, Math.max(0.5, vidTotalDur - exportStartSec));
+                    sourceClipSpan = Math.min(dropdownSec, Math.max(0.5, vidTotalDur - exportStartSec));
                 }
             }
-            // ★ 绝不超出源视频剩余时长（3秒视频严格只导出3秒）
-            recordSeconds = Math.min(recordSeconds, Math.max(0.5, vidTotalDur - exportStartSec));
-            recordSeconds = Math.max(0.5, Number(recordSeconds.toFixed(2)));
+            // 与界面显示的「(共 XX.Xs)」保持完全一致的 0.1s 精度（例如显示 13.6s 则导出严格为 13.6s）
+            sourceClipSpan = Math.min(sourceClipSpan, Math.max(0.5, vidTotalDur - exportStartSec));
+            sourceClipSpan = Math.max(0.5, Math.round(sourceClipSpan * 10) / 10);
 
             const origPlaybackRate = previewVideo.playbackRate || 1.0;
+            const exportSpeedRate = Math.max(0.25, Math.min(4.0, origPlaybackRate));
+            // 结合用户设定的倍速计算实际导出的成片时长（例如 13.6s 片段在 1.0x 原速下严格导出 13.6s）
+            const recordSeconds = Math.max(0.5, Number((sourceClipSpan / exportSpeedRate).toFixed(2)));
             const origLoopState = previewVideo.loop;
+            const origMutedState = !!previewVideo.muted;
+            const origPausedState = !!(previewVideo.paused || (window.PlayerEngine && window.PlayerEngine._stoppedAtClipEnd));
 
             origVidBtnText = '🎥 录屏导出视频';
             btnSaveVid.textContent = `⏳ 正在构建 1080P 手机硬解覆层...`;
             window.__isExportRecording = true;
 
-            // 在 html2canvas 构建 UI 覆层期间，暂停视频并锁定在裁剪起点，同时关闭 loop 防止 3 秒视频重播
+            // 在 html2canvas 构建 UI 覆层期间，暂停视频并锁定在裁剪起点，同时严格尊重用户的静音/原声开关选择
             previewVideo.loop = false;
-            previewVideo.muted = false;
+            previewVideo.muted = origMutedState;
             previewVideo.volume = 1.0;
-            const jyMuteBtn = document.getElementById('jy-btn-mute');
-            if (jyMuteBtn) jyMuteBtn.textContent = '🔊';
-            if (window._audioCtx && window._audioCtx.state === 'suspended') {
+            if (!origMutedState && window._audioCtx && window._audioCtx.state === 'suspended') {
                 window._audioCtx.resume().catch(() => {});
             }
             try {
@@ -8112,8 +8405,10 @@ window.switchRightTab = function (mode) {
                 }
 
                 const targetRect = renderTarget.getBoundingClientRect();
-                const scaleRatioX = outW / targetRect.width;
-                const scaleRatioY = outH / targetRect.height;
+                const baseRectW = targetRect.width || (isPort ? 366 : 1040);
+                const baseRectH = targetRect.height || (isPort ? 650 : 585);
+                const scaleRatioX = outW / baseRectW;
+                const scaleRatioY = outH / baseRectH;
 
                 const measureRelBox = (el) => {
                     if (!el) return null;
@@ -8128,11 +8423,23 @@ window.switchRightTab = function (mode) {
                 };
 
                 const isLiveOpenVid = renderTarget.classList.contains('dy-live-open');
-                const isSpecialSubBox = !isLiveOpenVid && (renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box') || renderTarget.classList.contains('dy-comment-open'));
+                // ★ 修复：直播间模式下同样完整保留 16:9 横屏取景框 (port-land-box) 与 9:16 竖屏框，确保网页预览与导出视频 1:1 完全一致！
+                const isSpecialSubBox = renderTarget.classList.contains('port-land-box') || renderTarget.classList.contains('land-port-box') || (!isLiveOpenVid && renderTarget.classList.contains('dy-comment-open'));
                 const mediaWrapEl = document.getElementById('player-media-wrap');
-                const mediaWrapBox = isSpecialSubBox
+                const rawMediaWrapBox = isSpecialSubBox
                     ? (measureRelBox(mediaWrapEl) || { x: 0, y: 0, w: outW, h: outH })
                     : { x: 0, y: 0, w: outW, h: outH };
+                // ★ 像素级整数对齐：彻底消除 Canvas drawImage 半像素双线性插值导致的视频画面发虚模糊
+                const mediaWrapBox = {
+                    x: Math.round(rawMediaWrapBox.x),
+                    y: Math.round(rawMediaWrapBox.y),
+                    w: Math.max(2, Math.round(rawMediaWrapBox.w)),
+                    h: Math.max(2, Math.round(rawMediaWrapBox.h))
+                };
+
+                if (isLiveOpenVid && typeof window.__captureLiveExportInitialState === 'function') {
+                    window.__captureLiveExportInitialState();
+                }
 
                 const pcBarBox = measureRelBox(document.getElementById('progress-click-bar'));
                 const pcTimeBox = measureRelBox(document.getElementById('disp-time'));
@@ -8149,6 +8456,7 @@ window.switchRightTab = function (mode) {
                 const liveBotBarBox = isLiveOpenVid ? measureRelBox(document.querySelector('.live-bottom-bar')) : null;
                 const liveSysNoticeBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-sys-notice')) : null;
                 const liveRoomWelcomeBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-room-welcome')) : null;
+                const liveRedDotBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-red-breath-dot') || document.getElementById('live-pulse-dot') || document.querySelector('#live-left-live-pill .live-red-dot')) : null;
                 window.__liveExportLayout = isLiveOpenVid ? {
                     chatBox: liveChatListBox,
                     joinBox: liveJoinTickerBox,
@@ -8156,7 +8464,8 @@ window.switchRightTab = function (mode) {
                     giftBox: liveGiftSlotBox,
                     botBarBox: liveBotBarBox,
                     sysNoticeBox: liveSysNoticeBox,
-                    welcomeBox: liveRoomWelcomeBox
+                    welcomeBox: liveRoomWelcomeBox,
+                    redDotBox: liveRedDotBox
                 } : null;
 
                 // 抓取静态透明 UI 覆层（通过 ignoreElements 完全跳过媒体与弹幕节点，并强制移除容器黑色背景）
@@ -8199,11 +8508,14 @@ window.switchRightTab = function (mode) {
                             const el = clonedDoc.getElementById(id);
                             if (el) el.style.visibility = 'hidden';
                         });
-                        // 若处于直播间模式导出视频，隐藏静态快照中的礼物横幅、防诈提示、欢迎语、评论列表与底部进场条，统一由 30fps 动态画布无缝流式绘制（彻底杜绝间距断层）
+                        // 若处于直播间模式导出视频，隐藏静态快照中的礼物横幅、防诈提示、欢迎语、评论列表、进场条与 LIVE 呼吸红点，统一由 30fps 动态画布无缝流式绘制
                         if (isLiveOpenVid) {
-                            ['live-gift-combo-banner', 'live-sys-notice', 'live-room-welcome', 'live-chat-list', 'live-join-ticker-row'].forEach(lid => {
+                            ['live-gift-combo-banner', 'live-sys-notice', 'live-room-welcome', 'live-chat-list', 'live-join-ticker-row', 'live-red-breath-dot', 'live-pulse-dot'].forEach(lid => {
                                 const lEl = clonedDoc.getElementById(lid);
                                 if (lEl) lEl.style.visibility = 'hidden';
+                            });
+                            clonedDoc.querySelectorAll('#live-left-live-pill .live-red-dot').forEach(dotEl => {
+                                dotEl.style.visibility = 'hidden';
                             });
                         }
                         const mTrack = clonedDoc.querySelector('.m-progress-track');
@@ -8215,7 +8527,7 @@ window.switchRightTab = function (mode) {
                     }
                 });
 
-                // 预合成 1:1 尺寸的 UI 覆层画布
+                // 预合成 1:1 尺寸的 UI 覆层画布（严禁纵向非等比拉伸，确保画面文字与头像 100% 原比例无变形）
                 const uiOverlayCanvas = document.createElement('canvas');
                 uiOverlayCanvas.width = outW;
                 uiOverlayCanvas.height = outH;
@@ -8223,11 +8535,18 @@ window.switchRightTab = function (mode) {
                 uiOverlayCtx.imageSmoothingEnabled = true;
                 uiOverlayCtx.imageSmoothingQuality = 'high';
                 drawSeamlessHudGradients(uiOverlayCtx, outW, outH);
-                uiOverlayCtx.drawImage(uiSnapshotCanvas, -4, -6, outW + 8, outH + 12);
+                uiOverlayCtx.drawImage(uiSnapshotCanvas, 0, 0, outW, outH);
+                drawTopNavActiveGlowOnCanvas(uiOverlayCtx, targetRect, scaleRatioX, scaleRatioY);
 
-                const cachedCropRect = window.getPlayerCropRect
+                const rawCachedCropRect = window.getPlayerCropRect
                     ? window.getPlayerCropRect(mediaWrapBox.w, mediaWrapBox.h)
                     : { renderW: mediaWrapBox.w + 12, renderH: mediaWrapBox.h + 12, offX: -6, offY: -6 };
+                const cachedCropRect = {
+                    offX: Math.round(rawCachedCropRect.offX || 0),
+                    offY: Math.round(rawCachedCropRect.offY || 0),
+                    renderW: Math.max(2, Math.round(rawCachedCropRect.renderW || mediaWrapBox.w)),
+                    renderH: Math.max(2, Math.round(rawCachedCropRect.renderH || mediaWrapBox.h))
+                };
                 const cachedFilter = (mediaWrapEl && mediaWrapEl.style.filter) ? mediaWrapEl.style.filter : '';
                 const dmContainerEl = document.getElementById('danmaku-container');
                 const dmSwitchEl = document.getElementById('sw-danmaku');
@@ -8334,13 +8653,13 @@ window.switchRightTab = function (mode) {
                 const totalVideoSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 1125;
                 const bufferPct = Math.min(100, Math.max(0, parseFloat(inBuffer.value) || 68)) / 100;
 
-                // ★ 恒定 30fps (CFR) 参数与手机硬解码率（4.5 Mbps H.264 Main/Baseline Profile 8-bit + AAC 128kbps）
+                // ★ 恒定 30fps (CFR) 超清参数与手机硬解码率（16 Mbps H.264 High/Main Profile 8-bit + AAC 160kbps）
                 const TARGET_FPS = 30;
-                const TARGET_VIDEO_BITRATE = 4_500_000;
-                const TARGET_AUDIO_BITRATE = 128_000;
+                const TARGET_VIDEO_BITRATE = 16_000_000;
+                const TARGET_AUDIO_BITRATE = 160_000;
 
-                previewVideo.playbackRate = 1.0;
-                previewVideo.defaultPlaybackRate = 1.0;
+                previewVideo.playbackRate = exportSpeedRate;
+                previewVideo.defaultPlaybackRate = exportSpeedRate;
 
                 if (Math.abs((previewVideo.currentTime || 0) - exportStartSec) > 0.05) {
                     try { previewVideo.currentTime = exportStartSec; } catch (e) {}
@@ -8388,6 +8707,11 @@ window.switchRightTab = function (mode) {
                             cachedCropRect.renderW,
                             cachedCropRect.renderH
                         );
+                        if (!isLightRecord) {
+                            ctx.strokeStyle = '#000000';
+                            ctx.lineWidth = Math.max(4, Math.round(2 * scaleRatioX));
+                            ctx.strokeRect(mediaWrapBox.x, mediaWrapBox.y, mediaWrapBox.w, mediaWrapBox.h);
+                        }
                         ctx.restore();
                     }
 
@@ -8477,11 +8801,17 @@ window.switchRightTab = function (mode) {
                         }
                     }
 
-                    // 4. 动态绘制进度条与时间码
+                    // 4. 动态绘制进度条与时间码（全模式统一遵循用户设定的虚拟超长总时长与起始时间区间一秒一秒走动，尾帧精准停在片段结束秒数）
                     const rawElapsed = forcedElapsedSec !== null ? forcedElapsedSec : ((nowStamp - recordStartStamp) / 1000);
-                    const elapsedSec = syncTimeChecked ? rawElapsed : 0;
+                    const snappedElapsed = (rawElapsed >= Math.max(0.1, (recordSeconds || 10) - 0.06))
+                        ? Math.round(recordSeconds || 10)
+                        : rawElapsed;
+                    const elapsedSec = syncTimeChecked ? snappedElapsed : 0;
                     const curSec = baseStartSec + elapsedSec;
-                    const curPct = Math.min(1, Math.max(0, curSec / totalVideoSec));
+                    const dispCurSecInt = Math.floor(curSec + 0.001);
+                    const effTotalVideoSec = Math.max(baseStartSec + Math.ceil(recordSeconds || 10), totalVideoSec);
+                    const curPct = Math.min(1, Math.max(0, curSec / effTotalVideoSec));
+                    const effBufferPct = Math.max(bufferPct, Math.min(1, curPct + 0.12));
 
                     ctx.save();
                     if (!isPort && !isLand && !isDyLand) {
@@ -8489,7 +8819,7 @@ window.switchRightTab = function (mode) {
                             ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.18)' : 'rgba(255,255,255,0.22)';
                             ctx.fillRect(pcBarBox.x, pcBarBox.y, pcBarBox.w, pcBarBox.h);
                             ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.32)' : 'rgba(255,255,255,0.42)';
-                            ctx.fillRect(pcBarBox.x, pcBarBox.y, pcBarBox.w * bufferPct, pcBarBox.h);
+                            ctx.fillRect(pcBarBox.x, pcBarBox.y, pcBarBox.w * effBufferPct, pcBarBox.h);
                             const fillW = pcBarBox.w * curPct;
                             ctx.fillStyle = '#1877F2';
                             ctx.fillRect(pcBarBox.x, pcBarBox.y, fillW, pcBarBox.h);
@@ -8499,7 +8829,7 @@ window.switchRightTab = function (mode) {
                             ctx.fill();
                         }
                         if (showPcBot && pcTimeBox) {
-                            const timeText = `${window.PlayerEngine.secToTime(Math.floor(curSec))} / ${window.PlayerEngine.secToTime(totalVideoSec)}`;
+                            const timeText = `${window.PlayerEngine.secToTime(dispCurSecInt)} / ${window.PlayerEngine.secToTime(effTotalVideoSec)}`;
                             ctx.font = `500 ${Math.round(11.5 * scaleRatioX)}px ${activeExportFont}`;
                             ctx.fillStyle = isLightRecord ? '#161823' : '#d0d4dc';
                             ctx.textBaseline = 'middle';
@@ -8510,7 +8840,7 @@ window.switchRightTab = function (mode) {
                             ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.20)' : 'rgba(255,255,255,0.28)';
                             ctx.fillRect(mBarBox.x, mBarBox.y, mBarBox.w, mBarBox.h);
                             ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.35)' : 'rgba(255,255,255,0.45)';
-                            ctx.fillRect(mBarBox.x, mBarBox.y, mBarBox.w * bufferPct, mBarBox.h);
+                            ctx.fillRect(mBarBox.x, mBarBox.y, mBarBox.w * effBufferPct, mBarBox.h);
                             const fillW = mBarBox.w * curPct;
                             ctx.fillStyle = isLightRecord ? '#7c3aed' : '#ffffff';
                             ctx.fillRect(mBarBox.x, mBarBox.y, fillW, mBarBox.h);
@@ -8524,22 +8854,17 @@ window.switchRightTab = function (mode) {
                             ctx.restore();
                         }
                         if (showMBot && mTimeBox) {
-                            const shortTime = `${window.PlayerEngine.secToShortTime(Math.floor(curSec))} / ${window.PlayerEngine.secToShortTime(totalVideoSec)}`;
+                            const shortTime = `${window.PlayerEngine.secToShortTime(dispCurSecInt)} / ${window.PlayerEngine.secToShortTime(effTotalVideoSec)}`;
                             ctx.font = `500 ${Math.round(12.5 * scaleRatioX)}px ${activeExportFont}`;
                             ctx.fillStyle = isLightRecord ? '#161823' : '#ffffff';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(shortTime, mTimeBox.x, mTimeBox.y + mTimeBox.h / 2);
                         }
                     } else if (isDyLand) {
-                        const realVidDur = (previewVideo && previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
-                            ? previewVideo.duration
-                            : (recordSeconds || 10);
-                        const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : rawElapsed;
-                        const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
                         if (showDylBot && dylBarBox) {
                             ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.22)' : 'rgba(255,255,255,0.28)';
                             ctx.fillRect(dylBarBox.x, dylBarBox.y, dylBarBox.w, dylBarBox.h);
-                            const fillW = dylBarBox.w * realVidPct;
+                            const fillW = dylBarBox.w * curPct;
                             ctx.fillStyle = isLightRecord ? '#7c3aed' : '#ffffff';
                             ctx.fillRect(dylBarBox.x, dylBarBox.y, fillW, dylBarBox.h);
                             ctx.beginPath();
@@ -8548,23 +8873,24 @@ window.switchRightTab = function (mode) {
                             ctx.fill();
                         }
                         if (showDylBot && showDylTime && dylTimeBox) {
-                            const tLeft = window.PlayerEngine.secToMinSec(Math.floor(realVidCur), false);
-                            const tRight = window.PlayerEngine.secToMinSec(Math.floor(realVidDur), false);
+                            const tLeft = window.PlayerEngine.formatVirtualTimeForDyl
+                                ? window.PlayerEngine.formatVirtualTimeForDyl(dispCurSecInt, effTotalVideoSec)
+                                : window.PlayerEngine.secToTime(dispCurSecInt);
+                            const tRight = window.PlayerEngine.formatVirtualTimeForDyl
+                                ? window.PlayerEngine.formatVirtualTimeForDyl(effTotalVideoSec, effTotalVideoSec)
+                                : window.PlayerEngine.secToTime(effTotalVideoSec);
                             ctx.font = `600 ${Math.round(12 * scaleRatioX)}px ${activeExportFont}`;
                             ctx.fillStyle = isLightRecord ? '#161823' : 'rgba(255,255,255,0.92)';
                             ctx.textBaseline = 'middle';
                             ctx.fillText(`${tLeft} / ${tRight}`, dylTimeBox.x, dylTimeBox.y + dylTimeBox.h / 2);
                         }
                     } else if (isPort && dyBarBox && !isLiveOpenVid) {
-                        const realVidDur = (previewVideo && previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
-                            ? previewVideo.duration
-                            : (recordSeconds || 10);
-                        const realVidCur = previewVideo ? (previewVideo.currentTime || 0) : rawElapsed;
-                        const realVidPct = Math.min(1, Math.max(0, realVidCur / realVidDur));
                         const barH = Math.max(3.5 * scaleRatioY, dyBarBox.h);
-                        ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.18)' : 'rgba(255,255,255,0.50)';
+                        ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.18)' : 'rgba(255,255,255,0.32)';
                         ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w, barH);
-                        const fillW = dyBarBox.w * realVidPct;
+                        ctx.fillStyle = isLightRecord ? 'rgba(22,24,35,0.32)' : 'rgba(255,255,255,0.52)';
+                        ctx.fillRect(dyBarBox.x, dyBarBox.y, dyBarBox.w * effBufferPct, barH);
+                        const fillW = dyBarBox.w * curPct;
                         ctx.fillStyle = isLightRecord ? '#7c3aed' : '#ffffff';
                         ctx.fillRect(dyBarBox.x, dyBarBox.y, fillW, barH);
                         ctx.beginPath();
@@ -8588,8 +8914,10 @@ window.switchRightTab = function (mode) {
                 let decodedAudioBuffer = null;
 
                 if (window.Mp4Muxer && typeof window.VideoEncoder === 'function' && typeof window.VideoFrame === 'function') {
-                    // 优先选用支持 1080x1920 竖屏与 1920x1080 横屏的 8-bit H.264 Level 4.2 / 4.1 / 4.0
+                    // 优先选用支持 1080x1920 竖屏与 1920x1080 横屏的 8-bit H.264 High / Main Profile Level 4.2 / 4.1
                     const h264Candidates = [
+                        'avc1.64002a', // H.264 High Profile Level 4.2 (最佳画质，支持 8x8 变换与高细节纹理保留)
+                        'avc1.640029', // H.264 High Profile Level 4.1
                         'avc1.4d002a', // H.264 Main Profile Level 4.2 (完美支持竖屏 1080x1920 硬解)
                         'avc1.4d0029', // H.264 Main Profile Level 4.1
                         'avc1.42e02a', // H.264 Constrained Baseline Level 4.2
@@ -8607,6 +8935,7 @@ window.switchRightTab = function (mode) {
                                 height: outH,
                                 bitrate: TARGET_VIDEO_BITRATE,
                                 framerate: TARGET_FPS,
+                                hardwareAcceleration: 'prefer-hardware',
                                 latencyMode: 'quality',
                                 avc: { format: 'avc' }
                             };
@@ -8620,8 +8949,8 @@ window.switchRightTab = function (mode) {
                     }
                 }
 
-                // 尝试解码源视频音轨并以 AAC (mp4a.40.2) 编码混流
-                if (webCodecsSupported && typeof window.AudioEncoder === 'function' && typeof window.AudioData === 'function' && previewVideo.src) {
+                // 尝试解码源视频音轨并以 AAC (mp4a.40.2) 编码混流（若用户开启了静音，则严格跳过音轨编码，导出纯净静音视频）
+                if (!origMutedState && webCodecsSupported && typeof window.AudioEncoder === 'function' && typeof window.AudioData === 'function' && previewVideo.src) {
                     try {
                         const resp = await fetch(previewVideo.src);
                         if (resp.ok) {
@@ -8663,8 +8992,8 @@ window.switchRightTab = function (mode) {
                     let muxerEncoderError = null;
                     const encodedAudioChunks = [];
 
-                    // 1) 先安全预编码音频轨，若某台电脑不支持 AAC 硬件编码则自动降级为纯视频轨，绝不导致 MP4 封装崩溃
-                    if (selectedAudioCodecConfig && decodedAudioBuffer) {
+                    // 1) 先安全预编码音频轨（支持 0.5x~2.0x 倍速线性插值重采样，确保倍速下音画时长 100% 同步）
+                    if (!origMutedState && selectedAudioCodecConfig && decodedAudioBuffer) {
                         try {
                             const audioEncoder = new AudioEncoder({
                                 output: (chunk, meta) => {
@@ -8678,11 +9007,10 @@ window.switchRightTab = function (mode) {
                             const sr = selectedAudioCodecConfig.sampleRate;
                             const nCh = selectedAudioCodecConfig.numberOfChannels;
                             const startSample = Math.max(0, Math.floor(exportStartSec * sr));
-                            const totalSamples = Math.min(
-                                Math.floor(recordSeconds * sr),
-                                Math.max(0, decodedAudioBuffer.length - startSample)
-                            );
+                            const exactOutDurSec = Math.max(1, Math.round(recordSeconds * TARGET_FPS)) / TARGET_FPS;
+                            const totalSamples = Math.max(1, Math.floor(exactOutDurSec * sr));
                             const chunkFrames = 1024;
+                            const isNormalRate = Math.abs(exportSpeedRate - 1.0) < 0.005;
                             for (let offset = 0; offset < totalSamples; offset += chunkFrames) {
                                 if (audioEncoder.state !== 'configured') break;
                                 const curFrames = Math.min(chunkFrames, totalSamples - offset);
@@ -8690,7 +9018,27 @@ window.switchRightTab = function (mode) {
                                 const planarBuf = new Float32Array(curFrames * nCh);
                                 for (let ch = 0; ch < nCh; ch++) {
                                     const srcCh = decodedAudioBuffer.getChannelData(Math.min(ch, decodedAudioBuffer.numberOfChannels - 1));
-                                    planarBuf.set(srcCh.subarray(startSample + offset, startSample + offset + curFrames), ch * curFrames);
+                                    const dstOffset = ch * curFrames;
+                                    if (isNormalRate) {
+                                        const sStart = Math.min(srcCh.length, startSample + offset);
+                                        const sEnd = Math.min(srcCh.length, sStart + curFrames);
+                                        if (sEnd > sStart) {
+                                            planarBuf.set(srcCh.subarray(sStart, sEnd), dstOffset);
+                                        }
+                                    } else {
+                                        const maxSrcIdx = srcCh.length - 1;
+                                        for (let i = 0; i < curFrames; i++) {
+                                            const srcPos = startSample + (offset + i) * exportSpeedRate;
+                                            if (srcPos > maxSrcIdx) {
+                                                planarBuf[dstOffset + i] = 0;
+                                            } else {
+                                                const idx0 = Math.min(maxSrcIdx, Math.max(0, Math.floor(srcPos)));
+                                                const idx1 = Math.min(maxSrcIdx, idx0 + 1);
+                                                const frac = srcPos - idx0;
+                                                planarBuf[dstOffset + i] = srcCh[idx0] * (1 - frac) + srcCh[idx1] * frac;
+                                            }
+                                        }
+                                    }
                                 }
                                 const timestampUs = Math.round((offset / sr) * 1_000_000);
                                 const audioData = new AudioData({
@@ -8798,21 +9146,44 @@ window.switchRightTab = function (mode) {
                                 }, 800);
 
                                 const actualSec = Math.max(0.5, encodedFrameCount / TARGET_FPS).toFixed(1);
-                                window.showToast(`🎉 手机硬解 MP4 (H.264+AAC · 恒定30fps · faststart · ${actualSec}s) 导出成功！`);
+                                const audioTag = origMutedState ? '静音无音轨' : 'H.264+AAC';
+                                window.showToast(`🎉 手机硬解 MP4 (${audioTag} · 恒定30fps · faststart · ${actualSec}s) 导出成功！`);
                             } catch (encFinalErr) {
                                 console.error('WebCodecs finalize error:', encFinalErr);
                                 window.showToast(`❌ MP4 封装失败：${encFinalErr.message || '请重试'}`);
                             } finally {
                                 window.__isExportRecording = false;
                                 window.__stopActiveExport = null;
+                                if (typeof window.restoreStageMagnifierAfterExport === 'function') {
+                                    window.restoreStageMagnifierAfterExport();
+                                }
+                                if (typeof window.__restoreLiveExportAfterDone === 'function') {
+                                    window.__restoreLiveExportAfterDone();
+                                }
                                 previewVideo.loop = origLoopState;
                                 previewVideo.playbackRate = origPlaybackRate;
                                 previewVideo.defaultPlaybackRate = origPlaybackRate;
+                                previewVideo.muted = origMutedState;
+                                if (window.PlayerEngine && typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
+                                    window.PlayerEngine.setVideoSoundMuted(origMutedState, false);
+                                }
                                 if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                                 btnSaveVid.textContent = origVidBtnText;
                                 btnSaveVid.disabled = false;
-                                if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
-                                    window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                                if (window.PlayerEngine) {
+                                    window.PlayerEngine._stoppedAtClipEnd = false;
+                                }
+                                try { previewVideo.currentTime = exportStartSec; } catch (_e) {}
+                                if (origPausedState) {
+                                    try { previewVideo.pause(); } catch (_e) {}
+                                    if (window.PlayerEngine && typeof window.PlayerEngine.updatePlayStateUI === 'function') {
+                                        window.PlayerEngine.updatePlayStateUI(false);
+                                    }
+                                    if (window.PlayerEngine && typeof window.PlayerEngine.refreshTimeUI === 'function') {
+                                        window.PlayerEngine.refreshTimeUI();
+                                    }
+                                } else if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                                    window.PlayerEngine.ensureVideoPlayingIfActive(true);
                                 }
                             }
                         };
@@ -8827,44 +9198,85 @@ window.switchRightTab = function (mode) {
                         recordStartStamp = performance.now();
                         lastFrameStamp = recordStartStamp;
 
-                        // ★ 严格按 30fps (每 33.33ms 一帧) 恒定帧率 (CFR) 采样并赋予固定步进时间戳，杜绝 VFR 导致手机播放变慢
+                        // ★ 严格按 30fps (每 33.33ms 一帧) 恒定帧率 (CFR) 逐帧锁定采样：
+                        // 将源视频播放进度与编码帧序号 (encodedFrameCount / 30) 1:1 刚性绑定，绝不因渲染负载或视频提前播完而少帧，确保用户选择多少秒就 100% 导出多少秒！
+                        let encodeBusy = false;
+                        let lastDriftSeekTs = 0;
                         intervalId = setInterval(() => {
-                            if (!isRecording) return;
-                            if (encodedFrameCount >= totalFrames || previewVideo.ended || (previewVideo.currentTime >= exportStartSec + recordSeconds + 0.05)) {
+                            if (!isRecording || encodeBusy) return;
+                            if (encodedFrameCount >= totalFrames) {
                                 finalizeWebCodecsExport();
                                 return;
                             }
-                            if (previewVideo.paused && !previewVideo.ended) {
-                                previewVideo.play().catch(() => {});
+                            // 若硬件编码器队列积压超过 12 帧，等待下一个 tick 释放编码器压力，同时暂停源视频防止视频偷跑超前
+                            if (typeof videoEncoder.encodeQueueSize === 'number' && videoEncoder.encodeQueueSize > 12) {
+                                if (!previewVideo.paused) {
+                                    try { previewVideo.pause(); } catch (_e) {}
+                                }
+                                return;
                             }
 
-                            const exactElapsedSec = encodedFrameCount / TARGET_FPS;
                             const now = performance.now();
-                            renderSingleFrame(now, exactElapsedSec);
+                            const exactElapsedSec = Math.min(recordSeconds, encodedFrameCount / TARGET_FPS);
+                            const wallElapsedSec = Math.max(0.001, (now - recordStartStamp) / 1000);
 
+                            // 若当前尚未到达下一帧的 33.33ms 采样时刻，则等待
+                            if (wallElapsedSec + 0.003 < exactElapsedSec) {
+                                return;
+                            }
+
+                            encodeBusy = true;
                             try {
-                                if (videoEncoder.state === 'configured') {
+                                // 将源视频播放速率与当前帧对应的时间点平滑同步，防止频繁 currentTime 跳转引起解码卡顿，同时杜绝源视频提前播完退出
+                                const targetVidTime = Math.min(
+                                    Math.max(0, vidTotalDur - 0.02),
+                                    exportStartSec + Math.min(sourceClipSpan, exactElapsedSec * exportSpeedRate)
+                                );
+                                const curVidTime = isFinite(previewVideo.currentTime) ? previewVideo.currentTime : targetVidTime;
+                                const vidDrift = curVidTime - targetVidTime;
+
+                                if (!previewVideo.seeking && Math.abs(vidDrift) > 0.36 && (now - lastDriftSeekTs > 650)) {
+                                    lastDriftSeekTs = now;
+                                    try { previewVideo.currentTime = targetVidTime; } catch (_e) {}
+                                }
+                                if (wallElapsedSec > 0.25 && encodedFrameCount > 2) {
+                                    const paceRatio = Math.min(1.0, Math.max(0.25, exactElapsedSec / wallElapsedSec));
+                                    const adaptedRate = Number(Math.max(0.25, Math.min(4.0, exportSpeedRate * paceRatio)).toFixed(2));
+                                    if (Math.abs((previewVideo.playbackRate || 1) - adaptedRate) > 0.04) {
+                                        try { previewVideo.playbackRate = adaptedRate; } catch (_e) {}
+                                    }
+                                }
+                                if (previewVideo.paused && !previewVideo.ended && targetVidTime < vidTotalDur - 0.04) {
+                                    previewVideo.play().catch(() => {});
+                                }
+
+                                renderSingleFrame(now, exactElapsedSec);
+
+                                if (videoEncoder.state === 'configured' && encodedFrameCount < totalFrames) {
                                     const timestampUs = Math.round(encodedFrameCount * (1_000_000 / TARGET_FPS));
                                     const frame = new VideoFrame(offCanvas, {
                                         timestamp: timestampUs,
                                         duration: frameDurationUs
                                     });
-                                    videoEncoder.encode(frame, { keyFrame: (encodedFrameCount % TARGET_FPS === 0) });
+                                    videoEncoder.encode(frame, { keyFrame: (encodedFrameCount % (TARGET_FPS * 2) === 0) });
                                     frame.close();
                                     encodedFrameCount++;
                                 }
+
+                                const curProgressSec = encodedFrameCount / TARGET_FPS;
+                                const remain = Math.max(0, recordSeconds - curProgressSec);
+                                const pct = Math.min(99, Math.round((encodedFrameCount / totalFrames) * 100));
+                                btnSaveVid.textContent = `🔴 导出中 ${pct}% (剩 ${remain.toFixed(1)}s · 点击立即保存)`;
+
+                                if (encodedFrameCount >= totalFrames) {
+                                    finalizeWebCodecsExport();
+                                }
                             } catch (frameErr) {
                                 console.warn('Frame encode warning:', frameErr);
+                            } finally {
+                                encodeBusy = false;
                             }
-
-                            const remain = Math.max(0, recordSeconds - exactElapsedSec);
-                            const pct = Math.min(99, Math.round((encodedFrameCount / totalFrames) * 100));
-                            btnSaveVid.textContent = `🔴 导出中 ${pct}% (剩 ${remain.toFixed(1)}s · 点击立即保存)`;
-
-                            if (encodedFrameCount >= totalFrames) {
-                                finalizeWebCodecsExport();
-                            }
-                        }, Math.round(1000 / TARGET_FPS));
+                        }, 10);
 
                         return;
                     }
@@ -8877,38 +9289,40 @@ window.switchRightTab = function (mode) {
                 const videoTrack = canvasStream.getVideoTracks()[0];
 
                 let audioTracks = [];
-                try {
-                    if (!window._audioCtx) {
-                        window._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-                    }
-                    if (window._audioCtx.state === 'suspended') {
-                        await window._audioCtx.resume();
-                    }
-                    if (!window._audioSrcNode) {
-                        window._audioSrcNode = window._audioCtx.createMediaElementSource(previewVideo);
-                        window._audioDstNode = window._audioCtx.createMediaStreamDestination();
-                        window._audioGainNode = window._audioCtx.createGain();
-                        window._audioGainNode.gain.value = 1.0;
-                        window._audioSrcNode.connect(window._audioGainNode);
-                        window._audioGainNode.connect(window._audioDstNode);
-                        window._audioGainNode.connect(window._audioCtx.destination);
-                    }
-                    if (window._audioDstNode && window._audioDstNode.stream) {
-                        audioTracks = window._audioDstNode.stream.getAudioTracks().filter(t => t.readyState === 'live');
-                    }
-                } catch (audioErr) {
-                    console.warn('WebAudio stream note:', audioErr);
-                }
-
-                if (!audioTracks || audioTracks.length === 0) {
+                if (!origMutedState) {
                     try {
-                        const nativeVidStream = previewVideo.captureStream
-                            ? previewVideo.captureStream()
-                            : (previewVideo.mozCaptureStream ? previewVideo.mozCaptureStream() : null);
-                        if (nativeVidStream && nativeVidStream.getAudioTracks().length > 0) {
-                            audioTracks = nativeVidStream.getAudioTracks().filter(t => t.readyState === 'live');
+                        if (!window._audioCtx) {
+                            window._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                         }
-                    } catch (e) {}
+                        if (window._audioCtx.state === 'suspended') {
+                            await window._audioCtx.resume();
+                        }
+                        if (!window._audioSrcNode) {
+                            window._audioSrcNode = window._audioCtx.createMediaElementSource(previewVideo);
+                            window._audioDstNode = window._audioCtx.createMediaStreamDestination();
+                            window._audioGainNode = window._audioCtx.createGain();
+                            window._audioGainNode.gain.value = 1.0;
+                            window._audioSrcNode.connect(window._audioGainNode);
+                            window._audioGainNode.connect(window._audioDstNode);
+                            window._audioGainNode.connect(window._audioCtx.destination);
+                        }
+                        if (window._audioDstNode && window._audioDstNode.stream) {
+                            audioTracks = window._audioDstNode.stream.getAudioTracks().filter(t => t.readyState === 'live');
+                        }
+                    } catch (audioErr) {
+                        console.warn('WebAudio stream note:', audioErr);
+                    }
+
+                    if (!audioTracks || audioTracks.length === 0) {
+                        try {
+                            const nativeVidStream = previewVideo.captureStream
+                                ? previewVideo.captureStream()
+                                : (previewVideo.mozCaptureStream ? previewVideo.mozCaptureStream() : null);
+                            if (nativeVidStream && nativeVidStream.getAudioTracks().length > 0) {
+                                audioTracks = nativeVidStream.getAudioTracks().filter(t => t.readyState === 'live');
+                            }
+                        } catch (e) {}
+                    }
                 }
 
                 await previewVideo.play().catch(() => {
@@ -8979,6 +9393,12 @@ window.switchRightTab = function (mode) {
                     if (bgTimerId) clearInterval(bgTimerId);
                     if (stopTimeoutId) clearTimeout(stopTimeoutId);
                     try {
+                        renderSingleFrame(performance.now(), recordSeconds);
+                        if (videoTrack && typeof videoTrack.requestFrame === 'function') {
+                            videoTrack.requestFrame();
+                        }
+                    } catch (_e) {}
+                    try {
                         if (recorder && recorder.state !== 'inactive') {
                             recorder.stop();
                         }
@@ -8989,14 +9409,36 @@ window.switchRightTab = function (mode) {
                 recorder.onstop = () => {
                     window.__isExportRecording = false;
                     window.__stopActiveExport = null;
+                    if (typeof window.restoreStageMagnifierAfterExport === 'function') {
+                        window.restoreStageMagnifierAfterExport();
+                    }
+                    if (typeof window.__restoreLiveExportAfterDone === 'function') {
+                        window.__restoreLiveExportAfterDone();
+                    }
                     previewVideo.loop = origLoopState;
                     previewVideo.playbackRate = origPlaybackRate;
                     previewVideo.defaultPlaybackRate = origPlaybackRate;
+                    previewVideo.muted = origMutedState;
+                    if (window.PlayerEngine && typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
+                        window.PlayerEngine.setVideoSoundMuted(origMutedState, false);
+                    }
                     if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                     btnSaveVid.textContent = origVidBtnText;
                     btnSaveVid.disabled = false;
-                    if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
-                        window.PlayerEngine.ensureVideoPlayingIfActive(false);
+                    if (window.PlayerEngine) {
+                        window.PlayerEngine._stoppedAtClipEnd = false;
+                    }
+                    try { previewVideo.currentTime = exportStartSec; } catch (_e) {}
+                    if (origPausedState) {
+                        try { previewVideo.pause(); } catch (_e) {}
+                        if (window.PlayerEngine && typeof window.PlayerEngine.updatePlayStateUI === 'function') {
+                            window.PlayerEngine.updatePlayStateUI(false);
+                        }
+                        if (window.PlayerEngine && typeof window.PlayerEngine.refreshTimeUI === 'function') {
+                            window.PlayerEngine.refreshTimeUI();
+                        }
+                    } else if (window.PlayerEngine && typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') {
+                        window.PlayerEngine.ensureVideoPlayingIfActive(true);
                     }
 
                     if (chunks.length === 0) {
@@ -9030,7 +9472,7 @@ window.switchRightTab = function (mode) {
                     if (!isRecording) return;
                     const now = performance.now();
                     const elapsed = (now - recordStartStamp) / 1000;
-                    if (elapsed >= recordSeconds || previewVideo.ended || (previewVideo.currentTime >= exportStartSec + recordSeconds + 0.05)) {
+                    if (elapsed >= recordSeconds || previewVideo.ended || (previewVideo.currentTime >= exportStartSec + sourceClipSpan + 0.05)) {
                         finishRecording();
                         return;
                     }
@@ -9051,9 +9493,19 @@ window.switchRightTab = function (mode) {
             } catch (err) {
                 window.__isExportRecording = false;
                 window.__stopActiveExport = null;
+                if (typeof window.restoreStageMagnifierAfterExport === 'function') {
+                    window.restoreStageMagnifierAfterExport();
+                }
+                if (typeof window.__restoreLiveExportAfterDone === 'function') {
+                    window.__restoreLiveExportAfterDone();
+                }
                 previewVideo.loop = origLoopState;
                 previewVideo.playbackRate = origPlaybackRate;
                 previewVideo.defaultPlaybackRate = origPlaybackRate;
+                previewVideo.muted = origMutedState;
+                if (window.PlayerEngine && typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
+                    window.PlayerEngine.setVideoSoundMuted(origMutedState, false);
+                }
                 if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                 console.error(err);
                 btnSaveVid.textContent = origVidBtnText;
@@ -9399,6 +9851,14 @@ window.switchRightTab = function (mode) {
     const inLiveGiftMaxQty = document.getElementById('in-live-gift-max-qty');
     const txtLiveGiftQtyRange = document.getElementById('txt-live-gift-qty-range');
     const giftQtyPresetBtns = document.querySelectorAll('.btn-gift-qty-preset');
+    const swLiveGiftEmptyGap = document.getElementById('sw-live-gift-empty-gap');
+    const txtLiveGiftGapStatus = document.getElementById('txt-live-gift-gap-status');
+    const btnLiveToggleGiftGapNow = document.getElementById('btn-live-toggle-gift-gap-now');
+    const inLiveGiftGapMin = document.getElementById('in-live-gift-gap-min');
+    const inLiveGiftGapMax = document.getElementById('in-live-gift-gap-max');
+    const inLiveGiftStaySec = document.getElementById('in-live-gift-stay-sec');
+    const inLiveGiftFadeSec = document.getElementById('in-live-gift-fade-sec');
+    const giftGapPresetBtns = document.querySelectorAll('.btn-gift-gap-preset');
     const inLiveGiftColor = document.getElementById('in-live-gift-color');
     const inLiveGiftColorHex = document.getElementById('in-live-gift-color-hex');
     const btnLiveRandGiftColor = document.getElementById('btn-live-rand-gift-color');
@@ -9454,15 +9914,14 @@ window.switchRightTab = function (mode) {
     const btnLiveRandNoticeBtn = document.getElementById('btn-live-rand-notice-btn');
     const swLiveShowNotice = document.getElementById('sw-live-show-notice');
 
-    // ★ 1. 右上角观众头像：直接采用内置抖音直播观众真实头像库 (Base64 高清原图秒开，绝不使用假剪影小人或蓝色 Laya 图标)
+    // ★ 1. 右上角观众头像：直接采用内置 153+ 海外华人真实社交头像库 (Base64 高清原图秒开，绝不使用假剪影小人或蓝色 Laya 图标)
     function getDouyinLiveAudiencePool(mode) {
         const db = window.LAYA_ASIAN_AVATARS || {};
         const beauties = Array.isArray(db.beauties) ? db.beauties : [];
         const guys = Array.isArray(db.guys) ? db.guys : [];
+        const vibes = Array.isArray(db.vibes) ? db.vibes : [];
         const pets = Array.isArray(db.pets) ? db.pets : [];
         const anime = Array.isArray(db.anime) ? db.anime : [];
-        const cartoons = Array.isArray(db.cartoons) ? db.cartoons : [];
-        const memes = Array.isArray(db.memes) ? db.memes : [];
 
         if (mode === 'beauties') {
             return beauties.length ? beauties : [...beauties, ...guys];
@@ -9470,20 +9929,29 @@ window.switchRightTab = function (mode) {
         if (mode === 'guys') {
             return guys.length ? guys : [...guys, ...beauties];
         }
+        if (mode === 'vibes') {
+            return vibes.length ? vibes : [...vibes, ...beauties];
+        }
+        if (mode === 'pets') {
+            return pets.length ? pets : [...pets, ...beauties];
+        }
+        if (mode === 'anime') {
+            return anime.length ? anime : [...anime, ...beauties];
+        }
         if (mode === 'real') {
             return [...beauties, ...guys];
         }
-        // 默认 douyin-mix（含旧版缓存自动兼容）：真实抖音直播间观众头像（真人美女/帅哥为主，穿插萌宠/动漫二次元生活头像）
-        return [...beauties, ...guys, ...pets, ...anime, ...cartoons, ...memes];
+        // 默认 overseas-mix / douyin-mix：海外华人 IG / 小红书 / 台湾真实生活照 + 氛围感风景 + 萌宠混搭
+        return [...beauties, ...guys, ...vibes, ...pets];
     }
 
     let liveAudUsedIndices = [-1, -1, -1];
 
     function syncLiveAudienceAvatars(randomize = true) {
-        if (selLiveAudAvatarMode && selLiveAudAvatarMode.value === 'douyin-default') {
-            selLiveAudAvatarMode.value = 'douyin-mix';
+        if (selLiveAudAvatarMode && (selLiveAudAvatarMode.value === 'douyin-default' || selLiveAudAvatarMode.value === 'douyin-mix')) {
+            selLiveAudAvatarMode.value = 'overseas-mix';
         }
-        const mode = selLiveAudAvatarMode ? selLiveAudAvatarMode.value : 'douyin-mix';
+        const mode = selLiveAudAvatarMode ? selLiveAudAvatarMode.value : 'overseas-mix';
         const pool = getDouyinLiveAudiencePool(mode);
 
         if (liveAudImgs.length > 0 && pool.length > 0) {
@@ -10473,7 +10941,13 @@ window.switchRightTab = function (mode) {
     // 2) 内置 16 款抖音热门礼物与对应彩色图标（嘉年華🎠、超級火箭🚀、至尊跑車🏎️、私人飛機🛩️、夢幻城堡🏰、紫金皇冠👑、璀璨鑽石💎、浪漫煙花🎆、99朵玫瑰🌹、彩虹棒棒糖🍭 等），不再只有爱心；
     // 3) 每次弹出自动轮换不同的送礼人、真人头像、礼物图标、连击数与胶囊流光渐变色，绝不千篇一律；
     // 4) 单击小弹窗随机切换下一条，双击小弹窗可直接原地编辑全部内容！
-    const giftUserPresets = ['皓哥', '晨霸', '漫渡', '輕輕吹風', 'Laya榜一大哥', '微醺小貓', '夜色有點濃', '萬里星河', '暴富小錦鯉', '阿傑', '南城舊夢', '星河少女', '深海裡的星星', '威廉W'];
+    const giftUserPresets = [
+        '皓哥', '晨霸', '漫渡', '輕輕吹風', 'Laya榜一大哥', '微醺小貓', '夜色有點濃', '萬里星河',
+        '暴富小錦鯉', '阿傑', '南城舊夢', '星河少女', '深海裡的星星', '威廉W', '陳先生HK', '台北小宇',
+        '溫哥華阿凱', '墨爾本小鹿', '半夏微涼', '風止何安', '晚風溫柔', '草莓氣泡水', '山海皆可平', '落日歸山海',
+        '加州陽光Leo', '倫敦夜未眠', '星辰大海', '人間小甜豆', '芝士奶蓋', '江上清風', '追光者Eric', '月亮不睡我不睡',
+        '東京鐵塔的貓', '新加坡老陳', '多倫多小魚', '微風不燥'
+    ];
     const LIVE_GIFT_CATALOG = [
         { icon: '🎠', name: '送 嘉年華',     color: '#9333ea', endColor: 'rgba(245, 158, 11, 0.85)', counts: ['x1', 'x3', 'x9', 'x18'] },
         { icon: '🚀', name: '豪刷 超級火箭', color: '#dc2626', endColor: 'rgba(249, 115, 22, 0.85)', counts: ['x1', 'x3', 'x6', 'x9'] },
@@ -10495,13 +10969,16 @@ window.switchRightTab = function (mode) {
     const giftCountPresets = ['x1', 'x5', 'x9', 'x18', 'x52', 'x66', 'x88', 'x99', 'x188', 'x520', 'x1314'];
     const giftColorPresets = ['#9333ea', '#dc2626', '#2563eb', '#4f46e5', '#7c3aed', '#b45309', '#0284c7', '#db2777', '#e11d48', '#0f766e'];
 
-    let lastGiftCatalogIdx = 0;
-    let lastGiftUserIdx = 0;
+    let lastGiftCatalogIdx = -1;
+    let lastGiftUserIdx = -1;
     let lastGiftRealAvatarIdx = -1;
+    const recentGiftUserIdxs = [];
+    const recentGiftCatalogIdxs = [];
+    const recentGiftAvatarUrls = [];
     let customPinnedGiftAvatarUrl = '';
     let currentGiftEndColor = 'rgba(245, 158, 11, 0.85)';
 
-    // 从内置真人头像库（帥哥 + 美女）中抽取不重复的真人头像给礼物小弹窗使用
+    // 从内置海外华人真实社交头像库中抽取不重复的头像给礼物小弹窗使用（记录最近 10 次，确保每次送礼头像绝不重复）
     function pickNextRealHumanGiftAvatar(preferNick = '', forceClearCustom = false) {
         if (forceClearCustom) {
             customPinnedGiftAvatarUrl = '';
@@ -10515,23 +10992,31 @@ window.switchRightTab = function (mode) {
         const db = window.LAYA_ASIAN_AVATARS || {};
         const beauties = Array.isArray(db.beauties) ? db.beauties : [];
         const guys = Array.isArray(db.guys) ? db.guys : [];
-        const realPool = [...guys, ...beauties];
+        const vibes = Array.isArray(db.vibes) ? db.vibes.slice(0, 12) : [];
+        const pets = Array.isArray(db.pets) ? db.pets.slice(0, 10) : [];
+        const realPool = [...beauties, ...guys, ...vibes, ...pets];
         if (realPool.length === 0) return;
 
-        // 根据昵称倾向选择帥哥或美女真人头像，同时保证每次切换都不一样
-        const isFemaleNick = /(小貓|少女|溫柔|迷妹|姐姐|甜|仙女|希拉|蒙蒙)/.test(String(preferNick || ''));
-        const subPool = (isFemaleNick && beauties.length > 0) ? beauties : ((!isFemaleNick && guys.length > 0 && Math.random() < 0.65) ? guys : realPool);
+        // 根据昵称倾向选择海外华人美女、潮男或 IG 氛围/萌宠头像，且严格避开最近已出现过的头像
+        const isFemaleNick = /(小貓|少女|溫柔|迷妹|姐姐|甜|仙女|希拉|蒙蒙|薇|柔|妍|晴|琪|草莓|奶蓋|小鹿|半夏|小魚)/.test(String(preferNick || ''));
+        const subPool = (isFemaleNick && beauties.length > 0)
+            ? [...beauties, ...pets.slice(0, 5)]
+            : ((!isFemaleNick && guys.length > 0 && Math.random() < 0.6) ? [...guys, ...vibes.slice(0, 6)] : realPool);
 
+        const curAvatarSrc = liveGiftSenderAv ? (liveGiftSenderAv.getAttribute('data-export-src') || liveGiftSenderAv.src || '') : '';
         let pickUrl = subPool[0];
-        for (let attempt = 0; attempt < 20; attempt++) {
+        for (let attempt = 0; attempt < 35; attempt++) {
             const candIdx = Math.floor(Math.random() * subPool.length);
             const candUrl = subPool[candIdx];
-            const globalIdx = realPool.indexOf(candUrl);
-            if (globalIdx !== lastGiftRealAvatarIdx) {
-                lastGiftRealAvatarIdx = globalIdx;
+            if (candUrl && candUrl !== curAvatarSrc && !recentGiftAvatarUrls.includes(candUrl)) {
                 pickUrl = candUrl;
+                lastGiftRealAvatarIdx = realPool.indexOf(candUrl);
                 break;
             }
+        }
+        if (pickUrl) {
+            recentGiftAvatarUrls.push(pickUrl);
+            if (recentGiftAvatarUrls.length > 10) recentGiftAvatarUrls.shift();
         }
         if (liveGiftSenderAv && pickUrl) {
             liveGiftSenderAv.src = pickUrl;
@@ -10724,12 +11209,70 @@ window.switchRightTab = function (mode) {
         const rightGradColor = matchedCatalog ? matchedCatalog.endColor : currentGiftEndColor;
         liveGiftComboBanner.style.background = `linear-gradient(95deg, ${hexToRgba(baseColor, 0.94)} 0%, ${hexToRgba(baseColor, 0.84)} 55%, ${rightGradColor} 100%)`;
         liveGiftComboBanner.style.borderColor = hexToRgba(baseColor, 0.72);
+        liveGiftComboBanner.style.boxShadow = `0 3px 14px ${hexToRgba(baseColor, 0.55)}, 0 0 10px ${rightGradColor}`;
 
         if (playSlideAnim) {
-            liveGiftComboBanner.classList.remove('gift-slide-in', 'gift-slide-out');
+            if (isGiftInEmptyGapNow) {
+                setGiftEmptyGapVisualState(false);
+            }
+            liveGiftComboBanner.classList.remove('gift-slide-in', 'gift-slide-out', 'is-in-empty-gap');
             void liveGiftComboBanner.offsetWidth;
             liveGiftComboBanner.classList.add('gift-slide-in');
         }
+    }
+
+    // 抽取下一组完全不重复的【送礼人名字 + 礼物名称与图标 + 胶囊渐变色 + 数量 + 真人头像】并应用到画面
+    function pickAndApplyNextUniqueGiftBundle(playSlideIn = true) {
+        if (!liveGiftComboBanner || isEditingGiftBanner) return;
+
+        const curDisplayedUser = (liveGiftSenderName && liveGiftSenderName.textContent.trim()) || '';
+        const curDisplayedGift = (liveGiftDescTxt && liveGiftDescTxt.textContent.trim()) || '';
+
+        // 1) 抽取一位与最近 6 次以及当前画面名字完全不同的送礼用户名
+        let uIdx = Math.floor(Math.random() * giftUserPresets.length);
+        for (let attempt = 0; attempt < 30; attempt++) {
+            const cand = Math.floor(Math.random() * giftUserPresets.length);
+            if (cand !== lastGiftUserIdx && !recentGiftUserIdxs.includes(cand) && giftUserPresets[cand] !== curDisplayedUser) {
+                uIdx = cand;
+                break;
+            }
+        }
+        lastGiftUserIdx = uIdx;
+        recentGiftUserIdxs.push(uIdx);
+        if (recentGiftUserIdxs.length > 7) recentGiftUserIdxs.shift();
+        const u = giftUserPresets[uIdx];
+
+        // 2) 抽取一款与最近 5 次以及当前画面礼物完全不同的礼物（带专属图标、文案、主题色）
+        let gIdx = Math.floor(Math.random() * LIVE_GIFT_CATALOG.length);
+        for (let attempt = 0; attempt < 30; attempt++) {
+            const cand = Math.floor(Math.random() * LIVE_GIFT_CATALOG.length);
+            if (cand !== lastGiftCatalogIdx && !recentGiftCatalogIdxs.includes(cand) && LIVE_GIFT_CATALOG[cand].name !== curDisplayedGift) {
+                gIdx = cand;
+                break;
+            }
+        }
+        lastGiftCatalogIdx = gIdx;
+        recentGiftCatalogIdxs.push(gIdx);
+        if (recentGiftCatalogIdxs.length > 5) recentGiftCatalogIdxs.shift();
+        const giftItem = LIVE_GIFT_CATALOG[gIdx];
+        const c = pickRandomGiftQtyInRange(true);
+
+        currentGiftEndColor = giftItem.endColor;
+        if (inLiveGiftUser) inLiveGiftUser.value = u;
+        if (inLiveGiftName) inLiveGiftName.value = giftItem.name;
+        if (inLiveGiftIcon) inLiveGiftIcon.value = giftItem.icon;
+        if (inLiveGiftCount) inLiveGiftCount.value = c;
+        if (inLiveGiftColor) inLiveGiftColor.value = giftItem.color;
+        if (inLiveGiftColorHex) inLiveGiftColorHex.value = giftItem.color;
+        if (selLiveGiftPreset) {
+            const optVal = `${giftItem.icon}|${giftItem.name}|${giftItem.color}`;
+            Array.from(selLiveGiftPreset.options).forEach(opt => {
+                if (opt.value === optVal) selLiveGiftPreset.value = optVal;
+            });
+        }
+        // 3) 强制抽取一位全新的真人头像（每次送礼头像绝不重复）
+        pickNextRealHumanGiftAvatar(u, true);
+        applyLiveGiftBannerState(playSlideIn, false);
     }
 
     // 滑出旧礼物 -> 切换下一位真人 + 下一款不同礼物与图标 -> 滑入新礼物
@@ -10737,41 +11280,20 @@ window.switchRightTab = function (mode) {
     let isEditingGiftBanner = false;
     function cycleNextGiftBannerWithSlide(customRandom = false) {
         if (!liveGiftComboBanner || isEditingGiftBanner) return;
-        liveGiftComboBanner.classList.remove('gift-slide-in');
+        const fadeCfgSec = typeof getLiveGiftEmptyGapConfig === 'function' ? getLiveGiftEmptyGapConfig().fadeSec : 0.4;
+        const outMs = Math.max(120, Math.min(1200, Math.round(fadeCfgSec * 1000)));
+        liveGiftComboBanner.style.setProperty('--gift-fade-out-sec', `${(outMs / 1000).toFixed(2)}s`);
+        liveGiftComboBanner.classList.remove('gift-slide-in', 'is-combo-pulse');
         liveGiftComboBanner.classList.add('gift-slide-out');
 
         if (giftSlideTimeout) clearTimeout(giftSlideTimeout);
         giftSlideTimeout = setTimeout(() => {
             if (customRandom) {
-                // 1) 随机挑选一位不重复的送礼用户名
-                let uIdx = Math.floor(Math.random() * giftUserPresets.length);
-                if (uIdx === lastGiftUserIdx) uIdx = (uIdx + 1) % giftUserPresets.length;
-                lastGiftUserIdx = uIdx;
-                const u = giftUserPresets[uIdx];
-
-                // 2) 随机挑选一款与上一次不同的礼物（带专属图标、文案、主题色，数量严格受用户「最少~最多」范围控制）
-                let gIdx = Math.floor(Math.random() * LIVE_GIFT_CATALOG.length);
-                if (gIdx === lastGiftCatalogIdx) gIdx = (gIdx + 1) % LIVE_GIFT_CATALOG.length;
-                lastGiftCatalogIdx = gIdx;
-                const giftItem = LIVE_GIFT_CATALOG[gIdx];
-                const c = pickRandomGiftQtyInRange(true);
-
-                currentGiftEndColor = giftItem.endColor;
-                if (inLiveGiftUser) inLiveGiftUser.value = u;
-                if (inLiveGiftName) inLiveGiftName.value = giftItem.name;
-                if (inLiveGiftIcon) inLiveGiftIcon.value = giftItem.icon;
-                if (inLiveGiftCount) inLiveGiftCount.value = c;
-                if (inLiveGiftColor) inLiveGiftColor.value = giftItem.color;
-                if (inLiveGiftColorHex) inLiveGiftColorHex.value = giftItem.color;
-                if (selLiveGiftPreset) {
-                    const optVal = `${giftItem.icon}|${giftItem.name}|${giftItem.color}`;
-                    Array.from(selLiveGiftPreset.options).forEach(opt => {
-                        if (opt.value === optVal) selLiveGiftPreset.value = optVal;
-                    });
-                }
+                pickAndApplyNextUniqueGiftBundle(true);
+            } else {
+                applyLiveGiftBannerState(true, true);
             }
-            applyLiveGiftBannerState(true, true);
-        }, 240);
+        }, outMs);
     }
 
     function applyLiveGiftColor(hex, playAnim = false) {
@@ -11436,12 +11958,127 @@ window.switchRightTab = function (mode) {
         }
     }
 
+    // ★ 送礼停留时间（默认1秒）、消失过渡时间（默认0.4秒）与两次送礼随机空窗间隔（默认1~3秒没人送礼）配置与状态机
+    const GIFT_EMPTY_GAP_STORAGE_KEY = 'LAYA_LIVE_GIFT_EMPTY_GAP_V3';
+    try {
+        const savedGapCfg = JSON.parse(localStorage.getItem(GIFT_EMPTY_GAP_STORAGE_KEY) || 'null');
+        if (savedGapCfg && typeof savedGapCfg === 'object') {
+            if (swLiveGiftEmptyGap && typeof savedGapCfg.enabled === 'boolean') {
+                swLiveGiftEmptyGap.checked = savedGapCfg.enabled;
+            }
+            if (inLiveGiftStaySec && savedGapCfg.staySec !== undefined) {
+                inLiveGiftStaySec.value = String(Math.max(0.3, Math.min(60, parseFloat(savedGapCfg.staySec) || 1.0)));
+            }
+            if (inLiveGiftFadeSec && savedGapCfg.fadeSec !== undefined) {
+                inLiveGiftFadeSec.value = String(Math.max(0.1, Math.min(5, parseFloat(savedGapCfg.fadeSec) || 0.4)));
+            }
+            if (inLiveGiftGapMin && savedGapCfg.gapMinSec !== undefined) {
+                inLiveGiftGapMin.value = String(Math.max(0, Math.min(300, parseFloat(savedGapCfg.gapMinSec) || 0)));
+            }
+            if (inLiveGiftGapMax && savedGapCfg.gapMaxSec !== undefined) {
+                inLiveGiftGapMax.value = String(Math.max(0, Math.min(300, parseFloat(savedGapCfg.gapMaxSec) || 0)));
+            }
+        } else {
+            if (swLiveGiftEmptyGap) swLiveGiftEmptyGap.checked = true;
+            if (inLiveGiftStaySec) inLiveGiftStaySec.value = '1.0';
+            if (inLiveGiftFadeSec) inLiveGiftFadeSec.value = '0.4';
+            if (inLiveGiftGapMin) inLiveGiftGapMin.value = '1.0';
+            if (inLiveGiftGapMax) inLiveGiftGapMax.value = '3.0';
+        }
+    } catch (_gapErr) {}
+
+    function getLiveGiftEmptyGapConfig() {
+        const enabled = !swLiveGiftEmptyGap || swLiveGiftEmptyGap.checked;
+        const rawStay = inLiveGiftStaySec ? parseFloat(inLiveGiftStaySec.value) : 1.0;
+        const rawFade = inLiveGiftFadeSec ? parseFloat(inLiveGiftFadeSec.value) : 0.4;
+        const rawMin = inLiveGiftGapMin ? parseFloat(inLiveGiftGapMin.value) : 1.0;
+        const rawMax = inLiveGiftGapMax ? parseFloat(inLiveGiftGapMax.value) : 3.0;
+        const cleanStay = Math.max(0.3, Math.min(60, Number.isNaN(rawStay) ? 1.0 : rawStay));
+        const cleanFade = Math.max(0.1, Math.min(5, Number.isNaN(rawFade) ? 0.4 : rawFade));
+        const cleanMin = Math.max(0, Math.min(300, Number.isNaN(rawMin) ? 1.0 : rawMin));
+        const cleanMax = Math.max(0, Math.min(300, Number.isNaN(rawMax) ? 3.0 : rawMax));
+        return {
+            enabled,
+            staySec: cleanStay,
+            fadeSec: cleanFade,
+            gapMinSec: Math.min(cleanMin, cleanMax),
+            gapMaxSec: Math.max(cleanMin, cleanMax)
+        };
+    }
+
+    function saveLiveGiftEmptyGapConfig() {
+        const cfg = getLiveGiftEmptyGapConfig();
+        try {
+            localStorage.setItem(GIFT_EMPTY_GAP_STORAGE_KEY, JSON.stringify(cfg));
+        } catch (_e) {}
+    }
+
+    let isGiftInEmptyGapNow = false;
+    let isGiftFadingOutNow = false;
+    let giftEmptyGapPhaseTimer = null;
+    let giftFadeOutPhaseTimer = null;
+
+    function updateGiftGapStatusBadge() {
+        const cfg = getLiveGiftEmptyGapConfig();
+        if (liveGiftComboBanner) {
+            liveGiftComboBanner.style.setProperty('--gift-fade-out-sec', `${cfg.fadeSec}s`);
+        }
+        if (!txtLiveGiftGapStatus) return;
+        if (!cfg.enabled || cfg.gapMaxSec <= 0) {
+            txtLiveGiftGapStatus.textContent = `(🎁 停留${cfg.staySec}s · 消失${cfg.fadeSec}s · 0s空窗连弹)`;
+            txtLiveGiftGapStatus.style.color = '#93c5fd';
+            return;
+        }
+        if (isGiftInEmptyGapNow || isGiftFadingOutNow) {
+            txtLiveGiftGapStatus.textContent = `(🙈 间隔空窗中 · 没人送礼 ${cfg.gapMinSec}~${cfg.gapMaxSec}s)`;
+            txtLiveGiftGapStatus.style.color = '#fde047';
+        } else {
+            txtLiveGiftGapStatus.textContent = `(🎁 停留${cfg.staySec}s · 消失${cfg.fadeSec}s · 间隔${cfg.gapMinSec}~${cfg.gapMaxSec}s)`;
+            txtLiveGiftGapStatus.style.color = '#a7f3d0';
+        }
+    }
+
+    function setGiftEmptyGapVisualState(inGap, fadingOut = false) {
+        isGiftInEmptyGapNow = !!inGap;
+        isGiftFadingOutNow = !!fadingOut;
+        const cfg = getLiveGiftEmptyGapConfig();
+        if (liveGiftComboBanner) {
+            liveGiftComboBanner.style.setProperty('--gift-fade-out-sec', `${cfg.fadeSec}s`);
+            if (isGiftInEmptyGapNow) {
+                liveGiftComboBanner.dataset.inEmptyGap = 'true';
+                liveGiftComboBanner.classList.remove('gift-slide-in', 'is-combo-pulse', 'gift-slide-out');
+                liveGiftComboBanner.classList.add('is-in-empty-gap');
+            } else if (isGiftFadingOutNow) {
+                liveGiftComboBanner.dataset.inEmptyGap = 'fading';
+                liveGiftComboBanner.classList.remove('gift-slide-in', 'is-combo-pulse', 'is-in-empty-gap');
+                liveGiftComboBanner.classList.add('gift-slide-out');
+            } else {
+                delete liveGiftComboBanner.dataset.inEmptyGap;
+                liveGiftComboBanner.classList.remove('is-in-empty-gap', 'gift-slide-out');
+            }
+        }
+        if (btnLiveToggleGiftGapNow) {
+            btnLiveToggleGiftGapNow.textContent = (isGiftInEmptyGapNow || isGiftFadingOutNow) ? '🎁 立即弹出礼物' : '🙈 立即空窗/弹出';
+        }
+        updateGiftGapStatusBadge();
+    }
+
+    function pickRandomGiftEmptyGapMs() {
+        const cfg = getLiveGiftEmptyGapConfig();
+        if (!cfg.enabled || cfg.gapMaxSec <= 0) return 0;
+        const minMs = Math.round(cfg.gapMinSec * 1000);
+        const maxMs = Math.round(cfg.gapMaxSec * 1000);
+        if (maxMs <= minMs) return minMs;
+        return minMs + Math.floor(Math.random() * (maxMs - minMs + 1));
+    }
+
     function syncAutoGiftToggleBadgeUI() {
         const giftSpdLv = getLiveGiftSpeedVal();
         const isOn = (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) && giftSpdLv > 0;
         if (txtLiveAutoGiftState) {
             txtLiveAutoGiftState.textContent = isOn ? '自动弹出轮播中' : '⏸️ 已固定静止(点此开启)';
         }
+        updateGiftGapStatusBadge();
     }
 
     function restartLiveGiftAutoCycleTimer() {
@@ -11453,30 +12090,163 @@ window.switchRightTab = function (mode) {
             clearInterval(liveGiftComboBounceTimer);
             liveGiftComboBounceTimer = null;
         }
+        if (giftEmptyGapPhaseTimer) {
+            clearTimeout(giftEmptyGapPhaseTimer);
+            giftEmptyGapPhaseTimer = null;
+        }
+        if (giftFadeOutPhaseTimer) {
+            clearTimeout(giftFadeOutPhaseTimer);
+            giftFadeOutPhaseTimer = null;
+        }
         const giftSpdLv = getLiveGiftSpeedVal();
         if (txtLiveGiftSpeed) {
             txtLiveGiftSpeed.textContent = formatLiveGiftSpeedLabel(giftSpdLv);
         }
         syncAutoGiftToggleBadgeUI();
         if (giftSpdLv <= 0) {
+            setGiftEmptyGapVisualState(false, false);
             return;
         }
         if (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) {
-            const switchGiftMs = GIFT_SWITCH_MS_TABLE[giftSpdLv] || 3500;
-            const bounceComboMs = GIFT_BOUNCE_MS_TABLE[giftSpdLv] || 850;
+            const bounceComboMs = Math.min(480, GIFT_BOUNCE_MS_TABLE[giftSpdLv] || 420);
+
             liveGiftComboBounceTimer = setInterval(() => {
                 if (!isLiveRoomOpenNow() || isEditingGiftBanner) return;
                 if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) return;
                 if (getLiveGiftSpeedVal() <= 0) return;
+                if (isGiftInEmptyGapNow || isGiftFadingOutNow) return; // 消失中或空窗期不跳动连击
                 bumpLiveGiftComboOnce();
             }, bounceComboMs);
-            liveGiftComboTimer = setInterval(() => {
-                if (!isLiveRoomOpenNow() || isEditingGiftBanner) return;
-                if (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked) return;
-                if (getLiveGiftSpeedVal() <= 0) return;
-                cycleNextGiftBannerWithSlide(true);
-            }, switchGiftMs);
+
+            // 统一 3 阶段送礼循环：[1. 展示停留 staySec 秒 (默认1秒)] -> [2. 淡出消失 fadeSec 秒 (默认0.4秒)] -> [3. 无人送礼空窗间隔 gapMin~gapMax 秒] -> [弹出下一位全新头像/名字/礼物]
+            setGiftEmptyGapVisualState(false, false);
+            const runStayFadeEmptyLoop = () => {
+                if (giftEmptyGapPhaseTimer) { clearTimeout(giftEmptyGapPhaseTimer); giftEmptyGapPhaseTimer = null; }
+                if (giftFadeOutPhaseTimer) { clearTimeout(giftFadeOutPhaseTimer); giftFadeOutPhaseTimer = null; }
+
+                const curCfg = getLiveGiftEmptyGapConfig();
+                const curSpdLv = getLiveGiftSpeedVal();
+                if (curSpdLv <= 0 || (swLiveAutoCycleGift && !swLiveAutoCycleGift.checked)) {
+                    setGiftEmptyGapVisualState(false, false);
+                    return;
+                }
+
+                const stayMs = Math.max(300, Math.round(curCfg.staySec * 1000));
+                const fadeMs = Math.max(100, Math.round(curCfg.fadeSec * 1000));
+
+                // 阶段 1：送礼停留 stayMs（默认 1.0 秒）
+                giftEmptyGapPhaseTimer = setTimeout(() => {
+                    if (!isLiveRoomOpenNow() || isEditingGiftBanner) {
+                        runStayFadeEmptyLoop();
+                        return;
+                    }
+                    // 阶段 2：停留结束，开始淡出消失（耗时 fadeMs，默认 0.4 秒）
+                    setGiftEmptyGapVisualState(false, true);
+
+                    giftFadeOutPhaseTimer = setTimeout(() => {
+                        giftFadeOutPhaseTimer = null;
+                        if (!isLiveRoomOpenNow() || isEditingGiftBanner) {
+                            setGiftEmptyGapVisualState(false, false);
+                            runStayFadeEmptyLoop();
+                            return;
+                        }
+                        const gapMs = pickRandomGiftEmptyGapMs();
+                        if (gapMs <= 50) {
+                            // 0 秒空窗：消失后立即弹出下一位不同头像、不同名字、不同礼物的人
+                            setGiftEmptyGapVisualState(false, false);
+                            pickAndApplyNextUniqueGiftBundle(true);
+                            runStayFadeEmptyLoop();
+                            return;
+                        }
+                        // 阶段 3：完全隐去，进入「没人送礼物」空窗间隔期（耗时 gapMs）
+                        setGiftEmptyGapVisualState(true, false);
+                        giftEmptyGapPhaseTimer = setTimeout(() => {
+                            // 空窗期结束：立即换下一位真人头像 + 不同名字 + 不同礼物滑入！
+                            setGiftEmptyGapVisualState(false, false);
+                            if (isLiveRoomOpenNow() && !isEditingGiftBanner) {
+                                pickAndApplyNextUniqueGiftBundle(true);
+                            }
+                            runStayFadeEmptyLoop();
+                        }, gapMs);
+                    }, fadeMs);
+                }, stayMs);
+            };
+            runStayFadeEmptyLoop();
+        } else {
+            setGiftEmptyGapVisualState(false, false);
         }
+    }
+
+    // 绑定送礼停留时间、消失时间、空窗间隔开关、最短/最长间隔秒数与一键预设按钮
+    if (swLiveGiftEmptyGap) {
+        swLiveGiftEmptyGap.addEventListener('change', () => {
+            saveLiveGiftEmptyGapConfig();
+            restartLiveGiftAutoCycleTimer();
+            const cfg = getLiveGiftEmptyGapConfig();
+            window.showToast(cfg.enabled
+                ? (`⏱️ 已开启送完消失+随机间隔：停留 ${cfg.staySec}s -> 消失 ${cfg.fadeSec}s -> 间隔 ${cfg.gapMinSec}~${cfg.gapMaxSec}s`)
+                : (`🎁 已设为 0 秒间隔连弹：停留 ${cfg.staySec}s -> 消失 ${cfg.fadeSec}s 后立即弹下一位`));
+        });
+    }
+    [inLiveGiftStaySec, inLiveGiftFadeSec, inLiveGiftGapMin, inLiveGiftGapMax].forEach(inp => {
+        if (!inp) return;
+        inp.addEventListener('change', () => {
+            const cfg = getLiveGiftEmptyGapConfig();
+            if (inLiveGiftStaySec) inLiveGiftStaySec.value = String(cfg.staySec);
+            if (inLiveGiftFadeSec) inLiveGiftFadeSec.value = String(cfg.fadeSec);
+            if (inLiveGiftGapMin) inLiveGiftGapMin.value = String(cfg.gapMinSec);
+            if (inLiveGiftGapMax) inLiveGiftGapMax.value = String(cfg.gapMaxSec);
+            saveLiveGiftEmptyGapConfig();
+            restartLiveGiftAutoCycleTimer();
+            window.showToast(`⏱️ 送礼节奏已更新：停留 ${cfg.staySec}s · 消失 ${cfg.fadeSec}s · 间隔 ${cfg.gapMinSec}~${cfg.gapMaxSec}s`);
+        });
+        inp.addEventListener('input', () => {
+            saveLiveGiftEmptyGapConfig();
+            updateGiftGapStatusBadge();
+        });
+    });
+    if (giftGapPresetBtns && giftGapPresetBtns.length > 0) {
+        giftGapPresetBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const gStay = parseFloat(btn.getAttribute('data-stay') || '1.0');
+                const gFade = parseFloat(btn.getAttribute('data-fade') || '0.4');
+                const gMin = parseFloat(btn.getAttribute('data-gap-min') || '0');
+                const gMax = parseFloat(btn.getAttribute('data-gap-max') || '0');
+                if (inLiveGiftStaySec) inLiveGiftStaySec.value = String(gStay);
+                if (inLiveGiftFadeSec) inLiveGiftFadeSec.value = String(gFade);
+                if (gMax <= 0) {
+                    if (swLiveGiftEmptyGap) swLiveGiftEmptyGap.checked = false;
+                    if (inLiveGiftGapMin) inLiveGiftGapMin.value = '0';
+                    if (inLiveGiftGapMax) inLiveGiftGapMax.value = '0';
+                } else {
+                    if (swLiveGiftEmptyGap) swLiveGiftEmptyGap.checked = true;
+                    if (inLiveGiftGapMin) inLiveGiftGapMin.value = String(gMin);
+                    if (inLiveGiftGapMax) inLiveGiftGapMax.value = String(gMax);
+                }
+                saveLiveGiftEmptyGapConfig();
+                restartLiveGiftAutoCycleTimer();
+                window.showToast(gMax <= 0
+                    ? `🎁 已切换为「连弹模式」：停留 ${gStay}s · 消失 ${gFade}s · 0秒间隔`
+                    : `⏱️ 已切换送礼节奏：停留 ${gStay}s · 消失 ${gFade}s · 间隔 ${gMin}~${gMax}s`);
+            });
+        });
+    }
+    if (btnLiveToggleGiftGapNow) {
+        btnLiveToggleGiftGapNow.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (!isGiftInEmptyGapNow && !isGiftFadingOutNow) {
+                setGiftEmptyGapVisualState(true, false);
+                window.showToast('🙈 已立即隐藏礼物条进入「没人送礼物」空窗状态');
+            } else {
+                setGiftEmptyGapVisualState(false, false);
+                pickAndApplyNextUniqueGiftBundle(true);
+                restartLiveGiftAutoCycleTimer();
+                window.showToast('🎁 已立即弹出下一位全新送礼人');
+            }
+        });
     }
 
     function setLiveGiftSpeedLevel(nextLv, showToastMsg = true) {
@@ -11699,6 +12469,14 @@ window.switchRightTab = function (mode) {
             clearInterval(liveGiftComboBounceTimer);
             liveGiftComboBounceTimer = null;
         }
+        if (giftEmptyGapPhaseTimer) {
+            clearTimeout(giftEmptyGapPhaseTimer);
+            giftEmptyGapPhaseTimer = null;
+        }
+        if (giftFadeOutPhaseTimer) {
+            clearTimeout(giftFadeOutPhaseTimer);
+            giftFadeOutPhaseTimer = null;
+        }
         if (liveHeaderFlipTimer) {
             clearInterval(liveHeaderFlipTimer);
             liveHeaderFlipTimer = null;
@@ -11795,9 +12573,9 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // ★ 700ms 自愈巡检守护：仅当用户开启了对应自动开关且档位 > 0 时才守护运行，若设为 0 档或关闭了自动开关则严格保持静止
+    // ★ 700ms 自愈巡检守护：仅当用户开启了对应自动开关且档位 > 0 时才守护运行，若设为 0 档或关闭了自动开关则严格保持静止（导出录制期间暂停干预）
     setInterval(() => {
-        if (!isLiveRoomOpenNow()) return;
+        if (!isLiveRoomOpenNow() || window.__isExportRecording) return;
         const dmSpd = getLiveDmSpeedVal();
         if (dmSpd > 0 && (!swLiveAutoRollDm || swLiveAutoRollDm.checked) && !liveChatRollTimer) {
             restartLiveChatRollTimer();
@@ -11806,7 +12584,7 @@ window.switchRightTab = function (mode) {
             restartLiveChatRollTimer();
         }
         const giftSpd = getLiveGiftSpeedVal();
-        if (giftSpd > 0 && (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) && (!liveGiftComboTimer || !liveGiftComboBounceTimer)) {
+        if (giftSpd > 0 && (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked) && (!liveGiftComboTimer && !giftEmptyGapPhaseTimer && !giftFadeOutPhaseTimer)) {
             restartLiveGiftAutoCycleTimer();
         }
         const heartDen = getLiveHeartDensityVal();
@@ -13263,12 +14041,139 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // ★ 录屏导出 MP4 (30fps) 专用的直播间右侧动态矢量飘心绘制器（100% 矢量贝塞尔曲线画心，绝不调用 fillText 产生乱码方框）
+    // ★ 录屏导出 MP4 (30fps) 专用的直播间右侧动态矢量飘心与表情离屏精灵缓存（1:1 还原编辑器 SVG 彩心与 drop-shadow 柔光，且消除主画布每帧高斯模糊开销）
     const EXPORT_HEART_COLORS = ['#ff5e97', '#a855f7', '#f43f5e', '#ec4899'];
-    function drawVectorHeartOnCanvas(ctx, cx, cy, size, fillColor, alpha) {
+    const liveCheerSpriteCache = new Map();
+    const liveGiftIconSpriteCache = new Map();
+    let liveGiftPillBgCache = { key: '', canvas: null, pad: 0 };
+
+    function getCachedCheerParticleSprite(tokenKey, isHeart, heartCol, baseSizePx, scaleRatioX, scaleRatioY) {
+        const cacheKey = `v3_${tokenKey}_${isHeart ? heartCol : 'em'}_${baseSizePx}_${Math.round(scaleRatioX * 10)}`;
+        if (liveCheerSpriteCache.has(cacheKey)) {
+            return liveCheerSpriteCache.get(cacheKey);
+        }
+        const pad = Math.ceil(14 * scaleRatioX);
+        const boxW = Math.ceil(baseSizePx + pad * 2);
+        const boxH = Math.ceil(baseSizePx + pad * 2);
+        const c = document.createElement('canvas');
+        c.width = boxW;
+        c.height = boxH;
+        const cx = c.getContext('2d');
+        const midX = boxW * 0.5;
+        const midY = boxH * 0.5;
+
+        // 1) 底层紧致小巧的径向柔光晕（直径约 24px，贴合小表情边缘，自然柔和不夸张，与 CSS .live-heart-particle::before 1:1 对齐）
+        cx.save();
+        const auraR = baseSizePx * 0.62;
+        const auraGrad = cx.createRadialGradient(midX, midY, baseSizePx * 0.06, midX, midY, auraR);
+        if (isHeart && heartCol === '#a855f7') {
+            auraGrad.addColorStop(0, 'rgba(216, 180, 254, 0.30)');
+            auraGrad.addColorStop(0.50, 'rgba(168, 85, 247, 0.15)');
+            auraGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+        } else if (isHeart) {
+            auraGrad.addColorStop(0, 'rgba(255, 110, 165, 0.30)');
+            auraGrad.addColorStop(0.50, 'rgba(244, 63, 94, 0.15)');
+            auraGrad.addColorStop(1, 'rgba(244, 63, 94, 0)');
+        } else {
+            auraGrad.addColorStop(0, 'rgba(250, 204, 21, 0.28)');
+            auraGrad.addColorStop(0.48, 'rgba(244, 114, 182, 0.14)');
+            auraGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
+        }
+        cx.fillStyle = auraGrad;
+        cx.beginPath();
+        cx.arc(midX, midY, auraR, 0, Math.PI * 2);
+        cx.fill();
+        cx.restore();
+
+        if (isHeart) {
+            const drawHeartPath = () => {
+                cx.beginPath();
+                cx.moveTo(0, 8.8);
+                cx.bezierCurveTo(-6.4, 3.2, -9.6, 0.3, -9.6, -3.45);
+                cx.bezierCurveTo(-9.6, -6.35, -7.35, -8.6, -4.45, -8.6);
+                cx.bezierCurveTo(-2.83, -8.6, -1.27, -7.84, 0, -6.62);
+                cx.bezierCurveTo(1.27, -7.84, 2.83, -8.6, 4.45, -8.6);
+                cx.bezierCurveTo(7.35, -8.6, 9.6, -6.35, 9.6, -3.45);
+                cx.bezierCurveTo(9.6, 0.3, 6.4, 3.2, 0, 8.8);
+                cx.closePath();
+            };
+            cx.save();
+            cx.translate(midX, midY);
+            const s = baseSizePx / 24;
+            cx.scale(s, s);
+            drawHeartPath();
+            cx.fillStyle = heartCol;
+            cx.shadowColor = 'rgba(250, 204, 21, 0.62)';
+            cx.shadowBlur = 4.5 * scaleRatioX;
+            cx.shadowOffsetY = 1.2 * scaleRatioY;
+            cx.fill();
+            cx.shadowColor = 'transparent';
+            cx.shadowBlur = 0;
+            cx.shadowOffsetY = 0;
+            if (heartCol === '#a855f7') {
+                cx.beginPath();
+                cx.arc(5.2, -5.2, 1.5, 0, Math.PI * 2);
+                cx.fillStyle = '#fde047';
+                cx.fill();
+            } else {
+                cx.beginPath();
+                cx.arc(-4.2, -3.9, 2.7, Math.PI * 1.05, Math.PI * 1.48, false);
+                cx.strokeStyle = 'rgba(255, 255, 255, 0.65)';
+                cx.lineWidth = 1.5;
+                cx.lineCap = 'round';
+                cx.stroke();
+            }
+            cx.restore();
+        } else {
+            cx.save();
+            cx.translate(midX, midY);
+            cx.font = `${baseSizePx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+            cx.textAlign = 'center';
+            cx.textBaseline = 'middle';
+            cx.shadowColor = 'rgba(250, 204, 21, 0.65)';
+            cx.shadowBlur = 4.5 * scaleRatioX;
+            cx.shadowOffsetY = 1.2 * scaleRatioY;
+            cx.fillText(tokenKey, 0, 0);
+            cx.restore();
+        }
+
+        const entry = { canvas: c, halfW: boxW * 0.5, halfH: boxH * 0.5 };
+        liveCheerSpriteCache.set(cacheKey, entry);
+        return entry;
+    }
+
+    function getCachedGiftIconSprite(iconStr, iconFontPx, gs) {
+        const key = `${iconStr}_${iconFontPx}_${Math.round(gs * 10)}`;
+        if (liveGiftIconSpriteCache.has(key)) {
+            return liveGiftIconSpriteCache.get(key);
+        }
+        const pad = Math.ceil(10 * gs);
+        const side = Math.ceil(iconFontPx + pad * 2);
+        const c = document.createElement('canvas');
+        c.width = side;
+        c.height = side;
+        const cx = c.getContext('2d');
+        cx.save();
+        cx.translate(side * 0.5, side * 0.5);
+        cx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        cx.shadowBlur = 5 * gs;
+        cx.shadowOffsetY = 2 * gs;
+        cx.font = `${iconFontPx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+        cx.textAlign = 'center';
+        cx.textBaseline = 'middle';
+        cx.fillText(iconStr, 0, 0);
+        cx.restore();
+        const entry = { canvas: c, half: side * 0.5 };
+        liveGiftIconSpriteCache.set(key, entry);
+        return entry;
+    }
+
+    function drawVectorHeartOnCanvas(ctx, cx, cy, size, fillColor, alpha, rotRad = 0, withNeonAura = false) {
         ctx.save();
-        ctx.globalAlpha = alpha;
+        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
         ctx.translate(cx, cy);
+        if (rotRad) ctx.rotate(rotRad);
+
         const s = size / 24;
         ctx.scale(s, s);
         ctx.beginPath();
@@ -13281,8 +14186,30 @@ window.switchRightTab = function (mode) {
         ctx.bezierCurveTo(9.6, 0.3, 6.4, 3.2, 0, 8.8);
         ctx.closePath();
         ctx.fillStyle = fillColor;
-        ctx.shadowColor = 'rgba(168, 85, 247, 0.55)';
-        ctx.shadowBlur = 6;
+        ctx.fill();
+        ctx.restore();
+    }
+
+    // ★ 在录屏 Canvas 上绘制发光四角星芒（✦，用于礼物胶囊与飘屏表情包高光点缀）
+    function drawCanvasSparkleStar(ctx, cx, cy, outerR, innerR, color, alpha, rotRad = 0) {
+        if (alpha <= 0.01 || outerR <= 0.5) return;
+        ctx.save();
+        ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+        ctx.translate(cx, cy);
+        if (rotRad) ctx.rotate(rotRad);
+        ctx.beginPath();
+        for (let i = 0; i < 8; i++) {
+            const r = (i % 2 === 0) ? outerR : innerR;
+            const angle = (i * Math.PI) / 4;
+            const px = Math.cos(angle) * r;
+            const py = Math.sin(angle) * r;
+            if (i === 0) ctx.moveTo(px, py);
+            else ctx.lineTo(px, py);
+        }
+        ctx.closePath();
+        ctx.fillStyle = color || '#fef08a';
+        ctx.shadowColor = color || '#fde047';
+        ctx.shadowBlur = outerR * 1.4;
         ctx.fill();
         ctx.restore();
     }
@@ -13400,10 +14327,14 @@ window.switchRightTab = function (mode) {
         return w;
     }
 
-    // ★ 辅助函数：将长文本按最大像素宽度自动拆分为多行（100% 完整保留全部文字，绝不截断加省略号 ...）
+    // ★ 辅助函数：将长文本按最大像素宽度自动拆分为多行（100% 完整保留全部文字，绝不截断加省略号 ...，带哈希缓存消除每帧重复 measureText）
+    const liveWrapTextCache = new Map();
     function wrapCanvasTextLines(ctx, text, maxW) {
         const str = String(text || '');
         if (!str) return [''];
+        const cacheKey = `${ctx.font}|${Math.round(maxW)}|${str}`;
+        const cached = liveWrapTextCache.get(cacheKey);
+        if (cached) return cached;
         const chars = Array.from(str);
         const lines = [];
         let cur = '';
@@ -13417,16 +14348,23 @@ window.switchRightTab = function (mode) {
             }
         }
         if (cur) lines.push(cur);
-        return lines.length > 0 ? lines : [''];
+        const res = lines.length > 0 ? lines : [''];
+        if (liveWrapTextCache.size > 400) liveWrapTextCache.clear();
+        liveWrapTextCache.set(cacheKey, res);
+        return res;
     }
 
-    // ★ 预加载真人头像 Image 池供视频导出时礼物弹窗轮换使用
+    // ★ 预加载真人头像 Image 池供视频导出时礼物弹窗每轮切换不同头像使用
     const exportGiftAvatarImages = [];
     function ensureExportGiftAvatarPoolLoaded() {
         if (exportGiftAvatarImages.length > 0) return;
         const db = window.LAYA_ASIAN_AVATARS || {};
-        const pool = [...(Array.isArray(db.guys) ? db.guys : []), ...(Array.isArray(db.beauties) ? db.beauties : [])];
-        pool.slice(0, 16).forEach(url => {
+        const beauties = Array.isArray(db.beauties) ? db.beauties : [];
+        const guys = Array.isArray(db.guys) ? db.guys : [];
+        const vibes = Array.isArray(db.vibes) ? db.vibes.slice(0, 12) : [];
+        const pets = Array.isArray(db.pets) ? db.pets.slice(0, 10) : [];
+        const pool = [...beauties, ...guys, ...vibes, ...pets];
+        pool.slice(0, 48).forEach(url => {
             if (!url) return;
             const img = new Image();
             img.crossOrigin = 'anonymous';
@@ -13434,7 +14372,7 @@ window.switchRightTab = function (mode) {
             exportGiftAvatarImages.push(img);
         });
     }
-    setTimeout(ensureExportGiftAvatarPoolLoaded, 500);
+    setTimeout(ensureExportGiftAvatarPoolLoaded, 400);
 
     // ★ 在录屏 Canvas 上绘制单条或多行自动换行弹幕胶囊气泡（1:1 还原预览画面 flex-wrap 换行效果，绝不截断成 ...）
     function drawSingleLiveChatBubbleOnCanvas(ctx, baseX, rowTopY, maxBubbleW, rowData, badgeSeedIdx, s, dmTextColor, showRowHeart, fontStack, dryRun = false) {
@@ -13655,22 +14593,162 @@ window.switchRightTab = function (mode) {
         return rowH;
     }
 
+    // ★ 录屏导出开始前：快照用户在网页画面上设置好的礼物、头像、连击数字、弹幕位置与进场游标，并预生成后续每一轮不重复的【新头像 + 新名字 + 新礼物】序列
+    window.__captureLiveExportInitialState = function () {
+        if (liveChatRollTimer) { clearInterval(liveChatRollTimer); liveChatRollTimer = null; }
+        if (liveJoinTickerTimer) { clearInterval(liveJoinTickerTimer); liveJoinTickerTimer = null; }
+        if (liveHeartTimer) { clearInterval(liveHeartTimer); liveHeartTimer = null; }
+        if (liveFloatingHearts) { liveFloatingHearts.innerHTML = ''; }
+        if (liveGiftComboTimer) { clearInterval(liveGiftComboTimer); liveGiftComboTimer = null; }
+        if (liveGiftComboBounceTimer) { clearInterval(liveGiftComboBounceTimer); liveGiftComboBounceTimer = null; }
+        if (giftEmptyGapPhaseTimer) { clearTimeout(giftEmptyGapPhaseTimer); giftEmptyGapPhaseTimer = null; }
+        if (giftFadeOutPhaseTimer) { clearTimeout(giftFadeOutPhaseTimer); giftFadeOutPhaseTimer = null; }
+
+        ensureExportGiftAvatarPoolLoaded();
+
+        const snapSender = (liveGiftSenderName && liveGiftSenderName.textContent.trim())
+            || (inLiveGiftUser && inLiveGiftUser.value.trim())
+            || '皓哥';
+        const snapGiftDesc = (liveGiftDescTxt && liveGiftDescTxt.textContent.trim())
+            || (inLiveGiftName && inLiveGiftName.value.trim())
+            || '送 嘉年華';
+        const snapGiftIcon = (liveGiftItemIcon && liveGiftItemIcon.textContent.trim())
+            || (inLiveGiftIcon && inLiveGiftIcon.value.trim())
+            || inferGiftIconFromName(snapGiftDesc)
+            || '🎠';
+        const snapBaseColor = (inLiveGiftColor && inLiveGiftColor.value) || '#9333ea';
+        const matchedCat = LIVE_GIFT_CATALOG.find(item => item.icon === snapGiftIcon || snapGiftDesc.includes(item.name.replace(/^[^\s]+\s+/, '')));
+        const snapEndColor = matchedCat ? matchedCat.endColor : (currentGiftEndColor || 'rgba(245, 158, 11, 0.85)');
+        const { minQty, maxQty } = getLiveGiftQtyRange();
+        const rawCombo = (liveGiftComboNum && liveGiftComboNum.textContent.trim())
+            || (inLiveGiftCount && inLiveGiftCount.value.trim())
+            || ('x' + minQty);
+        let parsedCombo = parseInt(rawCombo.replace(/[^\d]/g, ''), 10);
+        if (Number.isNaN(parsedCombo) || parsedCombo < 1) parsedCombo = minQty;
+        const snapComboTxt = 'x' + parsedCombo;
+
+        let snapAvatarImg = liveGiftSenderAv;
+        let snapAvatarSrc = '';
+        if (liveGiftSenderAv) {
+            const avSrc = liveGiftSenderAv.getAttribute('data-export-src') || liveGiftSenderAv.src;
+            if (avSrc) {
+                snapAvatarSrc = avSrc;
+                if (liveGiftSenderAv.complete && liveGiftSenderAv.naturalWidth > 0) {
+                    snapAvatarImg = liveGiftSenderAv;
+                } else {
+                    const cloneAv = new Image();
+                    cloneAv.crossOrigin = 'anonymous';
+                    cloneAv.src = avSrc;
+                    snapAvatarImg = cloneAv;
+                }
+            }
+        }
+
+        // 预生成 80 轮互不重复的送礼序列（第 0 轮为画面当前展示的送礼，第 1~79 轮每次都换不同真人头像、不同送礼人名字、不同礼物与图标）
+        const cycleSequence = [{
+            sender: snapSender,
+            giftDesc: snapGiftDesc,
+            giftIcon: snapGiftIcon,
+            baseColor: snapBaseColor,
+            endColor: snapEndColor,
+            comboNumVal: parsedCombo,
+            comboTxt: snapComboTxt,
+            avatarImg: snapAvatarImg
+        }];
+
+        const readyAvPool = exportGiftAvatarImages.filter(img => img && img.complete && img.naturalWidth > 0);
+        const activeAvPool = readyAvPool.length > 0 ? readyAvPool : exportGiftAvatarImages;
+        let prevUserIdx = giftUserPresets.indexOf(snapSender);
+        let prevCatIdx = LIVE_GIFT_CATALOG.findIndex(item => item.icon === snapGiftIcon || snapGiftDesc.includes(item.name.replace(/^[^\s]+\s+/, '')));
+        let prevAvIdx = activeAvPool.findIndex(img => img && img.src === snapAvatarSrc);
+
+        for (let step = 1; step < 80; step++) {
+            let uIdx = (prevUserIdx + 1 + Math.floor(Math.random() * Math.max(1, giftUserPresets.length - 2))) % giftUserPresets.length;
+            if (uIdx < 0) uIdx = step % giftUserPresets.length;
+            prevUserIdx = uIdx;
+
+            let gIdx = (prevCatIdx + 1 + Math.floor(Math.random() * Math.max(1, LIVE_GIFT_CATALOG.length - 2))) % LIVE_GIFT_CATALOG.length;
+            if (gIdx < 0) gIdx = step % LIVE_GIFT_CATALOG.length;
+            prevCatIdx = gIdx;
+            const catItem = LIVE_GIFT_CATALOG[gIdx];
+
+            let avImg = snapAvatarImg;
+            if (activeAvPool.length > 0) {
+                let aIdx = (prevAvIdx + 1 + Math.floor(Math.random() * Math.max(1, activeAvPool.length - 2))) % activeAvPool.length;
+                if (aIdx < 0) aIdx = step % activeAvPool.length;
+                prevAvIdx = aIdx;
+                avImg = activeAvPool[aIdx] || snapAvatarImg;
+            }
+
+            const startQtyStr = pickRandomGiftQtyInRange(true);
+            const startQtyNum = parseInt(startQtyStr.replace(/[^\d]/g, ''), 10) || minQty;
+
+            cycleSequence.push({
+                sender: giftUserPresets[uIdx],
+                giftDesc: catItem.name,
+                giftIcon: catItem.icon,
+                baseColor: catItem.color,
+                endColor: catItem.endColor,
+                comboNumVal: startQtyNum,
+                comboTxt: 'x' + startQtyNum,
+                avatarImg: avImg
+            });
+        }
+
+        window.__liveExportInitialState = {
+            sender: snapSender,
+            giftDesc: snapGiftDesc,
+            giftIcon: snapGiftIcon,
+            baseColor: snapBaseColor,
+            endColor: snapEndColor,
+            comboNumVal: parsedCombo,
+            comboTxt: snapComboTxt,
+            avatarImg: snapAvatarImg,
+            cycleSequence: cycleSequence,
+            rollTickCount: liveRollTickCount,
+            joinCursor: liveJoinCursor,
+            inEmptyGap: isGiftInEmptyGapNow
+        };
+    };
+
+    window.__restoreLiveExportAfterDone = function () {
+        const snap = window.__liveExportInitialState;
+        window.__liveExportInitialState = null;
+        if (snap) {
+            if (inLiveGiftUser) inLiveGiftUser.value = snap.sender;
+            if (inLiveGiftName) inLiveGiftName.value = snap.giftDesc;
+            if (inLiveGiftIcon) inLiveGiftIcon.value = snap.giftIcon;
+            if (inLiveGiftCount) inLiveGiftCount.value = snap.comboTxt;
+            if (inLiveGiftColor) inLiveGiftColor.value = snap.baseColor;
+            if (inLiveGiftColorHex) inLiveGiftColorHex.value = snap.baseColor;
+            applyLiveGiftBannerState(false, false);
+        }
+        if (isLiveRoomOpenNow()) {
+            restartLiveChatRollTimer();
+            restartLiveHeartTimer();
+            restartLiveGiftAutoCycleTimer();
+        }
+    };
+
     window.__drawLiveRoomDynamicCanvas = function (ctx, outW, outH, scaleRatioX, scaleRatioY, elapsedSec, exportFontStack) {
         if (!ctx) return;
         const activeFont = exportFontStack || '"PingFang SC", "Microsoft YaHei", sans-serif';
         const elapsedMs = Math.max(0, elapsedSec * 1000);
+        const expSnap = window.__liveExportInitialState || null;
 
         const scalePct = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
-        const dmScale = Math.min(1.55, Math.max(0.75, scalePct / 100));
+        const dmScale = Math.min(2.20, Math.max(0.75, scalePct / 100));
         const s = scaleRatioX * dmScale;
         const rowGap = Math.round(3.5 * s);
 
         const widthPct = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
         const layout = window.__liveExportLayout || {};
+        const offXPx = Math.round((liveDmOffsetX || 0) * scaleRatioX);
+        const offYPx = Math.round((liveDmOffsetY || 0) * scaleRatioY);
         const baseX = (layout.chatBox && layout.chatBox.x)
             || (layout.scrollBox && layout.scrollBox.x)
             || (layout.giftBox && layout.giftBox.x)
-            || Math.round(10 * scaleRatioX);
+            || (Math.round(10 * scaleRatioX) + offXPx);
         const maxBubbleW = Math.max(
             180 * scaleRatioX,
             (layout.chatBox && layout.chatBox.w)
@@ -13678,11 +14756,12 @@ window.switchRightTab = function (mode) {
                 || Math.round((outW - 20 * scaleRatioX) * (widthPct / 100))
         );
 
-        // 计算底部锚点 Y（紧贴在底部「說點什麼...」输入栏上方，由下至上无缝堆叠：进场条 -> 滚动弹幕 -> 欢迎语 -> 防诈提示 -> 礼物弹窗）
+        // 计算底部锚点 Y（紧贴在底部「說點什麼...」输入栏上方，由下至上无缝堆叠：进场条 -> 滚动弹幕 -> 欢迎语 -> 防诈提示 -> 礼物弹窗，且完整保留用户拖拽偏移 offYPx）
         let curBottomY = (layout.joinBox && (layout.joinBox.y + layout.joinBox.h))
-            || (layout.botBarBox && (layout.botBarBox.y - Math.round(4 * scaleRatioY)))
+            || (layout.scrollBox && (layout.scrollBox.y + layout.scrollBox.h))
+            || (layout.botBarBox && (layout.botBarBox.y - Math.round(4 * scaleRatioY) + offYPx))
             || (layout.chatBox && (layout.chatBox.y + layout.chatBox.h + Math.round(21 * s)))
-            || Math.round(outH - 92 * scaleRatioY);
+            || (Math.round(outH - 92 * scaleRatioY) + offYPx);
 
         const speedLv = getLiveDmSpeedVal();
         const intervalMs = getLiveDmIntervalMs(speedLv);
@@ -13690,7 +14769,55 @@ window.switchRightTab = function (mode) {
         const autoRoll = (speedLv > 0 && intervalMs > 0) && (!swLiveAutoRollDm || swLiveAutoRollDm.checked);
         const autoJoin = (speedLv > 0 && joinIntervalMs > 0) && (!swLiveAutoRollDm || swLiveAutoRollDm.checked);
 
-        // 1) 第 1 层（最底部）：高频观众进场通道 (#live-join-ticker-row，如「漫渡 來了」)
+        // 0) 第 0 层（左上角 LIVE 在线胶囊内）：动态绘制红点呼吸闪动与扩散水波纹光环 (#live-red-breath-dot，1:1 还原编辑器 .live-red-dot 样式)
+        const livePulseDotEl = document.getElementById('live-red-breath-dot') || document.getElementById('live-pulse-dot') || document.querySelector('#live-left-live-pill .live-red-dot');
+        const liveOnlinePillEl = document.getElementById('live-left-live-pill') || document.getElementById('live-online-pill');
+        const showLivePill = (liveVisStateMap['live-pill'] !== false)
+            && (!liveOnlinePillEl || liveOnlinePillEl.dataset.liveHidden !== 'true')
+            && (!livePulseDotEl || livePulseDotEl.dataset.liveHidden !== 'true');
+        if (showLivePill && layout.redDotBox && layout.redDotBox.w > 0) {
+            const rd = layout.redDotBox;
+            const dotCx = rd.x + rd.w * 0.5;
+            const dotCy = rd.y + rd.h * 0.5;
+            const baseR = Math.max(2.6 * scaleRatioX, Math.min(rd.w, rd.h) * 0.5);
+            const breathPeriod = 1.45;
+            const breathPhase = (elapsedSec % breathPeriod) / breathPeriod;
+            const breathWave = 0.5 - 0.5 * Math.cos(breathPhase * Math.PI * 2); // 0 -> 1 -> 0 平滑呼吸曲线
+            const coreScale = 0.88 + 0.28 * breathWave; // 0.88 <-> 1.16 (与 CSS @keyframes liveRedDotBreath 一致)
+            const coreAlpha = 0.72 + 0.28 * breathWave; // 0.72 <-> 1.00
+
+            ctx.save();
+            // 0.1 外层扩散水波纹光圈 (liveRedDotRipple: scale 0.75 -> 1.85, opacity 0.90 -> 0)
+            const rippleEase = 1 - Math.pow(1 - breathPhase, 2.0);
+            const rippleR = (baseR + 1.8 * scaleRatioX) * (0.75 + 1.10 * rippleEase);
+            const rippleAlpha = Math.max(0, (1 - breathPhase) * 0.85);
+            if (rippleAlpha > 0.02) {
+                ctx.beginPath();
+                ctx.arc(dotCx, dotCy, rippleR, 0, Math.PI * 2);
+                ctx.strokeStyle = `rgba(255, 42, 85, ${rippleAlpha.toFixed(3)})`;
+                ctx.lineWidth = Math.max(1.0, 1.2 * scaleRatioX);
+                ctx.stroke();
+            }
+
+            // 0.2 中心呼吸红点本体 + 原生径向红光（零 shadowBlur 开销，1:1 还原 box-shadow: 0 0 6px #ff2442, 0 0 11px rgba(255, 36, 66, 0.85)）
+            const glowR = baseR * (1.85 + 0.65 * breathWave);
+            const dotGlow = ctx.createRadialGradient(dotCx, dotCy, baseR * 0.25, dotCx, dotCy, glowR);
+            dotGlow.addColorStop(0, `rgba(255, 36, 66, ${(0.55 + 0.30 * breathWave).toFixed(3)})`);
+            dotGlow.addColorStop(1, 'rgba(255, 36, 66, 0)');
+            ctx.fillStyle = dotGlow;
+            ctx.beginPath();
+            ctx.arc(dotCx, dotCy, glowR, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.globalAlpha = coreAlpha;
+            ctx.beginPath();
+            ctx.arc(dotCx, dotCy, baseR * coreScale, 0, Math.PI * 2);
+            ctx.fillStyle = '#ff2442';
+            ctx.fill();
+            ctx.restore();
+        }
+
+        // 1) 第 1 层（最底部）：高频观众进场通道 (#live-join-ticker-row，如「漫渡 來了」，带滑入微动效)
         const showJoinTicker = liveDmVisible
             && (liveVisStateMap['join-ticker'] !== false)
             && (!liveJoinTickerRow || liveJoinTickerRow.dataset.liveHidden !== 'true')
@@ -13698,15 +14825,24 @@ window.switchRightTab = function (mode) {
 
         if (showJoinTicker) {
             const joinSteps = autoJoin ? Math.floor(elapsedMs / joinIntervalMs) : 0;
-            const v = liveJoinViewerPool[(liveJoinCursor + joinSteps) % liveJoinViewerPool.length];
+            const joinStepElapsed = (autoJoin && joinIntervalMs > 0) ? (elapsedMs % joinIntervalMs) : 999;
+            const joinSlideProgress = (autoJoin && joinSteps > 0) ? Math.min(1, joinStepElapsed / 210) : 1;
+            const joinSlideEase = 1 - Math.pow(1 - joinSlideProgress, 3);
+            const joinOffsetX = Math.round((1 - joinSlideEase) * (-14 * scaleRatioX));
+            const joinAlpha = 0.35 + 0.65 * joinSlideEase;
+
+            const baseJoinCursor = expSnap ? expSnap.joinCursor : liveJoinCursor;
+            const v = liveJoinViewerPool[(baseJoinCursor + joinSteps) % liveJoinViewerPool.length];
             const isSimp = window.__currentLangMode === 'simp';
             const joinTxt = isSimp ? ' 来了' : ' 來了';
             const jRowH = Math.round(18.5 * s);
             const jPadX = Math.round(7.5 * s);
             const jFontPx = Math.round(9.6 * s);
             const jY = curBottomY - jRowH;
+            const jX = baseX + joinOffsetX;
 
             ctx.save();
+            ctx.globalAlpha = joinAlpha;
             ctx.font = `800 ${jFontPx}px ${activeFont}`;
             const nickW = ctx.measureText(v.nick).width;
             ctx.font = `600 ${jFontPx}px ${activeFont}`;
@@ -13714,11 +14850,14 @@ window.switchRightTab = function (mode) {
             const lvEstW = v.lv > 0 ? Math.ceil((v.lv >= 10 ? 26.5 : 21.5) * s) + Math.round(4 * s) : 0;
             const jPillW = Math.ceil(jPadX * 2 + lvEstW + nickW + suffixW);
 
-            drawLiveRoundRect(ctx, baseX, jY, jPillW, jRowH, Math.round(10 * s));
-            ctx.fillStyle = 'rgba(12, 14, 24, 0.48)';
+            drawLiveRoundRect(ctx, jX, jY, jPillW, jRowH, Math.round(10 * s));
+            ctx.fillStyle = 'rgba(12, 14, 24, 0.50)';
             ctx.fill();
+            ctx.lineWidth = Math.max(1, 0.8 * s);
+            ctx.strokeStyle = joinSlideProgress < 1 ? 'rgba(147, 197, 253, 0.32)' : 'rgba(255, 255, 255, 0.08)';
+            ctx.stroke();
 
-            let jCurX = baseX + jPadX;
+            let jCurX = jX + jPadX;
             if (v.lv > 0) {
                 const badgeH = Math.round(13.2 * s);
                 const badgeY = jY + Math.round((jRowH - badgeH) / 2);
@@ -13766,7 +14905,8 @@ window.switchRightTab = function (mode) {
             const easeOut = 1 - Math.pow(1 - animProgress, 3);
 
             const resolveRowSpec = (offsetIdx) => {
-                const virtualStep = liveRollTickCount + stepsAdvanced + offsetIdx;
+                const baseRollTick = expSnap ? expSnap.rollTickCount : liveRollTickCount;
+                const virtualStep = baseRollTick + stepsAdvanced + offsetIdx;
                 const safeStep = ((virtualStep % 100000) + 100000) % 100000;
                 const globalIdx = safeStep % allLines.length;
                 let rawLine = allLines[globalIdx];
@@ -13937,7 +15077,7 @@ window.switchRightTab = function (mode) {
             curBottomY = nY - Math.round(4.5 * scaleRatioY);
         }
 
-        // 5) 第 5 层（位于公屏最上方）：礼物进场小弹窗 (#live-gift-combo-banner，严格按 0~10 档速度运行，支持 0 档完全静止与 1~3 档超级慢)
+        // 5) 第 5 层（位于公屏最上方）：礼物进场小弹窗 (#live-gift-combo-banner，支持 0~10 档速度 + 中间随机「没人送礼物」空窗间隔)
         const showGiftBanner = (liveVisStateMap['gift-banner'] !== false)
             && (!liveGiftComboBanner || liveGiftComboBanner.dataset.liveHidden !== 'true');
 
@@ -13946,72 +15086,127 @@ window.switchRightTab = function (mode) {
             const switchGiftMs = GIFT_SWITCH_MS_TABLE[giftSpdLv] || 0;
             const bounceComboMs = GIFT_BOUNCE_MS_TABLE[giftSpdLv] || 0;
             const autoGiftOn = (giftSpdLv > 0 && switchGiftMs > 0) && (!swLiveAutoCycleGift || swLiveAutoCycleGift.checked);
+            const gapCfg = getLiveGiftEmptyGapConfig();
+            const useEmptyGapInExport = autoGiftOn && gapCfg.enabled;
 
-            const giftCycleStep = autoGiftOn ? Math.floor(elapsedMs / switchGiftMs) : 0;
-            const giftPhaseMs = autoGiftOn ? (elapsedMs % switchGiftMs) : 9999;
-            const comboStepInCycle = (autoGiftOn && bounceComboMs > 0) ? Math.floor(giftPhaseMs / bounceComboMs) : 0;
-            const comboBouncePhase = (autoGiftOn && bounceComboMs > 0) ? ((giftPhaseMs % bounceComboMs) / bounceComboMs) : 1;
+            // 计算当前录制时刻处于第几个送礼周期、是否处于「消失动画期」或「没人送礼物的空窗间隔期」
+            let giftCycleStep = 0;
+            let giftPhaseMs = 9999;
+            let currentStayMs = Math.max(200, Math.round(gapCfg.staySec * 1000));
+            let currentFadeMs = Math.max(100, Math.round((gapCfg.fadeSec || 0.4) * 1000));
+            let inExportEmptyGap = (!autoGiftOn && isGiftInEmptyGapNow);
 
-            // 优先读取画面上当前正在显示的礼物昵称、文案、图标、连击数与配色，确保与预览截图 100% 一致
-            let expSender = (liveGiftSenderName && liveGiftSenderName.textContent.trim())
+            if (useEmptyGapInExport) {
+                const stayMs = Math.max(200, Math.round(gapCfg.staySec * 1000));
+                const fadeMs = Math.max(100, Math.round((gapCfg.fadeSec || 0.4) * 1000));
+                const minGapMs = Math.round(gapCfg.gapMinSec * 1000);
+                const maxGapMs = Math.round(gapCfg.gapMaxSec * 1000);
+                const spanGapMs = Math.max(0, maxGapMs - minGapMs);
+                // 为每个周期生成确定性的伪随机空窗时长（保证导出帧序列平滑连续且每段空窗长短自然变化）
+                let accMs = 0;
+                let stepIdx = 0;
+                while (stepIdx < 800) {
+                    const pseudoRand = ((stepIdx * 9301 + 49297) % 233280) / 233280;
+                    const curGapMs = minGapMs + Math.round(pseudoRand * spanGapMs);
+                    const totalPeriodMs = stayMs + fadeMs + curGapMs;
+                    if (elapsedMs < accMs + totalPeriodMs) {
+                        giftCycleStep = stepIdx;
+                        giftPhaseMs = elapsedMs - accMs;
+                        currentStayMs = stayMs;
+                        currentFadeMs = fadeMs;
+                        inExportEmptyGap = giftPhaseMs >= (stayMs + fadeMs);
+                        break;
+                    }
+                    accMs += totalPeriodMs;
+                    stepIdx++;
+                }
+            } else if (autoGiftOn) {
+                const activeCycleMs = Math.max(400, Math.round(gapCfg.staySec * 1000)) || switchGiftMs;
+                giftCycleStep = Math.floor(elapsedMs / activeCycleMs);
+                giftPhaseMs = elapsedMs % activeCycleMs;
+                currentStayMs = activeCycleMs;
+                currentFadeMs = 0;
+            }
+
+            if (!inExportEmptyGap) {
+            const comboStepInCycle = (autoGiftOn && bounceComboMs > 0) ? Math.floor(Math.min(giftPhaseMs, currentStayMs - 1) / bounceComboMs) : 0;
+            const comboBouncePhase = (autoGiftOn && bounceComboMs > 0 && giftPhaseMs < currentStayMs) ? ((giftPhaseMs % bounceComboMs) / bounceComboMs) : 1;
+
+            // ★ 根据当前送礼轮次 (giftCycleStep) 从预生成的无重复序列中取出对应的送礼人、头像、礼物、配色与起始数量（第 0 轮为画面当前展示状态，后续每一轮头像、昵称、礼物都不一样）
+            const cycleItem = (autoGiftOn && expSnap && Array.isArray(expSnap.cycleSequence) && expSnap.cycleSequence.length > 0)
+                ? expSnap.cycleSequence[giftCycleStep % expSnap.cycleSequence.length]
+                : null;
+
+            let expSender = (cycleItem && cycleItem.sender)
+                || (expSnap && expSnap.sender)
+                || (liveGiftSenderName && liveGiftSenderName.textContent.trim())
                 || (inLiveGiftUser && inLiveGiftUser.value.trim())
-                || '夜色有點濃';
-            let expGiftDesc = (liveGiftDescTxt && liveGiftDescTxt.textContent.trim())
+                || '皓哥';
+            let expGiftDesc = (cycleItem && cycleItem.giftDesc)
+                || (expSnap && expSnap.giftDesc)
+                || (liveGiftDescTxt && liveGiftDescTxt.textContent.trim())
                 || (inLiveGiftName && inLiveGiftName.value.trim())
-                || '贈送 璀璨鑽石';
-            let expGiftIcon = (liveGiftItemIcon && liveGiftItemIcon.textContent.trim())
+                || '送 嘉年華';
+            let expGiftIcon = (cycleItem && cycleItem.giftIcon)
+                || (expSnap && expSnap.giftIcon)
+                || (liveGiftItemIcon && liveGiftItemIcon.textContent.trim())
                 || (inLiveGiftIcon && inLiveGiftIcon.value.trim())
-                || '💎';
-            let expBaseColor = (inLiveGiftColor && inLiveGiftColor.value) || '#0284c7';
+                || inferGiftIconFromName(expGiftDesc)
+                || '🎠';
+            let expBaseColor = (cycleItem && cycleItem.baseColor)
+                || (expSnap && expSnap.baseColor)
+                || (inLiveGiftColor && inLiveGiftColor.value)
+                || '#9333ea';
             const matchedInitCat = LIVE_GIFT_CATALOG.find(item => item.icon === expGiftIcon || expGiftDesc.includes(item.name.replace(/^[^\s]+\s+/, '')));
-            let expEndColor = matchedInitCat ? matchedInitCat.endColor : (currentGiftEndColor || 'rgba(56, 189, 248, 0.85)');
+            let expEndColor = (cycleItem && cycleItem.endColor)
+                || (expSnap && expSnap.endColor)
+                || (matchedInitCat ? matchedInitCat.endColor : (currentGiftEndColor || 'rgba(245, 158, 11, 0.85)'));
             const { minQty: expMinQty, maxQty: expMaxQty } = getLiveGiftQtyRange();
-            let rawExpComboTxt = (liveGiftComboNum && liveGiftComboNum.textContent.trim())
+            let rawExpComboTxt = (cycleItem && cycleItem.comboTxt)
+                || (expSnap && expSnap.comboTxt)
+                || (liveGiftComboNum && liveGiftComboNum.textContent.trim())
                 || (inLiveGiftCount && inLiveGiftCount.value.trim())
                 || ('x' + expMinQty);
             let expComboNumVal = parseInt(rawExpComboTxt.replace(/[^\d]/g, ''), 10);
-            if (Number.isNaN(expComboNumVal)) expComboNumVal = expMinQty;
-            expComboNumVal = Math.min(expMaxQty, Math.max(expMinQty, expComboNumVal));
+            if (Number.isNaN(expComboNumVal) || expComboNumVal < 1) expComboNumVal = expMinQty;
             let expComboTxt = 'x' + expComboNumVal;
 
-            if (autoGiftOn && giftCycleStep > 0) {
-                expSender = giftUserPresets[(lastGiftUserIdx + giftCycleStep) % giftUserPresets.length];
-                const catItem = LIVE_GIFT_CATALOG[(lastGiftCatalogIdx + giftCycleStep) % LIVE_GIFT_CATALOG.length];
-                if (catItem) {
-                    expGiftDesc = catItem.name;
-                    expGiftIcon = catItem.icon;
-                    expBaseColor = catItem.color;
-                    expEndColor = catItem.endColor;
-                }
-                if (expMaxQty > expMinQty) {
-                    const span = expMaxQty - expMinQty;
-                    const startOffset = (giftCycleStep * 3) % Math.max(1, Math.ceil(span * 0.6) + 1);
-                    expComboNumVal = Math.min(expMaxQty, Math.max(expMinQty, expMinQty + startOffset));
-                    expComboTxt = 'x' + expComboNumVal;
-                } else {
-                    expComboNumVal = expMinQty;
-                    expComboTxt = 'x' + expMinQty;
-                }
-            }
-            if (autoGiftOn && comboStepInCycle > 0 && expMaxQty > expMinQty) {
+            if (autoGiftOn && comboStepInCycle > 0) {
                 expComboTxt = getNextGiftComboInRange(expComboNumVal, comboStepInCycle);
             }
 
-            // 仅在切换到新礼物 (giftCycleStep > 0) 的前 260ms 执行左侧滑入动效；首帧及静止态保持 100% 稳定清晰
-            const isSlidingNewGift = autoGiftOn && giftCycleStep > 0 && giftPhaseMs < 260;
-            const slideInProgress = isSlidingNewGift ? Math.min(1, giftPhaseMs / 260) : 1;
-            const slideEase = 1 - Math.pow(1 - slideInProgress, 3);
-            const slideOffsetX = Math.round((1 - slideEase) * (-28 * scaleRatioX));
-            const bannerAlpha = isSlidingNewGift ? Math.min(1, 0.25 + slideEase * 0.75) : 1;
+            // 进场滑入动效（第 1 轮起前 240ms）与停留结束后的平滑消失动效（按用户设定的消失时间 fadeSec 渐隐滑出）
+            const enterAnimMs = Math.min(240, Math.round(currentStayMs * 0.35));
+            const isSlidingNewGift = autoGiftOn && giftCycleStep > 0 && giftPhaseMs < enterAnimMs;
+            const isSlidingOutToGap = useEmptyGapInExport && giftPhaseMs >= currentStayMs;
+            let slideOffsetX = 0;
+            let bannerAlpha = 1;
+            if (isSlidingNewGift) {
+                const slideInProgress = Math.min(1, Math.max(0, giftPhaseMs / Math.max(1, enterAnimMs)));
+                const slideEase = 1 - Math.pow(1 - slideInProgress, 3);
+                slideOffsetX = Math.round((1 - slideEase) * (-28 * scaleRatioX));
+                bannerAlpha = Math.min(1, 0.2 + slideEase * 0.8);
+            } else if (isSlidingOutToGap) {
+                const outProgress = Math.min(1, Math.max(0, (giftPhaseMs - currentStayMs) / Math.max(1, currentFadeMs)));
+                const outEase = Math.pow(outProgress, 1.4);
+                slideOffsetX = Math.round(outEase * (-24 * scaleRatioX));
+                bannerAlpha = Math.max(0, 1 - outEase);
+            }
 
-            const gH = Math.round(30 * scaleRatioY);
+            const gs = scaleRatioX * Math.min(1.45, Math.max(0.80, dmScale));
+            const gH = Math.round(30 * gs);
             const gY = Math.max(78 * scaleRatioY, curBottomY - gH);
             const gX = baseX + slideOffsetX;
-            const avSize = Math.round(24 * scaleRatioX);
-            const senderFontPx = Math.round(9.8 * scaleRatioX);
-            const descFontPx = Math.round(8.2 * scaleRatioX);
-            const iconFontPx = Math.round(18.5 * scaleRatioX);
-            const comboFontPx = Math.round(15.8 * scaleRatioX);
+            const avSize = Math.round(24 * gs);
+            const senderFontPx = Math.round(9.8 * gs);
+            const descFontPx = Math.round(8.2 * gs);
+            const iconFontPx = Math.round(18.5 * gs);
+            const comboFontPx = Math.round(15.8 * gs);
+
+            // 连击脉冲波 (0 -> 1 -> 0)：驱动整条胶囊微扩、霓虹外发光增强、礼物图标旋转弹跳与连击数字金光爆发
+            const isComboBouncing = autoGiftOn && comboStepInCycle > 0 && comboBouncePhase < 0.36;
+            const pulseWave = isComboBouncing ? Math.sin((comboBouncePhase / 0.36) * Math.PI) : 0;
+            const bannerPulseScale = 1 + pulseWave * 0.042;
 
             ctx.save();
             ctx.globalAlpha = bannerAlpha;
@@ -14022,30 +15217,61 @@ window.switchRightTab = function (mode) {
             const metaW = Math.max(sNameW, sDescW);
             ctx.font = `italic 900 ${comboFontPx}px "Inter", ${activeFont}`;
             const comboW = ctx.measureText(expComboTxt).width;
-            const gBannerW = Math.ceil((3.5 + 6 + 6 + 4 + 11) * scaleRatioX + avSize + metaW + iconFontPx + comboW);
+            const gBannerW = Math.ceil((3.5 + 6 + 6 + 4 + 12) * gs + avSize + metaW + iconFontPx + comboW);
 
-            // 胶囊流光渐变底色
-            const gGrad = ctx.createLinearGradient(gX, gY, gX + gBannerW, gY);
-            gGrad.addColorStop(0, hexToRgba(expBaseColor, 0.94));
-            gGrad.addColorStop(0.58, hexToRgba(expBaseColor, 0.84));
-            gGrad.addColorStop(1, expEndColor);
-            drawLiveRoundRect(ctx, gX, gY, gBannerW, gH, gH / 2);
-            ctx.fillStyle = gGrad;
-            ctx.fill();
-            ctx.lineWidth = Math.max(1, 1 * scaleRatioX);
-            ctx.strokeStyle = hexToRgba(expBaseColor, 0.75);
-            ctx.stroke();
-
-            // 左侧圆形真人送礼头像（若切换到新礼物则自动轮换预加载的真人头像）
-            const avX = gX + Math.round(3.5 * scaleRatioX);
-            const avY = gY + Math.round((gH - avSize) / 2);
-            let avatarImgToDraw = liveGiftSenderAv;
-            if (autoGiftOn && giftCycleStep > 0 && exportGiftAvatarImages.length > 0) {
-                const candidateImg = exportGiftAvatarImages[(Math.max(0, lastGiftRealAvatarIdx) + giftCycleStep) % exportGiftAvatarImages.length];
-                if (candidateImg && candidateImg.complete && candidateImg.naturalWidth > 0) {
-                    avatarImgToDraw = candidateImg;
-                }
+            // 若处于连击脉冲期，以胶囊左侧中点为锚点做微缩放 (liveGiftBannerPulse)
+            if (bannerPulseScale > 1.001) {
+                const pivotX = gX + gBannerW * 0.25;
+                const pivotY = gY + gH * 0.5;
+                ctx.translate(pivotX, pivotY);
+                ctx.scale(bannerPulseScale, bannerPulseScale);
+                ctx.translate(-pivotX, -pivotY);
             }
+
+            // 5.1 胶囊外部环境柔光、渐变底色与 1px 边框（使用离屏缓存渲染 box-shadow，每轮礼物仅构建 1 次，单帧耗时 < 0.05ms）
+            const pillCacheKey = `${gBannerW}_${gH}_${expBaseColor}_${expEndColor}`;
+            if (liveGiftPillBgCache.key !== pillCacheKey || !liveGiftPillBgCache.canvas) {
+                const pad = Math.ceil(18 * scaleRatioX);
+                const c = document.createElement('canvas');
+                c.width = gBannerW + pad * 2;
+                c.height = gH + pad * 2;
+                const pCtx = c.getContext('2d');
+                pCtx.save();
+                drawLiveRoundRect(pCtx, pad, pad, gBannerW, gH, gH / 2);
+                pCtx.shadowColor = hexToRgba(expBaseColor, 0.58);
+                pCtx.shadowBlur = 13 * scaleRatioX;
+                pCtx.shadowOffsetY = 3 * scaleRatioY;
+                const gGrad = pCtx.createLinearGradient(pad, pad, pad + gBannerW, pad + gH * 0.18);
+                gGrad.addColorStop(0, hexToRgba(expBaseColor, 0.94));
+                gGrad.addColorStop(0.55, hexToRgba(expBaseColor, 0.84));
+                gGrad.addColorStop(1, expEndColor);
+                pCtx.fillStyle = gGrad;
+                pCtx.fill();
+                pCtx.restore();
+
+                pCtx.save();
+                drawLiveRoundRect(pCtx, pad, pad, gBannerW, gH, gH / 2);
+                pCtx.lineWidth = Math.max(1, 1.0 * gs);
+                pCtx.strokeStyle = hexToRgba(expBaseColor, 0.72);
+                pCtx.stroke();
+                pCtx.restore();
+
+                liveGiftPillBgCache = { key: pillCacheKey, canvas: c, pad };
+            }
+            ctx.drawImage(
+                liveGiftPillBgCache.canvas,
+                gX - liveGiftPillBgCache.pad,
+                gY - liveGiftPillBgCache.pad
+            );
+
+            // 5.3 左侧圆形真人送礼头像（1:1 还原编辑器 CSS：border: 1.2px solid rgba(255, 255, 255, 0.9)）
+            const avX = gX + Math.round(3.5 * gs);
+            const avY = gY + Math.round((gH - avSize) / 2);
+            let avatarImgToDraw = (cycleItem && cycleItem.avatarImg && cycleItem.avatarImg.complete && cycleItem.avatarImg.naturalWidth > 0)
+                ? cycleItem.avatarImg
+                : ((expSnap && expSnap.avatarImg && expSnap.avatarImg.complete && expSnap.avatarImg.naturalWidth > 0)
+                    ? expSnap.avatarImg
+                    : liveGiftSenderAv);
             ctx.save();
             ctx.beginPath();
             ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2);
@@ -14055,94 +15281,143 @@ window.switchRightTab = function (mode) {
                 try {
                     ctx.drawImage(avatarImgToDraw, avX, avY, avSize, avSize);
                 } catch (avDrawErr) {
-                    ctx.fillStyle = '#0284c7';
+                    ctx.fillStyle = '#1877f2';
                     ctx.fillRect(avX, avY, avSize, avSize);
                 }
             } else {
-                ctx.fillStyle = '#0284c7';
+                ctx.fillStyle = '#1877f2';
                 ctx.fillRect(avX, avY, avSize, avSize);
             }
             ctx.restore();
+            ctx.save();
             ctx.beginPath();
             ctx.arc(avX + avSize / 2, avY + avSize / 2, avSize / 2, 0, Math.PI * 2);
-            ctx.lineWidth = Math.max(1, 1.2 * scaleRatioX);
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.lineWidth = Math.max(1.0, 1.2 * gs);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.90)';
             ctx.stroke();
+            ctx.restore();
 
-            // 送礼人昵称与礼物描述
-            const metaX = avX + avSize + Math.round(6 * scaleRatioX);
+            // 5.4 送礼人昵称与礼物描述（1:1 还原编辑器 CSS：昵称 #ffffff 800，描述 rgba(255,255,255,0.88) 600）
+            const metaX = avX + avSize + Math.round(6 * gs);
+            ctx.save();
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
             ctx.font = `800 ${senderFontPx}px ${activeFont}`;
             ctx.fillStyle = '#ffffff';
-            ctx.fillText(expSender, metaX, gY + gH * 0.34);
+            ctx.fillText(expSender, metaX, gY + gH * 0.35);
             ctx.font = `600 ${descFontPx}px ${activeFont}`;
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.88)';
             ctx.fillText(expGiftDesc, metaX, gY + gH * 0.72);
+            ctx.restore();
 
-            // 礼物图标与连击数字跳动脉冲（仅在产生连击步进时轻微脉冲）
-            const bounceScale = (autoGiftOn && comboStepInCycle > 0 && comboBouncePhase < 0.32)
-                ? (1 + Math.sin((comboBouncePhase / 0.32) * Math.PI) * 0.25)
+            // 5.5 礼物图标（使用离屏精灵缓存绘制 drop-shadow，零主画布模糊开销）
+            const iconBounceScale = isComboBouncing
+                ? (1 + pulseWave * 0.34)
                 : 1;
-            const iconCenterX = metaX + metaW + Math.round(6 * scaleRatioX) + iconFontPx * 0.5;
-            const iconCenterY = gY + gH * 0.52;
+            const iconRotRad = isComboBouncing
+                ? ((8 * Math.sin(comboBouncePhase / 0.36 * Math.PI * 2)) * Math.PI / 180)
+                : 0;
+            const iconCenterX = metaX + metaW + Math.round(6 * gs) + iconFontPx * 0.5;
+            const iconCenterY = gY + gH * 0.50;
+            const iconSprite = getCachedGiftIconSprite(expGiftIcon, iconFontPx, gs);
+
             ctx.save();
             ctx.translate(iconCenterX, iconCenterY);
-            ctx.scale(bounceScale, bounceScale);
-            ctx.font = `${iconFontPx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(expGiftIcon, 0, 0);
+            if (iconRotRad) ctx.rotate(iconRotRad);
+            ctx.scale(iconBounceScale, iconBounceScale);
+            ctx.drawImage(iconSprite.canvas, -iconSprite.half, -iconSprite.half);
             ctx.restore();
 
-            const comboX = iconCenterX + iconFontPx * 0.55 + Math.round(4 * scaleRatioX);
+            // 5.6 连击数字 (x3 / x99)：1:1 还原编辑器 CSS (.live-gift-combo-num: italic 900 15.8px #fde047, text-shadow: 0 1px 5px rgba(0, 0, 0, 0.85))
+            const comboBounceScale = isComboBouncing ? (1 + pulseWave * 0.34) : 1;
+            const comboRotRad = isComboBouncing ? (-6 * pulseWave * Math.PI / 180) : 0;
+            const comboX = iconCenterX + iconFontPx * 0.55 + Math.round(4 * gs);
+            const comboY = gY + gH * 0.53;
+
             ctx.save();
-            ctx.translate(comboX, gY + gH * 0.54);
-            ctx.scale(bounceScale, bounceScale);
+            ctx.translate(comboX, comboY);
+            if (comboRotRad) ctx.rotate(comboRotRad);
+            ctx.scale(comboBounceScale, comboBounceScale);
             ctx.font = `italic 900 ${comboFontPx}px "Inter", ${activeFont}`;
-            ctx.fillStyle = '#fde047';
             ctx.textAlign = 'left';
             ctx.textBaseline = 'middle';
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.85)';
-            ctx.shadowBlur = 4 * scaleRatioX;
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.65)';
+            ctx.fillText(expComboTxt, 1 * gs, 1.5 * gs);
+            ctx.fillStyle = '#fde047';
             ctx.fillText(expComboTxt, 0, 0);
             ctx.restore();
+
             ctx.restore();
+            } // end if (!inExportEmptyGap)
         }
 
-        // 6) 动态绘制右侧向上飘动的火花、笑脸、礼花、礼炮与彩色爱心混搭粒子（支持显隐开关与 0 档关闭）
+        // 6) 动态绘制右下角向上飘动的表情与彩心粒子（使用离屏精灵缓存 1:1 还原编辑器 drop-shadow 光效，零主画布模糊开销）
         const density = getLiveHeartDensityVal();
         const showFloatingHearts = density > 0
-            && (liveVisStateMap['floating-hearts'] !== false)
+            && (liveVisStateMap['float-hearts'] !== false && liveVisStateMap['floating-hearts'] !== false)
             && (!liveFloatingHearts || liveFloatingHearts.dataset.liveHidden !== 'true');
 
         if (showFloatingHearts) {
-            const EXPORT_CHEER_EMOJIS = ['🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩', '🎆', '😍', '🌟', '🎇', '💖', '🎈', '👍'];
-            const heartSizePx = Math.round(18.5 * scaleRatioX);
-            const baseRightX = outW - 30 * scaleRatioX;
-            const baseBottomY = outH - 148 * scaleRatioY;
-            const floatHeight = 205 * scaleRatioY;
-            const particleCount = Math.max(1, Math.min(9, Math.round(density * 0.85)));
+            const EXPORT_CHEER_EMOJIS = [
+                '🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩', '🎆',
+                '😍', '🌟', '🎇', '😆', '💖', '🎈', '🥰', '👍',
+                '⚡', '😎', '🧨', '👏', '💥', '❤️‍🔥'
+            ];
+            const heartSizePx = Math.round(19.5 * scaleRatioX);
+            const baseRightX = outW - 31 * scaleRatioX;
+            const baseBottomY = outH - 146 * scaleRatioY;
+            const floatHeight = 212 * scaleRatioY;
+            const particleCount = Math.max(2, Math.min(10, Math.round(density * 0.95)));
 
             for (let i = 0; i < particleCount; i++) {
-                const phase = (elapsedSec * (0.42 + density * 0.04) + i * (1 / particleCount)) % 1;
+                const speedFactor = 0.42 + density * 0.038;
+                const totalCycleVal = elapsedSec * speedFactor + i * (1 / particleCount);
+                const phase = totalCycleVal % 1;
                 const curY = baseBottomY - phase * floatHeight;
-                const swayX = Math.sin((phase * Math.PI * 2) + i * 1.7) * (12 * scaleRatioX);
-                const alpha = phase < 0.15 ? (phase / 0.15) : (phase > 0.72 ? Math.max(0, (1 - phase) / 0.28) : 0.96);
-                if (i % 5 === 4) {
-                    const col = EXPORT_HEART_COLORS[i % EXPORT_HEART_COLORS.length];
-                    drawVectorHeartOnCanvas(ctx, baseRightX + swayX, curY, heartSizePx, col, alpha);
+                const swayX = Math.sin((phase * Math.PI * 2.2) + i * 1.7) * (13 * scaleRatioX);
+                const curX = baseRightX + swayX;
+
+                // 复刻 CSS @keyframes liveHeartFloatUp 的 5 段式弹性缩放曲线 (0.45 -> 1.18 -> 1.06 -> 0.95 -> 0.78)
+                let pScale = 1.0;
+                if (phase < 0.14) {
+                    const t = phase / 0.14;
+                    pScale = 0.45 + (1.18 - 0.45) * (1 - Math.pow(1 - t, 2));
+                } else if (phase < 0.35) {
+                    const t = (phase - 0.14) / 0.21;
+                    pScale = 1.18 - (1.18 - 1.06) * t;
+                } else if (phase < 0.75) {
+                    const t = (phase - 0.35) / 0.40;
+                    pScale = 1.06 - (1.06 - 0.95) * t;
                 } else {
-                    const cycleStep = Math.floor(elapsedSec * (0.42 + density * 0.04) + i * (1 / particleCount));
-                    const em = EXPORT_CHEER_EMOJIS[(i * 3 + cycleStep) % EXPORT_CHEER_EMOJIS.length];
-                    ctx.save();
-                    ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
-                    ctx.font = `${heartSizePx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-                    ctx.textAlign = 'center';
-                    ctx.textBaseline = 'middle';
-                    ctx.fillText(em, baseRightX + swayX, curY);
-                    ctx.restore();
+                    const t = (phase - 0.75) / 0.25;
+                    pScale = 0.95 - (0.95 - 0.78) * t;
                 }
+
+                // 复刻 CSS @keyframes liveHeartFloatUp 的左右灵动摇摆倾角 (±11.5°)
+                const rotDeg = Math.sin(phase * Math.PI * 3 + i * 1.3) * 11.5;
+                const rotRad = (rotDeg * Math.PI) / 180;
+
+                // 透明度曲线：前 12% 渐显，中间保持高亮，后 26% 柔和渐隐
+                const alpha = phase < 0.12
+                    ? (phase / 0.12)
+                    : (phase > 0.74 ? Math.max(0, (1 - phase) / 0.26) : 0.98);
+
+                if (alpha <= 0.02) continue;
+
+                const cycleStep = Math.floor(totalCycleVal);
+                const pickToken = (i * 5 + cycleStep * 3) % (EXPORT_CHEER_EMOJIS.length + 2);
+                const isHeartToken = pickToken >= EXPORT_CHEER_EMOJIS.length;
+                const heartCol = pickToken === EXPORT_CHEER_EMOJIS.length ? '#ff5e97' : '#a855f7';
+                const tokenStr = isHeartToken ? heartCol : EXPORT_CHEER_EMOJIS[pickToken];
+                const sprite = getCachedCheerParticleSprite(tokenStr, isHeartToken, heartCol, heartSizePx, scaleRatioX, scaleRatioY);
+
+                ctx.save();
+                ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
+                ctx.translate(curX, curY);
+                ctx.rotate(rotRad);
+                ctx.scale(pScale, pScale);
+                ctx.drawImage(sprite.canvas, -sprite.halfW, -sprite.halfH);
+                ctx.restore();
             }
         }
     };
@@ -14162,7 +15437,7 @@ window.switchRightTab = function (mode) {
     }
     // 自动将旧版逗号连在一行的弹幕缓存（如「前排！, 主播好漂亮, 這首歌絕了...」）拆分为每行一条，并同步礼物图标与真人头像
     normalizeLiveDanmakuTextarea(true);
-    ['btn-screenshot', 'btn-export-video'].forEach(expBtnId => {
+    ['btn-save-img', 'btn-save-vid', 'btn-screenshot', 'btn-export-video'].forEach(expBtnId => {
         const expBtn = document.getElementById(expBtnId);
         if (expBtn) {
             expBtn.addEventListener('click', () => {
@@ -14440,7 +15715,7 @@ window.switchRightTab = function (mode) {
                 stagePanY = 0;
             }
 
-            // 在空白处使用滚轮或放大查看时，默认自动开启拖动查看模式（除非用户按 M 键或点按钮手动关闭了拖动）
+            // 仅当用户显式开启拖动模式（点 ✋ 拖动(M) 或按 M 键）时才拦截内部点击，缩放时不自动锁死内部按钮与进度条交互
             if (autoEnablePan && !userLockedPanOff) {
                 isStagePanMode = true;
             }
@@ -14488,11 +15763,9 @@ window.switchRightTab = function (mode) {
 
         function quickToggleMagnifier() {
             if (stageZoomPct === 100 && Math.abs(stagePanX) < 2 && Math.abs(stagePanY) < 2) {
-                userLockedPanOff = false;
-                isStagePanMode = true;
-                setStageZoom(150, undefined, undefined, false, true);
+                setStageZoom(150, undefined, undefined, false, false);
                 if (typeof window.showToast === 'function') {
-                    window.showToast('🔍 已放大至 150% 并开启拖动查看模式（直接按住左键拖动画面，滚轮放大缩小，按 M 键切换）');
+                    window.showToast('🔍 已放大至 150%（画面内按钮与进度条仍可直接操作；按住黑底空白处或按 M 键可拖动画面）');
                 }
             } else {
                 resetStageMagnifier(true);
@@ -14506,18 +15779,18 @@ window.switchRightTab = function (mode) {
         if (btnStageZoomIn) {
             btnStageZoomIn.addEventListener('click', (e) => {
                 e.stopPropagation();
-                setStageZoom(stageZoomPct + 20, undefined, undefined, false, true);
+                setStageZoom(stageZoomPct + 20, undefined, undefined, false, false);
             });
         }
         if (btnStageZoomOut) {
             btnStageZoomOut.addEventListener('click', (e) => {
                 e.stopPropagation();
-                setStageZoom(stageZoomPct - 20, undefined, undefined, false, true);
+                setStageZoom(stageZoomPct - 20, undefined, undefined, false, false);
             });
         }
         if (inStageZoomSlider) {
             inStageZoomSlider.addEventListener('input', () => {
-                setStageZoom(Number(inStageZoomSlider.value) || 100, undefined, undefined, true, true);
+                setStageZoom(Number(inStageZoomSlider.value) || 100, undefined, undefined, true, false);
             });
         }
         if (txtStageZoomPct) {
@@ -14525,7 +15798,7 @@ window.switchRightTab = function (mode) {
                 e.stopPropagation();
                 const presets = [100, 150, 200, 250];
                 const nextIdx = (presets.indexOf(Math.round(stageZoomPct)) + 1) % presets.length;
-                setStageZoom(presets[nextIdx], undefined, undefined, false, presets[nextIdx] !== 100);
+                setStageZoom(presets[nextIdx], undefined, undefined, false, false);
             });
         }
         if (btnStagePanToggle) {
@@ -14546,26 +15819,21 @@ window.switchRightTab = function (mode) {
             btnGlobalResetEl.addEventListener('click', () => resetStageMagnifier(false));
         }
 
-        // 2. 鼠标滚轮放大/缩小整个素材画面：在空白区域使用滚轮时默认自动开启拖动查看模式
+        // 2. 鼠标滚轮放大/缩小整个素材画面：排除内部弹幕、直播间公屏/礼物区与评论列表自身的滚轮操作
         const wheelTargetEl = workspaceEl || stageEl;
         wheelTargetEl.addEventListener('wheel', (e) => {
             if (e.target && e.target.closest && (e.target.closest('.viewport-tabs') || e.target.closest('#jy-trimmer-panel') || e.target.closest('#crop-inspector-window'))) {
                 return;
             }
             const isOverEmptyArea = !boxEl.contains(e.target);
-            // 若在未开启拖动模式且 100% 大小时，鼠标正悬停在打开的竖屏评论列表内部滚动，则保留评论滚动
-            if (!isOverEmptyArea && !isStagePanMode && stageZoomPct === 100 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-                if (boxEl.classList.contains('dy-comment-open') && e.target && e.target.closest && e.target.closest('#dy-comment-list')) {
+            if (!isOverEmptyArea && !isStagePanMode && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                if (e.target && e.target.closest && e.target.closest('.danmaku-item, #dy-comment-list, .live-bottom-section, #live-chat-scroll-box, #live-gift-combo-banner')) {
                     return;
                 }
             }
             e.preventDefault();
-            // 若用户在空白处滚动滚轮，默认开启拖动查看模式（除非用户之后按 M 或点按钮关闭）
-            if (isOverEmptyArea && !userLockedPanOff) {
-                isStagePanMode = true;
-            }
             const delta = e.deltaY < 0 ? 15 : -15;
-            setStageZoom(stageZoomPct + delta, e.clientX, e.clientY, true, isOverEmptyArea || (stageZoomPct + delta > 100));
+            setStageZoom(stageZoomPct + delta, e.clientX, e.clientY, true, false);
         }, { passive: false });
 
         // 3. 键盘 M 键一键切换拖动查看模式（开启/关闭）
@@ -14926,7 +16194,7 @@ window.switchRightTab = function (mode) {
                 } else if (t.closest('#dyl-wrap-dm-pill')) {
                     locate('dy', 'card-dyl-switches', '#sw-dyl-dm-pill');
                 } else if (t.closest('#dyl-wrap-time, #dyl-progress-wrap')) {
-                    locate('dy', 'card-dyl-switches', '#sw-dyl-time');
+                    locate('dy', 'card-dyl-switches', '#in-dyl-start-time', null, { focusInput: true });
                 } else if (t.closest('#dyl-wrap-social')) {
                     locate('dy', 'card-dyl-switches', '#sw-dyl-bottom');
                 } else if (t.closest('#dyl-wrap-right-opts')) {
