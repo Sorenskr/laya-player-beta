@@ -421,7 +421,7 @@ function syncPauseButtonUI(isPaused) {
 
             card.innerHTML = `
                 <div class="dm-track-row1">
-                    <input type="text" class="dm-input-text" value="${dm.text}" placeholder="弹幕文字">
+                    <input type="text" class="dm-input-text" placeholder="弹幕文字">
                     <button class="dm-track-del" title="删除此条">✕</button>
                 </div>
                 <div class="dm-track-row2">
@@ -439,12 +439,16 @@ function syncPauseButtonUI(isPaused) {
                 </div>
             `;
 
-            card.querySelector('.dm-input-text').addEventListener('input', (e) => {
-                dm.text = e.target.value;
-                const stageEl = document.getElementById('stage_' + dm.id);
-                if (stageEl) stageEl.textContent = e.target.value;
-                if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-            });
+            const dmTextInputEl = card.querySelector('.dm-input-text');
+            if (dmTextInputEl) {
+                dmTextInputEl.value = dm.text || '';
+                dmTextInputEl.addEventListener('input', (e) => {
+                    dm.text = e.target.value;
+                    const stageEl = document.getElementById('stage_' + dm.id);
+                    if (stageEl) stageEl.textContent = e.target.value;
+                    if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
+                });
+            }
 
             card.querySelector('.dm-input-top').addEventListener('input', (e) => {
                 dm.top = Math.min(95, Math.max(5, parseInt(e.target.value) || 20));
@@ -677,6 +681,21 @@ function syncPauseButtonUI(isPaused) {
         if (txtDmPortMin) txtDmPortMin.textContent = minVal + '%';
         if (txtDmPortMax) txtDmPortMax.textContent = maxVal + '%';
 
+        const syncTrackInputsInPlace = () => {
+            if (!danmakuTrackList) return;
+            const cards = danmakuTrackList.querySelectorAll('.dm-track-card');
+            if (cards.length !== window.DanmakuEngine.list.length) {
+                renderDanmakuTracksUI();
+                return;
+            }
+            window.DanmakuEngine.list.forEach((dm, idx) => {
+                const topInp = cards[idx] && cards[idx].querySelector('.dm-input-top');
+                if (topInp && String(topInp.value) !== String(dm.top)) {
+                    topInp.value = String(dm.top);
+                }
+            });
+        };
+
         if (redistribute && window.DanmakuEngine.list.length > 0) {
             const count = window.DanmakuEngine.list.length;
             const step = count > 1 ? (maxVal - minVal) / (count - 1) : 0;
@@ -685,7 +704,7 @@ function syncPauseButtonUI(isPaused) {
                 dm.top = Math.round(minVal + i * step);
             });
             window.DanmakuEngine.syncStageTopPositions();
-            renderDanmakuTracksUI();
+            syncTrackInputsInPlace();
         } else {
             window.DanmakuEngine.list.forEach((dm) => {
                 if (dm.top < minVal || dm.top > maxVal) {
@@ -693,7 +712,7 @@ function syncPauseButtonUI(isPaused) {
                 }
             });
             window.DanmakuEngine.syncStageTopPositions();
-            renderDanmakuTracksUI();
+            syncTrackInputsInPlace();
         }
         if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
     }

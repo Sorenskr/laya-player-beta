@@ -37,7 +37,7 @@ window.showToast = function (msg) {
 };
 
 // 切换右侧控制面板选项卡
-window.switchRightTab = function (mode) {
+window.switchRightTab = function (mode, opts) {
     const tabWeb = document.getElementById('tab-btn-web');
     const tabCinema = document.getElementById('tab-btn-m-cinema');
     const tabDy = document.getElementById('tab-btn-dy');
@@ -51,13 +51,20 @@ window.switchRightTab = function (mode) {
     [tabWeb, tabCinema, tabDy, tabDm].forEach(b => b && b.classList.remove('active'));
     [panelWeb, panelCinema, panelDy, panelDm].forEach(p => p && p.classList.remove('active'));
 
-    if (mode === 'm-cinema') {
+    const resolvedMode = (mode === 'm-cinema' || mode === 'dy' || mode === 'dm') ? mode : 'web';
+    if (!opts || !opts.preserveExpand) {
+        if (typeof window.applyCleanFocusCardsForMode === 'function') {
+            window.applyCleanFocusCardsForMode(resolvedMode);
+        }
+    }
+
+    if (resolvedMode === 'm-cinema') {
         if (tabCinema) tabCinema.classList.add('active');
         if (panelCinema) panelCinema.classList.add('active');
-    } else if (mode === 'dy') {
+    } else if (resolvedMode === 'dy') {
         if (tabDy) tabDy.classList.add('active');
         if (panelDy) panelDy.classList.add('active');
-    } else if (mode === 'dm') {
+    } else if (resolvedMode === 'dm') {
         if (tabDm) tabDm.classList.add('active');
         if (panelDm) panelDm.classList.add('active');
     } else {
@@ -133,13 +140,14 @@ window.switchRightTab = function (mode) {
             { kw: '高能热度波浪曲线', id: 'card-web-wave' },
             { kw: '电脑端文案与预设自定义', id: 'card-web-text' },
             { kw: '手机顶部状态栏仿真配置', id: 'card-mc-statusbar' },
-            { kw: '左上角画质徽标与标题配置', id: 'card-mc-badge' },
+            { kw: '画质徽标与标题配置', id: 'card-mc-badge' },
             { kw: '手机横屏组件显隐开关', id: 'card-mc-switches' },
             { kw: '弹幕运动与定格控制', id: 'card-dm-studio' },
             { kw: '独立取景框', id: 'card-crop-box' }
         ];
 
         allCards.forEach(card => {
+            if (card.id) return;
             const headerEl = card.querySelector('.card-header');
             const headerTxt = headerEl ? headerEl.textContent : '';
             if (headerTxt.includes('起始时间与进度条控制')) {
@@ -159,6 +167,157 @@ window.switchRightTab = function (mode) {
         });
     }
     ensureRightPanelCardIds();
+
+    /* ==========================================================================
+       ★ 0.6 右侧编辑栏卡片手风琴清爽折叠 + 直播间 5 分组筛选（高可读性 + 切换 <20ms 零卡顿）
+       ========================================================================== */
+    function setLiveSubtabFilter(groupKey) {
+        const liveCard = document.getElementById('card-dy-live-settings');
+        const subBar = document.getElementById('live-subtab-bar');
+        if (!liveCard || !subBar) return;
+        const g = groupKey || 'all';
+        subBar.querySelectorAll('.live-subtab-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-live-group') === g);
+        });
+        Array.from(liveCard.children).forEach(child => {
+            if (child.classList.contains('card-header') || child.id === 'live-subtab-bar' || child.id === 'live-dm-edit-toolbar') {
+                child.classList.remove('live-group-hidden');
+                return;
+            }
+            if (g === 'all') {
+                child.classList.remove('live-group-hidden');
+                return;
+            }
+            let itemGroup = 'host';
+            if (child.id === 'live-cfg-box-visibility' || child.id === 'live-cfg-box-welcome') {
+                itemGroup = 'vis';
+            } else if (child.id === 'live-cfg-box-gift') {
+                itemGroup = 'gift';
+            } else if (child.id === 'live-cfg-box-ai-secret' || child.id === 'live-cfg-box-danmaku' || child.querySelector('#in-live-heart-density, #in-live-dm-speed, #in-live-dm-scale')) {
+                itemGroup = 'chat';
+            }
+            child.classList.toggle('live-group-hidden', itemGroup !== g);
+        });
+    }
+    window.setLiveSubtabFilter = setLiveSubtabFilter;
+
+    function getActiveRightTabKey() {
+        if (document.getElementById('tab-btn-m-cinema')?.classList.contains('active')) return 'm-cinema';
+        if (document.getElementById('tab-btn-dy')?.classList.contains('active')) return 'dy';
+        if (document.getElementById('tab-btn-dm')?.classList.contains('active')) return 'dm';
+        return 'web';
+    }
+
+    function applyCleanFocusCardsForMode(mode) {
+        if (!rightSidebarEl) return;
+        const m = mode || getActiveRightTabKey();
+        const rt = document.getElementById('render-target');
+        const expandedIds = new Set();
+        if (m === 'm-cinema') {
+            expandedIds.add('card-mc-badge');
+            expandedIds.add('card-mc-statusbar');
+        } else if (m === 'dy') {
+            if (rt && rt.classList.contains('mode-dy-land')) {
+                expandedIds.add('card-dy-fullscreen');
+                expandedIds.add('card-dyl-switches');
+            } else if (rt && rt.classList.contains('dy-live-open')) {
+                expandedIds.add('card-dy-live-settings');
+                expandedIds.add('card-dy-statusbar');
+            } else if (rt && rt.classList.contains('dy-comment-open')) {
+                expandedIds.add('card-dy-skin');
+                expandedIds.add('card-dy-comment-studio');
+                expandedIds.add('card-dy-author');
+            } else {
+                expandedIds.add('card-dy-skin');
+                expandedIds.add('card-dy-statusbar');
+                expandedIds.add('card-dy-author');
+            }
+        } else if (m === 'dm') {
+            expandedIds.add('card-dm-studio');
+        } else {
+            expandedIds.add('card-logo-switch');
+            expandedIds.add('card-web-time');
+            expandedIds.add('card-web-text');
+        }
+        rightSidebarEl.querySelectorAll('.panel-card').forEach(card => {
+            if (!card.id) return;
+            card.classList.toggle('is-collapsed', !expandedIds.has(card.id));
+        });
+    }
+    window.applyCleanFocusCardsForMode = applyCleanFocusCardsForMode;
+
+    (function initCollapsibleSidebarCards() {
+        if (!rightSidebarEl) return;
+        rightSidebarEl.querySelectorAll('.panel-card').forEach(card => {
+            const header = card.querySelector(':scope > .card-header');
+            if (!header) return;
+            if (!header.querySelector('.card-fold-chevron')) {
+                const chev = document.createElement('span');
+                chev.className = 'card-fold-chevron';
+                chev.textContent = '▾';
+                chev.title = '点击折叠或展开此卡片';
+                header.appendChild(chev);
+            }
+            header.addEventListener('click', (e) => {
+                if (e.target && e.target.closest('button, label, input, select, a')) return;
+                card.classList.toggle('is-collapsed');
+            });
+        });
+
+        const btnFocusView = document.getElementById('btn-sidebar-focus-view');
+        const btnExpandAll = document.getElementById('btn-sidebar-expand-all');
+        if (btnFocusView) {
+            btnFocusView.addEventListener('click', () => {
+                applyCleanFocusCardsForMode(getActiveRightTabKey());
+                rightSidebarEl.scrollTo({ top: 0, behavior: 'smooth' });
+            });
+        }
+        if (btnExpandAll) {
+            btnExpandAll.addEventListener('click', () => {
+                rightSidebarEl.querySelectorAll('.panel-card').forEach(c => c.classList.remove('is-collapsed'));
+                setLiveSubtabFilter('all');
+            });
+        }
+
+        const liveSubtabBar = document.getElementById('live-subtab-bar');
+        if (liveSubtabBar) {
+            liveSubtabBar.addEventListener('click', (e) => {
+                const btn = e.target && e.target.closest('.live-subtab-btn');
+                if (!btn) return;
+                setLiveSubtabFilter(btn.getAttribute('data-live-group') || 'all');
+            });
+        }
+
+        const rtNode = document.getElementById('render-target');
+        if (rtNode && typeof MutationObserver !== 'undefined') {
+            let prevLive = rtNode.classList.contains('dy-live-open');
+            let prevCmt = rtNode.classList.contains('dy-comment-open');
+            let prevLand = rtNode.classList.contains('mode-dy-land');
+            const rtObs = new MutationObserver(() => {
+                const nowLive = rtNode.classList.contains('dy-live-open');
+                const nowCmt = rtNode.classList.contains('dy-comment-open');
+                const nowLand = rtNode.classList.contains('mode-dy-land');
+                if (nowLive && !prevLive) {
+                    document.getElementById('card-dy-live-settings')?.classList.remove('is-collapsed');
+                    const pDy = document.getElementById('panel-dy-settings');
+                    if (pDy) pDy.classList.add('live-priority-order');
+                }
+                if (nowCmt && !prevCmt) {
+                    document.getElementById('card-dy-comment-studio')?.classList.remove('is-collapsed');
+                }
+                if (nowLand && !prevLand) {
+                    document.getElementById('card-dy-fullscreen')?.classList.remove('is-collapsed');
+                    document.getElementById('card-dyl-switches')?.classList.remove('is-collapsed');
+                }
+                prevLive = nowLive;
+                prevCmt = nowCmt;
+                prevLand = nowLand;
+            });
+            rtObs.observe(rtNode, { attributes: true, attributeFilter: ['class'] });
+        }
+
+        applyCleanFocusCardsForMode('web');
+    })();
 
     let isQaProgrammaticScroll = false;
     let qaScrollTimer = null;
@@ -200,7 +359,7 @@ window.switchRightTab = function (mode) {
 
         // 1. 切换到对应的右侧控制面板 Tab
         if (tab && tab !== 'keep' && typeof window.switchRightTab === 'function') {
-            window.switchRightTab(tab);
+            window.switchRightTab(tab, { preserveExpand: true });
             if (qaModeBadge) {
                 const badgeMap = { 'dy': '竖屏社区', 'web': '电脑网页', 'm-cinema': '手机横屏', 'dm': '弹幕工坊' };
                 qaModeBadge.textContent = badgeMap[tab] || '全板块';
@@ -235,6 +394,17 @@ window.switchRightTab = function (mode) {
         const cardEl = (cardId && document.getElementById(cardId))
             || (targetEl && targetEl.closest && targetEl.closest('.panel-card'))
             || null;
+
+        if (cardEl && cardEl.classList.contains('is-collapsed')) {
+            cardEl.classList.remove('is-collapsed');
+        }
+        if (cardEl && cardEl.id === 'card-dy-live-settings' && targetEl && targetEl !== cardEl && targetEl.closest('.live-group-hidden')) {
+            setLiveSubtabFilter('all');
+        }
+        if (targetEl && targetEl.closest) {
+            const detailsParent = targetEl.closest('details');
+            if (detailsParent && !detailsParent.open) detailsParent.open = true;
+        }
 
         if (!targetEl && cardEl) {
             targetEl = cardEl;
@@ -483,47 +653,229 @@ window.switchRightTab = function (mode) {
     // 默认直接使用自带的 window.LOCAL_LOGOS (Laya.png / Laya2.png)，若用户主动上传过自定义图标则优先用用户的
     const customLogoDB = {
         'Laya.png': localStorage.getItem('LAYA_CUSTOM_LOGO_1') || (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya.png']) || 'Laya.png',
-        'Laya2.png': localStorage.getItem('LAYA_CUSTOM_LOGO_2') || (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya2.png']) || 'Laya2.png'
+        'Laya2.png': localStorage.getItem('LAYA_CUSTOM_LOGO_2') || (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya2.png']) || 'Laya2.png',
+        'custom_sb': localStorage.getItem('LAYA_CUSTOM_SB_ICON') || ''
     };
+
+    const logoFastThumbCache = new Map();
+    const sbSyntheticBadgeCache = new Map();
+
+    const SB_LAYA_PRESET_META = [
+        { key: 'Laya2.png', shortLabel: '官方紫标', fullLabel: '🟣 Laya 官方紫圆标' },
+        { key: 'Laya.png', shortLabel: '经典蓝标', fullLabel: '🔵 Laya 经典蓝圆标' },
+        { key: 'laya-mono-white', shortLabel: '纯白标', fullLabel: '🤍 Laya 极简纯白通知标' },
+        { key: 'laya-blue', shortLabel: '电光蓝', fullLabel: '💠 Laya 霓虹电光蓝标' },
+        { key: 'laya-gold', shortLabel: '黑金标', fullLabel: '🟡 Laya 尊享黑金标' },
+        { key: 'laya-pink', shortLabel: '绯红标', fullLabel: '💗 Laya 绯红直播标' },
+        { key: 'laya-bell', shortLabel: '铃铛标', fullLabel: '🔔 Laya 消息铃铛角标' },
+        { key: 'custom', shortLabel: '自定义', fullLabel: '📁 自定义上传小图标' }
+    ];
+
+    function drawRoundedRectPath(ctx, x, y, w, h, r) {
+        ctx.beginPath();
+        ctx.moveTo(x + r, y);
+        ctx.arcTo(x + w, y, x + w, y + h, r);
+        ctx.arcTo(x + w, y + h, x, y + h, r);
+        ctx.arcTo(x, y + h, x, y, r);
+        ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+    }
+
+    function buildSyntheticSbBadgeDataUrl(styleKey) {
+        if (sbSyntheticBadgeCache.has(styleKey)) return sbSyntheticBadgeCache.get(styleKey);
+        const c = document.createElement('canvas');
+        c.width = 64;
+        c.height = 64;
+        const cx = c.getContext('2d');
+        if (!cx) return '';
+
+        if (styleKey === 'laya-mono-white') {
+            drawRoundedRectPath(cx, 6, 6, 52, 52, 14);
+            cx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+            cx.fill();
+            cx.globalCompositeOperation = 'destination-out';
+            cx.fillStyle = '#000';
+            cx.fillRect(20, 16, 8, 30);
+            cx.fillRect(20, 38, 23, 8);
+            cx.beginPath();
+            cx.arc(41, 21, 4.5, 0, Math.PI * 2);
+            cx.fill();
+            cx.globalCompositeOperation = 'source-over';
+        } else if (styleKey === 'laya-blue') {
+            const g = cx.createLinearGradient(6, 6, 58, 58);
+            g.addColorStop(0, '#38bdf8');
+            g.addColorStop(1, '#2563eb');
+            drawRoundedRectPath(cx, 5, 5, 54, 54, 15);
+            cx.fillStyle = g;
+            cx.fill();
+            cx.fillStyle = '#ffffff';
+            cx.fillRect(20, 16, 8.5, 30);
+            cx.fillRect(20, 37.5, 23, 8.5);
+            cx.beginPath();
+            cx.arc(42, 21, 4.5, 0, Math.PI * 2);
+            cx.fillStyle = '#bae6fd';
+            cx.fill();
+        } else if (styleKey === 'laya-gold') {
+            drawRoundedRectPath(cx, 5, 5, 54, 54, 15);
+            cx.fillStyle = '#18181b';
+            cx.fill();
+            cx.lineWidth = 3.5;
+            cx.strokeStyle = '#fbbf24';
+            cx.stroke();
+            const gg = cx.createLinearGradient(16, 14, 48, 50);
+            gg.addColorStop(0, '#fef08a');
+            gg.addColorStop(1, '#f59e0b');
+            cx.fillStyle = gg;
+            cx.fillRect(20, 16, 8.5, 30);
+            cx.fillRect(20, 37.5, 23, 8.5);
+            cx.beginPath();
+            cx.arc(42, 21, 4.2, 0, Math.PI * 2);
+            cx.fill();
+        } else if (styleKey === 'laya-pink') {
+            const gp = cx.createLinearGradient(6, 6, 58, 58);
+            gp.addColorStop(0, '#fb7185');
+            gp.addColorStop(1, '#e11d48');
+            drawRoundedRectPath(cx, 5, 5, 54, 54, 15);
+            cx.fillStyle = gp;
+            cx.fill();
+            cx.save();
+            cx.translate(32, 33);
+            cx.scale(1.55, 1.55);
+            cx.beginPath();
+            cx.moveTo(0, 8.8);
+            cx.bezierCurveTo(-6.4, 3.2, -9.6, 0.3, -9.6, -3.45);
+            cx.bezierCurveTo(-9.6, -6.35, -7.35, -8.6, -4.45, -8.6);
+            cx.bezierCurveTo(-2.83, -8.6, -1.27, -7.84, 0, -6.62);
+            cx.bezierCurveTo(1.27, -7.84, 2.83, -8.6, 4.45, -8.6);
+            cx.bezierCurveTo(7.35, -8.6, 9.6, -6.35, 9.6, -3.45);
+            cx.bezierCurveTo(9.6, 0.3, 6.4, 3.2, 0, 8.8);
+            cx.closePath();
+            cx.fillStyle = '#ffffff';
+            cx.fill();
+            cx.restore();
+        } else if (styleKey === 'laya-bell') {
+            cx.fillStyle = 'rgba(255, 255, 255, 0.96)';
+            cx.beginPath();
+            cx.arc(31, 12, 4, 0, Math.PI * 2);
+            cx.fill();
+            cx.beginPath();
+            cx.moveTo(31, 14);
+            cx.bezierCurveTo(19, 14, 15, 23, 15, 35);
+            cx.lineTo(10, 43);
+            cx.lineTo(52, 43);
+            cx.lineTo(47, 35);
+            cx.bezierCurveTo(47, 23, 43, 14, 31, 14);
+            cx.closePath();
+            cx.fill();
+            cx.beginPath();
+            cx.arc(31, 48, 6, 0, Math.PI);
+            cx.fill();
+            cx.beginPath();
+            cx.arc(46, 18, 9.5, 0, Math.PI * 2);
+            cx.fillStyle = '#a855f7';
+            cx.fill();
+            cx.lineWidth = 2.5;
+            cx.strokeStyle = '#ffffff';
+            cx.stroke();
+        }
+
+        const out = c.toDataURL('image/png');
+        sbSyntheticBadgeCache.set(styleKey, out);
+        return out;
+    }
 
     function getActiveLogoSrc(logoKey) {
         return customLogoDB[logoKey] || (window.LOCAL_LOGOS && window.LOCAL_LOGOS[logoKey]) || logoKey;
     }
 
+    function getFastPreviewLogoSrc(logoKey) {
+        const fullSrc = getActiveLogoSrc(logoKey);
+        if (logoFastThumbCache.has(fullSrc)) {
+            return logoFastThumbCache.get(fullSrc);
+        }
+        if (typeof fullSrc === 'string' && fullSrc.startsWith('data:image/') && fullSrc.length > 40000) {
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    const c = document.createElement('canvas');
+                    c.width = 72;
+                    c.height = 72;
+                    const cx = c.getContext('2d');
+                    cx.imageSmoothingEnabled = true;
+                    cx.imageSmoothingQuality = 'high';
+                    cx.drawImage(img, 0, 0, 72, 72);
+                    const thumb = c.toDataURL('image/webp', 0.92);
+                    logoFastThumbCache.set(fullSrc, thumb);
+                    ['header-brand-logo', 'player-mini-logo', 'm-brand-logo', 'dy-lf-wm-logo', 'dy-featured-logo-img', 'live-laya-mini-logo', 'dy-sb-laya-icon', 'm-sb-laya-icon', 'dyl-sb-laya-icon'].forEach(id => {
+                        const el = document.getElementById(id);
+                        if (el && el.getAttribute('src') === fullSrc) {
+                            el.src = thumb;
+                        }
+                    });
+                } catch (_e) {}
+            };
+            img.src = fullSrc;
+        }
+        return fullSrc;
+    }
+
+    function getStatusBarLayaIconSrc(styleKey, forExport = false) {
+        const k = styleKey || 'Laya2.png';
+        if (k === 'Laya.png' || k === 'Laya2.png') {
+            return forExport ? getActiveLogoSrc(k) : getFastPreviewLogoSrc(k);
+        }
+        if (k === 'custom') {
+            if (customLogoDB['custom_sb']) return customLogoDB['custom_sb'];
+            return forExport ? getActiveLogoSrc('Laya2.png') : getFastPreviewLogoSrc('Laya2.png');
+        }
+        const badge = buildSyntheticSbBadgeDataUrl(k);
+        return badge || (forExport ? getActiveLogoSrc('Laya2.png') : getFastPreviewLogoSrc('Laya2.png'));
+    }
+    window.getStatusBarLayaIconSrc = getStatusBarLayaIconSrc;
+
     function applyLogoVersion(logoKey, shouldSave = true) {
         const realSrc = getActiveLogoSrc(logoKey);
+        const fastSrc = getFastPreviewLogoSrc(logoKey);
 
         if (headerBrandLogo) {
-            headerBrandLogo.src = realSrc;
+            headerBrandLogo.src = fastSrc;
             headerBrandLogo.style.display = 'block';
         }
-        if (playerMiniLogo) playerMiniLogo.src = realSrc;
-        if (mBrandLogo) mBrandLogo.src = realSrc;
-        if (dyLfWmLogo) dyLfWmLogo.src = realSrc;
+        if (playerMiniLogo) playerMiniLogo.src = fastSrc;
+        if (mBrandLogo) mBrandLogo.src = fastSrc;
+        if (dyLfWmLogo) dyLfWmLogo.src = fastSrc;
         const dyFeaturedLogoImg = document.getElementById('dy-featured-logo-img');
-        if (dyFeaturedLogoImg) dyFeaturedLogoImg.src = realSrc;
+        if (dyFeaturedLogoImg) dyFeaturedLogoImg.src = fastSrc;
         const liveLayaMiniLogo = document.getElementById('live-laya-mini-logo');
-        if (liveLayaMiniLogo) liveLayaMiniLogo.src = getActiveLogoSrc('Laya2.png');
-        const dySbLayaIconEl = document.getElementById('dy-sb-laya-icon');
+        if (liveLayaMiniLogo) liveLayaMiniLogo.src = getFastPreviewLogoSrc('Laya2.png');
         const selDySbLayaLogoEl = document.getElementById('sel-dy-sb-laya-logo');
-        if (dySbLayaIconEl) {
-            dySbLayaIconEl.src = getActiveLogoSrc(selDySbLayaLogoEl ? selDySbLayaLogoEl.value : 'Laya.png');
-        }
+        const curSbKey = selDySbLayaLogoEl ? selDySbLayaLogoEl.value : 'Laya2.png';
+        const curSbSrc = getStatusBarLayaIconSrc(curSbKey, false);
+        ['dy-sb-laya-icon', 'm-sb-laya-icon', 'dyl-sb-laya-icon'].forEach(id => {
+            const el = document.getElementById(id);
+            if (el && el.getAttribute('src') !== curSbSrc) el.src = curSbSrc;
+        });
 
         // 手机竖屏头像、右下角黑胶唱片头像与全屏横屏头像如果没单独上传过其他人物头像，同步使用当前自带蓝/紫 Logo
         if (dyAvatarImg && (!dyAvatarImg.dataset.custom || dyAvatarImg.dataset.custom === 'false')) {
-            syncAuthorAvatarEverywhere(realSrc, false);
+            syncAuthorAvatarEverywhere(fastSrc, false);
         }
         if (shouldSave && typeof triggerSaveStorage === 'function') triggerSaveStorage();
     }
 
-    // 页面启动立即装载自带默认 Logo，无需任何手动上传
-    applyLogoVersion(selLogoVersion ? selLogoVersion.value : 'Laya.png', false);
+    // 页面启动立即装载自带默认紫色 Logo (Laya2.png)，无需任何手动上传
+    applyLogoVersion(selLogoVersion ? selLogoVersion.value : 'Laya2.png', false);
 
     if (selLogoVersion) {
         selLogoVersion.addEventListener('change', (e) => {
-            applyLogoVersion(e.target.value);
-            window.showToast(e.target.value === 'Laya2.png' ? '🟣 已切换为：自带紫色图标 (Laya2.png)' : '🔵 已切换为：自带蓝色图标 (Laya.png)');
+            const nextVer = e.target.value;
+            const sbSel = document.getElementById('sel-dy-sb-laya-logo');
+            if (sbSel && (nextVer === 'Laya2.png' || nextVer === 'Laya.png') && !window.__isRestoringStorage) {
+                sbSel.value = nextVer;
+                if (typeof renderDyStatusBar === 'function') renderDyStatusBar();
+            }
+            applyLogoVersion(nextVer);
+            window.showToast(nextVer === 'Laya2.png' ? '🟣 已切换为：自带紫色图标 (Laya2.png)' : '🔵 已切换为：自带蓝色图标 (Laya.png)');
         });
     }
 
@@ -534,10 +886,12 @@ window.switchRightTab = function (mode) {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (evt) => {
+                logoFastThumbCache.clear();
                 customLogoDB['Laya.png'] = evt.target.result;
                 localStorage.setItem('LAYA_CUSTOM_LOGO_1', evt.target.result);
                 if (selLogoVersion) selLogoVersion.value = 'Laya.png';
                 applyLogoVersion('Laya.png');
+                if (typeof renderDyStatusBar === 'function') renderDyStatusBar();
                 window.showToast('✅ 已替换为你自定义的蓝色 Logo！');
             };
             reader.readAsDataURL(file);
@@ -551,10 +905,12 @@ window.switchRightTab = function (mode) {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (evt) => {
+                logoFastThumbCache.clear();
                 customLogoDB['Laya2.png'] = evt.target.result;
                 localStorage.setItem('LAYA_CUSTOM_LOGO_2', evt.target.result);
                 if (selLogoVersion) selLogoVersion.value = 'Laya2.png';
                 applyLogoVersion('Laya2.png');
+                if (typeof renderDyStatusBar === 'function') renderDyStatusBar();
                 window.showToast('✅ 已替换为你自定义的紫色 Logo！');
             };
             reader.readAsDataURL(file);
@@ -564,11 +920,13 @@ window.switchRightTab = function (mode) {
     // 一键恢复系统自带的 Laya.png / Laya2.png
     if (btnResetBuiltinLogo) {
         btnResetBuiltinLogo.addEventListener('click', () => {
+            logoFastThumbCache.clear();
             localStorage.removeItem('LAYA_CUSTOM_LOGO_1');
             localStorage.removeItem('LAYA_CUSTOM_LOGO_2');
             customLogoDB['Laya.png'] = (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya.png']) || 'Laya.png';
             customLogoDB['Laya2.png'] = (window.LOCAL_LOGOS && window.LOCAL_LOGOS['Laya2.png']) || 'Laya2.png';
             applyLogoVersion(selLogoVersion ? selLogoVersion.value : 'Laya.png');
+            if (typeof renderDyStatusBar === 'function') renderDyStatusBar();
             window.showToast('✨ 已恢复系统自带的官方 Logo 图标！');
         });
     }
@@ -4814,12 +5172,20 @@ window.switchRightTab = function (mode) {
     const swDySbNotifs = document.getElementById('sw-dy-sb-notifs');
     const swDySbRec = document.getElementById('sw-dy-sb-rec');
 
-    // ★ 需求三：顶部通知栏 Laya 小图标控件与舞台节点
+    // ★ 需求三升级：顶部通知栏 Laya 小图标控件与三端状态栏舞台节点（支持8种样式切换 + 舞台点击即换 + 自定义上传）
     const dySbLayaWrap = document.getElementById('dy-sb-laya-wrap');
     const dySbLayaIcon = document.getElementById('dy-sb-laya-icon');
+    const mSbLayaWrap = document.getElementById('m-sb-laya-wrap');
+    const mSbLayaIcon = document.getElementById('m-sb-laya-icon');
+    const dylSbLayaWrap = document.getElementById('dyl-sb-laya-wrap');
+    const dylSbLayaIcon = document.getElementById('dyl-sb-laya-icon');
     const swDySbLayaIcon = document.getElementById('sw-dy-sb-laya-icon');
     const selDySbLayaLogo = document.getElementById('sel-dy-sb-laya-logo');
     const selDySbLayaSlot = document.getElementById('sel-dy-sb-laya-slot');
+    const sbLayaPresetBar = document.getElementById('sb-laya-preset-bar');
+    const btnDySbLayaCycle = document.getElementById('btn-dy-sb-laya-cycle');
+    const btnDySbLayaUpload = document.getElementById('btn-dy-sb-laya-upload');
+    const upDySbLayaCustom = document.getElementById('up-dy-sb-laya-custom');
     const inDySbLayaSize = document.getElementById('in-dy-sb-laya-size');
     const txtDySbLayaSize = document.getElementById('txt-dy-sb-laya-size');
     const inDySbLayaX = document.getElementById('in-dy-sb-laya-x');
@@ -4995,13 +5361,16 @@ window.switchRightTab = function (mode) {
         if (dySbDnd) dySbDnd.style.display = (swDySbDnd && swDySbDnd.checked) ? 'inline-block' : 'none';
         if (dySbNotifs) dySbNotifs.style.display = (swDySbNotifs && swDySbNotifs.checked) ? 'inline-flex' : 'none';
 
-        // 5.2 ★ 需求三：顶部通知栏 Laya 小图标（复用 logos.js，支持调大小与位置，自动弹性避让绝不遮挡通知栏文字）
+        // 5.2 ★ 需求三升级：顶部通知栏可切换 Laya 小图标（默认紫色 Laya2.png，支持8款样式、舞台单击切换、拖拽调位置、滚轮调大小、三端同步）
+        const showLayaSb = !swDySbLayaIcon || swDySbLayaIcon.checked;
+        const sbLogoKey = (selDySbLayaLogo && selDySbLayaLogo.value) ? selDySbLayaLogo.value : 'Laya2.png';
+        const sbFastSrc = getStatusBarLayaIconSrc(sbLogoKey, false);
+        const layaSizePx = Math.min(19, Math.max(9, parseFloat(inDySbLayaSize ? inDySbLayaSize.value : '12.5') || 12.5));
+
         if (dySbLayaWrap) {
-            const showLayaSb = !swDySbLayaIcon || swDySbLayaIcon.checked;
             dySbLayaWrap.style.display = showLayaSb ? 'inline-flex' : 'none';
-            const sbLogoKey = (selDySbLayaLogo && selDySbLayaLogo.value) ? selDySbLayaLogo.value : 'Laya.png';
-            if (dySbLayaIcon) {
-                dySbLayaIcon.src = getActiveLogoSrc(sbLogoKey);
+            if (dySbLayaIcon && dySbLayaIcon.getAttribute('src') !== sbFastSrc) {
+                dySbLayaIcon.src = sbFastSrc;
             }
             const slotMode = (selDySbLayaSlot && selDySbLayaSlot.value) ? selDySbLayaSlot.value : 'after-time';
             const leftBox = dyStatusBar.querySelector('.dy-sb-left');
@@ -5022,7 +5391,6 @@ window.switchRightTab = function (mode) {
                 }
             }
 
-            const layaSizePx = Math.min(19, Math.max(9, parseFloat(inDySbLayaSize ? inDySbLayaSize.value : '12.5') || 12.5));
             const rawGapX = Math.min(85, Math.max(0, parseFloat(inDySbLayaX ? inDySbLayaX.value : '2') || 0));
             const offY = Math.min(5, Math.max(-5, parseFloat(inDySbLayaY ? inDySbLayaY.value : '0') || 0));
 
@@ -5047,6 +5415,28 @@ window.switchRightTab = function (mode) {
             if (txtDySbLayaSize) txtDySbLayaSize.textContent = `${layaSizePx}px`;
             if (txtDySbLayaX) txtDySbLayaX.textContent = `${Math.round(rawGapX)}px`;
             if (txtDySbLayaY) txtDySbLayaY.textContent = `${offY}px`;
+        }
+
+        // 同步手机横屏影音模式 (#m-sb-laya-wrap) 与竖屏全屏观看模式 (#dyl-sb-laya-wrap) 的状态栏 Laya 小图标
+        if (mSbLayaWrap) {
+            mSbLayaWrap.style.display = showLayaSb ? 'inline-flex' : 'none';
+            mSbLayaWrap.style.setProperty('--sb-laya-size', `${Math.min(18, Math.max(10, Math.round(layaSizePx + 1.5)))}px`);
+            if (mSbLayaIcon && mSbLayaIcon.getAttribute('src') !== sbFastSrc) {
+                mSbLayaIcon.src = sbFastSrc;
+            }
+        }
+        if (dylSbLayaWrap) {
+            dylSbLayaWrap.style.display = showLayaSb ? 'inline-flex' : 'none';
+            dylSbLayaWrap.style.setProperty('--sb-laya-size', `${Math.min(18, Math.max(10, Math.round(layaSizePx + 1)))}px`);
+            if (dylSbLayaIcon && dylSbLayaIcon.getAttribute('src') !== sbFastSrc) {
+                dylSbLayaIcon.src = sbFastSrc;
+            }
+        }
+
+        if (sbLayaPresetBar) {
+            sbLayaPresetBar.querySelectorAll('.sb-laya-chip').forEach(chip => {
+                chip.classList.toggle('is-active', chip.dataset.sbKey === sbLogoKey && showLayaSb);
+            });
         }
 
         if (dySbNetspeed) {
@@ -5236,21 +5626,122 @@ window.switchRightTab = function (mode) {
         }
     });
 
+    function buildSbLayaPresetChips() {
+        if (!sbLayaPresetBar) return;
+        sbLayaPresetBar.innerHTML = '';
+        SB_LAYA_PRESET_META.forEach(item => {
+            const btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'sb-laya-chip';
+            btn.dataset.sbKey = item.key;
+            btn.title = item.fullLabel;
+            const img = document.createElement('img');
+            img.alt = item.shortLabel;
+            img.src = getStatusBarLayaIconSrc(item.key, false);
+            const span = document.createElement('span');
+            span.textContent = item.shortLabel;
+            btn.appendChild(img);
+            btn.appendChild(span);
+            btn.addEventListener('click', () => {
+                if (item.key === 'custom' && !customLogoDB['custom_sb']) {
+                    if (upDySbLayaCustom) upDySbLayaCustom.click();
+                    return;
+                }
+                if (swDySbLayaIcon) swDySbLayaIcon.checked = true;
+                if (selDySbLayaLogo) selDySbLayaLogo.value = item.key;
+                renderDyStatusBar();
+                triggerSaveStorage();
+                window.showToast(`✨ 已切换通知栏图标：${item.fullLabel}`);
+            });
+            sbLayaPresetBar.appendChild(btn);
+        });
+        renderDyStatusBar();
+    }
+
+    function cycleStatusBarLayaIcon(showMsg = true) {
+        const availableKeys = SB_LAYA_PRESET_META
+            .map(m => m.key)
+            .filter(k => k !== 'custom' || !!customLogoDB['custom_sb']);
+        if (!availableKeys.length) return;
+        if (swDySbLayaIcon && !swDySbLayaIcon.checked) {
+            swDySbLayaIcon.checked = true;
+        }
+        const curKey = (selDySbLayaLogo && selDySbLayaLogo.value) ? selDySbLayaLogo.value : 'Laya2.png';
+        const curIdx = availableKeys.indexOf(curKey);
+        const nextKey = availableKeys[(curIdx + 1) % availableKeys.length];
+        if (selDySbLayaLogo) selDySbLayaLogo.value = nextKey;
+        renderDyStatusBar();
+        triggerSaveStorage();
+        if (showMsg) {
+            const meta = SB_LAYA_PRESET_META.find(m => m.key === nextKey);
+            window.showToast(`🔄 已切换通知栏小图标：${meta ? meta.fullLabel : nextKey}`);
+        }
+    }
+    window.cycleStatusBarLayaIcon = cycleStatusBarLayaIcon;
+
+    buildSbLayaPresetChips();
+
+    if (btnDySbLayaCycle) {
+        btnDySbLayaCycle.addEventListener('click', () => {
+            cycleStatusBarLayaIcon(true);
+        });
+    }
+
+    if (btnDySbLayaUpload && upDySbLayaCustom) {
+        btnDySbLayaUpload.addEventListener('click', () => upDySbLayaCustom.click());
+        upDySbLayaCustom.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const rawUrl = evt.target && evt.target.result ? String(evt.target.result) : '';
+                if (!rawUrl) return;
+                const img = new Image();
+                img.onload = () => {
+                    try {
+                        const c = document.createElement('canvas');
+                        c.width = 72;
+                        c.height = 72;
+                        const cx = c.getContext('2d');
+                        cx.imageSmoothingEnabled = true;
+                        cx.imageSmoothingQuality = 'high';
+                        cx.drawImage(img, 0, 0, 72, 72);
+                        const compactUrl = c.toDataURL('image/png');
+                        customLogoDB['custom_sb'] = compactUrl;
+                        localStorage.setItem('LAYA_CUSTOM_SB_ICON', compactUrl);
+                    } catch (_err) {
+                        customLogoDB['custom_sb'] = rawUrl;
+                        try { localStorage.setItem('LAYA_CUSTOM_SB_ICON', rawUrl); } catch (_e2) {}
+                    }
+                    if (swDySbLayaIcon) swDySbLayaIcon.checked = true;
+                    if (selDySbLayaLogo) selDySbLayaLogo.value = 'custom';
+                    buildSbLayaPresetChips();
+                    renderDyStatusBar();
+                    triggerSaveStorage();
+                    window.showToast('✅ 已上传并切换为你自定义的状态栏小图标！');
+                };
+                img.src = rawUrl;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        });
+    }
+
     if (btnDySbLayaReset) {
         btnDySbLayaReset.addEventListener('click', () => {
             if (swDySbLayaIcon) swDySbLayaIcon.checked = true;
-            if (selDySbLayaLogo) selDySbLayaLogo.value = 'Laya.png';
+            if (selDySbLayaLogo) selDySbLayaLogo.value = 'Laya2.png';
             if (selDySbLayaSlot) selDySbLayaSlot.value = 'after-time';
             if (inDySbLayaSize) inDySbLayaSize.value = '12.5';
             if (inDySbLayaX) inDySbLayaX.value = '2';
             if (inDySbLayaY) inDySbLayaY.value = '0';
             renderDyStatusBar();
             triggerSaveStorage();
-            window.showToast('↺ 已重置通知欄 Laya 小圖標大小與位置');
+            window.showToast('↺ 已重置通知栏 Laya 小图标为默认紫色官方标');
         });
     }
 
-    // 支持直接在手机顶部通知栏按住拖动 Laya 小图标微调位置、滚轮缩放大小
+    // 支持直接在手机顶部通知栏：单击切换 Laya 小图标样式，按住拖动微调位置（rAF 节流），滚轮缩放大小
     if (dySbLayaWrap) {
         dySbLayaWrap.addEventListener('mousedown', (e) => {
             if (e.button !== 0) return;
@@ -5266,25 +5757,57 @@ window.switchRightTab = function (mode) {
                 : 1;
             const slotMode = selDySbLayaSlot ? selDySbLayaSlot.value : 'after-time';
             const dirFactor = (slotMode === 'before-time' || slotMode === 'before-right') ? -1 : 1;
-            dySbLayaWrap.classList.add('is-dragging');
+            let maxMove = 0;
+            let rafId = 0;
 
             const onMove = (mv) => {
+                const dist = Math.hypot(mv.clientX - startClientX, mv.clientY - startClientY);
+                if (dist > maxMove) maxMove = dist;
+                if (maxMove < 3) return;
+                dySbLayaWrap.classList.add('is-dragging');
                 const dx = ((mv.clientX - startClientX) / stageScale) * dirFactor;
                 const dy = (mv.clientY - startClientY) / stageScale;
                 const nextX = Math.min(85, Math.max(0, Math.round(startXVal + dx)));
                 const nextY = Math.min(5, Math.max(-5, Math.round((startYVal + dy) * 2) / 2));
                 if (inDySbLayaX) inDySbLayaX.value = String(nextX);
                 if (inDySbLayaY) inDySbLayaY.value = String(nextY);
-                renderDyStatusBar();
+                if (!rafId) {
+                    rafId = requestAnimationFrame(() => {
+                        rafId = 0;
+                        renderDyStatusBar();
+                    });
+                }
             };
             const onUp = () => {
+                if (rafId) {
+                    cancelAnimationFrame(rafId);
+                    rafId = 0;
+                    renderDyStatusBar();
+                }
                 dySbLayaWrap.classList.remove('is-dragging');
                 window.removeEventListener('mousemove', onMove);
                 window.removeEventListener('mouseup', onUp);
-                triggerSaveStorage();
+                if (maxMove < 3) {
+                    cycleStatusBarLayaIcon(true);
+                    if (typeof window.locateSidebarControl === 'function') {
+                        window.locateSidebarControl({
+                            tab: 'dy',
+                            cardId: 'card-dy-statusbar',
+                            targetSelector: '#sb-laya-preset-bar',
+                            highlightSelector: '#box-dy-sb-laya-cfg'
+                        });
+                    }
+                } else {
+                    triggerSaveStorage();
+                }
             };
             window.addEventListener('mousemove', onMove);
             window.addEventListener('mouseup', onUp);
+        });
+
+        dySbLayaWrap.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
         });
 
         dySbLayaWrap.addEventListener('wheel', (e) => {
@@ -5297,6 +5820,33 @@ window.switchRightTab = function (mode) {
             triggerSaveStorage();
         }, { passive: false });
     }
+
+    // 手机横屏影音模式与竖屏全屏观看模式的状态栏小图标也支持直接点击切换样式 + 滚轮调大小
+    [mSbLayaWrap, dylSbLayaWrap].forEach(wrapEl => {
+        if (!wrapEl) return;
+        wrapEl.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            cycleStatusBarLayaIcon(true);
+            if (typeof window.locateSidebarControl === 'function') {
+                window.locateSidebarControl({
+                    tab: 'dy',
+                    cardId: 'card-dy-statusbar',
+                    targetSelector: '#sb-laya-preset-bar',
+                    highlightSelector: '#box-dy-sb-laya-cfg'
+                });
+            }
+        });
+        wrapEl.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const curS = parseFloat(inDySbLayaSize ? inDySbLayaSize.value : '12.5') || 12.5;
+            const nextS = Math.min(19, Math.max(9, curS + (e.deltaY < 0 ? 0.5 : -0.5)));
+            if (inDySbLayaSize) inDySbLayaSize.value = String(nextS);
+            renderDyStatusBar();
+            triggerSaveStorage();
+        }, { passive: false });
+    });
 
     function getCurrentRealClockTime() {
         const now = new Date();
@@ -7596,12 +8146,13 @@ window.switchRightTab = function (mode) {
             const rightSideEl = document.getElementById('right-sidebar');
             const activeQaEl = document.querySelector('#qa-rail-list .qa-item.active');
 
+            const isCustomAvatar = document.getElementById('dy-avatar-img')?.dataset.custom === 'true';
             const data = {
                 inputs: {},
                 checkboxes: {},
                 selects: {},
-                avatar: document.getElementById('dy-avatar-img')?.src || '',
-                avatarIsCustom: document.getElementById('dy-avatar-img')?.dataset.custom === 'true',
+                avatar: isCustomAvatar ? (document.getElementById('dy-avatar-img')?.src || '') : '',
+                avatarIsCustom: isCustomAvatar,
                 danmakuList: window.DanmakuEngine ? window.DanmakuEngine.list : [],
                 danmakuMode: window.DanmakuEngine ? window.DanmakuEngine.mode : 'scroll',
                 dmPortAreaMin: window.DanmakuEngine ? window.DanmakuEngine.portAreaMin : 10,
@@ -7678,7 +8229,10 @@ window.switchRightTab = function (mode) {
         try {
             const raw = localStorage.getItem(STORAGE_KEY);
             if (!raw) {
-                applyLogoVersion('Laya.png', false);
+                if (selLogoVersion) selLogoVersion.value = 'Laya2.png';
+                if (selDySbLayaLogo) selDySbLayaLogo.value = 'Laya2.png';
+                applyLogoVersion('Laya2.png', false);
+                if (typeof renderDyStatusBar === 'function') renderDyStatusBar();
                 randomizeAuthorChineseAvatar(false);
                 syncAllMsgBadges(false);
                 if (window.CommentEngine && typeof window.CommentEngine.applyDrawerLayoutVars === 'function') {
@@ -7686,9 +8240,19 @@ window.switchRightTab = function (mode) {
                 }
                 localStorage.setItem('LAYA_V18_FIVE_MODULES_MIGRATED', '1');
                 localStorage.setItem('LAYA_V20_CMT_COMPACT_LAYOUT_MIGRATED', '1');
+                localStorage.setItem('LAYA_SB_DEFAULT_PURPLE_V60', '1');
                 return;
             }
             const data = JSON.parse(raw);
+
+            // ★ V60 一次性升级迁移：将旧版默认误设为蓝色 Laya.png 的状态栏小图标平滑升级为官方紫色 Laya2.png
+            if (localStorage.getItem('LAYA_SB_DEFAULT_PURPLE_V60') !== '1') {
+                if (!data.selects) data.selects = {};
+                if (!data.selects['sel-dy-sb-laya-logo'] || data.selects['sel-dy-sb-laya-logo'] === 'Laya.png') {
+                    data.selects['sel-dy-sb-laya-logo'] = 'Laya2.png';
+                }
+                localStorage.setItem('LAYA_SB_DEFAULT_PURPLE_V60', '1');
+            }
 
             // 一次性升级迁移：将旧版缓存自动迁移为「🌸 Laya app 端风格」+「✨ 无开孔纯净全面屏」+ 开启「Laya 精选内容」与「上升热点」
             if (localStorage.getItem('LAYA_V13_DEFAULTS_MIGRATED') !== '1') {
@@ -7718,6 +8282,14 @@ window.switchRightTab = function (mode) {
                     }
                 });
                 localStorage.setItem('LAYA_V15_CAMPAIGN_SIMP_MIGRATED', '1');
+            }
+
+            // V58 迁移：右侧飘动表情默认密度由 6 档（双连发易堆叠）平滑升级为 5 档（错峰单发舒展防重叠）
+            if (localStorage.getItem('LAYA_V58_CHEER_SPRITE_MIGRATED') !== '1') {
+                if (data.inputs && data.inputs['in-live-heart-density'] === '6') {
+                    data.inputs['in-live-heart-density'] = '5';
+                }
+                localStorage.setItem('LAYA_V58_CHEER_SPRITE_MIGRATED', '1');
             }
 
             // V18 迁移：5大改造模块（评论回复、中国风真实头像、消息角标 99+、弹幕默认白字黑边 + 竖屏 20%~60% 区域）
@@ -7878,7 +8450,8 @@ window.switchRightTab = function (mode) {
                 selLogoVersion.value = data.logoVersion;
                 applyLogoVersion(data.logoVersion);
             } else {
-                applyLogoVersion('Laya.png');
+                if (selLogoVersion) selLogoVersion.value = 'Laya2.png';
+                applyLogoVersion('Laya2.png');
             }
 
             if (__userModifiedFieldSet.has('dy-author-avatar') && data.avatar && dyAvatarImg && data.avatarIsCustom && !data.avatar.includes('pravatar.cc') && !data.avatar.includes('dicebear.com')) {
@@ -8257,11 +8830,14 @@ window.switchRightTab = function (mode) {
         if (clonedLiveLayaMiniLogo) {
             clonedLiveLayaMiniLogo.src = getActiveLogoSrc('Laya2.png');
         }
-        const clonedDySbLayaIcon = clonedDoc.getElementById('dy-sb-laya-icon');
-        if (clonedDySbLayaIcon) {
-            const sbKey = (selDySbLayaLogo && selDySbLayaLogo.value) ? selDySbLayaLogo.value : 'Laya.png';
-            clonedDySbLayaIcon.src = getActiveLogoSrc(sbKey);
-        }
+        const sbKey = (selDySbLayaLogo && selDySbLayaLogo.value) ? selDySbLayaLogo.value : 'Laya2.png';
+        const sbExportSrc = getStatusBarLayaIconSrc(sbKey, true);
+        ['dy-sb-laya-icon', 'm-sb-laya-icon', 'dyl-sb-laya-icon'].forEach(sbId => {
+            const clonedSbIcon = clonedDoc.getElementById(sbId);
+            if (clonedSbIcon && sbExportSrc) {
+                clonedSbIcon.src = sbExportSrc;
+            }
+        });
 
         // 同步直播间礼物弹窗左侧真人头像/自定义头像到导出画布，绝不回退为蓝色 Laya 图标
         const origGiftAv = document.getElementById('live-gift-sender-av');
@@ -8416,8 +8992,23 @@ window.switchRightTab = function (mode) {
                     cH.style.setProperty('right', 'auto', 'important');
                     cH.style.setProperty('left', Math.round(r.left - hRect.left) + 'px', 'important');
                     cH.style.setProperty('top', Math.round(r.top - hRect.top) + 'px', 'important');
+                    const boxW = Math.max(18, Math.round(r.width));
+                    const boxH = Math.max(18, Math.round(r.height));
+                    cH.style.setProperty('width', boxW + 'px', 'important');
+                    cH.style.setProperty('height', boxH + 'px', 'important');
                     cH.style.setProperty('opacity', cs.opacity || '0.9', 'important');
+                    const cSpr = cH.querySelector('img.live-cheer-sprite-img');
+                    if (cSpr) {
+                        cSpr.style.setProperty('width', Math.round(boxW * 1.26) + 'px', 'important');
+                        cSpr.style.setProperty('height', Math.round(boxH * 1.26) + 'px', 'important');
+                        cSpr.style.setProperty('max-width', 'none', 'important');
+                    }
                 });
+            }
+            const clonedGiftSprite = clonedDoc.querySelector('#live-gift-combo-banner img.live-gift-sprite-img');
+            if (clonedGiftSprite) {
+                clonedGiftSprite.style.setProperty('width', '25px', 'important');
+                clonedGiftSprite.style.setProperty('height', '25px', 'important');
             }
         }
         if (window.LAYA_APP_ASSETS) {
@@ -11387,8 +11978,8 @@ window.switchRightTab = function (mode) {
     }
 
     function getLiveHeartDensityVal() {
-        const v = inLiveHeartDensity ? parseInt(inLiveHeartDensity.value, 10) : 6;
-        return Number.isNaN(v) ? 6 : Math.min(10, Math.max(0, v));
+        const v = inLiveHeartDensity ? parseInt(inLiveHeartDensity.value, 10) : 5;
+        return Number.isNaN(v) ? 5 : Math.min(10, Math.max(0, v));
     }
 
     function escapeHtmlSafe(str) {
@@ -11780,36 +12371,89 @@ window.switchRightTab = function (mode) {
         liveFlyParticles = [];
     }
 
-    // ★ 二、右侧竖排开心鲜艳表情与彩心混搭飘动动画（火花✨🔥🌟、开心笑脸🥳🤩😄😍😆、礼花礼炮🎉🎊🎆🎇🎈、点赞彩心💖👍掺和在一起欢快上飘 + 精致贴边微光晕）
+    // ★ 二、右侧竖排开心鲜艳表情与彩心混搭飘动动画（内置 Windows 11 Fluent 无黑边高清精灵图 + 矢量彩心，任何系统/设备 100% 零黑边一致渲染）
+    const liveCheerSpriteImgMap = new Map();
+    function getFluentEmojiSpriteUrl(rawEmoji) {
+        const map = window.LIVE_CHEER_EMOJI_SPRITES;
+        if (!map || !rawEmoji) return '';
+        const s = String(rawEmoji).trim();
+        if (map[s]) return map[s];
+        const noVs = s.replace(/\uFE0F/g, '');
+        if (map[noVs]) return map[noVs];
+        const withVs = noVs + '\uFE0F';
+        if (map[withVs]) return map[withVs];
+        for (const k of Object.keys(map)) {
+            if (k.replace(/\uFE0F/g, '') === noVs) return map[k];
+        }
+        return '';
+    }
+    function getPreloadedFluentEmojiImg(rawEmoji) {
+        const url = getFluentEmojiSpriteUrl(rawEmoji);
+        if (!url) return null;
+        if (liveCheerSpriteImgMap.has(url)) return liveCheerSpriteImgMap.get(url);
+        const img = new Image();
+        img.decoding = 'sync';
+        img.src = url;
+        liveCheerSpriteImgMap.set(url, img);
+        return img;
+    }
+    if (window.LIVE_CHEER_EMOJI_SPRITES) {
+        Object.keys(window.LIVE_CHEER_EMOJI_SPRITES).forEach(k => getPreloadedFluentEmojiImg(k));
+    }
+
+    const LIVE_CHEER_FALLBACK_HEART_SVG = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#ff5e97"/><path d="M7.8 5.6c-1.5 0-2.7 1.1-2.9 2.5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/></svg>`;
     const LIVE_CHEER_PARTICLES = [
-        '🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩', '🎆',
-        '😍', '🌟', '🎇', '😆', '💖', '🎈', '🥰', '👍',
+        '🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩',
+        '😍', '🌟', '😆', '💖', '🎈', '🥰', '👍',
         '⚡', '😎', '🧨', '👏', '💥', '❤️‍🔥',
-        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#ff5e97"/><path d="M7.8 5.6c-1.5 0-2.7 1.1-2.9 2.5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.65"/></svg>`,
-        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#a855f7"/><circle cx="17.2" cy="6.8" r="1.5" fill="#fde047"/></svg>`
+        LIVE_CHEER_FALLBACK_HEART_SVG,
+        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#a855f7"/><circle cx="17.2" cy="6.8" r="1.5" fill="#fde047"/></svg>`,
+        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#fb7185"/><path d="M7.8 5.6c-1.5 0-2.7 1.1-2.9 2.5" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" opacity="0.6"/></svg>`,
+        `<svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 20.8l-1.35-1.22C5.6 15.02 2.4 12.1 2.4 8.55 2.4 5.65 4.65 3.4 7.55 3.4c1.62 0 3.18.76 4.45 1.98C13.27 4.16 14.83 3.4 16.45 3.4c2.9 0 5.15 2.25 5.15 5.15 0 3.55-3.2 6.47-8.25 11.03L12 20.8z" fill="#ec4899"/><circle cx="17.2" cy="6.8" r="1.4" fill="#fef08a"/></svg>`
     ];
-    let lastCheerParticleIdx = -1;
+    const recentCheerParticleIndices = [];
+    let cheerLaneCycle = 0;
+    let cheerSwayDir = 1;
     function spawnSingleLiveHeart() {
         if (!liveFloatingHearts || !isLiveRoomOpenNow()) return;
         const h = document.createElement('span');
         h.className = 'live-heart-particle';
         let pickIdx = Math.floor(Math.random() * LIVE_CHEER_PARTICLES.length);
-        if (pickIdx === lastCheerParticleIdx) {
+        let guard = 0;
+        while (recentCheerParticleIndices.includes(pickIdx) && guard < 12) {
             pickIdx = (pickIdx + 1 + Math.floor(Math.random() * 5)) % LIVE_CHEER_PARTICLES.length;
+            guard++;
         }
-        lastCheerParticleIdx = pickIdx;
+        recentCheerParticleIndices.push(pickIdx);
+        if (recentCheerParticleIndices.length > 5) recentCheerParticleIndices.shift();
         const item = LIVE_CHEER_PARTICLES[pickIdx];
         if (item.startsWith('<svg')) {
             h.innerHTML = item;
         } else {
-            h.textContent = item;
+            const spriteUrl = getFluentEmojiSpriteUrl(item);
+            if (spriteUrl) {
+                const img = document.createElement('img');
+                img.className = 'live-cheer-sprite-img';
+                img.src = spriteUrl;
+                img.alt = '';
+                img.draggable = false;
+                h.appendChild(img);
+            } else {
+                h.innerHTML = LIVE_CHEER_FALLBACK_HEART_SVG;
+            }
         }
-        const hright = Math.round(4 + Math.random() * 32);
-        const hsize = Math.round(18 + Math.random() * 5);
-        const hx1 = Math.round((Math.random() - 0.5) * 32);
-        const hx2 = Math.round((Math.random() - 0.5) * 34);
-        const hrot1 = Math.round((Math.random() - 0.5) * 28);
-        const hrot2 = Math.round((Math.random() - 0.5) * 28);
+        // 三轨道错峰分布 + 左右交替摆幅，彻底消除相邻表情上下挤压重叠
+        const lane = cheerLaneCycle % 3;
+        cheerLaneCycle++;
+        cheerSwayDir = -cheerSwayDir;
+        const laneRanges = [[4, 13], [24, 35], [14, 23]];
+        const [minR, maxR] = laneRanges[lane];
+        const hright = Math.round(minR + Math.random() * (maxR - minR));
+        const hsize = Math.round(19.5 + Math.random() * 4);
+        const hx1 = Math.round(cheerSwayDir * (5 + Math.random() * 9));
+        const hx2 = Math.round(-cheerSwayDir * (4 + Math.random() * 9));
+        const hrot1 = Math.round(cheerSwayDir * (5 + Math.random() * 9));
+        const hrot2 = Math.round(-cheerSwayDir * (4 + Math.random() * 9));
         h.style.setProperty('--hright', hright + 'px');
         h.style.setProperty('--hsize', hsize + 'px');
         h.style.setProperty('--hx1', hx1 + 'px');
@@ -11834,18 +12478,18 @@ window.switchRightTab = function (mode) {
             if (liveFloatingHearts) liveFloatingHearts.innerHTML = '';
             return;
         }
-        const HEART_INTERVAL_MAP = [0, 4500, 2800, 1800, 1200, 820, 520, 360, 260, 190, 140];
-        const intervalMs = HEART_INTERVAL_MAP[density] || 520;
+        const HEART_INTERVAL_MAP = [0, 4500, 2800, 1800, 1150, 720, 540, 400, 290, 210, 155];
+        const intervalMs = HEART_INTERVAL_MAP[density] || 720;
         spawnSingleLiveHeart();
-        if (density >= 4) {
-            setTimeout(spawnSingleLiveHeart, 140);
+        if (density >= 5) {
+            setTimeout(spawnSingleLiveHeart, 340);
         }
         liveHeartTimer = setInterval(() => {
             if (!isLiveRoomOpenNow()) return;
             if (liveFloatingHearts && liveFloatingHearts.dataset.liveHidden === 'true') return;
             spawnSingleLiveHeart();
-            if (density >= 6) {
-                setTimeout(spawnSingleLiveHeart, Math.round(intervalMs * 0.45));
+            if (density >= 8) {
+                setTimeout(spawnSingleLiveHeart, Math.round(intervalMs * 0.5));
             }
         }, intervalMs);
     }
@@ -12125,7 +12769,12 @@ window.switchRightTab = function (mode) {
         if (liveGiftSenderName) liveGiftSenderName.textContent = userTxt;
         if (liveGiftDescTxt) liveGiftDescTxt.textContent = giftTxt;
         if (liveGiftItemIcon) {
-            liveGiftItemIcon.textContent = iconTxt;
+            const giftSpriteUrl = getFluentEmojiSpriteUrl(iconTxt);
+            if (giftSpriteUrl) {
+                liveGiftItemIcon.innerHTML = `<img class="live-gift-sprite-img" src="${giftSpriteUrl}" alt="" draggable="false">`;
+            } else {
+                liveGiftItemIcon.textContent = iconTxt;
+            }
             // 触发礼物图标弹跳动效
             liveGiftItemIcon.style.animation = 'none';
             void liveGiftItemIcon.offsetWidth;
@@ -15798,11 +16447,11 @@ window.switchRightTab = function (mode) {
     let liveGiftPillBgCache = { key: '', canvas: null, pad: 0 };
 
     function getCachedCheerParticleSprite(tokenKey, isHeart, heartCol, baseSizePx, scaleRatioX, scaleRatioY) {
-        const cacheKey = `v3_${tokenKey}_${isHeart ? heartCol : 'em'}_${baseSizePx}_${Math.round(scaleRatioX * 10)}`;
+        const cacheKey = `v5_${tokenKey}_${isHeart ? heartCol : 'em'}_${baseSizePx}_${Math.round(scaleRatioX * 10)}`;
         if (liveCheerSpriteCache.has(cacheKey)) {
             return liveCheerSpriteCache.get(cacheKey);
         }
-        const pad = Math.ceil(14 * scaleRatioX);
+        const pad = Math.ceil(12 * scaleRatioX);
         const boxW = Math.ceil(baseSizePx + pad * 2);
         const boxH = Math.ceil(baseSizePx + pad * 2);
         const c = document.createElement('canvas');
@@ -15812,21 +16461,21 @@ window.switchRightTab = function (mode) {
         const midX = boxW * 0.5;
         const midY = boxH * 0.5;
 
-        // 1) 底层紧致小巧的径向柔光晕（直径约 24px，贴合小表情边缘，自然柔和不夸张，与 CSS .live-heart-particle::before 1:1 对齐）
+        // 1) 底层紧致微柔光晕（与 CSS .live-heart-particle::before 1:1 对齐，清爽通透无脏边）
         cx.save();
-        const auraR = baseSizePx * 0.62;
-        const auraGrad = cx.createRadialGradient(midX, midY, baseSizePx * 0.06, midX, midY, auraR);
+        const auraR = baseSizePx * 0.54;
+        const auraGrad = cx.createRadialGradient(midX, midY, baseSizePx * 0.05, midX, midY, auraR);
         if (isHeart && heartCol === '#a855f7') {
-            auraGrad.addColorStop(0, 'rgba(216, 180, 254, 0.30)');
-            auraGrad.addColorStop(0.50, 'rgba(168, 85, 247, 0.15)');
+            auraGrad.addColorStop(0, 'rgba(216, 180, 254, 0.18)');
+            auraGrad.addColorStop(0.50, 'rgba(168, 85, 247, 0.08)');
             auraGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
         } else if (isHeart) {
-            auraGrad.addColorStop(0, 'rgba(255, 110, 165, 0.30)');
-            auraGrad.addColorStop(0.50, 'rgba(244, 63, 94, 0.15)');
+            auraGrad.addColorStop(0, 'rgba(255, 110, 165, 0.18)');
+            auraGrad.addColorStop(0.50, 'rgba(244, 63, 94, 0.08)');
             auraGrad.addColorStop(1, 'rgba(244, 63, 94, 0)');
         } else {
-            auraGrad.addColorStop(0, 'rgba(250, 204, 21, 0.28)');
-            auraGrad.addColorStop(0.48, 'rgba(244, 114, 182, 0.14)');
+            auraGrad.addColorStop(0, 'rgba(255, 214, 102, 0.16)');
+            auraGrad.addColorStop(0.50, 'rgba(244, 114, 182, 0.08)');
             auraGrad.addColorStop(1, 'rgba(168, 85, 247, 0)');
         }
         cx.fillStyle = auraGrad;
@@ -15835,6 +16484,7 @@ window.switchRightTab = function (mode) {
         cx.fill();
         cx.restore();
 
+        let shouldCache = true;
         if (isHeart) {
             const drawHeartPath = () => {
                 cx.beginPath();
@@ -15853,9 +16503,9 @@ window.switchRightTab = function (mode) {
             cx.scale(s, s);
             drawHeartPath();
             cx.fillStyle = heartCol;
-            cx.shadowColor = 'rgba(250, 204, 21, 0.62)';
-            cx.shadowBlur = 4.5 * scaleRatioX;
-            cx.shadowOffsetY = 1.2 * scaleRatioY;
+            cx.shadowColor = 'rgba(0, 0, 0, 0.24)';
+            cx.shadowBlur = 2.4 * scaleRatioX;
+            cx.shadowOffsetY = 1.0 * scaleRatioY;
             cx.fill();
             cx.shadowColor = 'transparent';
             cx.shadowBlur = 0;
@@ -15875,46 +16525,65 @@ window.switchRightTab = function (mode) {
             }
             cx.restore();
         } else {
+            const sprImg = getPreloadedFluentEmojiImg(tokenKey);
             cx.save();
             cx.translate(midX, midY);
-            cx.font = `${baseSizePx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-            cx.textAlign = 'center';
-            cx.textBaseline = 'middle';
-            cx.shadowColor = 'rgba(250, 204, 21, 0.65)';
-            cx.shadowBlur = 4.5 * scaleRatioX;
-            cx.shadowOffsetY = 1.2 * scaleRatioY;
-            cx.fillText(tokenKey, 0, 0);
+            cx.shadowColor = 'rgba(0, 0, 0, 0.24)';
+            cx.shadowBlur = 2.4 * scaleRatioX;
+            cx.shadowOffsetY = 1.0 * scaleRatioY;
+            if (sprImg && sprImg.complete && sprImg.naturalWidth > 0) {
+                cx.imageSmoothingEnabled = true;
+                cx.imageSmoothingQuality = 'high';
+                const drawSz = baseSizePx * 1.26;
+                cx.drawImage(sprImg, -drawSz * 0.5, -drawSz * 0.5, drawSz, drawSz);
+            } else {
+                shouldCache = false;
+                cx.font = `${baseSizePx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+                cx.textAlign = 'center';
+                cx.textBaseline = 'middle';
+                cx.fillText(tokenKey, 0, 0);
+            }
             cx.restore();
         }
 
         const entry = { canvas: c, halfW: boxW * 0.5, halfH: boxH * 0.5 };
-        liveCheerSpriteCache.set(cacheKey, entry);
+        if (shouldCache) liveCheerSpriteCache.set(cacheKey, entry);
         return entry;
     }
 
     function getCachedGiftIconSprite(iconStr, iconFontPx, gs) {
-        const key = `${iconStr}_${iconFontPx}_${Math.round(gs * 10)}`;
+        const key = `v5_${iconStr}_${iconFontPx}_${Math.round(gs * 10)}`;
         if (liveGiftIconSpriteCache.has(key)) {
             return liveGiftIconSpriteCache.get(key);
         }
-        const pad = Math.ceil(10 * gs);
+        const pad = Math.ceil(12 * gs);
         const side = Math.ceil(iconFontPx + pad * 2);
         const c = document.createElement('canvas');
         c.width = side;
         c.height = side;
         const cx = c.getContext('2d');
+        const sprImg = getPreloadedFluentEmojiImg(iconStr);
+        let shouldCache = true;
         cx.save();
         cx.translate(side * 0.5, side * 0.5);
-        cx.shadowColor = 'rgba(0, 0, 0, 0.45)';
-        cx.shadowBlur = 5 * gs;
-        cx.shadowOffsetY = 2 * gs;
-        cx.font = `${iconFontPx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
-        cx.textAlign = 'center';
-        cx.textBaseline = 'middle';
-        cx.fillText(iconStr, 0, 0);
+        cx.shadowColor = 'rgba(0, 0, 0, 0.34)';
+        cx.shadowBlur = 3.5 * gs;
+        cx.shadowOffsetY = 1.5 * gs;
+        if (sprImg && sprImg.complete && sprImg.naturalWidth > 0) {
+            cx.imageSmoothingEnabled = true;
+            cx.imageSmoothingQuality = 'high';
+            const drawSz = iconFontPx * 1.26;
+            cx.drawImage(sprImg, -drawSz * 0.5, -drawSz * 0.5, drawSz, drawSz);
+        } else {
+            shouldCache = false;
+            cx.font = `${iconFontPx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
+            cx.textAlign = 'center';
+            cx.textBaseline = 'middle';
+            cx.fillText(iconStr, 0, 0);
+        }
         cx.restore();
         const entry = { canvas: c, half: side * 0.5 };
-        liveGiftIconSpriteCache.set(key, entry);
+        if (shouldCache) liveGiftIconSpriteCache.set(key, entry);
         return entry;
     }
 
@@ -16484,7 +17153,10 @@ window.switchRightTab = function (mode) {
     window.__drawLiveRoomDynamicCanvas = function (ctx, outW, outH, scaleRatioX, scaleRatioY, elapsedSec, exportFontStack) {
         if (!ctx) return;
         const activeFont = exportFontStack || '"PingFang SC", "Microsoft YaHei", sans-serif';
-        const elapsedMs = Math.max(0, elapsedSec * 1000);
+        const safeElapsedSec = Number.isFinite(Number(elapsedSec)) ? Math.max(0, Number(elapsedSec)) : 0;
+        scaleRatioX = (Number.isFinite(Number(scaleRatioX)) && Number(scaleRatioX) > 0) ? Number(scaleRatioX) : 1;
+        scaleRatioY = (Number.isFinite(Number(scaleRatioY)) && Number(scaleRatioY) > 0) ? Number(scaleRatioY) : scaleRatioX;
+        const elapsedMs = safeElapsedSec * 1000;
         const expSnap = window.__liveExportInitialState || null;
 
         const fontScalePct = getLiveDmFontScalePct();
@@ -17219,8 +17891,8 @@ window.switchRightTab = function (mode) {
 
         if (showFloatingHearts) {
             const EXPORT_CHEER_EMOJIS = [
-                '🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩', '🎆',
-                '😍', '🌟', '🎇', '😆', '💖', '🎈', '🥰', '👍',
+                '🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩',
+                '😍', '🌟', '😆', '💖', '🎈', '🥰', '👍',
                 '⚡', '😎', '🧨', '👏', '💥', '❤️‍🔥'
             ];
             const heartSizePx = Math.round(19.5 * scaleRatioX);
@@ -17434,7 +18106,13 @@ window.switchRightTab = function (mode) {
             // AI 失败或离线时完全静默回退到本地 325+ 海外华人昵称库
         }
     }
-    setTimeout(requestGeminiOverseasNicknamesOnLoad, 600);
+    setTimeout(() => {
+        if (typeof window.requestIdleCallback === 'function') {
+            window.requestIdleCallback(() => requestGeminiOverseasNicknamesOnLoad(), { timeout: 3000 });
+        } else {
+            requestGeminiOverseasNicknamesOnLoad();
+        }
+    }, 5000);
 
     // 初始化清理旧版 8888 / 1000 缓存并同步所有直播间顶部数值
     if (localStorage.getItem('LAYA_LIVE_V23_1K_2M_MIGRATED') !== '1') {
@@ -17744,6 +18422,18 @@ window.switchRightTab = function (mode) {
             syncStageMagnifierUI();
         }
 
+        const stageMagBarEl = document.getElementById('stage-magnifier-bar');
+        let magPopoverAutoHideTimer = null;
+
+        function setMagPopoverOpen(open) {
+            if (!stageMagBarEl) return;
+            stageMagBarEl.classList.toggle('is-popover-open', !!open);
+            if (!open && magPopoverAutoHideTimer) {
+                clearTimeout(magPopoverAutoHideTimer);
+                magPopoverAutoHideTimer = null;
+            }
+        }
+
         function resetStageMagnifier(showTip = true) {
             stageZoomPct = 100;
             stagePanX = 0;
@@ -17751,6 +18441,7 @@ window.switchRightTab = function (mode) {
             isStagePanMode = false;
             userLockedPanOff = false;
             isDraggingStage = false;
+            setMagPopoverOpen(false);
             stageEl.classList.remove('is-stage-panning', 'is-stage-wheel-zooming', 'is-stage-pan-mode');
             updateStageFitScale();
             syncStageMagnifierUI();
@@ -17785,9 +18476,28 @@ window.switchRightTab = function (mode) {
             }
         }
 
-        // 1. 按钮与滑块事件绑定
+        // 1. 按钮与滑块事件绑定（顶部 🔍 放大镜按钮改为打开/收起轻量缩放浮窗，绝不常驻遮挡 16:9 画面）
         if (btnStageMagToggle) btnStageMagToggle.addEventListener('click', (e) => { e.stopPropagation(); quickToggleMagnifier(); });
-        if (btnTopStageMag) btnTopStageMag.addEventListener('click', (e) => { e.stopPropagation(); quickToggleMagnifier(); });
+        if (btnTopStageMag) {
+            btnTopStageMag.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (!stageMagBarEl) {
+                    quickToggleMagnifier();
+                    return;
+                }
+                const nextOpen = !stageMagBarEl.classList.contains('is-popover-open');
+                setMagPopoverOpen(nextOpen);
+            });
+            btnTopStageMag.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                quickToggleMagnifier();
+            });
+        }
+        document.addEventListener('mousedown', (e) => {
+            if (!stageMagBarEl || !stageMagBarEl.classList.contains('is-popover-open')) return;
+            if (stageMagBarEl.contains(e.target) || (btnTopStageMag && btnTopStageMag.contains(e.target))) return;
+            setMagPopoverOpen(false);
+        });
 
         if (btnStageZoomIn) {
             btnStageZoomIn.addEventListener('click', (e) => {
@@ -17969,8 +18679,8 @@ window.switchRightTab = function (mode) {
             const t = e.target;
             if (!t || !t.closest) return;
 
-            // 忽略画布内双击原地编辑条的内部操作按钮
-            if (t.closest('.live-row-inline-editor')) return;
+            // 忽略画布内双击原地编辑条与三端状态栏 Laya 小图标（小图标本身已自带单击换样式 + 自动定位）
+            if (t.closest('.live-row-inline-editor, #dy-sb-laya-wrap, #m-sb-laya-wrap, #dyl-sb-laya-wrap')) return;
 
             const locate = (tab, cardId, targetSelector, highlightSelector, extra = {}) => {
                 window.locateSidebarControl({

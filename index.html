@@ -9,13 +9,14 @@
     <title>Laya 播放器 · 全真机录屏与截图工作台</title>
     <!-- 浏览器标签页图标 (上传到 GitHub Pages 后不再显示地球图标) -->
     <link rel="icon" href="favicon.png" type="image/png">
-    <!-- 引入官方原生级字体：思源黑体 (Noto Sans SC/TC = Source Han Sans) + San Francisco 同源西文 (Inter) + 安卓西文 (Roboto) -->
+    <!-- 引入官方原生级字体（异步非阻塞加载，首屏优先使用本机苹方/微软雅黑/思源系统字体秒开，绝不拖慢首屏） -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20261113_v57">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" crossorigin="anonymous">
+    <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous"></noscript>
+    <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
+    <link rel="stylesheet" href="style.css?v=20261113_v60">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
         .sidebar .tab-panel.active {
@@ -252,7 +253,7 @@
             <div class="player-box mode-pc skin-laya-app" id="render-target">
                 <!-- 媒体底层容器 -->
                 <div class="media-container" id="player-media-wrap">
-                    <img src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=95" class="player-bg-media" id="preview-img" crossorigin="anonymous">
+                    <img src="https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=95" class="player-bg-media" id="preview-img" decoding="async" crossorigin="anonymous">
                     <video id="preview-video" class="player-bg-media" loop playsinline style="display: none;"></video>
                 </div>
 
@@ -369,7 +370,12 @@
                 <div class="mobile-cinema-hud" id="mobile-cinema-hud">
                     <!-- 1. 顶部手机原生状态栏 -->
                     <div class="m-status-bar" id="m-status-bar">
-                        <span class="m-status-time interactive-elem" id="m-disp-status-time" title="点击可随机切换时间" style="cursor:pointer;">14:24</span>
+                        <div class="m-status-left" style="display:inline-flex; align-items:center; gap:5px;">
+                            <span class="m-status-time interactive-elem" id="m-disp-status-time" title="点击可随机切换时间" style="cursor:pointer;">14:24</span>
+                            <span class="dy-sb-laya-notif-wrap m-sb-laya-wrap interactive-elem" id="m-sb-laya-wrap" title="单击循环切换 Laya 状态栏小图标样式">
+                                <img src="Laya.png" class="dy-sb-laya-notif-icon" id="m-sb-laya-icon" alt="Laya">
+                            </span>
+                        </div>
                         <div class="m-status-icons">
                             <div class="m-signal-group" id="m-signal-group" title="蜂窝网络信号">
                                 <span class="m-sig-bar s1 active"></span>
@@ -486,8 +492,8 @@
                             </span>
                             <span class="dy-sb-time interactive-elem" id="dy-sb-time" title="点击可随机切换时间">14:24</span>
                             <span class="dy-sb-carrier" id="dy-sb-carrier" style="display: none;">中国移动</span>
-                            <!-- 顶部通知栏 Laya 小图标（复用 logos.js 资源，支持调整大小与位置，不遮挡通知文字） -->
-                            <span class="dy-sb-laya-notif-wrap interactive-elem" id="dy-sb-laya-wrap" title="Laya 通知欄小圖標（按住可拖動位置 · 滾輪可調節大小）">
+                            <!-- 顶部通知栏 Laya 小图标（单击循环切换样式 · 按住拖动位置 · 滚轮调节大小） -->
+                            <span class="dy-sb-laya-notif-wrap interactive-elem" id="dy-sb-laya-wrap" title="单击循环切换 Laya 图标样式 · 按住拖动位置 · 滚轮调大小">
                                 <img src="Laya.png" class="dy-sb-laya-notif-icon" id="dy-sb-laya-icon" alt="Laya">
                             </span>
                             <!-- 定位小箭头 (原生右上45度路径，无需CSS旋转，杜绝截图偏移) -->
@@ -1216,10 +1222,13 @@
                 <div class="dy-land-hud" id="dy-land-hud">
                     <!-- 顶部状态栏 (无黑框背景，时间居中、左侧Wi-Fi、右侧电量) -->
                     <div class="dyl-status-bar" id="dyl-wrap-status">
-                        <div class="dyl-sb-left">
+                        <div class="dyl-sb-left" style="display:inline-flex; align-items:center; gap:6px;">
                             <svg width="15" height="11" viewBox="0 0 16 12" fill="#fff">
                                 <path d="M8 9.6a1.4 1.4 0 100 2.8 1.4 1.4 0 000-2.8zm-3.6-1.9a5.2 5.2 0 017.2 0l1.2-1.3a7 7 0 00-9.6 0l1.2 1.3zm-2.7-2.7a9 9 0 0112.6 0l1.3-1.3a10.8 10.8 0 00-15.2 0l1.3 1.3z"/>
                             </svg>
+                            <span class="dy-sb-laya-notif-wrap dyl-sb-laya-wrap interactive-elem" id="dyl-sb-laya-wrap" title="单击循环切换 Laya 状态栏小图标样式">
+                                <img src="Laya.png" class="dy-sb-laya-notif-icon" id="dyl-sb-laya-icon" alt="Laya">
+                            </span>
                         </div>
                         <div class="dyl-sb-center interactive-elem" id="dyl-disp-clock" title="点击可随机切换时间" style="cursor:pointer;">04:23</div>
                         <div class="dyl-sb-right">
@@ -1614,18 +1623,25 @@
             <button class="c-tab-btn" id="tab-btn-dy">📲 竖屏社区</button>
             <button class="c-tab-btn" id="tab-btn-dm">💬 弹幕</button>
         </div>
+        <div class="sidebar-clean-toolbar" id="sidebar-clean-toolbar">
+            <span class="sidebar-clean-hint">💡 点击左侧画面自动定位 · 点击卡片标题可折叠</span>
+            <div class="sidebar-clean-btns">
+                <button type="button" class="sidebar-clean-act" id="btn-sidebar-focus-view" title="仅展开核心常用卡片，收起进阶卡片，清爽易读">精简视图</button>
+                <button type="button" class="sidebar-clean-act" id="btn-sidebar-expand-all" title="展开当前板块全部设置卡片">展开全部</button>
+            </div>
+        </div>
 
         <!-- 全局通用卡片：官方双 Logo (蓝/紫) 自带默认 + 可选自定义上传 -->
-        <div class="panel-card">
+        <div class="panel-card" id="card-logo-switch">
             <div class="card-header">
-                <span>🎨 官方 Logo 切换 (默认自带蓝/紫图标)</span>
+                <span>🎨 官方 Logo 切换</span>
                 <span class="badge-tip">免上传直出</span>
             </div>
             <div class="form-row">
                 <label>快速切换当前使用的自带 Logo 图标：</label>
-                <select id="sel-logo-version" style="background:#151821; font-weight:700; color:#5dade2;">
+                <select id="sel-logo-version" style="background:#151821; font-weight:700; color:#c084fc;">
+                    <option value="Laya2.png" selected>🟣 自带紫色图标 (Laya2.png · 默认)</option>
                     <option value="Laya.png">🔵 自带蓝色图标 (Laya.png)</option>
-                    <option value="Laya2.png">🟣 自带紫色图标 (Laya2.png)</option>
                 </select>
             </div>
             <div class="form-row">
@@ -1658,7 +1674,7 @@
 
         <!-- ================= 选项卡 1: 电脑 Web 版配置 ================= -->
         <div id="panel-web-settings" class="tab-panel active">
-            <div class="panel-card">
+            <div class="panel-card" id="card-web-time">
                 <div class="card-header">
                     <span>⏱️ 起始时间与进度条控制</span>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-web-random-time-all" title="点击同时随机更换起始时间与结尾总时长">🎲 随机时间</button>
@@ -1705,10 +1721,10 @@
                 </div>
             </div>
 
-            <div class="panel-card">
+            <div class="panel-card" id="card-web-switches">
                 <div class="card-header">
-                    <span>🎛️ 电脑网页端小配件显隐矩阵 (12项全齐)</span>
-                    <span class="badge-tip">即开即显</span>
+                    <span>🎛️ 网页端组件显隐开关</span>
+                    <span class="badge-tip">12项</span>
                 </div>
                 <div class="switch-grid">
                     <div class="switch-tile">
@@ -1798,7 +1814,7 @@
                 </div>
             </div>
 
-            <div class="panel-card">
+            <div class="panel-card" id="card-web-wave">
                 <div class="card-header">
                     <span>🌊 高能热度波浪曲线</span>
                     <label class="ios-toggle">
@@ -1828,7 +1844,7 @@
                 </div>
             </div>
 
-            <div class="panel-card">
+            <div class="panel-card" id="card-web-text">
                 <div class="card-header">
                     <span>📝 电脑端文案与预设自定义</span>
                     <span class="badge-tip">实时联动</span>
@@ -1878,7 +1894,7 @@
         <!-- ================= 选项卡 2: 手机横屏影音专属配置 (4张独立卡片垂直上下排列) ================= -->
         <div id="panel-m-cinema-settings" class="tab-panel">
             <!-- 卡片 1：起始时间与进度条控制 -->
-            <div class="panel-card">
+            <div class="panel-card" id="card-mc-time">
                 <div class="card-header">
                     <span>⏱️ 起始时间与进度条控制</span>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-random-time" title="点击同时随机更换起始时间与结尾总时长">🎲 随机时间</button>
@@ -1926,7 +1942,7 @@
             </div>
 
             <!-- 卡片 2：手机顶部状态栏仿真配置 -->
-            <div class="panel-card">
+            <div class="panel-card" id="card-mc-statusbar">
                 <div class="card-header">
                     <span>🔋 手机顶部状态栏仿真配置</span>
                     <span class="badge-tip">1:1 复刻</span>
@@ -1959,7 +1975,7 @@
             </div>
 
             <!-- 卡片 3：左上角画质徽标与标题配置 -->
-            <div class="panel-card">
+            <div class="panel-card" id="card-mc-badge">
                 <div class="card-header">
                     <span>🎬 左上角 Logo、画质徽标与标题配置</span>
                     <span class="badge-tip">点击画面可换</span>
@@ -2022,7 +2038,7 @@
             </div>
 
             <!-- 卡片 4：手机横屏组件显隐开关 -->
-            <div class="panel-card">
+            <div class="panel-card" id="card-mc-switches">
                 <div class="card-header">
                     <span>🎛️ 手机横屏组件显隐开关</span>
                 </div>
@@ -2068,7 +2084,7 @@
 
         <!-- ================= 选项卡 3: 手机竖屏双风格配置 ================= -->
         <div id="panel-dy-settings" class="tab-panel">
-            <div class="panel-card">
+            <div class="panel-card" id="card-dy-skin">
                 <div class="card-header">
                     <span>🎨 手机竖屏皮肤模式切换</span>
                 </div>
@@ -2083,7 +2099,7 @@
             </div>
 
             <!-- 新增：竖屏顶部多机型状态栏与全套状态图标工作台 -->
-            <div class="panel-card">
+            <div class="panel-card" id="card-dy-statusbar">
                 <div class="card-header">
                     <span>📱 顶部手机状态栏与机型仿真</span>
                     <span class="badge-tip">多机型/全图标</span>
@@ -2300,28 +2316,38 @@
                     </div>
                 </div>
 
-                <!-- ★ 需求三：最上面通知栏（状态栏）Laya 小图标独立定制面板 -->
-                <div class="form-row" id="box-dy-sb-laya-cfg" style="margin-top:8px; padding:8px 10px; border-radius:8px; background:rgba(124, 58, 237, 0.13); border:1px solid rgba(168, 85, 247, 0.38);">
-                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
-                        <span style="font-size:12px; font-weight:800; color:#e9d5ff;">🟣 顶部通知栏 Laya 小图标 (不遮挡文字 · 可拖动)</span>
+                <!-- ★ 需求三：最上面通知栏（状态栏）Laya 小图标独立定制面板（支持单击图标循环切换、可视化点选与自定义上传） -->
+                <div class="form-row sb-laya-cfg-card" id="box-dy-sb-laya-cfg">
+                    <div class="sb-laya-cfg-head">
+                        <span class="sb-laya-cfg-title">🟣 状态栏 Laya 小图标 <small>(单击画面图标即可换样式)</small></span>
                         <div style="display:inline-flex; align-items:center; gap:6px;">
-                            <button type="button" class="sub-mini-act" id="btn-dy-sb-laya-reset" style="padding:1px 7px;" title="重置通知栏 Laya 小图标的大小与位置">↺ 重置</button>
+                            <button type="button" class="sub-mini-act" id="btn-dy-sb-laya-cycle" style="padding:2px 8px;" title="点击切换到下一个 Laya 状态栏小图标样式">🔄 换样式</button>
+                            <input type="file" id="up-dy-sb-laya-custom" accept="image/*" style="display:none;">
+                            <button type="button" class="sub-mini-act" id="btn-dy-sb-laya-upload" style="padding:2px 8px;" title="上传自定义状态栏小图标">📁 上传</button>
+                            <button type="button" class="sub-mini-act" id="btn-dy-sb-laya-reset" style="padding:2px 7px;" title="重置通知栏 Laya 小图标的大小与位置">↺ 重置</button>
                             <label class="ios-toggle" title="显示或隐藏顶部通知栏 Laya 小图标">
                                 <input type="checkbox" id="sw-dy-sb-laya-icon" checked>
                                 <span class="slider-round"></span>
                             </label>
                         </div>
                     </div>
-                    <div class="form-grid-2" style="gap:6px; margin-bottom:6px;">
+                    <div class="sb-laya-preset-bar" id="sb-laya-preset-bar" aria-label="快速切换状态栏小图标"></div>
+                    <div class="form-grid-2" style="gap:8px; margin-bottom:6px;">
                         <div class="form-row" style="margin:0;">
-                            <label style="font-size:11px;">图标样式 (复用 logos.js)</label>
+                            <label style="font-size:11px;">图标样式选择</label>
                             <select id="sel-dy-sb-laya-logo">
-                                <option value="Laya.png" selected>🟣 Laya 圆角通知标</option>
-                                <option value="Laya2.png">✨ Laya 纯净透明标</option>
+                                <option value="Laya2.png" selected>🟣 Laya 官方紫圆标 (默认)</option>
+                                <option value="Laya.png">🔵 Laya 经典蓝圆标</option>
+                                <option value="laya-mono-white">🤍 Laya 极简纯白通知标</option>
+                                <option value="laya-blue">💠 Laya 霓虹电光蓝标</option>
+                                <option value="laya-gold">🟡 Laya 尊享黑金标</option>
+                                <option value="laya-pink">💗 Laya 绯红直播标</option>
+                                <option value="laya-bell">🔔 Laya 消息铃铛角标</option>
+                                <option value="custom">📁 自定义上传图标</option>
                             </select>
                         </div>
                         <div class="form-row" style="margin:0;">
-                            <label style="font-size:11px;">排列锚点 (自动避让文字)</label>
+                            <label style="font-size:11px;">摆放位置 (自动避让文字)</label>
                             <select id="sel-dy-sb-laya-slot">
                                 <option value="after-time" selected>时间/运营商右侧 (推荐)</option>
                                 <option value="after-notifs">左侧通知图标末尾</option>
@@ -2330,34 +2356,37 @@
                             </select>
                         </div>
                     </div>
-                    <div class="form-grid-2" style="gap:8px;">
-                        <div class="form-row" style="margin:0;">
-                            <div class="range-box">
-                                <label style="font-size:11px;">图标大小</label>
-                                <span class="range-value" id="txt-dy-sb-laya-size">12.5px</span>
-                            </div>
-                            <input type="range" id="in-dy-sb-laya-size" min="9" max="19" step="0.5" value="12.5">
-                        </div>
-                        <div class="form-row" style="margin:0;">
-                            <div class="range-box">
-                                <label style="font-size:11px;">水平间距微调 X</label>
-                                <span class="range-value" id="txt-dy-sb-laya-x">2px</span>
-                            </div>
-                            <input type="range" id="in-dy-sb-laya-x" min="0" max="85" step="1" value="2">
-                        </div>
-                    </div>
-                    <div class="form-row" style="margin:4px 0 0 0;">
+                    <div class="form-row" style="margin:0;">
                         <div class="range-box">
-                            <label style="font-size:11px;">垂直对齐微调 Y (与通知栏文字同视觉层级)</label>
-                            <span class="range-value" id="txt-dy-sb-laya-y">0px</span>
+                            <label style="font-size:11px;">图标大小 (画面滚轮也可调)</label>
+                            <span class="range-value" id="txt-dy-sb-laya-size">12.5px</span>
                         </div>
-                        <input type="range" id="in-dy-sb-laya-y" min="-5" max="5" step="0.5" value="0">
+                        <input type="range" id="in-dy-sb-laya-size" min="9" max="19" step="0.5" value="12.5">
                     </div>
+                    <details class="clean-adv-drawer">
+                        <summary>⚙️ 展开水平/垂直像素级微调 (也可直接在画面按住图标拖动)</summary>
+                        <div class="form-grid-2" style="gap:8px; margin-top:6px;">
+                            <div class="form-row" style="margin:0;">
+                                <div class="range-box">
+                                    <label style="font-size:11px;">水平间距 X</label>
+                                    <span class="range-value" id="txt-dy-sb-laya-x">2px</span>
+                                </div>
+                                <input type="range" id="in-dy-sb-laya-x" min="0" max="85" step="1" value="2">
+                            </div>
+                            <div class="form-row" style="margin:0;">
+                                <div class="range-box">
+                                    <label style="font-size:11px;">垂直对齐 Y</label>
+                                    <span class="range-value" id="txt-dy-sb-laya-y">0px</span>
+                                </div>
+                                <input type="range" id="in-dy-sb-laya-y" min="-5" max="5" step="0.5" value="0">
+                            </div>
+                        </div>
+                    </details>
                 </div>
             </div>
 
             <!-- 竖屏内横屏取景与全屏观看设置 -->
-            <div class="panel-card" style="border: 1px solid rgba(56, 189, 248, 0.35);">
+            <div class="panel-card" id="card-dy-fullscreen" style="border: 1px solid rgba(56, 189, 248, 0.35);">
                 <div class="card-header">
                     <span>📺 全屏观看与横竖取景设置</span>
                     <span class="badge-tip">默认 Laya</span>
@@ -2397,7 +2426,7 @@
             </div>
 
             <!-- 🎬 智能画面字幕识别与多条编辑工作台 (默认关闭，开启后可自动识别/简繁切换/逐条编辑) -->
-            <div class="panel-card sub-studio-card" style="border: 1px solid rgba(0, 230, 118, 0.4);">
+            <div class="panel-card sub-studio-card" id="card-dy-subtitle" style="border: 1px solid rgba(0, 230, 118, 0.4);">
                 <div class="card-header">
                     <span>🎬 智能画面字幕识别与多条编辑</span>
                     <span class="badge-tip" style="background:rgba(16,185,129,0.2); color:#34d399;">AI 字幕台</span>
@@ -2470,7 +2499,7 @@
             </div>
 
             <!-- 全屏观看横屏模式专属控件开关 -->
-            <div class="panel-card" style="border: 1px solid rgba(56, 189, 248, 0.35);">
+            <div class="panel-card" id="card-dyl-switches" style="border: 1px solid rgba(56, 189, 248, 0.35);">
                 <div class="card-header">
                     <span>🔄 全屏观看(横屏) 控件显隐与交互</span>
                 </div>
@@ -2591,20 +2620,29 @@
             <!-- ★ 新增：竖屏嵌入直播间专属设置 (Laya 深色紫色品牌风格) -->
             <div class="panel-card" id="card-dy-live-settings" style="border: 1px solid rgba(168, 85, 247, 0.55); background: linear-gradient(180deg, rgba(88, 28, 135, 0.18) 0%, rgba(21, 24, 33, 0.96) 100%);">
                 <div class="card-header">
-                    <span>🔴 直播间专属设置 (点「直播」即进入)</span>
-                    <button type="button" class="btn btn-secondary btn-sm" id="btn-live-back-to-video" style="background: rgba(168, 85, 247, 0.22); border-color: rgba(168, 85, 247, 0.55); color: #e9d5ff; font-weight: 700;" title="立即退出直播页面，切回默认短视频（推薦）界面">🎬 切回短視頻</button>
+                    <span>🔴 直播间专属设置</span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="btn-live-back-to-video" style="background: rgba(168, 85, 247, 0.18); border-color: rgba(168, 85, 247, 0.42); color: #e9d5ff; font-weight: 600;" title="立即退出直播页面，切回默认短视频（推薦）界面">🎬 切回短視頻</button>
                 </div>
 
-                <!-- 顶部醒目快捷精修与控制栏（已将原手机画面中间突兀的悬浮工具条整合至此处，画面100%干净无遮挡） -->
-                <div id="live-dm-edit-toolbar" style="margin: 2px 0 8px 0; padding: 8px 10px; border-radius: 9px; background: linear-gradient(90deg, rgba(14, 165, 233, 0.22) 0%, rgba(124, 58, 237, 0.26) 55%, rgba(236, 72, 153, 0.22) 100%); border: 1.5px solid rgba(56, 189, 248, 0.65); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; box-shadow: 0 4px 14px rgba(14, 165, 233, 0.18);">
-                    <span style="font-size: 12px; font-weight: 800; color: #f0f9ff; display: inline-flex; align-items: center; gap: 4px;">✨ 評論與禮物區細節精修：</span>
+                <!-- 直播间分块阅读导航条（告别超长滚屏杂乱感，点击左侧画面元素时自动切到对应分组） -->
+                <div class="live-subtab-bar" id="live-subtab-bar">
+                    <button type="button" class="live-subtab-btn active" data-live-group="all">📋 全部</button>
+                    <button type="button" class="live-subtab-btn" data-live-group="host">👤 主播标签</button>
+                    <button type="button" class="live-subtab-btn" data-live-group="gift">🎁 礼物连击</button>
+                    <button type="button" class="live-subtab-btn" data-live-group="chat">💬 弹幕飘屏</button>
+                    <button type="button" class="live-subtab-btn" data-live-group="vis">👁️ 显隐公告</button>
+                </div>
+
+                <!-- 顶部快捷精修栏（清爽深灰蓝玻璃质感） -->
+                <div id="live-dm-edit-toolbar" class="live-clean-quickbar">
+                    <span class="live-clean-quickbar-label">快捷精修</span>
                     <div style="display: flex; align-items: center; gap: 5px; flex-wrap: wrap;">
-                        <button type="button" id="btn-live-header-zoom-edit" style="background: linear-gradient(90deg, #0284c7, #7c3aed); color: #ffffff; border: 1.5px solid #fde047; border-radius: 999px; padding: 3px 10px; font-size: 11.5px; font-weight: 800; cursor: pointer; box-shadow: 0 2px 10px rgba(2, 132, 199, 0.55);" title="点击将左侧手机直播间的礼物与评论区整体放大，方便看清并双击修改灯牌、等级、名字与评论细节（导出时自动还原标准大小）">🔍 放大查看調細節</button>
-                        <button type="button" id="btn-live-header-reset-size" style="background: rgba(245, 158, 11, 0.28); color: #fef08a; border: 1.5px solid rgba(250, 204, 21, 0.75); border-radius: 999px; padding: 3px 9px; font-size: 11.5px; font-weight: 800; cursor: pointer;" title="一键收起放大状态，并将字号比例(100%)、区域宽度(93%)、同屏行数(5行)全部还原为默认标准大小">↺ 重置大小</button>
+                        <button type="button" class="sub-mini-act" id="btn-live-header-zoom-edit" style="background: rgba(56, 189, 248, 0.18); color: #bae6fd; border-color: rgba(56, 189, 248, 0.45); font-weight: 700;" title="点击将左侧手机直播间的礼物与评论区整体放大，方便看清并双击修改细节（导出时自动还原）">🔍 放大调细节</button>
+                        <button type="button" class="sub-mini-act" id="btn-live-header-reset-size" title="一键收起放大状态并还原默认标准大小">↺ 还原</button>
                         <button type="button" class="sub-mini-act" id="btn-live-canvas-spd-down" title="放慢弹幕与礼物速度">➖慢</button>
-                        <span class="sub-mini-act" id="txt-live-canvas-spd" style="background:rgba(15,23,42,0.8); color:#fde047; font-weight:800; cursor:default;">⚡5檔</span>
+                        <span class="sub-mini-act" id="txt-live-canvas-spd" style="background:rgba(15,23,42,0.75); color:#7dd3fc; font-weight:700; cursor:default;">⚡5檔</span>
                         <button type="button" class="sub-mini-act" id="btn-live-canvas-spd-up" title="加快弹幕与礼物速度">➕快</button>
-                        <button type="button" class="sub-mini-act" id="btn-live-canvas-ai-dm" style="background:linear-gradient(90deg,#7c3aed,#ec4899); color:#fff; border:none; font-weight:800;" title="使用 AI 识别当前上传的视频或图片画面生成弹幕（每次间隔不少于30秒）">🤖 AI畫面生詞</button>
+                        <button type="button" class="sub-mini-act" id="btn-live-canvas-ai-dm" style="background:rgba(139, 92, 246, 0.25); color:#e9d5ff; border-color:rgba(167, 139, 250, 0.45); font-weight:700;" title="使用 AI 识别当前上传的视频或图片画面生成弹幕（每次间隔不少于30秒）">🤖 AI 配词</button>
                     </div>
                 </div>
 
@@ -3212,9 +3250,9 @@
                                 <span>💜 右侧飘心密度 (0档关闭)</span>
                                 <span class="live-inline-vis-wrap" title="单独显示或关闭右侧彩色点赞飘心"><input type="checkbox" data-live-vis="float-hearts" checked>显示</span>
                             </label>
-                            <span class="range-value" id="txt-live-heart-density">6 (热闹)</span>
+                            <span class="range-value" id="txt-live-heart-density">5 (热闹)</span>
                         </div>
-                        <input type="range" id="in-live-heart-density" min="0" max="10" step="1" value="6">
+                        <input type="range" id="in-live-heart-density" min="0" max="10" step="1" value="5">
                     </div>
                 </div>
 
@@ -3383,7 +3421,7 @@
                 </div>
             </div>
 
-            <div class="panel-card">
+            <div class="panel-card" id="card-dy-author">
                 <div class="card-header">
                     <span>📊 互动数据与作者资料</span>
                     <button type="button" class="btn btn-secondary btn-sm" id="btn-random-viral-metrics" title="按上传视频时长规律 (5000~100万) 重新随机生成点赞、评论、收藏、分享与在看人数">🎲 按时长规律随机</button>
@@ -3468,7 +3506,7 @@
                 </div>
             </div>
 
-            <div class="panel-card">
+            <div class="panel-card" id="card-dy-hotspot">
                 <div class="card-header">
                     <span>🔥 热点与热搜词配置</span>
                 </div>
@@ -3680,7 +3718,7 @@
 
         <!-- ================= 选项卡 4: 高级弹幕工坊 ================= -->
         <div id="panel-dm-settings" class="tab-panel">
-            <div class="panel-card">
+            <div class="panel-card" id="card-dm-studio">
                 <div class="card-header">
                     <span>💬 弹幕运动与定格控制</span>
                     <button class="btn btn-sm" id="btn-add-danmaku">+ 新增轨道</button>
@@ -3799,7 +3837,7 @@
         </div>
 
         <!-- ================= 独立取景框与画面裁切控制 ================= -->
-        <div class="panel-card">
+        <div class="panel-card" id="card-crop-box">
             <div class="card-header">
                 <span>📐 独立取景框</span>
                 <span class="badge-tip">所选即所得</span>
@@ -3862,10 +3900,10 @@
     </div>
 </main>
 
-<script src="logos.js?v=20261113_v57"></script>
-<script src="player.js?v=20261113_v57"></script>
-<script src="danmaku.js?v=20261113_v57"></script>
-<script src="app.js?v=20261113_v57"></script>
+<script src="logos.js?v=20261113_v60"></script>
+<script src="player.js?v=20261113_v60"></script>
+<script src="danmaku.js?v=20261113_v60"></script>
+<script src="app.js?v=20261113_v60"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {
