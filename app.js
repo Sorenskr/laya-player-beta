@@ -4,6 +4,7 @@
  * ==========================================================================
  */
 
+window.__isInitialPreBoot = true;
 window.showToast = function (msg) {
     const container = document.getElementById('toast-container');
     if (!container) return;
@@ -11,7 +12,7 @@ window.showToast = function (msg) {
     const toast = document.createElement('div');
     toast.className = 'toast';
     // 页面初始化恢复缓存期间，不弹出任何打扰用户的 Toast
-    if (window.__isRestoringStorage) return;
+    if (window.__isRestoringStorage || window.__isInitialPreBoot) return;
 
     // 剥离所有 Emoji 小表情、压缩冗余提示词，且仅保留最新 1 条轻提示，绝不堆叠遮挡画面
     let cleanMsg = String(msg || '')
@@ -440,7 +441,7 @@ window.switchRightTab = function (mode) {
     }
     window.cacheAvatarExportSafeDataUrl = cacheAvatarExportSafeDataUrl;
 
-    // ★ 同步更新右侧中间作者头像、右侧最下方静态头像与全屏横屏头像（100% 实时联动）
+    // ★ 同步更新右侧中间作者头像、右侧最下方静态头像、全屏横屏头像与直播间主播头像（100% 实时联动）
     function syncAuthorAvatarEverywhere(src, isCustom = false) {
         if (!src) return;
         if (dyAvatarImg) {
@@ -451,6 +452,16 @@ window.switchRightTab = function (mode) {
         if (dylDispAvatar) {
             if (dylDispAvatar.src !== src) dylDispAvatar.src = src;
             cacheAvatarExportSafeDataUrl(dylDispAvatar, src);
+        }
+        const liveHostAvEl = document.getElementById('live-host-avatar');
+        if (liveHostAvEl) {
+            if (liveHostAvEl.src !== src) liveHostAvEl.src = src;
+            cacheAvatarExportSafeDataUrl(liveHostAvEl, src);
+        }
+        const liveMiniAvEl = document.getElementById('dy-live-follow-mini-av');
+        if (liveMiniAvEl) {
+            if (liveMiniAvEl.src !== src) liveMiniAvEl.src = src;
+            cacheAvatarExportSafeDataUrl(liveMiniAvEl, src);
         }
     }
     window.syncAuthorAvatarEverywhere = syncAuthorAvatarEverywhere;
@@ -493,6 +504,11 @@ window.switchRightTab = function (mode) {
         if (dyFeaturedLogoImg) dyFeaturedLogoImg.src = realSrc;
         const liveLayaMiniLogo = document.getElementById('live-laya-mini-logo');
         if (liveLayaMiniLogo) liveLayaMiniLogo.src = getActiveLogoSrc('Laya2.png');
+        const dySbLayaIconEl = document.getElementById('dy-sb-laya-icon');
+        const selDySbLayaLogoEl = document.getElementById('sel-dy-sb-laya-logo');
+        if (dySbLayaIconEl) {
+            dySbLayaIconEl.src = getActiveLogoSrc(selDySbLayaLogoEl ? selDySbLayaLogoEl.value : 'Laya.png');
+        }
 
         // 手机竖屏头像、右下角黑胶唱片头像与全屏横屏头像如果没单独上传过其他人物头像，同步使用当前自带蓝/紫 Logo
         if (dyAvatarImg && (!dyAvatarImg.dataset.custom || dyAvatarImg.dataset.custom === 'false')) {
@@ -844,10 +860,21 @@ window.switchRightTab = function (mode) {
     if (dyBtnLike && dySvgLike) {
         dyBtnLike.addEventListener('click', () => {
             isLiked = !isLiked;
-            dySvgLike.setAttribute('fill', isLiked ? '#fe2c55' : '#ffffff');
-            dyBtnLike.style.transform = 'scale(1.2)';
-            setTimeout(() => { dyBtnLike.style.transform = 'scale(1)'; }, 150);
-            window.showToast(isLiked ? '❤️ 已点赞' : '已取消点赞');
+            dyBtnLike.classList.toggle('liked', isLiked);
+            const isDayNow = !!(renderTarget && renderTarget.classList.contains('theme-light'));
+            dySvgLike.setAttribute('fill', isLiked ? '#fe2c55' : (isDayNow ? '#1f2329' : '#ffffff'));
+            dyBtnLike.classList.remove('like-bounce-anim');
+            void dyBtnLike.offsetWidth;
+            dyBtnLike.classList.add('like-bounce-anim');
+            const dyValLikesEl = document.getElementById('dy-val-likes');
+            if (dyValLikesEl) {
+                const rawTxt = dyValLikesEl.textContent.trim();
+                if (/^\d+$/.test(rawTxt)) {
+                    const n = parseInt(rawTxt, 10);
+                    dyValLikesEl.textContent = String(isLiked ? (n + 1) : Math.max(0, n - 1));
+                }
+            }
+            window.showToast(isLiked ? '已点赞' : '已取消点赞');
         });
     }
 
@@ -940,17 +967,225 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // 繁体中文昵称 (台/港/马风格) + 英文昵称 混合池
+    // 海外华人/真实用户风格繁体中文昵称大词库（325+ 条，离线可用，配合 Gemini Flash AI 实时生成与双层去重）
     const NICKNAME_POOL = [
-        'Chloe_tw', 'Kevin.88', 'Jason_HK', '阿傑Jay', '子瑜✨',
-        '林小柔', 'Mia_chen', 'Alex_W', '半糖去冰🧋', '夜貓子Owl',
-        'Ethan_Lin', '微風信義', 'Sophia.L', '台北小辣椒🌶️', 'Lucas_MY',
-        '港島妹妹', 'Olivia_99', 'Kuala_阿豪', 'Ryan_Tpe', '忠孝東路走九遍',
-        '貓空看星星', 'abella.vibes', '旺角卡門', '珍奶要波霸', 'Daniel_K',
-        '小確幸🌸', 'Leo_studio', '深夜食堂🍜', 'Vivian.c', '西門町阿翔',
-        '維多利亞港的風', 'Marcus_852', '星際漫遊者', '萱萱_tw', '建宏_TPE',
-        '芷晴_hk', '宇軒.my', 'Amber_Lin', '家豪_888', '心凌Cyndi✨'
+        '溫哥華小鹿', '洛杉磯老陳', '多倫多Sandy', '墨爾本阿豪', '悉尼小陳', '舊金山阿凱', '倫敦Chloé', '紐約Kevin',
+        '西雅圖老林', '東京小夏', '新加坡阿杰', '吉隆坡家豪', '奧克蘭Mia', '台北林小柔', '香港阿Wing', '芝加哥Leo',
+        '波士頓小魚', '休斯頓老張', '布里斯班阿翔', '巴黎艾米麗', '法蘭克福老周', '阿姆斯特丹Kiki', '米蘭小C', '馬德里阿偉',
+        '溫哥華阿May', '多倫多老吳', '加州陽光Eric', '灣區工程師阿哲', '曼哈頓夜貓', '皇后區小辣椒', '布魯克林阿Ken', '爾灣林太太',
+        '聖地亞哥海風', '帕羅奧圖Alex', '聖荷西老王', '拉斯維加斯阿龍', '西雅圖雨夜', '波特蘭小森', '溫哥華列治文老饕', '本拿比小陳',
+        '多倫多萬錦阿欣', '士嘉堡老劉', '密西沙加Grace', '卡爾加里老鄭', '蒙特利爾小雅', '渥太華Daniel', '悉尼唐人街阿強', '墨爾本BoxHill小周',
+        '珀斯看海的貓', '阿德萊德老許', '黃金海岸Sunny', '堪培拉小趙', '奧克蘭北岸阿明', '惠靈頓吹風', '基督城小葉', '倫敦Soho阿杰',
+        '曼徹斯特老高', '愛丁堡風笛', '伯明翰小蘇', '劍橋讀書的貓', '牛津小胡', '都柏林阿森', '東京新宿老李', '大阪心齋橋阿欣',
+        '京都抹茶控', '橫濱海風Ryan', '札幌看雪的魚', '福岡拉麵大王', '沖繩潛水員阿凱', '首爾弘大Mia', '濟州島橘子汽水', '新加坡烏節路阿文',
+        '裕廊東老林', '牛車水小辣椒', '樟宜夜歸人', '吉隆坡阿豪', '檳城老街阿叔', '新山小K', '馬六甲海風', '亞庇看日落',
+        '古晉小陳', '怡保白咖啡', '曼谷通羅阿杰', '清邁慢生活', '普吉島浪人', '台北信義區小柔', '大安區老陳', '西門町阿翔',
+        '淡水看夕陽', '九份老街的貓', '台中逢甲夜市王', '台南全糖去冰', '高雄駁二阿宏', '新竹竹科小工程師', '桃園機場常客', '基隆廟口老饕',
+        '花蓮看海的人', '宜蘭民宿小老闆', '墾丁衝浪男孩', '香港中環白領', '銅鑼灣阿詩', '旺角卡門', '尖沙咀看海', '九龍塘老陳',
+        '元朗小魚', '沙田阿軒', '將軍澳夜跑', '澳門氹仔老周', '大三巴小敏', 'Chloe_tw', 'Kevin.88', 'Jason_HK',
+        '阿傑Jay', '子瑜', '林小柔', 'Mia_chen', 'Alex_W', '半糖去冰', '夜貓子Owl', 'Ethan_Lin',
+        '微風信義', 'Sophia.L', '台北小辣椒', 'Lucas_MY', '港島妹妹', 'Olivia_99', 'Kuala_阿豪', 'Ryan_Tpe',
+        '忠孝東路走九遍', '貓空看星星', 'abella.vibes', '珍奶要波霸', 'Daniel_K', '小確幸', 'Leo_studio', '深夜食堂',
+        'Vivian.c', '維多利亞港的風', 'Marcus_852', '星際漫遊者', '萱萱_tw', '建宏_TPE', '芷晴_hk', '宇軒.my',
+        'Amber_Lin', '家豪_888', '心凌Cyndi', '溫哥華冰美式', '洛杉磯日落大道', '聖莫尼卡海風', '比佛利小公主', '好萊塢追光者',
+        '硅谷熬夜王', '金門大橋的風', '優勝美地露營客', '太浩湖滑雪板', '西雅圖咖啡師', '華盛頓櫻花雨', '邁阿密海灘阿豪', '奧蘭多煙火',
+        '亞特蘭大老蘇', '達拉斯牛仔阿K', '丹佛雪山客', '鳳凰城仙人掌', '費城老街阿明', '底特律老車迷', '明尼蘇達看雪', '夏威夷衝浪阿杰',
+        '檀香山小辣椒', '關島潛水員', '多倫多塔下的貓', '安大略湖畔', '尼亞加拉看瀑布', '溫哥華斯坦利公園', '惠斯勒滑雪狂', '維多利亞港灣',
+        '班夫國家公園鹿', '魁北克古城小雅', '哈利法克斯海風', '悉尼歌劇院旁', '邦迪海灘衝浪', '達令港夜景', '藍山徒步者', '墨爾本咖啡巷',
+        '大洋路自駕王', '菲利普島看企鵝', '亞拉河谷品酒師', '布里斯班南岸', '陽光海岸阿哲', '凱恩斯大堡礁', '塔斯馬尼亞追極光', '霍巴特小漁夫',
+        '奧克蘭天空塔', '羅托魯瓦溫泉', '皇后鎮跳傘王', '瓦納卡孤獨的樹', '蒂卡波看星空', '倫敦泰晤士河風', '大本鐘下的貓', '海德公園晨跑',
+        '諾丁山舊書店', '卡姆登集市控', '布萊頓海邊阿欣', '利物浦搖滾迷', '格拉斯哥老林', '卡迪夫灣小C', '貝爾法斯特阿強', '巴黎塞納河左岸',
+        '埃菲爾鐵塔夜燈', '蒙馬特畫家', '里昂美食家老陳', '尼斯蔚藍海岸', '馬賽老港海風', '普羅旺斯薰衣草', '波爾多紅酒客', '柏林勃蘭登堡',
+        '慕尼黑啤酒節阿豪', '漢堡港水手', '科隆大教堂旁', '海德堡哲學小徑', '蘇黎世湖畔小葉', '日內瓦鐘錶匠', '盧塞恩天鵝湖', '維也納金色大廳',
+        '薩爾茨堡音樂迷', '阿姆斯特丹運河船', '鹿特丹方塊屋', '布魯塞爾華夫餅', '羅馬許願池小鹿', '佛羅倫薩看日落', '威尼斯貢多拉', '米蘭大教堂鴿子',
+        '那不勒斯披薩王', '巴塞羅那高迪迷', '馬德里伯納烏阿杰', '塞維利亞弗拉明戈', '里斯本黃色電車', '波爾圖酒窖老吳', '雅典衛城看海', '聖托里尼藍頂',
+        '布拉格查理大橋', '布達佩斯多瑙河', '華沙老城阿森', '斯德哥爾摩群島', '奧斯陸峽灣行者', '哥本哈根小美人魚', '赫爾辛基極光獵人', '雷克雅未克冰川',
+        '東京鐵塔的貓', '澀谷十字路口', '銀座下午茶Sophia', '秋葉原手辦王', '淺草寺求籤人', '鎌倉高校前看海', '箱根溫泉常客', '富士山下的阿凱',
+        '大阪道頓堀吃貨', '京都嵐山竹林', '奈良餵鹿少女', '神戶牛排老饕', '名古屋手羽先', '廣島嚴島神社', '金澤兼六園小雅', '輕井澤森林客',
+        '首爾江南小姊姊', '明洞逛街狂', '梨泰院夜未眠', '釜山海雲台阿豪', '仁川機場轉機王', '新加坡濱海灣花園', '克拉碼頭微醺', '聖淘沙海灘客',
+        '東海岸騎行阿杰', '吉隆坡雙子塔夜色', '武吉免登阿強', '雲頂高原吹風', '蘭卡威天空之橋', '仙本那潛水小魚', '曼谷湄南河晚風', '芭堤雅海景房',
+        '蘇梅島椰子冰', '華欣火車站的貓', '胡志明市滴漏咖啡', '河內三十六行街', '峴港美溪海灘', '馬尼拉灣日落', '長灘島白沙灘', '宿霧看鯨鯊',
+        '雅加達老城阿明', '巴厘島烏布森林', '金巴蘭海灘燒烤', '迪拜哈利法塔下', '阿布扎比沙漠客', '開羅金字塔行者', '卡薩布蘭卡舊夢', '開普敦好望角',
+        '約翰內斯堡老陳', '聖保羅華人街阿豪', '布宜諾斯艾利斯探戈', '聖地亞哥安第斯山', '利馬馬丘比丘客', '墨西哥城塔可王', '坎昆加勒比海風', '哈瓦那老爺車'
     ];
+
+    /* ==========================================================================
+       ★ 问题五：昵称/头像双层去重（本机 localStorage + 跨设备后端/设备指纹分流）
+                 + 内置 Gemini Flash AI 动态生成海外华人昵称 + 海外华人头像持续更新源
+       ========================================================================== */
+    const USED_NICKNAMES_STORAGE_KEY = 'LAYA_USED_NICKNAMES_V1';
+    const USED_AVATARS_STORAGE_KEY = 'LAYA_USED_AVATARS_V1';
+    const AI_NICKNAMES_CACHE_KEY = 'LAYA_AI_OVERSEAS_NICKNAMES_V1';
+    const DYNAMIC_AVATARS_CACHE_KEY = 'LAYA_DYNAMIC_ASIAN_AVATARS_V1';
+    const DEVICE_FINGERPRINT_SEED_KEY = 'LAYA_DEVICE_SHARD_SEED_V1';
+
+    // [降级方案注释]：当跨设备后端 (/api/claim-identity 或 GAS) 暂不可用或处于静态站点/离线环境时，
+    // 采用设备硬件特征指纹 + 时区/分辨率/语言 + 持久随机盐生成确定性分流种子 (Device Fingerprint Shard)，
+    // 将不同设备分配到 320+ 昵称库与 340+ 头像库的不同起始区间，大幅降低跨电脑撞车率。
+    function getDeviceFingerprintShardOffset(poolLength = 300) {
+        try {
+            let savedSeed = parseInt(localStorage.getItem(DEVICE_FINGERPRINT_SEED_KEY) || '0', 10);
+            if (!savedSeed || isNaN(savedSeed)) {
+                const rawFp = [
+                    navigator.userAgent || '',
+                    navigator.language || '',
+                    (screen ? `${screen.width}x${screen.height}x${screen.colorDepth}` : ''),
+                    (Intl && Intl.DateTimeFormat ? (Intl.DateTimeFormat().resolvedOptions().timeZone || '') : ''),
+                    String(navigator.hardwareConcurrency || 4),
+                    String(Math.floor(Math.random() * 1000000))
+                ].join('|');
+                let h = 2166136261;
+                for (let i = 0; i < rawFp.length; i++) {
+                    h ^= rawFp.charCodeAt(i);
+                    h = Math.imul(h, 16777619);
+                }
+                savedSeed = Math.abs(h >>> 0) || 13579;
+                localStorage.setItem(DEVICE_FINGERPRINT_SEED_KEY, String(savedSeed));
+            }
+            const ipBonus = window.__clientIpShardHash || 0;
+            return (savedSeed + ipBonus) % Math.max(1, poolLength);
+        } catch (e) {
+            return Math.floor(Math.random() * Math.max(1, poolLength));
+        }
+    }
+
+    function loadUsedSetFromStorage(key) {
+        try {
+            const arr = JSON.parse(localStorage.getItem(key) || '[]');
+            if (Array.isArray(arr)) return new Set(arr.map(String));
+        } catch (e) {}
+        return new Set();
+    }
+
+    function saveUsedSetToStorage(key, setObj, maxKeep = 260) {
+        try {
+            let arr = Array.from(setObj);
+            if (arr.length > maxKeep) {
+                arr = arr.slice(arr.length - maxKeep);
+            }
+            localStorage.setItem(key, JSON.stringify(arr));
+        } catch (e) {}
+    }
+
+    const __localUsedNicknames = loadUsedSetFromStorage(USED_NICKNAMES_STORAGE_KEY);
+    const __localUsedAvatars = loadUsedSetFromStorage(USED_AVATARS_STORAGE_KEY);
+    const __crossDeviceClaimedNicknames = [];
+    const __crossDeviceClaimedAvatarIds = [];
+
+    // 恢复本地缓存的 AI 海外华人昵称并前置注入 NICKNAME_POOL
+    try {
+        const cachedAiNicks = JSON.parse(localStorage.getItem(AI_NICKNAMES_CACHE_KEY) || '[]');
+        if (Array.isArray(cachedAiNicks)) {
+            cachedAiNicks.forEach(n => {
+                const clean = String(n || '').trim();
+                if (clean && !NICKNAME_POOL.includes(clean)) {
+                    NICKNAME_POOL.unshift(clean);
+                }
+            });
+        }
+    } catch (e) {}
+
+    function getAvatarShortKey(urlOrB64) {
+        const s = String(urlOrB64 || '');
+        if (!s) return '';
+        if (s.startsWith('data:image/')) {
+            return 'b64_' + s.length + '_' + s.slice(-36, -4);
+        }
+        return s.slice(0, 140);
+    }
+
+    // ★ 本机 + 跨设备双层去重：领取一个未使用的海外华人昵称（滑动窗口记忆，耗尽时仅淘汰最早旧记录，绝不清空重撞近期昵称）
+    function claimUniqueNickname(customPool = null) {
+        const recordUsed = !window.__isInitialPreBoot;
+        // 1) 优先消费跨设备后端 (/api/claim-identity) 已申领的全局未用昵称
+        while (__crossDeviceClaimedNicknames.length > 0) {
+            const candidate = __crossDeviceClaimedNicknames.shift();
+            if (candidate && !__localUsedNicknames.has(candidate)) {
+                if (recordUsed) {
+                    __localUsedNicknames.add(candidate);
+                    saveUsedSetToStorage(USED_NICKNAMES_STORAGE_KEY, __localUsedNicknames, 300);
+                }
+                return candidate;
+            }
+        }
+
+        const pool = (Array.isArray(customPool) && customPool.length > 0) ? customPool : NICKNAME_POOL;
+        const shardOffset = getDeviceFingerprintShardOffset(pool.length);
+        const randStart = (shardOffset + Math.floor(Math.random() * pool.length)) % pool.length;
+
+        for (let pass = 0; pass < 2; pass++) {
+            for (let i = 0; i < pool.length; i++) {
+                const idx = (randStart + i * 7) % pool.length;
+                const cand = pool[idx];
+                if (cand && !__localUsedNicknames.has(cand)) {
+                    if (recordUsed) {
+                        __localUsedNicknames.add(cand);
+                        saveUsedSetToStorage(USED_NICKNAMES_STORAGE_KEY, __localUsedNicknames, 300);
+                    }
+                    return cand;
+                }
+            }
+            // 当前候选池已全部用完一轮时，仅保留最近使用的 45% 记录，释放较早记录供新一轮随机，杜绝刚出现过的名字紧接着重复
+            const arr = Array.from(__localUsedNicknames);
+            const keepRecent = new Set(arr.slice(-Math.min(120, Math.floor(pool.length * 0.45))));
+            __localUsedNicknames.clear();
+            keepRecent.forEach(k => __localUsedNicknames.add(k));
+        }
+
+        const fallback = pool[randStart] || '溫哥華小鹿';
+        if (recordUsed) {
+            __localUsedNicknames.add(fallback);
+            saveUsedSetToStorage(USED_NICKNAMES_STORAGE_KEY, __localUsedNicknames, 300);
+        }
+        return fallback;
+    }
+    window.claimUniqueNickname = claimUniqueNickname;
+
+    // ★ 本机 + 跨设备双层去重：从头像池领取一张未使用的头像（按实际池内剩余可用项判断，滑动窗口淘汰最早记录）
+    function claimUniqueAvatarFromPool(pool, extraAvoidSet = null, maybeAvoidSet = null) {
+        if (!Array.isArray(pool) || pool.length === 0) return '';
+        const recordUsed = !window.__isInitialPreBoot;
+        const avoidSet = (extraAvoidSet && typeof extraAvoidSet.has === 'function')
+            ? extraAvoidSet
+            : ((maybeAvoidSet && typeof maybeAvoidSet.has === 'function') ? maybeAvoidSet : null);
+
+        const shardOffset = getDeviceFingerprintShardOffset(pool.length);
+        const randStart = (shardOffset + Math.floor(Math.random() * pool.length)) % pool.length;
+
+        for (let pass = 0; pass < 2; pass++) {
+            for (let i = 0; i < pool.length; i++) {
+                const idx = (randStart + i * 11) % pool.length;
+                const u = pool[idx];
+                if (!u) continue;
+                if (avoidSet && avoidSet.has(u)) continue;
+                const key = getAvatarShortKey(u);
+                if (__localUsedAvatars.has(key)) continue;
+                if (recordUsed) {
+                    __localUsedAvatars.add(key);
+                    saveUsedSetToStorage(USED_AVATARS_STORAGE_KEY, __localUsedAvatars, 320);
+                }
+                if (avoidSet && typeof avoidSet.add === 'function') avoidSet.add(u);
+                return u;
+            }
+            // 仅当当前子池可用项已耗尽时，才保留最近 45% 的头像记录并释放较早记录
+            const arr = Array.from(__localUsedAvatars);
+            const keepCount = Math.max(30, Math.min(130, Math.floor(pool.length * 0.45)));
+            const keepRecent = new Set(arr.slice(-keepCount));
+            __localUsedAvatars.clear();
+            keepRecent.forEach(k => __localUsedAvatars.add(k));
+        }
+
+        const fallback = pool[randStart] || pool[0] || '';
+        if (fallback) {
+            if (recordUsed) {
+                __localUsedAvatars.add(getAvatarShortKey(fallback));
+                saveUsedSetToStorage(USED_AVATARS_STORAGE_KEY, __localUsedAvatars, 320);
+            }
+            if (avoidSet && typeof avoidSet.add === 'function') avoidSet.add(fallback);
+        }
+        return fallback;
+    }
+    window.claimUniqueAvatarFromPool = claimUniqueAvatarFromPool;
     // 全繁体真实口语化评论词池（彻底去除生硬的「每句文案+末尾表情包」假模板，还原真实网友自然留言）
     const COMMENT_TEXT_POOL = [
         '牛總還是有點大智慧的',
@@ -1042,43 +1277,152 @@ window.switchRightTab = function (mode) {
         'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=200&h=200&q=82'
     ];
 
+    function getDynamicCachedAvatars() {
+        if (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') {
+            return { females: [], males: [] };
+        }
+        try {
+            const parsed = JSON.parse(localStorage.getItem(DYNAMIC_AVATARS_CACHE_KEY) || '{}');
+            return {
+                females: Array.isArray(parsed.females) ? parsed.females : [],
+                males: Array.isArray(parsed.males) ? parsed.males : []
+            };
+        } catch (e) {
+            return { females: [], males: [] };
+        }
+    }
+
     function getChineseFemalePool() {
         const db = window.LAYA_ASIAN_AVATARS || {};
-        // 优先使用内置 49 张海外华人/IG/小红书/台湾女生真实自拍与生活照 (Base64 秒开零跨域) + 在线直连库
-        return [...(db.beauties || []), ...(db.onlineFemaleUrls || []), ...CN_REAL_FEMALE_URLS];
+        const dyn = getDynamicCachedAvatars();
+        // 严格优先使用内置 196+ 张海外华人女生离线高清 Base64 头像 + randomuser.me 动态缓存头像，剔除易失效或跨域污染的外链缩略图
+        const base64First = [...(db.beauties || []), ...dyn.females];
+        return base64First.length > 0 ? base64First : CN_REAL_FEMALE_URLS;
     }
 
     function getChineseMalePool() {
         const db = window.LAYA_ASIAN_AVATARS || {};
-        // 优先使用内置 36 张海外华人/IG/潮男/日常男生真实生活照 (Base64 秒开零跨域) + 在线直连库
-        return [...(db.guys || []), ...(db.onlineMaleUrls || []), ...CN_REAL_MALE_URLS];
+        const dyn = getDynamicCachedAvatars();
+        // 严格优先使用内置 144+ 张海外华人男生离线高清 Base64 头像 + randomuser.me 动态缓存头像，剔除易失效或跨域污染的外链缩略图
+        const base64First = [...(db.guys || []), ...dyn.males];
+        return base64First.length > 0 ? base64First : CN_REAL_MALE_URLS;
     }
 
     function getChineseVibePool() {
         const db = window.LAYA_ASIAN_AVATARS || {};
-        return [...(db.vibes || []), ...(db.onlineVibeUrls || [])];
+        return [...(db.vibes || [])];
     }
 
     function getChinesePetPool() {
         const db = window.LAYA_ASIAN_AVATARS || {};
-        return [...(db.pets || []), ...(db.onlinePetUrls || [])];
+        return [...(db.pets || [])];
     }
 
     function getChineseAnimePool() {
         const db = window.LAYA_ASIAN_AVATARS || {};
-        return [...(db.anime || []), ...(db.onlineAnimeUrls || [])];
+        return [...(db.anime || [])];
     }
 
     let __avatarCycleCounter = Math.floor(Math.random() * 100);
 
     function pickFromPoolAvoiding(pool, avoidSet) {
-        if (!Array.isArray(pool) || pool.length === 0) return '';
-        const candidates = avoidSet ? pool.filter(u => !avoidSet.has(u)) : pool;
-        const activePool = candidates.length > 0 ? candidates : pool;
-        __avatarCycleCounter = (__avatarCycleCounter + 1) % 99999;
-        const idx = (__avatarCycleCounter + Math.floor(Math.random() * activePool.length)) % activePool.length;
-        return activePool[idx];
+        return claimUniqueAvatarFromPool(pool, avoidSet);
     }
+
+    // ★ 从可更新头像源 (randomuser.me + 稳定亚洲/华人面孔源) 动态拉取补充头像并缓存到 localStorage 复用；网络失败完全回退本地 340+ Base64 库
+    async function fetchDynamicOverseasChineseAvatarsOnLoad() {
+        if (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') {
+            return;
+        }
+        try {
+            const dyn = getDynamicCachedAvatars();
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timer = controller ? setTimeout(() => controller.abort(), 3200) : null;
+            const res = await fetch('https://randomuser.me/api/?results=24&inc=gender,name,picture,nat&noinfo', {
+                mode: 'cors',
+                signal: controller ? controller.signal : undefined
+            });
+            if (timer) clearTimeout(timer);
+            if (res.ok) {
+                const json = await res.json();
+                const results = Array.isArray(json?.results) ? json.results : [];
+                const asianSurnameRe = /^(chen|lin|wang|zhang|li|liu|huang|wu|xu|sun|ma|zhu|hu|guo|he|gao|luo|zheng|liang|xie|song|tang|deng|han|feng|cao|peng|zeng|xiao|tian|dong|pan|yuan|cai|jiang|yu|du|ye|cheng|wei|su|lu|ding|ren|shen|yao|cui|tan|fan|jin|shi|liao|zou|xiong|meng|qin|bai|hou|yin|chang|long|lai|wen|hong|choi|kim|park|lee|ng|chan|wong|cheung|lau|ho|leung|tam|tsang|kwok|fung|yip|lam|chong|lim|goh|koh|teo|ong|yeo|chua|tay|yap|chin)$/i;
+                results.forEach(u => {
+                    const pic = u?.picture?.large || u?.picture?.medium || '';
+                    if (!pic || !pic.startsWith('https://')) return;
+                    const last = String(u?.name?.last || '').trim();
+                    const first = String(u?.name?.first || '').trim();
+                    if (asianSurnameRe.test(last) || asianSurnameRe.test(first) || (dyn.females.length + dyn.males.length < 16)) {
+                        if (u.gender === 'female') {
+                            if (!dyn.females.includes(pic)) dyn.females.push(pic);
+                        } else {
+                            if (!dyn.males.includes(pic)) dyn.males.push(pic);
+                        }
+                    }
+                });
+                if (dyn.females.length > 60) dyn.females = dyn.females.slice(-60);
+                if (dyn.males.length > 60) dyn.males = dyn.males.slice(-60);
+                localStorage.setItem(DYNAMIC_AVATARS_CACHE_KEY, JSON.stringify({
+                    females: dyn.females,
+                    males: dyn.males,
+                    updatedAt: Date.now()
+                }));
+            }
+        } catch (e) {
+            // 网络失败完全静默回退本地 logos.js 340+ Base64 离线真人头像库
+        }
+    }
+
+    // ★ 跨设备去重申领：仅在支持 Serverless API 的线上环境（如 Vercel）调用 /api/claim-identity；本地 file:// / localhost / GitHub Pages 静态环境零报错自动启用设备指纹分流降级方案
+    async function syncCrossDeviceIdentityClaims() {
+        try {
+            const proto = (window.location && window.location.protocol) || '';
+            const host = (window.location && window.location.hostname) || '';
+            const isStaticOrLocal = !proto.startsWith('http')
+                || host === 'localhost'
+                || host === '127.0.0.1'
+                || host.endsWith('.github.io');
+            if (isStaticOrLocal) {
+                return; // 静态托管或本地环境直接走 getDeviceFingerprintShardOffset 设备指纹分流降级，避免控制台 404/405 报错
+            }
+            const sampleNicks = NICKNAME_POOL.filter(n => !__localUsedNicknames.has(n)).slice(0, 60);
+            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
+            const timer = controller ? setTimeout(() => controller.abort(), 2400) : null;
+            const res = await fetch('/api/claim-identity', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'claim-batch',
+                    nicknames: sampleNicks,
+                    nickCount: 10
+                }),
+                signal: controller ? controller.signal : undefined
+            });
+            if (timer) clearTimeout(timer);
+            if (res.ok) {
+                const data = await res.json();
+                if (data && data.ok) {
+                    if (typeof data.clientIpHash === 'number') {
+                        window.__clientIpShardHash = data.clientIpHash;
+                    }
+                    if (Array.isArray(data.claimedNicknames)) {
+                        data.claimedNicknames.forEach(n => {
+                            if (n && !__localUsedNicknames.has(n) && !__crossDeviceClaimedNicknames.includes(n)) {
+                                __crossDeviceClaimedNicknames.push(n);
+                            }
+                        });
+                    }
+                    return;
+                }
+            }
+        } catch (e) {
+            // 暂无法访问后端（如 GitHub Pages 静态托管）时，自动启用设备指纹分流降级方案 (getDeviceFingerprintShardOffset)
+        }
+    }
+    setTimeout(() => {
+        fetchDynamicOverseasChineseAvatarsOnLoad();
+        syncCrossDeviceIdentityClaims();
+    }, 80);
 
     // 生成 150+ 海外华人/台湾/香港/IG/Threads/小红书真实社交头像（支持全风格混搭、纯女头、纯男头、IG氛围风景、萌宠猫狗、二次元）
     function buildOnlineAvatarUrl(seed, apiMode, avoidSet = null) {
@@ -1281,15 +1625,25 @@ window.switchRightTab = function (mode) {
         initDefaults() {
             const fPool = getChineseFemalePool();
             const mPool = getChineseMalePool();
+            const avoidAvs = new Set();
+            const pickAv = (pool) => claimUniqueAvatarFromPool(pool, avoidAvs);
+            const u1 = claimUniqueNickname();
+            const u1Rep = claimUniqueNickname();
+            const u2 = claimUniqueNickname();
+            const u2Rep = claimUniqueNickname();
+            const u3 = claimUniqueNickname();
+            const u4 = claimUniqueNickname();
+            const u5 = claimUniqueNickname();
+            const u6 = claimUniqueNickname();
             this.list = [
                 {
                     id: 'c1',
-                    user: '林小柔',
+                    user: u1,
                     text: '牛總還是有點大智慧的',
                     dateLoc: randomDateLoc('tw-only', 72),
-                    likes: '12.6萬',
+                    likes: randomCommentLikes(),
                     liked: false,
-                    avatar: fPool[0] || buildOnlineAvatarUrl('c1', 'cn-female'),
+                    avatar: pickAv(fPool) || buildOnlineAvatarUrl('c1', 'cn-female'),
                     image: '',
                     isCustomAvatar: false,
                     replies: [
@@ -1301,96 +1655,96 @@ window.switchRightTab = function (mode) {
                             text: '確實，這一步棋他從三個月前就開始佈局了',
                             image: '',
                             dateLoc: randomDateLoc('tw-only', 48),
-                            likes: '1.2萬',
+                            likes: randomCommentLikes(),
                             liked: false,
                             avatar: this.getAuthorAvatarSrc(),
                             isCustomAvatar: false
                         },
                         {
                             id: 'r1_2',
-                            user: '陳家豪',
+                            user: u1Rep,
                             isAuthor: false,
-                            replyToUser: '林小柔',
+                            replyToUser: u1,
                             text: '薑還是老的辣，不動聲色就把問題解決了',
                             image: '',
                             dateLoc: randomDateLoc('hk-mo', 36),
-                            likes: '326',
+                            likes: randomCommentLikes(),
                             liked: false,
-                            avatar: mPool[0] || buildOnlineAvatarUrl('r1_2', 'cn-male'),
+                            avatar: pickAv(mPool) || buildOnlineAvatarUrl('r1_2', 'cn-male'),
                             isCustomAvatar: false
                         }
                     ]
                 },
                 {
                     id: 'c2',
-                    user: '阿傑Jay',
+                    user: u2,
                     text: '這一段我反反覆覆看了五遍，細節真的拉滿',
                     dateLoc: randomDateLoc('hk-mo', 72),
-                    likes: '3.8萬',
+                    likes: randomCommentLikes(),
                     liked: false,
-                    avatar: mPool[1] || buildOnlineAvatarUrl('c2', 'cn-male'),
+                    avatar: pickAv(mPool) || buildOnlineAvatarUrl('c2', 'cn-male'),
                     image: '',
                     isCustomAvatar: false,
                     replies: [
                         {
                             id: 'r2_1',
-                            user: '子瑜✨',
+                            user: u2Rep,
                             isAuthor: false,
                             replyToUser: '',
                             text: '尤其是最後遞茶杯那個眼神，絕了',
                             image: '',
                             dateLoc: randomDateLoc('tw-only', 24),
-                            likes: '185',
+                            likes: randomCommentLikes(),
                             liked: false,
-                            avatar: fPool[1] || buildOnlineAvatarUrl('r2_1', 'cn-female'),
+                            avatar: pickAv(fPool) || buildOnlineAvatarUrl('r2_1', 'cn-female'),
                             isCustomAvatar: false
                         }
                     ]
                 },
                 {
                     id: 'c3',
-                    user: '萱萱_tw',
+                    user: u3,
                     text: '哈哈，我先入職花果山再回來應聘，完美閉環',
                     dateLoc: randomDateLoc('tw-only', 72),
-                    likes: '5280',
+                    likes: randomCommentLikes(),
                     liked: false,
-                    avatar: fPool[2] || buildOnlineAvatarUrl('c3', 'cn-female'),
+                    avatar: pickAv(fPool) || buildOnlineAvatarUrl('c3', 'cn-female'),
                     image: '',
                     isCustomAvatar: false,
                     replies: []
                 },
                 {
                     id: 'c4',
-                    user: '半糖去冰🧋',
+                    user: u4,
                     text: '好一招釜底抽薪',
                     dateLoc: randomDateLoc('my-sg', 72),
-                    likes: '842',
+                    likes: randomCommentLikes(),
                     liked: false,
-                    avatar: fPool[3] || buildOnlineAvatarUrl('c4', 'cn-female'),
+                    avatar: pickAv(fPool) || buildOnlineAvatarUrl('c4', 'cn-female'),
                     image: '',
                     isCustomAvatar: false,
                     replies: []
                 },
                 {
                     id: 'c5',
-                    user: '建宏_TPE',
+                    user: u5,
                     text: '表面風平浪靜，實則全員八百個心眼子',
                     dateLoc: randomDateLoc('none', 72),
-                    likes: '69',
+                    likes: randomCommentLikes(),
                     liked: false,
-                    avatar: mPool[2] || buildOnlineAvatarUrl('c5', 'cn-male'),
+                    avatar: pickAv(mPool) || buildOnlineAvatarUrl('c5', 'cn-male'),
                     image: '',
                     isCustomAvatar: false,
                     replies: []
                 },
                 {
                     id: 'c6',
-                    user: '芷晴_hk',
+                    user: u6,
                     text: '看似漫不經心的一句話，其實前面早就鋪墊好了',
                     dateLoc: randomDateLoc('overseas-all', 72),
-                    likes: '19',
+                    likes: randomCommentLikes(),
                     liked: false,
-                    avatar: fPool[4] || buildOnlineAvatarUrl('c6', 'cn-female'),
+                    avatar: pickAv(fPool) || buildOnlineAvatarUrl('c6', 'cn-female'),
                     image: '',
                     isCustomAvatar: false,
                     replies: []
@@ -1404,6 +1758,48 @@ window.switchRightTab = function (mode) {
                     });
                 }
             });
+        },
+
+        // 每次打开页面时对未手动锁定的评论用户昵称与头像进行双层去重换新，确保同机连续刷新 10 次不重复
+        refreshUnmodifiedIdentitiesOnBoot() {
+            if (!Array.isArray(this.list) || this.list.length === 0) return;
+            const avoidAvs = new Set();
+            const fPool = getChineseFemalePool();
+            const mPool = getChineseMalePool();
+            const mixedPool = [...fPool, ...mPool];
+            this.list.forEach((it, idx) => {
+                const oldMainNick = it.user;
+                if (!it.userEditedNick) {
+                    it.user = claimUniqueNickname();
+                }
+                if (!it.isCustomAvatar) {
+                    const targetPool = (idx % 3 === 1 && mPool.length) ? mPool : (fPool.length ? fPool : mixedPool);
+                    it.avatar = claimUniqueAvatarFromPool(targetPool, avoidAvs) || it.avatar;
+                    it.avatarDataUrl = '';
+                }
+                if (Array.isArray(it.replies)) {
+                    it.replies.forEach((rep, rIdx) => {
+                        if (rep.isAuthor) {
+                            rep.user = this.getAuthorNameStage();
+                            rep.avatar = this.getAuthorAvatarSrc();
+                        } else {
+                            if (!rep.userEditedNick) {
+                                rep.user = claimUniqueNickname();
+                            }
+                            if (rep.replyToUser && rep.replyToUser === oldMainNick) {
+                                rep.replyToUser = it.user;
+                            }
+                            if (!rep.isCustomAvatar) {
+                                const rPool = (rIdx % 2 === 0 && mPool.length) ? mPool : (fPool.length ? fPool : mixedPool);
+                                rep.avatar = claimUniqueAvatarFromPool(rPool, avoidAvs) || rep.avatar;
+                                rep.avatarDataUrl = '';
+                            }
+                        }
+                    });
+                }
+            });
+            this.renderStage();
+            this.renderEditor();
         },
 
         prefetchAvatarDataUrl(item) {
@@ -1568,10 +1964,10 @@ window.switchRightTab = function (mode) {
         },
 
         applyFontScale(scaleVal, syncUI = true) {
-            const clamped = Number(Math.min(1.5, Math.max(0.8, parseFloat(scaleVal) || 1.0)).toFixed(2));
+            const clamped = Number(Math.min(1.85, Math.max(0.65, parseFloat(scaleVal) || 1.0)).toFixed(2));
             this.fontScale = clamped;
-            // 头像按比例同步稍微缩放一点，避免字小头大或字大头小
-            const avatarScale = Number((1 + (clamped - 1) * 0.85).toFixed(3));
+            // 头像按比例同步微调，仅缩放评论区里面的文字与头像，绝不改变评论区抽屉框体区域高度
+            const avatarScale = Number((1 + (clamped - 1) * 0.72).toFixed(3));
             const rt = document.getElementById('render-target');
             const drawer = document.getElementById('dy-comment-drawer');
             if (rt) {
@@ -1582,11 +1978,14 @@ window.switchRightTab = function (mode) {
                 drawer.style.setProperty('--dy-cmt-font-scale', String(clamped));
                 drawer.style.setProperty('--dy-cmt-avatar-scale', String(avatarScale));
             }
+            const labelTxt = clamped.toFixed(2).replace(/\.?0+$/, (m) => (m === '.00' ? '.0' : '')) + 'x';
+            const stageFontBadge = document.getElementById('txt-dy-cmt-stage-font');
+            if (stageFontBadge) stageFontBadge.textContent = labelTxt;
             if (syncUI) {
                 const inp = document.getElementById('in-dy-cmt-font-scale');
                 const txt = document.getElementById('txt-dy-cmt-font-scale');
                 if (inp && parseFloat(inp.value) !== clamped) inp.value = String(clamped);
-                if (txt) txt.textContent = clamped.toFixed(2).replace(/0$/, '') + 'x';
+                if (txt) txt.textContent = labelTxt;
             }
         },
 
@@ -1601,6 +2000,11 @@ window.switchRightTab = function (mode) {
             rt.style.setProperty('--dy-vid-top', vidTop + '%');
             rt.style.setProperty('--dy-vid-height', vidHeight + '%');
             rt.style.setProperty('--dy-sub-top', subTop + '%');
+            const areaHeightPct = Math.min(82, Math.max(24, Math.round(100 - topPct)));
+            const inAreaH = document.getElementById('in-dy-cmt-area-height');
+            const txtAreaH = document.getElementById('txt-dy-cmt-area-height');
+            if (inAreaH && parseInt(inAreaH.value, 10) !== areaHeightPct) inAreaH.value = String(areaHeightPct);
+            if (txtAreaH) txtAreaH.textContent = areaHeightPct + '%';
             this.applyFontScale(this.fontScale, true);
             if (window.DanmakuEngine && typeof window.DanmakuEngine.syncStageTopPositions === 'function') {
                 window.DanmakuEngine.syncStageTopPositions();
@@ -3482,8 +3886,45 @@ window.switchRightTab = function (mode) {
         swDyCmtOpenCard.addEventListener('change', (e) => CommentEngine.setDrawerOpen(e.target.checked, true));
     }
 
+    const inDyCmtAreaHeight = document.getElementById('in-dy-cmt-area-height');
+    const btnResetCmtDrawerArea = document.getElementById('btn-reset-cmt-drawer-area');
     const inDyCmtFontScale = document.getElementById('in-dy-cmt-font-scale');
     const btnResetCmtFontScale = document.getElementById('btn-reset-cmt-font-scale');
+    const btnDyCmtStageFontDown = document.getElementById('btn-dy-cmt-stage-font-down');
+    const btnDyCmtStageFontUp = document.getElementById('btn-dy-cmt-stage-font-up');
+    const txtDyCmtStageFont = document.getElementById('txt-dy-cmt-stage-font');
+
+    if (inDyCmtAreaHeight) {
+        inDyCmtAreaHeight.addEventListener('input', (e) => {
+            const hPct = Math.min(82, Math.max(24, parseInt(e.target.value, 10) || 56));
+            const nextTopPct = Number((100 - hPct).toFixed(2));
+            CommentEngine.drawerTopPct = nextTopPct;
+            CommentEngine.isExpanded = nextTopPct <= 29.5;
+            const rt = document.getElementById('render-target');
+            if (rt) rt.classList.toggle('dy-comment-expanded', CommentEngine.isExpanded);
+            CommentEngine.applyDrawerLayoutVars();
+            if (window.PlayerEngine) {
+                if (typeof window.PlayerEngine.updateTransform === 'function') window.PlayerEngine.updateTransform();
+                if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') window.PlayerEngine.ensureVideoPlayingIfActive(false);
+            }
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (btnResetCmtDrawerArea) {
+        btnResetCmtDrawerArea.addEventListener('click', () => {
+            CommentEngine.drawerTopPct = null;
+            CommentEngine.isExpanded = false;
+            const rt = document.getElementById('render-target');
+            if (rt) rt.classList.remove('dy-comment-expanded');
+            CommentEngine.applyDrawerLayoutVars();
+            if (window.PlayerEngine) {
+                if (typeof window.PlayerEngine.updateTransform === 'function') window.PlayerEngine.updateTransform();
+                if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') window.PlayerEngine.ensureVideoPlayingIfActive(false);
+            }
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('📦 已重置评论区区域高度（评论文字大小保持不变）');
+        });
+    }
     if (inDyCmtFontScale) {
         inDyCmtFontScale.addEventListener('input', (e) => {
             CommentEngine.applyFontScale(e.target.value, true);
@@ -3495,19 +3936,39 @@ window.switchRightTab = function (mode) {
     }
     if (btnResetCmtFontScale) {
         btnResetCmtFontScale.addEventListener('click', () => {
-            CommentEngine.drawerTopPct = null;
-            CommentEngine.isExpanded = false;
-            const rt = document.getElementById('render-target');
-            if (rt) rt.classList.remove('dy-comment-expanded');
             CommentEngine.applyFontScale(1.0, true);
-            CommentEngine.applyDrawerLayoutVars();
-            if (window.PlayerEngine) {
-                if (typeof window.PlayerEngine.updateTransform === 'function') window.PlayerEngine.updateTransform();
-                if (typeof window.PlayerEngine.ensureVideoPlayingIfActive === 'function') window.PlayerEngine.ensureVideoPlayingIfActive(false);
-            }
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
-            window.showToast('已恢复评论区默认 1.0x 字号与收敛高度');
+            window.showToast('🔠 已恢复评论文字默认 1.0x 字号（评论区区域高度保持不变）');
         });
+    }
+    const stepDyCmtFont = (delta) => {
+        const nextVal = Number(((CommentEngine.fontScale || 1.0) + delta).toFixed(2));
+        CommentEngine.applyFontScale(nextVal, true);
+        if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        window.showToast(`🔠 评论文字字号：${CommentEngine.fontScale.toFixed(2).replace(/\.?0+$/, (m) => (m === '.00' ? '.0' : ''))}x（评论区区域保持不变）`);
+    };
+    if (btnDyCmtStageFontDown) {
+        btnDyCmtStageFontDown.addEventListener('click', (e) => { e.stopPropagation(); stepDyCmtFont(-0.08); });
+    }
+    if (btnDyCmtStageFontUp) {
+        btnDyCmtStageFontUp.addEventListener('click', (e) => { e.stopPropagation(); stepDyCmtFont(0.08); });
+    }
+    if (txtDyCmtStageFont) {
+        txtDyCmtStageFont.addEventListener('click', (e) => {
+            e.stopPropagation();
+            CommentEngine.applyFontScale(1.0, true);
+            if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            window.showToast('🔠 已还原评论文字 1.0x 标准字号');
+        });
+    }
+    if (dyCmtDrawerEl) {
+        dyCmtDrawerEl.addEventListener('wheel', (e) => {
+            if (e.ctrlKey || e.altKey || (e.target && e.target.closest && e.target.closest('#dy-cmt-font-quick-bar'))) {
+                e.preventDefault();
+                e.stopPropagation();
+                stepDyCmtFont(e.deltaY < 0 ? 0.05 : -0.05);
+            }
+        }, { passive: false });
     }
 
     const selCmtAvatarApi = document.getElementById('sel-cmt-avatar-api');
@@ -4353,6 +4814,20 @@ window.switchRightTab = function (mode) {
     const swDySbNotifs = document.getElementById('sw-dy-sb-notifs');
     const swDySbRec = document.getElementById('sw-dy-sb-rec');
 
+    // ★ 需求三：顶部通知栏 Laya 小图标控件与舞台节点
+    const dySbLayaWrap = document.getElementById('dy-sb-laya-wrap');
+    const dySbLayaIcon = document.getElementById('dy-sb-laya-icon');
+    const swDySbLayaIcon = document.getElementById('sw-dy-sb-laya-icon');
+    const selDySbLayaLogo = document.getElementById('sel-dy-sb-laya-logo');
+    const selDySbLayaSlot = document.getElementById('sel-dy-sb-laya-slot');
+    const inDySbLayaSize = document.getElementById('in-dy-sb-laya-size');
+    const txtDySbLayaSize = document.getElementById('txt-dy-sb-laya-size');
+    const inDySbLayaX = document.getElementById('in-dy-sb-laya-x');
+    const txtDySbLayaX = document.getElementById('txt-dy-sb-laya-x');
+    const inDySbLayaY = document.getElementById('in-dy-sb-laya-y');
+    const txtDySbLayaY = document.getElementById('txt-dy-sb-laya-y');
+    const btnDySbLayaReset = document.getElementById('btn-dy-sb-laya-reset');
+
     // 状态栏舞台 DOM
     const dySbTime = document.getElementById('dy-sb-time');
     const dySbRec = document.getElementById('dy-sb-rec');
@@ -4519,6 +4994,60 @@ window.switchRightTab = function (mode) {
         if (dySbLoc) dySbLoc.style.display = (swDySbLoc && swDySbLoc.checked) ? 'inline-block' : 'none';
         if (dySbDnd) dySbDnd.style.display = (swDySbDnd && swDySbDnd.checked) ? 'inline-block' : 'none';
         if (dySbNotifs) dySbNotifs.style.display = (swDySbNotifs && swDySbNotifs.checked) ? 'inline-flex' : 'none';
+
+        // 5.2 ★ 需求三：顶部通知栏 Laya 小图标（复用 logos.js，支持调大小与位置，自动弹性避让绝不遮挡通知栏文字）
+        if (dySbLayaWrap) {
+            const showLayaSb = !swDySbLayaIcon || swDySbLayaIcon.checked;
+            dySbLayaWrap.style.display = showLayaSb ? 'inline-flex' : 'none';
+            const sbLogoKey = (selDySbLayaLogo && selDySbLayaLogo.value) ? selDySbLayaLogo.value : 'Laya.png';
+            if (dySbLayaIcon) {
+                dySbLayaIcon.src = getActiveLogoSrc(sbLogoKey);
+            }
+            const slotMode = (selDySbLayaSlot && selDySbLayaSlot.value) ? selDySbLayaSlot.value : 'after-time';
+            const leftBox = dyStatusBar.querySelector('.dy-sb-left');
+            const rightBox = dyStatusBar.querySelector('.dy-sb-right');
+            if (slotMode === 'before-time' && leftBox && dySbLayaWrap.previousElementSibling !== null) {
+                leftBox.insertBefore(dySbLayaWrap, leftBox.firstChild);
+            } else if (slotMode === 'after-time' && leftBox && dySbCarrier) {
+                if (dySbCarrier.nextSibling !== dySbLayaWrap) {
+                    leftBox.insertBefore(dySbLayaWrap, dySbCarrier.nextSibling);
+                }
+            } else if (slotMode === 'after-notifs' && leftBox) {
+                if (leftBox.lastElementChild !== dySbLayaWrap) {
+                    leftBox.appendChild(dySbLayaWrap);
+                }
+            } else if (slotMode === 'before-right' && rightBox) {
+                if (rightBox.firstElementChild !== dySbLayaWrap) {
+                    rightBox.insertBefore(dySbLayaWrap, rightBox.firstChild);
+                }
+            }
+
+            const layaSizePx = Math.min(19, Math.max(9, parseFloat(inDySbLayaSize ? inDySbLayaSize.value : '12.5') || 12.5));
+            const rawGapX = Math.min(85, Math.max(0, parseFloat(inDySbLayaX ? inDySbLayaX.value : '2') || 0));
+            const offY = Math.min(5, Math.max(-5, parseFloat(inDySbLayaY ? inDySbLayaY.value : '0') || 0));
+
+            // 计算状态栏中间可用弹性空隙，防止过大 X 挤压右侧电量/信号文字
+            let safeGapX = rawGapX;
+            const barW = dyStatusBar.clientWidth || 360;
+            if (barW > 120) {
+                const maxSafeGap = Math.max(6, Math.round(barW * 0.28));
+                safeGapX = Math.min(rawGapX, maxSafeGap);
+            }
+
+            dySbLayaWrap.style.setProperty('--sb-laya-size', `${layaSizePx}px`);
+            if (slotMode === 'before-time' || slotMode === 'before-right') {
+                dySbLayaWrap.style.setProperty('--sb-laya-gap-l', '0px');
+                dySbLayaWrap.style.setProperty('--sb-laya-gap-r', `${Math.max(2, safeGapX)}px`);
+            } else {
+                dySbLayaWrap.style.setProperty('--sb-laya-gap-l', `${safeGapX}px`);
+                dySbLayaWrap.style.setProperty('--sb-laya-gap-r', '0px');
+            }
+            dySbLayaWrap.style.setProperty('--sb-laya-y', `${offY}px`);
+
+            if (txtDySbLayaSize) txtDySbLayaSize.textContent = `${layaSizePx}px`;
+            if (txtDySbLayaX) txtDySbLayaX.textContent = `${Math.round(rawGapX)}px`;
+            if (txtDySbLayaY) txtDySbLayaY.textContent = `${offY}px`;
+        }
 
         if (dySbNetspeed) {
             dySbNetspeed.textContent = (inDySbSpeed && inDySbSpeed.value) ? inDySbSpeed.value : '3.6M/s';
@@ -4687,7 +5216,8 @@ window.switchRightTab = function (mode) {
         swDyStatusBar, selDyCutout, selDySbSignal, selDySbNet, selDySbCarrier,
         swDySbBatPct, swDySbCharging, swDySbLowpower, swDySbLoc, swDySbSpeed,
         swDySbBt, swDySbAlarm, swDySbMute, swDySbHd, swDySbVpn, swDySbNfc,
-        swDySbDnd, swDySbNotifs, swDySbRec
+        swDySbDnd, swDySbNotifs, swDySbRec,
+        swDySbLayaIcon, selDySbLayaLogo, selDySbLayaSlot
     ].forEach(el => {
         if (el) {
             el.addEventListener('change', () => {
@@ -4697,7 +5227,7 @@ window.switchRightTab = function (mode) {
         }
     });
 
-    [inDySbTime, inDySbSpeed, inDySbBattery].forEach(el => {
+    [inDySbTime, inDySbSpeed, inDySbBattery, inDySbLayaSize, inDySbLayaX, inDySbLayaY].forEach(el => {
         if (el) {
             el.addEventListener('input', () => {
                 renderDyStatusBar();
@@ -4705,6 +5235,68 @@ window.switchRightTab = function (mode) {
             });
         }
     });
+
+    if (btnDySbLayaReset) {
+        btnDySbLayaReset.addEventListener('click', () => {
+            if (swDySbLayaIcon) swDySbLayaIcon.checked = true;
+            if (selDySbLayaLogo) selDySbLayaLogo.value = 'Laya.png';
+            if (selDySbLayaSlot) selDySbLayaSlot.value = 'after-time';
+            if (inDySbLayaSize) inDySbLayaSize.value = '12.5';
+            if (inDySbLayaX) inDySbLayaX.value = '2';
+            if (inDySbLayaY) inDySbLayaY.value = '0';
+            renderDyStatusBar();
+            triggerSaveStorage();
+            window.showToast('↺ 已重置通知欄 Laya 小圖標大小與位置');
+        });
+    }
+
+    // 支持直接在手机顶部通知栏按住拖动 Laya 小图标微调位置、滚轮缩放大小
+    if (dySbLayaWrap) {
+        dySbLayaWrap.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            const startClientX = e.clientX;
+            const startClientY = e.clientY;
+            const startXVal = parseFloat(inDySbLayaX ? inDySbLayaX.value : '2') || 2;
+            const startYVal = parseFloat(inDySbLayaY ? inDySbLayaY.value : '0') || 0;
+            const rect = renderTarget ? renderTarget.getBoundingClientRect() : null;
+            const stageScale = (rect && renderTarget && renderTarget.offsetWidth > 0)
+                ? (rect.width / renderTarget.offsetWidth)
+                : 1;
+            const slotMode = selDySbLayaSlot ? selDySbLayaSlot.value : 'after-time';
+            const dirFactor = (slotMode === 'before-time' || slotMode === 'before-right') ? -1 : 1;
+            dySbLayaWrap.classList.add('is-dragging');
+
+            const onMove = (mv) => {
+                const dx = ((mv.clientX - startClientX) / stageScale) * dirFactor;
+                const dy = (mv.clientY - startClientY) / stageScale;
+                const nextX = Math.min(85, Math.max(0, Math.round(startXVal + dx)));
+                const nextY = Math.min(5, Math.max(-5, Math.round((startYVal + dy) * 2) / 2));
+                if (inDySbLayaX) inDySbLayaX.value = String(nextX);
+                if (inDySbLayaY) inDySbLayaY.value = String(nextY);
+                renderDyStatusBar();
+            };
+            const onUp = () => {
+                dySbLayaWrap.classList.remove('is-dragging');
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+                triggerSaveStorage();
+            };
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+        });
+
+        dySbLayaWrap.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const curS = parseFloat(inDySbLayaSize ? inDySbLayaSize.value : '12.5') || 12.5;
+            const nextS = Math.min(19, Math.max(9, curS + (e.deltaY < 0 ? 0.5 : -0.5)));
+            if (inDySbLayaSize) inDySbLayaSize.value = String(nextS);
+            renderDyStatusBar();
+            triggerSaveStorage();
+        }, { passive: false });
+    }
 
     function getCurrentRealClockTime() {
         const now = new Date();
@@ -4730,10 +5322,14 @@ window.switchRightTab = function (mode) {
     }
     window.syncAllPhoneClockTimes = syncAllPhoneClockTimes;
 
+    function generateRandomClockTime08To23() {
+        const h = String(Math.floor(Math.random() * 16) + 8).padStart(2, '0'); // 08 ~ 23
+        const m = String(Math.floor(Math.random() * 60)).padStart(2, '0');     // 00 ~ 59
+        return `${h}:${m}`;
+    }
+
     function randomizeDyStatusTime() {
-        const h = String(Math.floor(Math.random() * 24)).padStart(2, '0');
-        const m = String(Math.floor(Math.random() * 60)).padStart(2, '0');
-        const tStr = `${h}:${m}`;
+        const tStr = generateRandomClockTime08To23();
         syncAllPhoneClockTimes(tStr, true);
         window.showToast(`🕒 已随机切换手机时间：${tStr}`);
     }
@@ -5260,7 +5856,16 @@ window.switchRightTab = function (mode) {
         return viewsTrad;
     }
 
-    function randomizeViralMetricsByDuration(customDurSec = null, showMsg = false) {
+    function parseDisplayMetricNumber(rawStr) {
+        const s = String(rawStr || '').trim();
+        if (!s) return 0;
+        const num = parseFloat(s.replace(/[^\d.]/g, ''));
+        if (!isFinite(num) || num <= 0) return 0;
+        if (s.includes('万') || s.includes('萬') || /w/i.test(s)) return Math.round(num * 10000);
+        return Math.round(num);
+    }
+
+    function randomizeViralMetricsByDuration(customDurSec = null, showMsg = false, respectUserModified = false) {
         let durSec = Number(customDurSec);
         if (!durSec || !isFinite(durSec) || durSec <= 0) {
             if (window.PlayerEngine && window.PlayerEngine.isVideoMode && previewVideo && previewVideo.duration && isFinite(previewVideo.duration)) {
@@ -5275,26 +5880,33 @@ window.switchRightTab = function (mode) {
         }
 
         const tier = getViralTierByDuration(durSec);
+        const modSet = (respectUserModified && window.__userModifiedFieldSet) ? window.__userModifiedFieldSet : new Set();
 
-        // 点赞数从 5000 ~ 100万 (5,000 ~ 1,000,000) 分段均匀随机，保证每次刷新都有丰富跨度
-        const roll = Math.random();
-        let likesRaw;
-        if (roll < 0.28) {
-            likesRaw = Math.floor(5000 + Math.random() * 45000); // 5000 ~ 5.0萬
-        } else if (roll < 0.70) {
-            likesRaw = Math.floor(50000 + Math.random() * 300000); // 5.0萬 ~ 35.0萬
-        } else {
-            likesRaw = Math.floor(350000 + Math.random() * 650000); // 35.0萬 ~ 100萬
+        const inLikes = document.getElementById('in-dy-likes');
+        const inComments = document.getElementById('in-dy-comments');
+        const inStars = document.getElementById('in-dy-stars');
+        const inShares = document.getElementById('in-dy-shares');
+
+        // 点赞数从 5000 ~ 100万 (5,000 ~ 1,000,000) 分段均匀随机；若用户手动指定了点赞数则以用户点赞数为基准计算其余未改项
+        let likesRaw = modSet.has('in-dy-likes') && inLikes ? parseDisplayMetricNumber(inLikes.value) : 0;
+        if (!likesRaw) {
+            const roll = Math.random();
+            if (roll < 0.28) {
+                likesRaw = Math.floor(5000 + Math.random() * 45000); // 5000 ~ 5.0萬
+            } else if (roll < 0.70) {
+                likesRaw = Math.floor(50000 + Math.random() * 300000); // 5.0萬 ~ 35.0萬
+            } else {
+                likesRaw = Math.floor(350000 + Math.random() * 650000); // 35.0萬 ~ 100萬
+            }
+            likesRaw = Math.min(1000000, Math.max(5000, likesRaw));
         }
-        likesRaw = Math.min(1000000, Math.max(5000, likesRaw));
 
-        // 严格依据图3公式反推播放量，并计算评论量、转发量、收藏量（带 ±7% 自然微幅波动避免呆板整数）
-        const impliedPlays = likesRaw / tier.likeRate;
-        const jitter = () => 0.93 + Math.random() * 0.14;
+        // 严格按照成比例规则计算：评论 ≈ 点赞 1/30，收藏 ≈ 点赞 1/80，转发 ≈ 点赞 1/50（带 ±8% 自然微幅波动避免呆板整数）
+        const jitter = () => 0.92 + Math.random() * 0.16;
 
-        const commentsRaw = Math.max(50, Math.round(likesRaw * tier.cmtPerLike * jitter()));
-        const sharesRaw = Math.max(50, Math.round(impliedPlays * tier.shareRate * jitter()));
-        const starsRaw = Math.max(80, Math.round(impliedPlays * tier.starRate * jitter()));
+        const commentsRaw = Math.max(12, Math.round((likesRaw / 30) * jitter()));
+        const starsRaw = Math.max(10, Math.round((likesRaw / 80) * jitter()));
+        const sharesRaw = Math.max(10, Math.round((likesRaw / 50) * jitter()));
 
         const likesTrad = formatViralCountTrad(likesRaw);
         const commentsTrad = formatViralCountTrad(commentsRaw);
@@ -5306,41 +5918,42 @@ window.switchRightTab = function (mode) {
         const starsSimp = formatViralCountSimp(starsRaw);
         const sharesSimp = formatViralCountSimp(sharesRaw);
 
-        const inLikes = document.getElementById('in-dy-likes');
-        const inComments = document.getElementById('in-dy-comments');
-        const inStars = document.getElementById('in-dy-stars');
-        const inShares = document.getElementById('in-dy-shares');
-
-        if (inLikes) inLikes.value = likesSimp;
-        if (inComments) inComments.value = commentsSimp;
-        if (inStars) inStars.value = starsSimp;
-        if (inShares) inShares.value = sharesSimp;
-
         const dyValLikes = document.getElementById('dy-val-likes');
         const dyValComments = document.getElementById('dy-val-comments');
         const dyValStars = document.getElementById('dy-val-stars');
         const dyValShares = document.getElementById('dy-val-shares');
-
-        if (dyValLikes) dyValLikes.textContent = likesTrad;
-        if (dyValComments) dyValComments.textContent = commentsTrad;
-        if (dyValStars) dyValStars.textContent = starsTrad;
-        if (dyValShares) dyValShares.textContent = sharesTrad;
-
         const dylDispLike = document.getElementById('dyl-disp-like');
         const dylDispComment = document.getElementById('dyl-disp-comment');
         const dylDispStar = document.getElementById('dyl-disp-star');
-        if (dylDispLike) dylDispLike.textContent = likesTrad;
-        if (dylDispComment) dylDispComment.textContent = commentsTrad;
-        if (dylDispStar) dylDispStar.textContent = starsTrad;
 
-        // 同步评论区顶部评论总数显示
-        if (window.CommentEngine) {
-            window.CommentEngine.headCount = commentsTrad;
-            window.CommentEngine.syncHeaderDOM();
+        if (!modSet.has('in-dy-likes')) {
+            if (inLikes) inLikes.value = likesSimp;
+            if (dyValLikes) dyValLikes.textContent = likesTrad;
+            if (dylDispLike) dylDispLike.textContent = likesTrad;
+        }
+        if (!modSet.has('in-dy-comments')) {
+            if (inComments) inComments.value = commentsSimp;
+            if (dyValComments) dyValComments.textContent = commentsTrad;
+            if (dylDispComment) dylDispComment.textContent = commentsTrad;
+            if (window.CommentEngine) {
+                window.CommentEngine.headCount = commentsTrad;
+                window.CommentEngine.syncHeaderDOM();
+            }
+        }
+        if (!modSet.has('in-dy-stars')) {
+            if (inStars) inStars.value = starsSimp;
+            if (dyValStars) dyValStars.textContent = starsTrad;
+            if (dylDispStar) dylDispStar.textContent = starsTrad;
+        }
+        if (!modSet.has('in-dy-shares')) {
+            if (inShares) inShares.value = sharesSimp;
+            if (dyValShares) dyValShares.textContent = sharesTrad;
         }
 
-        // 同步在看人数 15万~200万 随机波动
-        const viewsStr = randomizeHotspotViewsOnly(false);
+        // 同步在看人数 15万~200万 随机波动（若未手动修改过）
+        if (!modSet.has('in-dy-hotspot-views')) {
+            randomizeHotspotViewsOnly(false);
+        }
 
         if (showMsg && typeof window.showToast === 'function') {
             window.showToast(`🎲 已按【${tier.label} (${Math.round(durSec)}s)】规律随机：赞${likesSimp} · 评${commentsSimp} · 藏${starsSimp} · 转${sharesSimp}`);
@@ -6458,11 +7071,20 @@ window.switchRightTab = function (mode) {
     if (dylBtnLike && dylDispLike) {
         dylBtnLike.addEventListener('click', () => {
             const liked = dylBtnLike.classList.toggle('liked');
-            const num = parseInt(dylDispLike.textContent, 10);
-            if (!isNaN(num)) {
-                dylDispLike.textContent = liked ? (num + 1) : Math.max(0, num - 1);
+            const svgEl = dylBtnLike.querySelector('svg');
+            if (svgEl) {
+                svgEl.setAttribute('fill', liked ? '#fe2c55' : '#ffffff');
+                svgEl.setAttribute('stroke', liked ? '#fe2c55' : '#ffffff');
             }
-            window.showToast(liked ? '❤️ 点赞成功！' : '已取消点赞');
+            dylBtnLike.classList.remove('like-bounce-anim');
+            void dylBtnLike.offsetWidth;
+            dylBtnLike.classList.add('like-bounce-anim');
+            const rawLikeTxt = (dylDispLike.textContent || '').trim();
+            if (/^\d+$/.test(rawLikeTxt)) {
+                const num = parseInt(rawLikeTxt, 10);
+                dylDispLike.textContent = String(liked ? (num + 1) : Math.max(0, num - 1));
+            }
+            window.showToast(liked ? '点赞成功！' : '已取消点赞');
         });
     }
 
@@ -6471,9 +7093,10 @@ window.switchRightTab = function (mode) {
     if (dylBtnStar && dylDispStar) {
         dylBtnStar.addEventListener('click', () => {
             const starred = dylBtnStar.classList.toggle('starred');
-            const num = parseInt(dylDispStar.textContent, 10);
-            if (!isNaN(num)) {
-                dylDispStar.textContent = starred ? (num + 1) : Math.max(0, num - 1);
+            const rawStarTxt = (dylDispStar.textContent || '').trim();
+            if (/^\d+$/.test(rawStarTxt)) {
+                const num = parseInt(rawStarTxt, 10);
+                dylDispStar.textContent = String(starred ? (num + 1) : Math.max(0, num - 1));
             }
             window.showToast(starred ? '⭐ 已加入收藏！' : '已取消收藏');
         });
@@ -6638,6 +7261,7 @@ window.switchRightTab = function (mode) {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (evt) => {
+                if (typeof markFieldUserModified === 'function') markFieldUserModified('dy-author-avatar');
                 syncAuthorAvatarEverywhere(evt.target.result, true);
                 if (inDyAvatarUrl) inDyAvatarUrl.value = '';
                 window.showToast('头像已成功更换（下方唱片头像已同步更新）！');
@@ -6651,6 +7275,10 @@ window.switchRightTab = function (mode) {
         btnResetAvatar.addEventListener('click', () => {
             const currentLogo = selLogoVersion ? selLogoVersion.value : 'Laya.png';
             const logoSrc = getActiveLogoSrc(currentLogo);
+            if (window.__userModifiedFieldSet) {
+                window.__userModifiedFieldSet.delete('dy-author-avatar');
+                try { localStorage.setItem('LAYA_USER_MODIFIED_FIELDS_V1', JSON.stringify(Array.from(window.__userModifiedFieldSet))); } catch (e) {}
+            }
             syncAuthorAvatarEverywhere(logoSrc, false);
             if (inDyAvatarUrl) inDyAvatarUrl.value = '';
             window.showToast('已恢复官方 Logo 头像（下方唱片头像已同步）');
@@ -6658,46 +7286,52 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    async function randomizeAuthorChineseAvatar(showNotice = true) {
+    async function randomizeAuthorChineseAvatar(showNotice = true, markAsCustom = null) {
         if (!dyAvatarImg) return;
+        const isManualCustom = markAsCustom !== null ? !!markAsCustom : !!showNotice;
+        if (isManualCustom && typeof markFieldUserModified === 'function') {
+            markFieldUserModified('dy-author-avatar');
+        }
         const seed = 'author_' + Math.random().toString(36).slice(2, 9);
         const genderMode = selAuthorAvatarGender ? selAuthorAvatarGender.value : 'real-human';
         const avoidSet = new Set([dyAvatarImg.src]);
         const onlineUrl = buildOnlineAvatarUrl(seed, genderMode, avoidSet);
-        syncAuthorAvatarEverywhere(onlineUrl, true);
-        if (inDyAvatarUrl) inDyAvatarUrl.value = onlineUrl;
-        triggerSaveStorage();
+        syncAuthorAvatarEverywhere(onlineUrl, isManualCustom);
+        if (inDyAvatarUrl && isManualCustom) inDyAvatarUrl.value = onlineUrl;
+        if (isManualCustom) triggerSaveStorage();
         if (showNotice) {
-            const label = genderMode === 'cn-female' ? '中国女头' : (genderMode === 'cn-male' ? '中国男头' : '中国风真人头像');
-            window.showToast(`🎲 已随机切换${label}（主页与底部唱片已同步）`);
+            const label = genderMode === 'cn-female' ? '中国女头' : (genderMode === 'cn-male' ? '中国男头' : '海外华人真人头像');
+            window.showToast(`🎲 已随机切换${label}（主页与直播间头像已同步）`);
         }
-        try {
-            const resp = await fetch(onlineUrl, { mode: 'cors' });
-            if (resp.ok) {
-                const blob = await resp.blob();
-                const reader = new FileReader();
-                reader.onloadend = () => {
-                    if (typeof reader.result === 'string') {
-                        syncAuthorAvatarEverywhere(reader.result, true);
-                        triggerSaveStorage();
-                    }
-                };
-                reader.readAsDataURL(blob);
+        if (typeof onlineUrl === 'string' && !onlineUrl.startsWith('data:')) {
+            try {
+                const resp = await fetch(onlineUrl, { mode: 'cors' });
+                if (resp.ok) {
+                    const blob = await resp.blob();
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        if (typeof reader.result === 'string') {
+                            syncAuthorAvatarEverywhere(reader.result, isManualCustom);
+                            if (isManualCustom) triggerSaveStorage();
+                        }
+                    };
+                    reader.readAsDataURL(blob);
+                }
+            } catch (err) {
+                if (isManualCustom) triggerSaveStorage();
             }
-        } catch (err) {
-            triggerSaveStorage();
         }
     }
 
     const btnRandomAuthorAvatar = document.getElementById('btn-random-author-avatar');
     if (btnRandomAuthorAvatar && dyAvatarImg) {
         btnRandomAuthorAvatar.addEventListener('click', () => {
-            randomizeAuthorChineseAvatar(true);
+            randomizeAuthorChineseAvatar(true, true);
         });
     }
     if (selAuthorAvatarGender) {
         selAuthorAvatarGender.addEventListener('change', () => {
-            randomizeAuthorChineseAvatar(true);
+            randomizeAuthorChineseAvatar(true, true);
         });
     }
     if (btnApplyAuthorAvatarUrl && inDyAvatarUrl) {
@@ -6707,23 +7341,26 @@ window.switchRightTab = function (mode) {
                 window.showToast('⚠️ 请输入有效的头像图片 URL');
                 return;
             }
+            if (typeof markFieldUserModified === 'function') markFieldUserModified('dy-author-avatar');
             syncAuthorAvatarEverywhere(urlVal, true);
             triggerSaveStorage();
             window.showToast('✅ 已应用指定头像 URL');
-            try {
-                const resp = await fetch(urlVal, { mode: 'cors' });
-                if (resp.ok) {
-                    const blob = await resp.blob();
-                    const reader = new FileReader();
-                    reader.onloadend = () => {
-                        if (typeof reader.result === 'string') {
-                            syncAuthorAvatarEverywhere(reader.result, true);
-                            triggerSaveStorage();
-                        }
-                    };
-                    reader.readAsDataURL(blob);
-                }
-            } catch (e) {}
+            if (!urlVal.startsWith('data:')) {
+                try {
+                    const resp = await fetch(urlVal, { mode: 'cors' });
+                    if (resp.ok) {
+                        const blob = await resp.blob();
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            if (typeof reader.result === 'string') {
+                                syncAuthorAvatarEverywhere(reader.result, true);
+                                triggerSaveStorage();
+                            }
+                        };
+                        reader.readAsDataURL(blob);
+                    }
+                } catch (e) {}
+            }
         };
         btnApplyAuthorAvatarUrl.addEventListener('click', applyCustomAuthorUrl);
         inDyAvatarUrl.addEventListener('keydown', (e) => {
@@ -6897,6 +7534,53 @@ window.switchRightTab = function (mode) {
     /* ==========================================================================
        8. LocalStorage 记忆系统与“一键重置”
        ========================================================================== */
+    // ★ 问题四：区分「用户手动修改过的字段」与「每次页面加载随机一次且不写入持久化的仿真数据」
+    const USER_MODIFIED_FIELDS_KEY = 'LAYA_USER_MODIFIED_FIELDS_V1';
+    const SIMULATION_TRANSIENT_FIELD_IDS = new Set([
+        // 竖屏/横屏/全屏状态栏时间、电量、信号、运营商、网速、充电态、Wi-Fi/5G
+        'in-dy-sb-time', 'in-m-status-time', 'in-dyl-clock-time',
+        'in-dy-sb-battery', 'in-m-battery-pct', 'in-dyl-battery',
+        'sel-dy-sb-carrier', 'sw-dy-sb-speed', 'in-dy-sb-speed', 'sel-dy-sb-signal', 'sel-dy-sb-net',
+        'sw-dy-sb-charging', 'sel-m-signal',
+        // 直播间实时数字：主播昵称、本场点赞、在线人数、送礼人名
+        'in-live-host-name', 'in-live-host-id', 'in-live-viewers-text', 'in-live-viewers',
+        'in-live-gift-user',
+        // 竖屏右下角点赞、评论、收藏、转发及热点在看数
+        'in-dy-likes', 'in-dy-comments', 'in-dy-stars', 'in-dy-shares', 'in-dy-hotspot-views',
+        // 直播间顶部动态轮播话题（未手动编辑时每次加载随机轮播）
+        'in-live-brand-tag'
+    ]);
+
+    const __userModifiedFieldSet = (() => {
+        try {
+            const arr = JSON.parse(localStorage.getItem(USER_MODIFIED_FIELDS_KEY) || '[]');
+            if (Array.isArray(arr)) return new Set(arr.map(String));
+        } catch (e) {}
+        return new Set();
+    })();
+    window.__userModifiedFieldSet = __userModifiedFieldSet;
+
+    function markFieldUserModified(fieldId) {
+        if (!fieldId || window.__isRestoringStorage || window.__isAutoRandomizing) return;
+        __userModifiedFieldSet.add(String(fieldId));
+        try {
+            localStorage.setItem(USER_MODIFIED_FIELDS_KEY, JSON.stringify(Array.from(__userModifiedFieldSet)));
+        } catch (e) {}
+    }
+    window.markFieldUserModified = markFieldUserModified;
+
+    // 监听用户在设置面板对仿真字段的真实手动输入/切换，仅手动改过的才标记持久化
+    document.addEventListener('input', (e) => {
+        if (e.isTrusted && e.target && e.target.id && SIMULATION_TRANSIENT_FIELD_IDS.has(e.target.id)) {
+            markFieldUserModified(e.target.id);
+        }
+    }, true);
+    document.addEventListener('change', (e) => {
+        if (e.isTrusted && e.target && e.target.id && SIMULATION_TRANSIENT_FIELD_IDS.has(e.target.id)) {
+            markFieldUserModified(e.target.id);
+        }
+    }, true);
+
     function triggerSaveStorage() {
         if (saveTimeout) clearTimeout(saveTimeout);
         saveTimeout = setTimeout(saveAllToStorage, 350);
@@ -6957,14 +7641,21 @@ window.switchRightTab = function (mode) {
                 } : null
             };
 
+            // ★ 仅当仿真数据被用户手动修改过时才写入持久化；未手动改过的仿真数据不写入持久化，确保每次打开都随机不同
             document.querySelectorAll('input[type="text"], input[type="number"], input[type="range"], textarea').forEach(el => {
-                if (el.id) data.inputs[el.id] = el.value;
+                if (!el.id) return;
+                if (SIMULATION_TRANSIENT_FIELD_IDS.has(el.id) && !__userModifiedFieldSet.has(el.id)) return;
+                data.inputs[el.id] = el.value;
             });
             document.querySelectorAll('input[type="checkbox"]').forEach(el => {
-                if (el.id) data.checkboxes[el.id] = el.checked;
+                if (!el.id) return;
+                if (SIMULATION_TRANSIENT_FIELD_IDS.has(el.id) && !__userModifiedFieldSet.has(el.id)) return;
+                data.checkboxes[el.id] = el.checked;
             });
             document.querySelectorAll('select').forEach(el => {
-                if (el.id) data.selects[el.id] = el.value;
+                if (!el.id) return;
+                if (SIMULATION_TRANSIENT_FIELD_IDS.has(el.id) && !__userModifiedFieldSet.has(el.id)) return;
+                data.selects[el.id] = el.value;
             });
 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -7075,6 +7766,22 @@ window.switchRightTab = function (mode) {
 
             window.__isRestoringStorage = true;
 
+            // ★ V57 一次性升级迁移：弹幕真人化去AI套话与彩色符号 + AI暗号默认关闭 + 通知栏Laya小图标默认显示
+            if (localStorage.getItem('LAYA_V57_LIVE_REALISM_MIGRATED') !== '1') {
+                if (data.inputs && data.inputs['in-live-danmaku-list']) {
+                    const oldDm = String(data.inputs['in-live-danmaku-list']);
+                    if (/氣氛拉滿|气氛拉满|太頂了|太顶了|治癒|治愈|天花板|絕絕子|yyds|羊🐑|🔥|💖|💕|🎉|🌈|🐳/i.test(oldDm)) {
+                        delete data.inputs['in-live-danmaku-list'];
+                    }
+                }
+                if (!data.checkboxes) data.checkboxes = {};
+                data.checkboxes['sw-live-ai-secret'] = false;
+                if (typeof data.checkboxes['sw-dy-sb-laya-icon'] === 'undefined') {
+                    data.checkboxes['sw-dy-sb-laya-icon'] = true;
+                }
+                localStorage.setItem('LAYA_V57_LIVE_REALISM_MIGRATED', '1');
+            }
+
             if (data.inputs) {
                 // ★ V39 跨电脑全量同步迁移：自动清理其他电脑浏览器中残留的旧版直播间与底栏红点缓存（如「小鹿同學」「54.3萬」「高顏值精選」「粉絲螢光棒」「消息 3」）
                 if (!localStorage.getItem('LAYA_BETA_V39_FRESH_SYNC')) {
@@ -7096,15 +7803,17 @@ window.switchRightTab = function (mode) {
                     data.inputs['in-dyl-start-time'] = data.inputs['in-start-time'];
                 }
                 Object.entries(data.inputs).forEach(([id, val]) => {
-                    if (id === 'in-m-start-time' || id === 'in-m-total-time' || id === 'in-m-progress' || id === 'in-dyl-start-time' || id === 'in-dyl-total-time' || id === 'in-dyl-progress' || id === 'in-progress' || id === 'in-custom-sec') return;
+                    if (id === 'in-m-start-time' || id === 'in-m-total-time' || id === 'in-m-progress' || id === 'in-dyl-start-time' || id === 'in-dyl-total-time' || id === 'in-dyl-progress' || id === 'in-progress' || id === 'in-custom-sec' || id === 'in-media-scale' || id === 'in-pos-x' || id === 'in-pos-y') return;
+                    // 未被用户手动修改过的仿真数据不从旧缓存恢复，而是每次页面加载随机生成
+                    if (SIMULATION_TRANSIENT_FIELD_IDS.has(id) && !__userModifiedFieldSet.has(id)) return;
                     // 送礼停留时间、消失时间、最短/最长空窗间隔由独立 V3 存储管理，防止旧版 V12 缓存将其覆盖回 3.0 秒
                     if (id === 'in-live-gift-stay-sec' || id === 'in-live-gift-fade-sec' || id === 'in-live-gift-gap-min' || id === 'in-live-gift-gap-max') return;
                     if (id === 'in-live-gift-speed' && Number(val) <= 0) return;
                     // 防止旧版直播间 8888 或 29/1000 缓存覆盖新版 1000~200万 点赞与在线人数
                     if (id === 'in-live-host-id' && (val === '8888' || val === '1.8萬')) return;
                     if (id === 'in-live-viewers' && (Number(val) <= 1000)) return;
-                    // 防止旧版缺少「來了」进场行或不足 6 行的残缺弹幕缓存覆盖新版自然混排直播弹幕
-                    if (id === 'in-live-danmaku-list') {
+                    // 防止旧版缺少「來了」进场行或不足 6 行的残缺弹幕缓存覆盖新版自然混排直播弹幕（用户手动修改过的弹幕除外，完整保留）
+                    if (id === 'in-live-danmaku-list' && !__userModifiedFieldSet.has('in-live-danmaku-list')) {
                         const sVal = String(val || '').trim();
                         const lineArr = sVal.split(/[\r\n]+/).filter(Boolean);
                         if (lineArr.length < 6 || (!sVal.includes('來了') && !sVal.includes('来了'))) {
@@ -7123,6 +7832,7 @@ window.switchRightTab = function (mode) {
                 Object.entries(data.checkboxes).forEach(([id, checked]) => {
                     const el = document.getElementById(id);
                     if (!el) return;
+                    if (SIMULATION_TRANSIENT_FIELD_IDS.has(id) && !__userModifiedFieldSet.has(id)) return;
                     // 每次打开页面始终默认开启直播间公屏弹幕自动滚动、礼物弹窗自动轮播与送完消失间隔，并默认关闭每行末尾假紫心
                     if (id === 'sw-live-auto-roll-dm' || id === 'sw-live-auto-cycle-gift') {
                         el.checked = true;
@@ -7131,7 +7841,7 @@ window.switchRightTab = function (mode) {
                     if (id === 'sw-live-gift-empty-gap') {
                         return;
                     }
-                    if (id === 'sw-live-dm-row-heart') {
+                    if (id === 'sw-live-dm-row-heart' || id === 'sw-dy-land-box') {
                         el.checked = false;
                         return;
                     }
@@ -7143,7 +7853,8 @@ window.switchRightTab = function (mode) {
             if (data.selects) {
                 Object.entries(data.selects).forEach(([id, val]) => {
                     // 每次打开页面始终默认 1.0x 原速，且录制秒数由视频时间轴区间 (LAYA_LAST_MEDIA_STATE) 精确接管
-                    if (id === 'sel-preview-speed' || id === 'jy-sel-speed' || id === 'sel-record-sec') return;
+                    if (id === 'sel-preview-speed' || id === 'jy-sel-speed' || id === 'sel-record-sec' || id === 'sel-crop-orient') return;
+                    if (SIMULATION_TRANSIENT_FIELD_IDS.has(id) && !__userModifiedFieldSet.has(id)) return;
                     const el = document.getElementById(id);
                     if (el) {
                         el.value = val;
@@ -7170,10 +7881,10 @@ window.switchRightTab = function (mode) {
                 applyLogoVersion('Laya.png');
             }
 
-            if (data.avatar && dyAvatarImg && data.avatarIsCustom && !data.avatar.includes('pravatar.cc') && !data.avatar.includes('dicebear.com')) {
+            if (__userModifiedFieldSet.has('dy-author-avatar') && data.avatar && dyAvatarImg && data.avatarIsCustom && !data.avatar.includes('pravatar.cc') && !data.avatar.includes('dicebear.com')) {
                 syncAuthorAvatarEverywhere(data.avatar, true);
             } else {
-                randomizeAuthorChineseAvatar(false);
+                randomizeAuthorChineseAvatar(false, false);
             }
 
             if (data.skin && selMobileSkin) {
@@ -7264,12 +7975,20 @@ window.switchRightTab = function (mode) {
                             if (it.dateLoc && mainlandProvs.some(p => it.dateLoc.includes(p))) {
                                 it.dateLoc = randomDateLoc(window.CommentEngine.ipRegion, window.CommentEngine.pubWindowHours);
                             }
-                            if (!it.avatar || it.avatar.includes('pravatar.cc') || it.avatar.includes('dicebear.com')) {
+                            const isFileProto = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
+                            if (!it.avatar || it.avatar.includes('pravatar.cc') || it.avatar.includes('dicebear.com') || (isFileProto && /^https?:\/\//i.test(it.avatar))) {
                                 it.avatar = buildOnlineAvatarUrl(`mig_${idx}`, window.CommentEngine.apiMode);
                                 it.avatarDataUrl = '';
                             }
                             if (!Array.isArray(it.replies)) {
                                 it.replies = [];
+                            } else if (isFileProto) {
+                                it.replies.forEach((rep, rIdx) => {
+                                    if (rep && /^https?:\/\//i.test(rep.avatar || '')) {
+                                        rep.avatar = buildOnlineAvatarUrl(`mig_rep_${idx}_${rIdx}`, window.CommentEngine.apiMode);
+                                        rep.avatarDataUrl = '';
+                                    }
+                                });
                             }
                         });
                         window.CommentEngine.list = cd.list;
@@ -7360,6 +8079,9 @@ window.switchRightTab = function (mode) {
                 if (saveTimeout) clearTimeout(saveTimeout);
                 localStorage.removeItem(STORAGE_KEY);
                 localStorage.removeItem('LAYA_LAST_MEDIA_STATE');
+                localStorage.removeItem(USER_MODIFIED_FIELDS_KEY);
+                localStorage.removeItem(USED_NICKNAMES_STORAGE_KEY);
+                localStorage.removeItem(USED_AVATARS_STORAGE_KEY);
                 if (window.LayaMediaPersistDB && typeof window.LayaMediaPersistDB.clearMedia === 'function') {
                     try {
                         await window.LayaMediaPersistDB.clearMedia();
@@ -7370,18 +8092,108 @@ window.switchRightTab = function (mode) {
         });
     }
 
+    // ★ 问题四核心实现：每次页面加载时，对所有未被用户手动修改过的状态栏与仿真数据执行一次全量随机（且不写入持久化）
+    function randomizeUneditedSimulationDataOnBoot() {
+        window.__isAutoRandomizing = true;
+        try {
+            // 1) 状态栏时间随机 08:00 ~ 23:59（若用户未手动修改时间）
+            const timeEdited = __userModifiedFieldSet.has('in-dy-sb-time') || __userModifiedFieldSet.has('in-m-status-time') || __userModifiedFieldSet.has('in-dyl-clock-time');
+            if (!timeEdited) {
+                const randClock = generateRandomClockTime08To23();
+                syncAllPhoneClockTimes(randClock, false);
+            }
+
+            // 2) 竖屏/横屏/全屏状态栏电量随机 20% ~ 100%（若用户未手动修改电量）
+            const batEdited = __userModifiedFieldSet.has('in-dy-sb-battery') || __userModifiedFieldSet.has('in-m-battery-pct') || __userModifiedFieldSet.has('in-dyl-battery');
+            if (!batEdited) {
+                const randBat = Math.floor(Math.random() * 81) + 20; // 20% ~ 100%
+                if (inDySbBattery) inDySbBattery.value = String(randBat);
+                if (txtDySbBattery) txtDySbBattery.textContent = randBat + '%';
+                if (inMBatteryPct) {
+                    inMBatteryPct.value = String(randBat);
+                    inMBatteryPct.dispatchEvent(new Event('input'));
+                }
+                const inDylBat = document.getElementById('in-dyl-battery');
+                if (inDylBat) {
+                    inDylBat.value = String(randBat);
+                    inDylBat.dispatchEvent(new Event('input'));
+                }
+            }
+
+            // 3) 竖屏状态栏运营商、实时网速、信号格数、充电状态、Wi-Fi/5G 状态随机（匹配真实下拉 option 值）
+            if (!__userModifiedFieldSet.has('sel-dy-sb-carrier') && selDySbCarrier && selDySbCarrier.options.length > 0) {
+                if (Math.random() < 0.35) {
+                    selDySbCarrier.value = '';
+                } else {
+                    const validCarriers = Array.from(selDySbCarrier.options).map(o => o.value).filter(v => v && v !== 'none');
+                    if (validCarriers.length > 0) {
+                        selDySbCarrier.value = validCarriers[Math.floor(Math.random() * validCarriers.length)];
+                    }
+                }
+            }
+            if (!__userModifiedFieldSet.has('sw-dy-sb-speed') && swDySbSpeed) {
+                swDySbSpeed.checked = Math.random() < 0.45;
+            }
+            if (!__userModifiedFieldSet.has('in-dy-sb-speed') && inDySbSpeed) {
+                const randSpd = (0.6 + Math.random() * 17.8).toFixed(1) + 'M/s';
+                inDySbSpeed.value = randSpd;
+            }
+            if (!__userModifiedFieldSet.has('sel-dy-sb-signal') && selDySbSignal && selDySbSignal.options.length > 0) {
+                const sigChoices = ['single-4', 'single-3', 'dual-4', 'dual-3', 'single-2'];
+                const validSigs = sigChoices.filter(v => Array.from(selDySbSignal.options).some(o => o.value === v));
+                if (validSigs.length > 0) {
+                    selDySbSignal.value = validSigs[Math.floor(Math.random() * validSigs.length)];
+                }
+            }
+            if (!__userModifiedFieldSet.has('sel-dy-sb-net') && selDySbNet && selDySbNet.options.length > 0) {
+                const netChoices = ['wifi', '5g', '5ga', 'wifi+5g', '4g'];
+                const validNets = netChoices.filter(v => Array.from(selDySbNet.options).some(o => o.value === v));
+                if (validNets.length > 0) {
+                    selDySbNet.value = validNets[Math.floor(Math.random() * validNets.length)];
+                }
+            }
+            if (!__userModifiedFieldSet.has('sw-dy-sb-charging') && swDySbCharging) {
+                swDySbCharging.checked = Math.random() < 0.28;
+            }
+            if (!__userModifiedFieldSet.has('sel-m-signal') && selMSignal && selMSignal.options.length > 0) {
+                selMSignal.selectedIndex = Math.floor(Math.random() * selMSignal.options.length);
+                selMSignal.dispatchEvent(new Event('change'));
+            }
+            if (typeof renderDyStatusBar === 'function') {
+                renderDyStatusBar();
+            }
+
+            // 4) 竖屏右下角点赞/评论/收藏/转发每次打开成比例随机（评论≈点赞1/30，收藏≈1/80，转发≈1/50），自动保留用户已手动修改过的单项
+            if (typeof randomizeViralMetricsByDuration === 'function') {
+                randomizeViralMetricsByDuration(null, false, true);
+            }
+
+            // 5) 评论区昵称与头像去重轮换（若用户未手动增删改评论）
+            if (!__userModifiedFieldSet.has('cmt-list-manual') && window.CommentEngine && typeof window.CommentEngine.refreshUnmodifiedIdentitiesOnBoot === 'function') {
+                window.CommentEngine.refreshUnmodifiedIdentitiesOnBoot();
+            }
+
+            // 6) 直播间实时数字每次打开随机：主播昵称、在线人数(1000~200万)、本场点赞(=在线人数若干倍)、右上角3张观众头像、送礼人名与头像
+            if (typeof window.__randomizeLiveRoomSimulationOnBoot === 'function') {
+                window.__randomizeLiveRoomSimulationOnBoot();
+            }
+        } finally {
+            window.__isAutoRandomizing = false;
+        }
+    }
+    window.randomizeUneditedSimulationDataOnBoot = randomizeUneditedSimulationDataOnBoot;
+
     setTimeout(() => {
         const hadSavedState = !!localStorage.getItem(STORAGE_KEY);
         loadAllFromStorage();
-        // ★ 每次打开或刷新网站，所有板块的手机状态栏时间始终同步为打开/刷新时的真实时间
-        syncAllPhoneClockTimes(getCurrentRealClockTime(), false);
-        // ★ 仅在首次打开（或点击「一键重置」清空缓存后）才随机生成初始片长与点赞数据；日常刷新页面时保留用户当前所在的页面与修改过的数值！
-        if (!hadSavedState) {
-            if (window.PlayerEngine && typeof window.PlayerEngine.randomizeDuration === 'function') {
-                window.PlayerEngine.randomizeDuration(false);
-            }
-            randomizeViralMetricsByDuration(null, false);
+        if (!hadSavedState && window.PlayerEngine && typeof window.PlayerEngine.randomizeDuration === 'function') {
+            window.PlayerEngine.randomizeDuration(false);
         }
+        // ★ 在 140ms 直播间迁移初始化完成后（155ms），对所有未手动修改过的状态栏、互动量、评论身份与直播间仿真数据统一执行一次去重随机
+        setTimeout(() => {
+            window.__isInitialPreBoot = false;
+            randomizeUneditedSimulationDataOnBoot();
+        }, 55);
     }, 100);
 
     /* ==========================================================================
@@ -7444,6 +8256,11 @@ window.switchRightTab = function (mode) {
         const clonedLiveLayaMiniLogo = clonedDoc.getElementById('live-laya-mini-logo');
         if (clonedLiveLayaMiniLogo) {
             clonedLiveLayaMiniLogo.src = getActiveLogoSrc('Laya2.png');
+        }
+        const clonedDySbLayaIcon = clonedDoc.getElementById('dy-sb-laya-icon');
+        if (clonedDySbLayaIcon) {
+            const sbKey = (selDySbLayaLogo && selDySbLayaLogo.value) ? selDySbLayaLogo.value : 'Laya.png';
+            clonedDySbLayaIcon.src = getActiveLogoSrc(sbKey);
         }
 
         // 同步直播间礼物弹窗左侧真人头像/自定义头像到导出画布，绝不回退为蓝色 Laya 图标
@@ -7822,20 +8639,18 @@ window.switchRightTab = function (mode) {
             clonedFsPill.style.setProperty('transform', 'none', 'important');
         }
 
-        // 精确锁定顶部导航栏发光底衬 (.laya-app-nav-glow) 在各自文字正中心，彻底杜绝 html2canvas 百分比偏移
-        const origNavItems = document.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
+        // 克隆节点中隐藏 .laya-app-nav-glow（统一交由底层 drawTopNavActiveGlowOnCanvas 在绘制 UI 文字覆层之前先行铺底，彻底杜绝光效压在「直播」白色文字上方）
         const clonedNavItems = clonedDoc.querySelectorAll('#laya-app-nav-tabs .laya-app-nav-item');
-        origNavItems.forEach((origItem, idx) => {
-            const clonedItem = clonedNavItems[idx];
-            if (!clonedItem) return;
+        clonedNavItems.forEach((clonedItem) => {
             const clonedGlow = clonedItem.querySelector('.laya-app-nav-glow');
             if (clonedGlow) {
-                const iw = origItem.offsetWidth || 40;
-                const ih = origItem.offsetHeight || 24;
-                clonedGlow.style.setProperty('left', Math.round((iw - 48) / 2) + 'px', 'important');
-                clonedGlow.style.setProperty('top', Math.round((ih - 27) / 2 + 1) + 'px', 'important');
-                clonedGlow.style.setProperty('margin', '0', 'important');
-                clonedGlow.style.setProperty('transform', 'none', 'important');
+                clonedGlow.style.setProperty('visibility', 'hidden', 'important');
+                clonedGlow.style.setProperty('opacity', '0', 'important');
+            }
+            const clonedTxt = clonedItem.querySelector('.laya-app-nav-txt');
+            if (clonedTxt) {
+                clonedTxt.style.setProperty('position', 'relative', 'important');
+                clonedTxt.style.setProperty('z-index', '3', 'important');
             }
         });
         const origCmtList = document.getElementById('dy-comment-list');
@@ -8067,7 +8882,8 @@ window.switchRightTab = function (mode) {
                         botBarBox: measureImgRelBox(document.querySelector('.live-bottom-bar')),
                         sysNoticeBox: measureImgRelBox(document.getElementById('live-sys-notice')),
                         welcomeBox: measureImgRelBox(document.getElementById('live-room-welcome')),
-                        redDotBox: measureImgRelBox(document.getElementById('live-red-breath-dot') || document.getElementById('live-pulse-dot') || document.querySelector('#live-left-live-pill .live-red-dot'))
+                        redDotBox: measureImgRelBox(document.getElementById('live-red-breath-dot') || document.getElementById('live-pulse-dot') || document.querySelector('#live-left-live-pill .live-red-dot')),
+                        brandViewportBox: measureImgRelBox(document.getElementById('live-brand-ticker-viewport') || document.getElementById('live-laya-brand-txt'))
                     };
                 }
 
@@ -8152,7 +8968,7 @@ window.switchRightTab = function (mode) {
                     allowTaint: false,
                     backgroundColor: directMediaDrawn ? null : '#000000',
                     ignoreElements: (el) => {
-                        if (el.id === 'live-dm-onstage-toolbar' || (el.classList && el.classList.contains('live-dm-edit-toolbar'))) {
+                        if (el.id === 'live-dm-onstage-toolbar' || el.id === 'dy-cmt-font-quick-bar' || (el.classList && (el.classList.contains('live-dm-edit-toolbar') || el.classList.contains('dy-cmt-font-quick-bar') || el.classList.contains('dy-cmt-stage-QuickTools')))) {
                             return true;
                         }
                         if (isLiveOpenImg && (el.id === 'live-floating-dm-stage' || el.id === 'live-floating-hearts')) {
@@ -8189,7 +9005,7 @@ window.switchRightTab = function (mode) {
                         }
 
                         if (isLiveOpenImg) {
-                            ['live-gift-combo-banner', 'live-sys-notice', 'live-room-welcome', 'live-chat-list', 'live-join-ticker-row', 'live-red-breath-dot', 'live-pulse-dot'].forEach(lid => {
+                            ['live-gift-combo-banner', 'live-sys-notice', 'live-room-welcome', 'live-chat-list', 'live-join-ticker-row', 'live-red-breath-dot', 'live-pulse-dot', 'live-laya-brand-txt'].forEach(lid => {
                                 const lEl = clonedDoc.getElementById(lid);
                                 if (lEl) lEl.style.visibility = 'hidden';
                             });
@@ -8233,10 +9049,10 @@ window.switchRightTab = function (mode) {
                     }
                 });
 
-                // 5. 先用原生 Canvas 2D 绘制无缝顶/底渐变蒙层，再叠加透明 UI 覆层（100% 消除 html2canvas 渐变边界黑线与白边）
+                // 5. 先用原生 Canvas 2D 绘制无缝顶/底渐变蒙层与底层顶部导航光效，再在最上层叠加纯白导航文字 UI 覆层（确保光效永远在「直播」文字下面）
                 drawSeamlessHudGradients(ctx, outW, outH);
-                ctx.drawImage(uiCanvas, 0, 0, outW, outH);
                 drawTopNavActiveGlowOnCanvas(ctx, targetRect, scaleFactor, scaleFactor);
+                ctx.drawImage(uiCanvas, 0, 0, outW, outH);
 
                 // 5.2 若处于直播间模式，使用与视频导出完全一致的 Canvas 渲染管线绘制礼物弹窗、欢迎语、弹幕列表与飘心，确保截图与视频导出 100% 视觉同源
                 if (isLiveOpenImg && typeof window.__drawLiveRoomDynamicCanvas === 'function') {
@@ -8384,11 +9200,14 @@ window.switchRightTab = function (mode) {
                 const isLand = renderTarget.classList.contains('mode-mobile-land');
                 const isDyLand = renderTarget.classList.contains('mode-dy-land');
 
-                // ★ 竖屏分辨率严格控制在 1080x1920，横屏 1920x1080（偶数对齐，全手机硬解友好）
-                let outW = 1920, outH = 1080;
+                // ★ 支持 1080p 与 720p 导出分辨率（默认超清 1080p：横屏 1920x1080 / 竖屏 1080x1920；若用户切换为 720P 画质档位则为 1280x720 / 720x1280），编码分辨率与画布分辨率 100% 严格一致，绝不额外降采样
+                const botResTxt = (document.getElementById('disp-bot-res')?.textContent || '') + ' ' + (document.getElementById('m-disp-res-badge')?.textContent || '');
+                const prefer720p = /720P/i.test(botResTxt) && !isPort;
+                let outW = prefer720p ? 1280 : 1920;
+                let outH = prefer720p ? 720 : 1080;
                 if (isPort) {
-                    outW = 1080;
-                    outH = 1920;
+                    outW = prefer720p ? 720 : 1080;
+                    outH = prefer720p ? 1280 : 1920;
                 }
                 offCanvas.width = outW;
                 offCanvas.height = outH;
@@ -8457,6 +9276,7 @@ window.switchRightTab = function (mode) {
                 const liveSysNoticeBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-sys-notice')) : null;
                 const liveRoomWelcomeBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-room-welcome')) : null;
                 const liveRedDotBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-red-breath-dot') || document.getElementById('live-pulse-dot') || document.querySelector('#live-left-live-pill .live-red-dot')) : null;
+                const liveBrandViewportBox = isLiveOpenVid ? measureRelBox(document.getElementById('live-brand-ticker-viewport') || document.getElementById('live-laya-brand-txt')) : null;
                 window.__liveExportLayout = isLiveOpenVid ? {
                     chatBox: liveChatListBox,
                     joinBox: liveJoinTickerBox,
@@ -8465,7 +9285,8 @@ window.switchRightTab = function (mode) {
                     botBarBox: liveBotBarBox,
                     sysNoticeBox: liveSysNoticeBox,
                     welcomeBox: liveRoomWelcomeBox,
-                    redDotBox: liveRedDotBox
+                    redDotBox: liveRedDotBox,
+                    brandViewportBox: liveBrandViewportBox
                 } : null;
 
                 // 抓取静态透明 UI 覆层（通过 ignoreElements 完全跳过媒体与弹幕节点，并强制移除容器黑色背景）
@@ -8475,7 +9296,7 @@ window.switchRightTab = function (mode) {
                     useCORS: true,
                     allowTaint: false,
                     ignoreElements: (el) => {
-                        if (el.id === 'live-dm-onstage-toolbar' || (el.classList && el.classList.contains('live-dm-edit-toolbar'))) {
+                        if (el.id === 'live-dm-onstage-toolbar' || el.id === 'dy-cmt-font-quick-bar' || (el.classList && (el.classList.contains('live-dm-edit-toolbar') || el.classList.contains('dy-cmt-font-quick-bar') || el.classList.contains('dy-cmt-stage-QuickTools')))) {
                             return true;
                         }
                         return el.id === 'player-media-wrap' || el.id === 'preview-video' || el.id === 'preview-img' || el.id === 'danmaku-container' || el.id === 'live-floating-dm-stage' || el.id === 'live-floating-hearts';
@@ -8508,9 +9329,9 @@ window.switchRightTab = function (mode) {
                             const el = clonedDoc.getElementById(id);
                             if (el) el.style.visibility = 'hidden';
                         });
-                        // 若处于直播间模式导出视频，隐藏静态快照中的礼物横幅、防诈提示、欢迎语、评论列表、进场条与 LIVE 呼吸红点，统一由 30fps 动态画布无缝流式绘制
+                        // 若处于直播间模式导出视频，隐藏静态快照中的礼物横幅、防诈提示、欢迎语、评论列表、进场条、顶部动态轮播字与 LIVE 呼吸红点，统一由 CFR 动态画布无缝流式绘制
                         if (isLiveOpenVid) {
-                            ['live-gift-combo-banner', 'live-sys-notice', 'live-room-welcome', 'live-chat-list', 'live-join-ticker-row', 'live-red-breath-dot', 'live-pulse-dot'].forEach(lid => {
+                            ['live-gift-combo-banner', 'live-sys-notice', 'live-room-welcome', 'live-chat-list', 'live-join-ticker-row', 'live-red-breath-dot', 'live-pulse-dot', 'live-laya-brand-txt'].forEach(lid => {
                                 const lEl = clonedDoc.getElementById(lid);
                                 if (lEl) lEl.style.visibility = 'hidden';
                             });
@@ -8535,8 +9356,9 @@ window.switchRightTab = function (mode) {
                 uiOverlayCtx.imageSmoothingEnabled = true;
                 uiOverlayCtx.imageSmoothingQuality = 'high';
                 drawSeamlessHudGradients(uiOverlayCtx, outW, outH);
-                uiOverlayCtx.drawImage(uiSnapshotCanvas, 0, 0, outW, outH);
+                // ★ 先在底层绘制顶部导航选中态极光贴图 (top_glow)，再叠加纯白文字 UI 快照，确保录屏导出时光效永远在「直播」文字下面
                 drawTopNavActiveGlowOnCanvas(uiOverlayCtx, targetRect, scaleRatioX, scaleRatioY);
+                uiOverlayCtx.drawImage(uiSnapshotCanvas, 0, 0, outW, outH);
 
                 const rawCachedCropRect = window.getPlayerCropRect
                     ? window.getPlayerCropRect(mediaWrapBox.w, mediaWrapBox.h)
@@ -8568,6 +9390,15 @@ window.switchRightTab = function (mode) {
                 const activeExportFont = (typeof getActiveOsFontStack === 'function')
                     ? getActiveOsFontStack()
                     : '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", sans-serif';
+
+                // ★ 问题二 & 问题三：恒定 30fps（源视频 60fps 则 60fps）CFR 超清参数与全设备通用标准 MP4
+                //   - 1080p 显式采用 'avc1.640033' (H.264 High Profile Level 5.1)，固定高码率 14~16 Mbps (10~16 Mbps)
+                //   - 720p  显式采用 'avc1.640028' (H.264 High Profile Level 4.0)，固定高码率 7~8 Mbps   (5~8 Mbps)
+                //   - 音频固定 AAC (mp4a.40.2, 44100/48000Hz, 128kbps)
+                const is1080pExport = (Math.max(outW, outH) >= 1080);
+                const TARGET_FPS = (window.__detectedSourceFps === 60) ? 60 : 30;
+                const TARGET_VIDEO_BITRATE = is1080pExport ? 15_000_000 : 7_500_000;
+                const TARGET_AUDIO_BITRATE = 128_000;
 
                 const danmakuParticles = [];
                 if (liveDmDomNodes.length > 0) {
@@ -8606,7 +9437,7 @@ window.switchRightTab = function (mode) {
                         const durSec = Math.max(4, rawDurSec);
                         const pxPerFrame = (isFixedDm || lockedX || isDmPaused)
                             ? 0
-                            : ((outW + tw) / (durSec * 30));
+                            : ((outW + tw) / (durSec * TARGET_FPS));
 
                         danmakuParticles.push({
                             text: txt,
@@ -8640,7 +9471,7 @@ window.switchRightTab = function (mode) {
                                 : (isFixedDm ? ((outW * (dm.left || 20)) / 100) : ((outW * (0.08 + ((idx * 0.21) % 0.78))))),
                             tw: tw,
                             lockedX: lockedX,
-                            speed: (isFixedDm || lockedX || isDmPaused) ? 0 : ((outW + tw) / (durSec * 30))
+                            speed: (isFixedDm || lockedX || isDmPaused) ? 0 : ((outW + tw) / (durSec * TARGET_FPS))
                         });
                     });
                 }
@@ -8652,11 +9483,6 @@ window.switchRightTab = function (mode) {
                 const baseStartSec = window.PlayerEngine.timeToSec(inStartTime.value);
                 const totalVideoSec = window.PlayerEngine.timeToSec(inTotalTime.value) || 1125;
                 const bufferPct = Math.min(100, Math.max(0, parseFloat(inBuffer.value) || 68)) / 100;
-
-                // ★ 恒定 30fps (CFR) 超清参数与手机硬解码率（16 Mbps H.264 High/Main Profile 8-bit + AAC 160kbps）
-                const TARGET_FPS = 30;
-                const TARGET_VIDEO_BITRATE = 16_000_000;
-                const TARGET_AUDIO_BITRATE = 160_000;
 
                 previewVideo.playbackRate = exportSpeedRate;
                 previewVideo.defaultPlaybackRate = exportSpeedRate;
@@ -8694,7 +9520,7 @@ window.switchRightTab = function (mode) {
                     // 1. 绘制底层超清视频画面
                     if (previewVideo.readyState >= 2 || previewVideo.videoWidth > 0) {
                         ctx.save();
-                        if (cachedFilter) ctx.filter = cachedFilter;
+                        if (cachedFilter && cachedFilter !== 'none') ctx.filter = cachedFilter;
                         if (isSpecialSubBox) {
                             ctx.beginPath();
                             ctx.rect(mediaWrapBox.x, mediaWrapBox.y, mediaWrapBox.w, mediaWrapBox.h);
@@ -8914,48 +9740,65 @@ window.switchRightTab = function (mode) {
                 let decodedAudioBuffer = null;
 
                 if (window.Mp4Muxer && typeof window.VideoEncoder === 'function' && typeof window.VideoFrame === 'function') {
-                    // 优先选用支持 1080x1920 竖屏与 1920x1080 横屏的 8-bit H.264 High / Main Profile Level 4.2 / 4.1
+                    // 显式指定 H.264 High Profile：1080p 优先用 'avc1.640033'，720p 优先用 'avc1.640028'，编码分辨率严格与画布导出分辨率 (outW x outH) 一致
+                    const primaryHighProfile = is1080pExport ? 'avc1.640033' : 'avc1.640028';
+                    const secondaryHighProfile = is1080pExport ? 'avc1.640028' : 'avc1.640033';
                     const h264Candidates = [
-                        'avc1.64002a', // H.264 High Profile Level 4.2 (最佳画质，支持 8x8 变换与高细节纹理保留)
-                        'avc1.640029', // H.264 High Profile Level 4.1
-                        'avc1.4d002a', // H.264 Main Profile Level 4.2 (完美支持竖屏 1080x1920 硬解)
-                        'avc1.4d0029', // H.264 Main Profile Level 4.1
-                        'avc1.42e02a', // H.264 Constrained Baseline Level 4.2
-                        'avc1.42e029', // H.264 Constrained Baseline Level 4.1
-                        'avc1.4d0028', // H.264 Main Profile Level 4.0
-                        'avc1.42e028', // H.264 Constrained Baseline Level 4.0
-                        'avc1.420028', // H.264 Baseline Level 4.0
-                        'avc1.4d4028'  // H.264 Main Profile (Constrained) Level 4.0
+                        primaryHighProfile,   // H.264 High Profile (1080p: avc1.640033 / 720p: avc1.640028)
+                        secondaryHighProfile,
+                        'avc1.64002a',        // H.264 High Profile Level 4.2
+                        'avc1.640029',        // H.264 High Profile Level 4.1
+                        'avc1.4d002a',        // H.264 Main Profile Level 4.2
+                        'avc1.4d0029',        // H.264 Main Profile Level 4.1
+                        'avc1.4d0028',        // H.264 Main Profile Level 4.0
+                        'avc1.42e02a',        // H.264 Constrained Baseline Level 4.2
+                        'avc1.42e028'         // H.264 Constrained Baseline Level 4.0
                     ];
+                    // 兼容各显卡驱动的多阶配置：优先 High Profile + quality + CBR，若部分显卡不支持 CBR+quality 共存则平滑回退 High Profile + quality (高码率 VBR)
+                    const encoderVariantTemplates = [
+                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'quality', bitrateMode: 'constant' },
+                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'quality' },
+                        { latencyMode: 'quality' },
+                        { hardwareAcceleration: 'prefer-software', latencyMode: 'quality' },
+                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'realtime' }
+                    ];
+                    outerCodecLoop:
                     for (const codecStr of h264Candidates) {
-                        try {
-                            const cfg = {
-                                codec: codecStr,
-                                width: outW,
-                                height: outH,
-                                bitrate: TARGET_VIDEO_BITRATE,
-                                framerate: TARGET_FPS,
-                                hardwareAcceleration: 'prefer-hardware',
-                                latencyMode: 'quality',
-                                avc: { format: 'avc' }
-                            };
-                            const sup = await VideoEncoder.isConfigSupported(cfg);
-                            if (sup && sup.supported) {
-                                selectedVideoCodecConfig = sup.config || cfg;
-                                webCodecsSupported = true;
-                                break;
-                            }
-                        } catch (e) {}
+                        for (const variant of encoderVariantTemplates) {
+                            try {
+                                const cfg = Object.assign({
+                                    codec: codecStr,
+                                    width: outW,
+                                    height: outH,
+                                    bitrate: TARGET_VIDEO_BITRATE,
+                                    framerate: TARGET_FPS,
+                                    avc: { format: 'avc' }
+                                }, variant);
+                                const sup = await VideoEncoder.isConfigSupported(cfg);
+                                if (sup && sup.supported) {
+                                    selectedVideoCodecConfig = Object.assign({}, sup.config || cfg, {
+                                        codec: codecStr,
+                                        width: outW,
+                                        height: outH,
+                                        bitrate: TARGET_VIDEO_BITRATE,
+                                        framerate: TARGET_FPS,
+                                        avc: { format: 'avc' }
+                                    });
+                                    webCodecsSupported = true;
+                                    break outerCodecLoop;
+                                }
+                            } catch (e) {}
+                        }
                     }
                 }
 
-                // 尝试解码源视频音轨并以 AAC (mp4a.40.2) 编码混流（若用户开启了静音，则严格跳过音轨编码，导出纯净静音视频）
+                // 尝试解码源视频音轨并以 AAC (mp4a.40.2, 44100/48000Hz, 128kbps) 编码混流
                 if (!origMutedState && webCodecsSupported && typeof window.AudioEncoder === 'function' && typeof window.AudioData === 'function' && previewVideo.src) {
                     try {
                         const resp = await fetch(previewVideo.src);
                         if (resp.ok) {
                             const arrBuf = await resp.arrayBuffer();
-                            const decCtx = new (window.AudioContext || window.webkitAudioContext)();
+                            const decCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
                             try {
                                 decodedAudioBuffer = await decCtx.decodeAudioData(arrBuf);
                             } catch (decErr) {
@@ -8965,10 +9808,11 @@ window.switchRightTab = function (mode) {
                             }
                         }
                         if (decodedAudioBuffer) {
-                            const sampleRate = decodedAudioBuffer.sampleRate || 48000;
+                            const rawSr = decodedAudioBuffer.sampleRate || 48000;
+                            const sampleRate = (rawSr === 44100 || rawSr === 48000) ? rawSr : 48000;
                             const numCh = Math.min(2, Math.max(1, decodedAudioBuffer.numberOfChannels || 2));
                             const aCfg = {
-                                codec: 'mp4a.40.2', // AAC-LC 标准音频
+                                codec: 'mp4a.40.2', // AAC-LC 标准音频 (ISO BMFF MP4 全设备通用)
                                 sampleRate: sampleRate,
                                 numberOfChannels: numCh,
                                 bitrate: TARGET_AUDIO_BITRATE
@@ -9114,10 +9958,14 @@ window.switchRightTab = function (mode) {
                             if (!isRecording) return;
                             isRecording = false;
                             window.__stopActiveExport = null;
-                            if (intervalId) clearInterval(intervalId);
+                            if (intervalId) {
+                                clearTimeout(intervalId);
+                                clearInterval(intervalId);
+                                intervalId = null;
+                            }
 
                             try {
-                                btnSaveVid.textContent = `⏳ 正在封装 H.264 + faststart MP4...`;
+                                btnSaveVid.textContent = `⏳ 正在封装 H.264 High + faststart MP4...`;
                                 if (videoEncoder.state === 'configured') {
                                     await videoEncoder.flush();
                                 }
@@ -9136,7 +9984,7 @@ window.switchRightTab = function (mode) {
                                 const link = document.createElement('a');
                                 link.style.display = 'none';
                                 const modeTag = isPort ? 'MobilePort' : (isDyLand ? 'DouyinFullLand' : (isLand ? 'MobileCinema' : 'WebPC'));
-                                link.download = `Laya_${modeTag}_H264_30fps_${Date.now()}.mp4`;
+                                link.download = `Laya_${modeTag}_H264_${TARGET_FPS}fps_${Date.now()}.mp4`;
                                 link.href = downloadUrl;
                                 document.body.appendChild(link);
                                 link.click();
@@ -9146,8 +9994,8 @@ window.switchRightTab = function (mode) {
                                 }, 800);
 
                                 const actualSec = Math.max(0.5, encodedFrameCount / TARGET_FPS).toFixed(1);
-                                const audioTag = origMutedState ? '静音无音轨' : 'H.264+AAC';
-                                window.showToast(`🎉 手机硬解 MP4 (${audioTag} · 恒定30fps · faststart · ${actualSec}s) 导出成功！`);
+                                const audioTag = (encodedAudioChunks.length > 0 && !origMutedState) ? 'H.264+AAC' : (origMutedState ? '静音无音轨' : 'H.264');
+                                window.showToast(`🎉 全设备通用 MP4 (${audioTag} · 恒定${TARGET_FPS}fps · faststart · ${actualSec}s) 导出成功！`);
                             } catch (encFinalErr) {
                                 console.error('WebCodecs finalize error:', encFinalErr);
                                 window.showToast(`❌ MP4 封装失败：${encFinalErr.message || '请重试'}`);
@@ -9198,21 +10046,30 @@ window.switchRightTab = function (mode) {
                         recordStartStamp = performance.now();
                         lastFrameStamp = recordStartStamp;
 
-                        // ★ 严格按 30fps (每 33.33ms 一帧) 恒定帧率 (CFR) 逐帧锁定采样：
-                        // 将源视频播放进度与编码帧序号 (encodedFrameCount / 30) 1:1 刚性绑定，绝不因渲染负载或视频提前播完而少帧，确保用户选择多少秒就 100% 导出多少秒！
+                        // ★ 恒定 30fps/60fps (CFR) 零回跳单向顺滑采样循环：
+                        //   1. 每帧 timestamp = Math.round(frameIndex * (1e6 / TARGET_FPS)) 微秒，严格恒定帧率 CFR
+                        //   2. 严禁在正常录制中向后回跳 previewVideo.currentTime（彻底根除 GOP 硬件重解码导致的背景视频卡顿掉帧！）
+                        //   3. 当 previewVideo 超前目标帧时间超过 0.85 帧时短暂暂停等待画布追上；轻微落后时微调倍速平滑追帧
                         let encodeBusy = false;
-                        let lastDriftSeekTs = 0;
-                        intervalId = setInterval(() => {
-                            if (!isRecording || encodeBusy) return;
+                        let lastForwardSeekTs = 0;
+                        const frameStepSec = 1 / TARGET_FPS;
+
+                        const stepWebCodecsFrame = () => {
+                            if (!isRecording) return;
                             if (encodedFrameCount >= totalFrames) {
                                 finalizeWebCodecsExport();
                                 return;
                             }
-                            // 若硬件编码器队列积压超过 12 帧，等待下一个 tick 释放编码器压力，同时暂停源视频防止视频偷跑超前
-                            if (typeof videoEncoder.encodeQueueSize === 'number' && videoEncoder.encodeQueueSize > 12) {
+                            if (encodeBusy) {
+                                intervalId = setTimeout(stepWebCodecsFrame, 4);
+                                return;
+                            }
+                            // 若硬件编码器队列积压超过 10 帧，先暂停源视频防止超前偷跑，等队列释放后再继续
+                            if (typeof videoEncoder.encodeQueueSize === 'number' && videoEncoder.encodeQueueSize > 10) {
                                 if (!previewVideo.paused) {
                                     try { previewVideo.pause(); } catch (_e) {}
                                 }
+                                intervalId = setTimeout(stepWebCodecsFrame, 6);
                                 return;
                             }
 
@@ -9220,45 +10077,58 @@ window.switchRightTab = function (mode) {
                             const exactElapsedSec = Math.min(recordSeconds, encodedFrameCount / TARGET_FPS);
                             const wallElapsedSec = Math.max(0.001, (now - recordStartStamp) / 1000);
 
-                            // 若当前尚未到达下一帧的 33.33ms 采样时刻，则等待
-                            if (wallElapsedSec + 0.003 < exactElapsedSec) {
+                            // 尚未到达下一帧的采样时刻，按精确剩余毫秒数唤醒
+                            if (wallElapsedSec + 0.002 < exactElapsedSec) {
+                                const waitMs = Math.max(2, Math.min(12, Math.round((exactElapsedSec - wallElapsedSec) * 1000)));
+                                intervalId = setTimeout(stepWebCodecsFrame, waitMs);
                                 return;
                             }
 
                             encodeBusy = true;
                             try {
-                                // 将源视频播放速率与当前帧对应的时间点平滑同步，防止频繁 currentTime 跳转引起解码卡顿，同时杜绝源视频提前播完退出
                                 const targetVidTime = Math.min(
-                                    Math.max(0, vidTotalDur - 0.02),
+                                    Math.max(0, vidTotalDur - 0.015),
                                     exportStartSec + Math.min(sourceClipSpan, exactElapsedSec * exportSpeedRate)
                                 );
                                 const curVidTime = isFinite(previewVideo.currentTime) ? previewVideo.currentTime : targetVidTime;
-                                const vidDrift = curVidTime - targetVidTime;
+                                const vidDrift = curVidTime - targetVidTime; // >0 表示视频超前，<0 表示视频落后
 
-                                if (!previewVideo.seeking && Math.abs(vidDrift) > 0.36 && (now - lastDriftSeekTs > 650)) {
-                                    lastDriftSeekTs = now;
-                                    try { previewVideo.currentTime = targetVidTime; } catch (_e) {}
-                                }
-                                if (wallElapsedSec > 0.25 && encodedFrameCount > 2) {
-                                    const paceRatio = Math.min(1.0, Math.max(0.25, exactElapsedSec / wallElapsedSec));
-                                    const adaptedRate = Number(Math.max(0.25, Math.min(4.0, exportSpeedRate * paceRatio)).toFixed(2));
-                                    if (Math.abs((previewVideo.playbackRate || 1) - adaptedRate) > 0.04) {
-                                        try { previewVideo.playbackRate = adaptedRate; } catch (_e) {}
+                                if (vidDrift > frameStepSec * 0.85) {
+                                    // 视频超前：零回跳暂停等待编码帧追平，绝不 backward seek 破坏硬件解码流水线
+                                    if (!previewVideo.paused) {
+                                        try { previewVideo.pause(); } catch (_e) {}
                                     }
-                                }
-                                if (previewVideo.paused && !previewVideo.ended && targetVidTime < vidTotalDur - 0.04) {
-                                    previewVideo.play().catch(() => {});
+                                } else {
+                                    // 视频处于同步区间或轻微落后：确保顺滑播放，必要时在 [0.94x, 1.08x] 内无感微调追齐
+                                    let desiredRate = exportSpeedRate;
+                                    if (vidDrift < -0.045) {
+                                        desiredRate = Math.min(4.0, Number((exportSpeedRate * 1.08).toFixed(3)));
+                                    } else if (vidDrift > frameStepSec * 0.35) {
+                                        desiredRate = Math.max(0.25, Number((exportSpeedRate * 0.94).toFixed(3)));
+                                    }
+                                    if (Math.abs((previewVideo.playbackRate || 1) - desiredRate) > 0.015) {
+                                        try { previewVideo.playbackRate = desiredRate; } catch (_e) {}
+                                    }
+                                    if (!previewVideo.seeking && vidDrift < -1.25 && (now - lastForwardSeekTs > 1200)) {
+                                        lastForwardSeekTs = now;
+                                        try { previewVideo.currentTime = targetVidTime; } catch (_e) {}
+                                    }
+                                    if (previewVideo.paused && !previewVideo.ended && targetVidTime < vidTotalDur - 0.025) {
+                                        previewVideo.play().catch(() => {});
+                                    }
                                 }
 
                                 renderSingleFrame(now, exactElapsedSec);
 
                                 if (videoEncoder.state === 'configured' && encodedFrameCount < totalFrames) {
-                                    const timestampUs = Math.round(encodedFrameCount * (1_000_000 / TARGET_FPS));
+                                    // 每帧 timestamp = frameIndex * (1e6 / fps) 微秒，严格保证 CFR，关键帧间隔约 1 秒
+                                    const frameIndex = encodedFrameCount;
+                                    const timestampUs = Math.round(frameIndex * (1e6 / TARGET_FPS));
                                     const frame = new VideoFrame(offCanvas, {
                                         timestamp: timestampUs,
                                         duration: frameDurationUs
                                     });
-                                    videoEncoder.encode(frame, { keyFrame: (encodedFrameCount % (TARGET_FPS * 2) === 0) });
+                                    videoEncoder.encode(frame, { keyFrame: (frameIndex % TARGET_FPS === 0) });
                                     frame.close();
                                     encodedFrameCount++;
                                 }
@@ -9270,13 +10140,19 @@ window.switchRightTab = function (mode) {
 
                                 if (encodedFrameCount >= totalFrames) {
                                     finalizeWebCodecsExport();
+                                    return;
                                 }
                             } catch (frameErr) {
                                 console.warn('Frame encode warning:', frameErr);
                             } finally {
                                 encodeBusy = false;
                             }
-                        }, 10);
+                            if (isRecording) {
+                                intervalId = setTimeout(stepWebCodecsFrame, 4);
+                            }
+                        };
+
+                        intervalId = setTimeout(stepWebCodecsFrame, 4);
 
                         return;
                     }
@@ -9338,17 +10214,17 @@ window.switchRightTab = function (mode) {
                     ...canvasStream.getVideoTracks()
                 ]);
 
-                // 严格优先 H.264 Baseline/Main Profile + AAC MP4（不使用 VP9/AV1）
+                // 严格固定 H.264 (avc1) + AAC (mp4a.40.2) 标准 MP4 格式，绝不产出 WebM 等其它格式
                 const tryConfigs = [
-                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E01F, mp4a.40.2"', ext: 'mp4' },
-                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.4D401F, mp4a.40.2"', ext: 'mp4' },
-                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E028, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.640033, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.640028, mp4a.40.2"', ext: 'mp4' },
                     { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.4D4028, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E028, mp4a.40.2"', ext: 'mp4' },
+                    { stream: streamWithAudio, mime: 'video/mp4;codecs="avc1.42E01F, mp4a.40.2"', ext: 'mp4' },
                     { stream: streamWithAudio, mime: 'video/mp4', ext: 'mp4' },
+                    { stream: streamVideoOnly, mime: 'video/mp4;codecs="avc1.640028"', ext: 'mp4' },
                     { stream: streamVideoOnly, mime: 'video/mp4;codecs="avc1.42E01F"', ext: 'mp4' },
-                    { stream: streamVideoOnly, mime: 'video/mp4', ext: 'mp4' },
-                    { stream: streamWithAudio, mime: 'video/webm;codecs="h264,opus"', ext: 'mp4' },
-                    { stream: streamWithAudio, mime: 'video/webm', ext: 'webm' }
+                    { stream: streamVideoOnly, mime: 'video/mp4', ext: 'mp4' }
                 ];
 
                 let recorder = null;
@@ -9821,14 +10697,11 @@ window.switchRightTab = function (mode) {
     const liveLeftLivePill = document.getElementById('live-left-live-pill');
     const liveLeftLiveViewers = document.getElementById('live-left-live-viewers');
 
-    // 直播间顶部胶囊标签（Laya 精选 / 人气榜 / 直播广场）自定义与随机控件
+        // 直播间顶部胶囊标签（Laya 精选动态滚动话题 / 直播广场）自定义与随机控件
     const inLiveBrandTag = document.getElementById('in-live-brand-tag');
     const btnLiveRandBrandTag = document.getElementById('btn-live-rand-brand-tag');
     const btnLiveRandBrandTagBtn = document.getElementById('btn-live-rand-brand-tag-btn');
-    const inLiveRankTag = document.getElementById('in-live-rank-tag');
     const inLiveSquareTag = document.getElementById('in-live-square-tag');
-    const btnLiveRandRankTag = document.getElementById('btn-live-rand-rank-tag');
-    const btnLiveRandRankTagBtn = document.getElementById('btn-live-rand-rank-tag-btn');
 
     // 礼物进场提示条控件
     const btnLiveUploadGiftAv = document.getElementById('btn-live-upload-gift-av');
@@ -9870,7 +10743,15 @@ window.switchRightTab = function (mode) {
     const inLiveFollowColorHex = document.getElementById('in-live-follow-color-hex');
     const inLiveDmScale = document.getElementById('in-live-dm-scale');
     const txtLiveDmScale = document.getElementById('txt-live-dm-scale');
+    const inLiveDmBoxScale = document.getElementById('in-live-dm-box-scale');
     const btnLiveResetDmSize = document.getElementById('btn-live-reset-dm-size');
+    const btnLiveResetDmPos = document.getElementById('btn-live-reset-dm-pos');
+    const btnLiveResetDmArea = document.getElementById('btn-live-reset-dm-area');
+    const btnLiveResetDmFont = document.getElementById('btn-live-reset-dm-font');
+    const btnLivePanelAreaDown = document.getElementById('btn-live-panel-area-down');
+    const btnLivePanelAreaUp = document.getElementById('btn-live-panel-area-up');
+    const btnLivePanelFontDown = document.getElementById('btn-live-panel-font-down');
+    const btnLivePanelFontUp = document.getElementById('btn-live-panel-font-up');
     const inLiveDmAreaWidth = document.getElementById('in-live-dm-area-width');
     const inLiveDmMaxRows = document.getElementById('in-live-dm-max-rows');
     const txtLiveDmArea = document.getElementById('txt-live-dm-area');
@@ -9895,8 +10776,6 @@ window.switchRightTab = function (mode) {
     const liveGiftDescTxt = document.getElementById('live-gift-desc-txt');
     const liveGiftItemIcon = document.getElementById('live-gift-item-icon');
     const liveGiftComboNum = document.getElementById('live-gift-combo-num');
-    const liveSubRankPill = document.getElementById('live-sub-rank-pill');
-    const liveSubTxtRank = document.getElementById('live-sub-txt-rank');
     const liveLayaBrandPill = document.getElementById('live-laya-brand-pill');
     const liveLayaBrandTxt = document.getElementById('live-laya-brand-txt');
     const liveSubSquarePill = document.getElementById('live-sub-square-pill');
@@ -9955,31 +10834,30 @@ window.switchRightTab = function (mode) {
         const pool = getDouyinLiveAudiencePool(mode);
 
         if (liveAudImgs.length > 0 && pool.length > 0) {
-            const pickedSet = new Set();
+            const avoidUrls = new Set();
+            if (dyAvatarImg && dyAvatarImg.src) avoidUrls.add(dyAvatarImg.src);
             liveAudImgs.forEach((img, idx) => {
-                let pickIdx = 0;
+                let dataUrl = '';
                 if (!randomize && liveAudUsedIndices[idx] >= 0 && liveAudUsedIndices[idx] < pool.length) {
-                    pickIdx = liveAudUsedIndices[idx];
+                    dataUrl = pool[liveAudUsedIndices[idx]];
+                } else if (typeof window.claimUniqueAvatarFromPool === 'function') {
+                    dataUrl = window.claimUniqueAvatarFromPool(pool, avoidUrls);
+                    const foundIdx = pool.indexOf(dataUrl);
+                    liveAudUsedIndices[idx] = foundIdx >= 0 ? foundIdx : idx;
                 } else {
-                    for (let attempt = 0; attempt < 25; attempt++) {
-                        const cand = Math.floor(Math.random() * pool.length);
-                        if (!pickedSet.has(cand) && cand !== liveAudUsedIndices[idx]) {
-                            pickIdx = cand;
-                            break;
-                        }
-                        pickIdx = cand;
-                    }
+                    const cand = Math.floor(Math.random() * pool.length);
+                    liveAudUsedIndices[idx] = cand;
+                    dataUrl = pool[cand];
                 }
-                pickedSet.add(pickIdx);
-                liveAudUsedIndices[idx] = pickIdx;
-                const dataUrl = pool[pickIdx];
                 if (dataUrl) {
+                    avoidUrls.add(dataUrl);
                     img.src = dataUrl;
                     img.setAttribute('data-export-src', dataUrl);
                 }
             });
         }
     }
+    window.syncLiveAudienceAvatars = syncLiveAudienceAvatars;
     syncLiveAudienceAvatars(true);
 
     function triggerRandomLiveAudAvatars(e) {
@@ -9993,6 +10871,7 @@ window.switchRightTab = function (mode) {
 
     if (selLiveAudAvatarMode) {
         selLiveAudAvatarMode.addEventListener('change', () => {
+            if (window.__isRestoringStorage) return;
             syncLiveAudienceAvatars(true);
             window.showToast('👤 已隨機切換抖音直播觀眾頭像風格');
         });
@@ -10132,6 +11011,15 @@ window.switchRightTab = function (mode) {
         return String(Math.round(n));
     }
 
+    function formatLiveLikesNumberText(numVal) {
+        const n = Math.max(1000, Math.min(12990000, Number(numVal) || 256000));
+        const unit = window.__currentLangMode === 'simp' ? '万' : '萬';
+        if (n >= 10000) {
+            return (n / 10000).toFixed(1) + unit;
+        }
+        return String(Math.round(n));
+    }
+
     // 生成 1000 ~ 200万 之间的逼真随机数值（几千显示整数，几万~200万显示 x.x萬 / xxx.x萬）
     function generateRandom1kTo2M() {
         const unit = window.__currentLangMode === 'simp' ? '万' : '萬';
@@ -10238,6 +11126,7 @@ window.switchRightTab = function (mode) {
             inp.style.setProperty('width', inputWidthPx + 'px', 'important');
 
             const prevDisplay = targetTextEl.style.display;
+            triggerEl.classList.add('is-editing-inline');
             targetTextEl.style.display = 'none';
             targetTextEl.parentNode.insertBefore(inp, targetTextEl);
             inp.focus();
@@ -10249,6 +11138,7 @@ window.switchRightTab = function (mode) {
                 finished = true;
                 const nextVal = inp.value.trim();
                 if (inp.parentNode) inp.parentNode.removeChild(inp);
+                triggerEl.classList.remove('is-editing-inline');
                 targetTextEl.style.display = prevDisplay || '';
                 if (save && nextVal) {
                     setValFn(nextVal);
@@ -10293,6 +11183,8 @@ window.switchRightTab = function (mode) {
         liveDispViewers,
         () => (liveDispViewers ? liveDispViewers.textContent.trim() : '10.2萬'),
         (v) => {
+            markFieldUserModified('in-live-viewers-text');
+            markFieldUserModified('in-live-viewers');
             applyLiveViewersDisplay(v, null);
             window.showToast(`✅ 在線人數已修改為：${v}`);
         },
@@ -10304,6 +11196,8 @@ window.switchRightTab = function (mode) {
         liveLeftLiveViewers,
         () => (liveDispViewers ? liveDispViewers.textContent.trim() : '10.2萬'),
         (v) => {
+            markFieldUserModified('in-live-viewers-text');
+            markFieldUserModified('in-live-viewers');
             applyLiveViewersDisplay(v, null);
             window.showToast(`✅ 在線人數已修改為：${v}`);
         },
@@ -10336,24 +11230,24 @@ window.switchRightTab = function (mode) {
     }
 
     const defaultLiveChatLines = [
-        '微醺小貓：主播今天狀態太好了吧',
+        '微醺小貓：哈哈哈哈笑死我了😂',
         '輕輕吹風 來了',
-        '阿傑：666 這波操作太頂了',
-        '晚風溫柔：這首歌絕了，求歌名！',
+        '阿傑：666牛啊',
+        '晚風溫柔：👍',
         '再次邂逅說愛你 來了',
-        '羊🐑：前排打卡支持主播',
-        '星河少女：聲音好甜，聽著太治癒了',
+        '小羊：太美了吧😘',
+        '星河少女：主播哪裡人',
         '麥兜黑鳳梨 來了',
-        '夜色有點濃：哈哈哈哈笑死我了',
-        '皓哥：已關注 比心！氣氛拉滿',
+        '夜色有點濃：😄好看好看',
+        '皓哥：來了來了☕',
         '南城舊夢 來了',
-        '石頭baby：蹲一個歌單，每天準時看',
-        '漫渡：主播加油，今天人好多呀',
+        '石頭baby：這多少錢👀',
+        '漫渡：👏',
         '深海裡的星星 來了'
     ];
     const presetLevels = [19, 12, 26, 25, 21, 16, 29, 24, 18, 33, 28, 31, 15, 22, 36];
     const presetFanLevels = [10, 12, 8, 15, 9, 11, 16, 14, 6, 18, 13, 10, 7, 19, 11];
-    const fallbackNicknames = ['羊🐑', '🌈七月初五🐟🐳', '輕輕吹風', '蒙蒙', '夜色有點濃', '微醺小貓', '阿傑', '捉事盧鑫', '石頭baby', '希拉', '皓哥', '漫渡', '晚風溫柔', '星河少女'];
+    const fallbackNicknames = ['小羊', '七月初五', '輕輕吹風', '蒙蒙', '夜色有點濃', '微醺小貓', '阿傑', '捉事盧鑫', '石頭baby', '希拉', '皓哥', '漫渡', '晚風溫柔', '星河少女'];
 
     // ★ 将逗号/分号分隔或挤在一行的弹幕文本自动拆分为「每行一条」
     function splitDanmakuTextToMultiline(rawStr) {
@@ -10629,6 +11523,12 @@ window.switchRightTab = function (mode) {
             msg = rest;
         }
         nickPart = nickPart.replace(/\s*\[💜[^\]]+\]\s*/g, '').replace(/^\[主播\]\s*/, '').trim() || fallbackNicknames[globalIdx % fallbackNicknames.length];
+        if (typeof window.__sanitizeDanmakuAllowedEmojisOnly === 'function') {
+            nickPart = window.__sanitizeDanmakuAllowedEmojisOnly(nickPart, true) || fallbackNicknames[globalIdx % fallbackNicknames.length];
+            if (!isJoinRow) {
+                msg = window.__sanitizeDanmakuAllowedEmojisOnly(msg, false) || '666';
+            }
+        }
 
         const defBadge = getDefaultBadgeProfileForRow(globalIdx, isJoinRow);
         const lv = hasCustomMeta ? customLv : defBadge.lv;
@@ -10660,36 +11560,59 @@ window.switchRightTab = function (mode) {
             if (inLiveDanmakuList) {
                 inLiveDanmakuList.value = allLines.join('\n');
             }
-            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
-                triggerSaveStorage();
+            if (!window.__isRestoringStorage) {
+                if (typeof markFieldUserModified === 'function') markFieldUserModified('in-live-danmaku-list');
+                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
             }
         }
     }
 
     function getLiveMaxRowsVal() {
         const v = inLiveDmMaxRows ? parseInt(inLiveDmMaxRows.value, 10) : 5;
-        return Number.isNaN(v) ? 5 : Math.min(9, Math.max(2, v));
+        return Number.isNaN(v) ? 5 : Math.min(12, Math.max(2, v));
+    }
+
+    function getLiveDmFontScalePct() {
+        const v = inLiveDmScale ? parseInt(inLiveDmScale.value, 10) : 100;
+        return Number.isNaN(v) ? 100 : Math.min(260, Math.max(60, v));
+    }
+
+    function getLiveDmBoxScalePct() {
+        const v = inLiveDmBoxScale ? parseInt(inLiveDmBoxScale.value, 10) : 100;
+        return Number.isNaN(v) ? 100 : Math.min(180, Math.max(70, v));
     }
 
     function applyLiveDmScaleAndArea(triggerRender = false) {
-        const scalePct = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
-        const clampedScale = Math.min(220, Math.max(75, scalePct));
-        const scaleRatio = (clampedScale / 100).toFixed(2);
+        const clampedFontScale = getLiveDmFontScalePct();
+        const fontScaleRatio = (clampedFontScale / 100).toFixed(2);
+
+        const clampedBoxScale = getLiveDmBoxScalePct();
+        const boxScaleRatio = (clampedBoxScale / 100).toFixed(2);
 
         const widthPct = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
-        const clampedWidth = Math.min(100, Math.max(55, widthPct));
+        const clampedWidth = Math.min(100, Math.max(45, widthPct));
         const maxRows = getLiveMaxRowsVal();
 
         if (liveChatScrollBox) {
-            liveChatScrollBox.style.setProperty('--live-dm-scale', scaleRatio);
+            liveChatScrollBox.style.setProperty('--live-dm-font-scale', fontScaleRatio);
+            liveChatScrollBox.style.setProperty('--live-dm-box-scale', boxScaleRatio);
+            liveChatScrollBox.style.setProperty('--live-dm-scale', fontScaleRatio);
             liveChatScrollBox.style.setProperty('--live-dm-width', `${clampedWidth}%`);
         }
         if (txtLiveDmScale) {
-            const desc = clampedScale < 95 ? '紧凑' : (clampedScale <= 105 ? '标准' : (clampedScale <= 135 ? '偏大' : '放大精修'));
-            txtLiveDmScale.textContent = `${clampedScale}% (${desc})`;
+            const desc = clampedFontScale < 95 ? '偏小' : (clampedFontScale <= 105 ? '标准' : (clampedFontScale <= 145 ? '放大' : '超大字'));
+            txtLiveDmScale.textContent = `${clampedFontScale}% (${desc})`;
+        }
+        const onstageFontEl = document.getElementById('txt-live-onstage-font');
+        if (onstageFontEl) {
+            onstageFontEl.textContent = `字${clampedFontScale}%`;
         }
         if (txtLiveDmArea) {
-            txtLiveDmArea.textContent = `宽${clampedWidth}% · ${maxRows}行`;
+            txtLiveDmArea.textContent = `宽${clampedWidth}% · ${maxRows}行 · 框${clampedBoxScale}%`;
+        }
+        const onstageAreaEl = document.getElementById('txt-live-onstage-area');
+        if (onstageAreaEl) {
+            onstageAreaEl.textContent = `${clampedWidth}%·${maxRows}行`;
         }
         if (triggerRender) {
             renderLiveChatBubbles(false);
@@ -10857,7 +11780,7 @@ window.switchRightTab = function (mode) {
         liveFlyParticles = [];
     }
 
-    // ★ 二、右侧竖排开心鲜艳表情与彩心混搭飘动动画（火花✨🔥🌟、开心笑脸🥳🤩😄😍😆、礼花礼炮🎉🎊🎆🎇🎈、点赞彩心💖👍掺和在一起欢快上飘）
+    // ★ 二、右侧竖排开心鲜艳表情与彩心混搭飘动动画（火花✨🔥🌟、开心笑脸🥳🤩😄😍😆、礼花礼炮🎉🎊🎆🎇🎈、点赞彩心💖👍掺和在一起欢快上飘 + 精致贴边微光晕）
     const LIVE_CHEER_PARTICLES = [
         '🎉', '✨', '🥳', '🔥', '😄', '🎊', '🤩', '🎆',
         '😍', '🌟', '🎇', '😆', '💖', '🎈', '🥰', '👍',
@@ -11004,14 +11927,20 @@ window.switchRightTab = function (mode) {
             : ((!isFemaleNick && guys.length > 0 && Math.random() < 0.6) ? [...guys, ...vibes.slice(0, 6)] : realPool);
 
         const curAvatarSrc = liveGiftSenderAv ? (liveGiftSenderAv.getAttribute('data-export-src') || liveGiftSenderAv.src || '') : '';
-        let pickUrl = subPool[0];
-        for (let attempt = 0; attempt < 35; attempt++) {
-            const candIdx = Math.floor(Math.random() * subPool.length);
-            const candUrl = subPool[candIdx];
-            if (candUrl && candUrl !== curAvatarSrc && !recentGiftAvatarUrls.includes(candUrl)) {
-                pickUrl = candUrl;
-                lastGiftRealAvatarIdx = realPool.indexOf(candUrl);
-                break;
+        let pickUrl = '';
+        if (typeof window.claimUniqueAvatarFromPool === 'function') {
+            pickUrl = window.claimUniqueAvatarFromPool(subPool, 'gift_av', new Set([...recentGiftAvatarUrls, curAvatarSrc].filter(Boolean)));
+        }
+        if (!pickUrl) {
+            pickUrl = subPool[0];
+            for (let attempt = 0; attempt < 35; attempt++) {
+                const candIdx = Math.floor(Math.random() * subPool.length);
+                const candUrl = subPool[candIdx];
+                if (candUrl && candUrl !== curAvatarSrc && !recentGiftAvatarUrls.includes(candUrl)) {
+                    pickUrl = candUrl;
+                    lastGiftRealAvatarIdx = realPool.indexOf(candUrl);
+                    break;
+                }
             }
         }
         if (pickUrl) {
@@ -11228,19 +12157,25 @@ window.switchRightTab = function (mode) {
         const curDisplayedUser = (liveGiftSenderName && liveGiftSenderName.textContent.trim()) || '';
         const curDisplayedGift = (liveGiftDescTxt && liveGiftDescTxt.textContent.trim()) || '';
 
-        // 1) 抽取一位与最近 6 次以及当前画面名字完全不同的送礼用户名
-        let uIdx = Math.floor(Math.random() * giftUserPresets.length);
-        for (let attempt = 0; attempt < 30; attempt++) {
-            const cand = Math.floor(Math.random() * giftUserPresets.length);
-            if (cand !== lastGiftUserIdx && !recentGiftUserIdxs.includes(cand) && giftUserPresets[cand] !== curDisplayedUser) {
-                uIdx = cand;
-                break;
-            }
+        // 1) 优先从 325+ 海外华人/AI 昵称去重库抽取完全不重复的送礼用户名
+        let u = '';
+        if (typeof window.claimUniqueNickname === 'function') {
+            u = window.claimUniqueNickname();
         }
-        lastGiftUserIdx = uIdx;
-        recentGiftUserIdxs.push(uIdx);
-        if (recentGiftUserIdxs.length > 7) recentGiftUserIdxs.shift();
-        const u = giftUserPresets[uIdx];
+        if (!u || u === curDisplayedUser) {
+            let uIdx = Math.floor(Math.random() * giftUserPresets.length);
+            for (let attempt = 0; attempt < 30; attempt++) {
+                const cand = Math.floor(Math.random() * giftUserPresets.length);
+                if (cand !== lastGiftUserIdx && !recentGiftUserIdxs.includes(cand) && giftUserPresets[cand] !== curDisplayedUser) {
+                    uIdx = cand;
+                    break;
+                }
+            }
+            lastGiftUserIdx = uIdx;
+            recentGiftUserIdxs.push(uIdx);
+            if (recentGiftUserIdxs.length > 7) recentGiftUserIdxs.shift();
+            u = giftUserPresets[uIdx];
+        }
 
         // 2) 抽取一款与最近 5 次以及当前画面礼物完全不同的礼物（带专属图标、文案、主题色）
         let gIdx = Math.floor(Math.random() * LIVE_GIFT_CATALOG.length);
@@ -11554,7 +12489,10 @@ window.switchRightTab = function (mode) {
                 if (!isEditingGiftBanner) return;
                 isEditingGiftBanner = false;
                 if (save) {
-                    if (inLiveGiftUser && inpU.value.trim()) inLiveGiftUser.value = inpU.value.trim();
+                    if (inLiveGiftUser && inpU.value.trim()) {
+                        markFieldUserModified('in-live-gift-user');
+                        inLiveGiftUser.value = inpU.value.trim();
+                    }
                     if (inLiveGiftName && inpN.value.trim()) inLiveGiftName.value = inpN.value.trim();
                     if (inLiveGiftIcon && inpI.value.trim()) inLiveGiftIcon.value = inpI.value.trim();
                     if (inLiveGiftCount && inpC.value.trim()) inLiveGiftCount.value = inpC.value.trim();
@@ -11592,39 +12530,56 @@ window.switchRightTab = function (mode) {
     // 初始化礼物弹窗真人头像与状态
     applyLiveGiftBannerState(false, true);
 
-    // ★ 绑定整体弹幕文字大小、弹幕区域宽度与高度(同屏行数)滑块，以及手机画面直接拖拽/滚轮缩放手柄
+    // ★ 彻底分开的两块绑定：
+    //   1) 块一：评论区区域大小（宽度 45%~100%、行数 2~12行、框体间距缩放 70%~180%）+ 挪动位置（liveDmOffsetX/Y），绝不影响文字字号
+    //   2) 块二：里面弹幕文字大小（in-live-dm-scale 60%~260%），绝不改变评论区框体宽高、行数或位置
     if (inLiveDmScale) {
         inLiveDmScale.addEventListener('input', () => {
             applyLiveDmScaleAndArea(false);
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (inLiveDmBoxScale) {
+        inLiveDmBoxScale.addEventListener('input', () => {
+            applyLiveDmScaleAndArea(false);
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
         });
     }
     if (inLiveDmAreaWidth) {
         inLiveDmAreaWidth.addEventListener('input', () => {
             applyLiveDmScaleAndArea(false);
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
         });
     }
     if (inLiveDmMaxRows) {
         inLiveDmMaxRows.addEventListener('input', () => {
             applyLiveDmScaleAndArea(true);
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
         });
     }
     const liveBottomSectionEl = liveOverlayEl ? liveOverlayEl.querySelector('.live-bottom-section') : null;
     const liveGiftComboSlotEl = document.getElementById('live-gift-combo-slot');
     const liveDmOnstageToolbar = document.getElementById('live-dm-onstage-toolbar');
     const liveDmMoveHandle = document.getElementById('live-dm-move-handle');
+    const btnLiveAreaDown = document.getElementById('btn-live-area-down');
+    const btnLiveAreaUp = document.getElementById('btn-live-area-up');
+    const txtLiveOnstageArea = document.getElementById('txt-live-onstage-area');
+    const btnLiveFontDown = document.getElementById('btn-live-font-down');
+    const btnLiveFontUp = document.getElementById('btn-live-font-up');
+    const txtLiveOnstageFont = document.getElementById('txt-live-onstage-font');
     const btnLiveOnstageSpdDown = document.getElementById('btn-live-onstage-spd-down');
     const btnLiveOnstageSpdUp = document.getElementById('btn-live-onstage-spd-up');
     const txtLiveOnstageSpd = document.getElementById('txt-live-onstage-spd');
 
-    // ★ 公屏礼物与弹幕区位置偏移 (支持按住「✥ 挪位置」自由拖动位置，点「↺ 重置大小」一键归零)
+    // ★ 公屏礼物与弹幕区位置偏移 (支持按住「✥ 挪位置」自由拖动位置，点「位置归零」或「重置」归零)
     const LIVE_DM_OFFSET_STORAGE_KEY = 'LAYA_LIVE_DM_OFFSET_V1';
     let liveDmOffsetX = 0;
     let liveDmOffsetY = 0;
     try {
         const savedOff = JSON.parse(localStorage.getItem(LIVE_DM_OFFSET_STORAGE_KEY) || 'null');
         if (savedOff && typeof savedOff === 'object') {
-            liveDmOffsetX = Math.max(-140, Math.min(140, Number(savedOff.x) || 0));
-            liveDmOffsetY = Math.max(-220, Math.min(80, Number(savedOff.y) || 0));
+            liveDmOffsetX = Math.max(-165, Math.min(165, Number(savedOff.x) || 0));
+            liveDmOffsetY = Math.max(-320, Math.min(85, Number(savedOff.y) || 0));
         }
     } catch (_e) {}
 
@@ -11685,8 +12640,8 @@ window.switchRightTab = function (mode) {
             const onMovePos = (ev) => {
                 const dx = ev.clientX - startX;
                 const dy = ev.clientY - startY;
-                liveDmOffsetX = Math.max(-140, Math.min(140, Math.round(initX + dx)));
-                liveDmOffsetY = Math.max(-220, Math.min(80, Math.round(initY + dy)));
+                liveDmOffsetX = Math.max(-165, Math.min(165, Math.round(initX + dx)));
+                liveDmOffsetY = Math.max(-320, Math.min(85, Math.round(initY + dy)));
                 applyLiveDmPositionOffset(false);
             };
             const onUpPos = () => {
@@ -11704,8 +12659,42 @@ window.switchRightTab = function (mode) {
         });
     }
 
+    // 独立步进函数 1：单独放大/缩小「评论区框体区域」（宽度 + 行数 + 框体边距），绝不改变里面的弹幕文字字号
+    function stepLiveDmAreaOnly(dir, showMsg = true) {
+        const curWidth = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
+        const curRows = getLiveMaxRowsVal();
+        const curBoxScale = getLiveDmBoxScalePct();
+        const nextWidth = Math.min(100, Math.max(45, curWidth + dir * 5));
+        const nextRows = Math.min(12, Math.max(2, curRows + (dir > 0 ? 1 : -1)));
+        const nextBoxScale = Math.min(180, Math.max(70, curBoxScale + dir * 5));
+        if (inLiveDmAreaWidth) inLiveDmAreaWidth.value = String(nextWidth);
+        if (inLiveDmMaxRows) inLiveDmMaxRows.value = String(nextRows);
+        if (inLiveDmBoxScale) inLiveDmBoxScale.value = String(nextBoxScale);
+        applyLiveDmScaleAndArea(nextRows !== curRows);
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+        if (showMsg) {
+            window.showToast(`📦 评论区区域：宽${nextWidth}% · ${nextRows}行 · 框${nextBoxScale}%（弹幕文字大小保持 ${getLiveDmFontScalePct()}% 不变）`);
+        }
+    }
+
+    // 独立步进函数 2：单独放大/缩小「里面的弹幕文字字号」，绝不改变评论区框体宽高、行数与位置
+    function stepLiveDmFontOnly(deltaPct, showMsg = true) {
+        const curFont = getLiveDmFontScalePct();
+        const nextFont = Math.min(260, Math.max(60, curFont + deltaPct));
+        if (inLiveDmScale) inLiveDmScale.value = String(nextFont);
+        applyLiveDmScaleAndArea(false);
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+        if (showMsg) {
+            window.showToast(`🔤 弹幕文字字号：${nextFont}%（评论区框体区域与位置保持不变）`);
+        }
+    }
+
     if (liveDmResizeHandle && liveChatScrollBox) {
-        // 1) 鼠标按住拖拽手柄：左右拖动调弹幕区域宽度 (55%~100%)，上下拖动调弹幕区域高度/同屏行数 (2~9行)
+        // 1) 按住「⤡ 拖区域」拖拽手柄：左右拖动调评论区框体宽度 (45%~100%)，上下拖动调评论区高度/行数 (2~12行)，绝不改里面的文字字号！
         liveDmResizeHandle.addEventListener('mousedown', (e) => {
             e.preventDefault();
             e.stopPropagation();
@@ -11720,8 +12709,8 @@ window.switchRightTab = function (mode) {
             const onMove = (ev) => {
                 const dx = ev.clientX - startX;
                 const dy = startY - ev.clientY; // 向上拖拉增加高度/行数
-                const nextWidth = Math.min(100, Math.max(55, Math.round(startWidth + dx * 0.25)));
-                const nextRows = Math.min(9, Math.max(2, Math.round(startRows + dy / 22)));
+                const nextWidth = Math.min(100, Math.max(45, Math.round(startWidth + dx * 0.28)));
+                const nextRows = Math.min(12, Math.max(2, Math.round(startRows + dy / 20)));
                 if (inLiveDmAreaWidth) inLiveDmAreaWidth.value = String(nextWidth);
                 const prevRows = getLiveMaxRowsVal();
                 if (inLiveDmMaxRows) inLiveDmMaxRows.value = String(nextRows);
@@ -11743,29 +12732,43 @@ window.switchRightTab = function (mode) {
             window.addEventListener('mouseup', onUp);
         });
 
-        // 2) 在拖拽手柄、悬浮工具栏或整个评论区滚动滚轮：直接缩放整体弹幕文字与徽章大小 (75%~220%)
-        const handleWheelScale = (e) => {
+        // 2) 滚轮彻底分开：
+        //    - 在「第1排区域控制栏 / ⤡ 拖区域」滚动滚轮 -> 单独放大/缩小【评论区框体区域】
+        //    - 在「弹幕文字区 (#live-chat-scroll-box) / 第2排字号栏」滚动滚轮 -> 单独放大/缩小【里面的弹幕文字字号】
+        const handleAreaWheel = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            const curScale = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
-            const delta = e.deltaY < 0 ? 5 : -5;
-            const nextScale = Math.min(220, Math.max(75, curScale + delta));
-            if (inLiveDmScale) inLiveDmScale.value = String(nextScale);
-            applyLiveDmScaleAndArea(false);
-            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
-                triggerSaveStorage();
-            }
+            stepLiveDmAreaOnly(e.deltaY < 0 ? 1 : -1, false);
         };
-        liveDmResizeHandle.addEventListener('wheel', handleWheelScale, { passive: false });
+        const handleFontWheel = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            stepLiveDmFontOnly(e.deltaY < 0 ? 5 : -5, false);
+        };
+        liveDmResizeHandle.addEventListener('wheel', handleAreaWheel, { passive: false });
         if (liveDmOnstageToolbar) {
-            liveDmOnstageToolbar.addEventListener('wheel', handleWheelScale, { passive: false });
+            const areaRowEl = liveDmOnstageToolbar.querySelector('.is-area-row');
+            const fontRowEl = liveDmOnstageToolbar.querySelector('.is-font-row');
+            if (areaRowEl) areaRowEl.addEventListener('wheel', handleAreaWheel, { passive: false });
+            if (fontRowEl) fontRowEl.addEventListener('wheel', handleFontWheel, { passive: false });
         }
         liveChatScrollBox.addEventListener('wheel', (e) => {
-            if (e.ctrlKey || e.altKey || liveChatScrollBox.closest('.live-bottom-section.is-zoom-editing')) {
-                handleWheelScale(e);
-            }
+            if (e.target && e.target.closest && e.target.closest('.live-row-inline-editor')) return;
+            handleFontWheel(e);
         }, { passive: false });
     }
+    [btnLiveAreaDown, btnLivePanelAreaDown].forEach(b => {
+        if (b) b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); stepLiveDmAreaOnly(-1, true); });
+    });
+    [btnLiveAreaUp, btnLivePanelAreaUp].forEach(b => {
+        if (b) b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); stepLiveDmAreaOnly(1, true); });
+    });
+    [btnLiveFontDown, btnLivePanelFontDown].forEach(b => {
+        if (b) b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); stepLiveDmFontOnly(-10, true); });
+    });
+    [btnLiveFontUp, btnLivePanelFontUp].forEach(b => {
+        if (b) b.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); stepLiveDmFontOnly(10, true); });
+    });
     applyLiveDmScaleAndArea(false);
 
     const btnLiveCanvasZoomEdit = document.getElementById('btn-live-canvas-zoom-edit');
@@ -11786,7 +12789,7 @@ window.switchRightTab = function (mode) {
         liveBottomSectionEl.classList.toggle('is-zoom-editing', nextOn);
         if (btnLiveCanvasZoomEdit) {
             btnLiveCanvasZoomEdit.classList.toggle('is-active', nextOn);
-            btnLiveCanvasZoomEdit.textContent = nextOn ? '🔍 收起放大' : '🔍 放大查看';
+            btnLiveCanvasZoomEdit.textContent = nextOn ? '🔍收起' : '🔍';
         }
         if (btnLiveHeaderZoomEdit) {
             btnLiveHeaderZoomEdit.textContent = nextOn ? '🔍 收起放大預覽' : '🔍 放大查看調細節';
@@ -11807,6 +12810,35 @@ window.switchRightTab = function (mode) {
     }
     window.syncLiveZoomEditingUI = syncLiveZoomEditingUI;
 
+    function resetLiveDmPosOnly(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        liveDmOffsetX = 0;
+        liveDmOffsetY = 0;
+        applyLiveDmPositionOffset(true);
+        window.showToast('✥ 已将评论区挪动位置归零（区域大小与文字字号保持不变）');
+    }
+
+    function resetLiveDmAreaOnly(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        liveDmOffsetX = 0;
+        liveDmOffsetY = 0;
+        applyLiveDmPositionOffset(true);
+        if (inLiveDmAreaWidth) inLiveDmAreaWidth.value = '93';
+        if (inLiveDmMaxRows) inLiveDmMaxRows.value = '5';
+        if (inLiveDmBoxScale) inLiveDmBoxScale.value = '100';
+        applyLiveDmScaleAndArea(true);
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        window.showToast(`📦 已单独重置评论区区域与位置（宽93%·5行·框100%），弹幕文字大小保持 ${getLiveDmFontScalePct()}% 不变`);
+    }
+
+    function resetLiveDmFontOnly(e) {
+        if (e) { e.preventDefault(); e.stopPropagation(); }
+        if (inLiveDmScale) inLiveDmScale.value = '100';
+        applyLiveDmScaleAndArea(false);
+        if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        window.showToast('🔤 已单独还原弹幕文字为 100% 标准大小（评论区区域大小与位置保持不变）');
+    }
+
     function resetLiveDmSizeAndZoom(e) {
         if (e) {
             e.preventDefault();
@@ -11817,15 +12849,23 @@ window.switchRightTab = function (mode) {
         liveDmOffsetY = 0;
         applyLiveDmPositionOffset(true);
         if (inLiveDmScale) inLiveDmScale.value = '100';
+        if (inLiveDmBoxScale) inLiveDmBoxScale.value = '100';
         if (inLiveDmAreaWidth) inLiveDmAreaWidth.value = '93';
         if (inLiveDmMaxRows) inLiveDmMaxRows.value = '5';
         applyLiveDmScaleAndArea(true);
         if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
             triggerSaveStorage();
         }
-        window.showToast('↺ 已重置評論區放大狀態、標準尺寸（100% · 寬93% · 5行）與默認位置');
+        window.showToast('↺ 已全部重置：评论区标准区域（宽93%·5行·框100%）、默认位置与弹幕文字标准字号（100%）');
     }
 
+    if (btnLiveResetDmPos) btnLiveResetDmPos.addEventListener('click', resetLiveDmPosOnly);
+    [btnLiveResetDmArea, txtLiveOnstageArea].forEach(b => {
+        if (b) b.addEventListener('click', resetLiveDmAreaOnly);
+    });
+    [btnLiveResetDmFont, txtLiveOnstageFont].forEach(b => {
+        if (b) b.addEventListener('click', resetLiveDmFontOnly);
+    });
     [btnLiveResetDmSize, btnLiveCanvasResetSize, btnLiveHeaderResetSize, btnLiveDmReset2].forEach(rBtn => {
         if (rBtn) rBtn.addEventListener('click', resetLiveDmSizeAndZoom);
     });
@@ -12670,44 +13710,47 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    const liveHostNamePresets = ['小王小王', '小鹿同學', '蜜桃甜心', '星河少女', '微醺小貓', '晚風溫柔', 'Laya女神', '蘇蘇學姐'];
-    function randomizeLiveHostName() {
-        const pick = liveHostNamePresets[Math.floor(Math.random() * liveHostNamePresets.length)];
+    const liveHostNamePresets = ['溫哥華小鹿', '洛杉磯老陳', '多倫多Sandy', '墨爾本阿豪', '悉尼小陳', '舊金山阿凱', '倫敦Chloé', '紐約Kevin', '小鹿同學', '蜜桃甜心', '星河少女', '微醺小貓'];
+    function randomizeLiveHostName(showMsg = true) {
+        const pick = (typeof window.claimUniqueNickname === 'function')
+            ? window.claimUniqueNickname()
+            : liveHostNamePresets[Math.floor(Math.random() * liveHostNamePresets.length)];
         applyLiveHostNameDisplay(pick);
-        window.showToast(`🎲 主播名已切換為：${pick}`);
+        if (showMsg) window.showToast(`🎲 主播名已切換為：${pick}`);
     }
     if (inLiveHostName && liveDispHostName) {
         inLiveHostName.addEventListener('input', () => {
-            applyLiveHostNameDisplay(inLiveHostName.value.trim() || '小王小王');
+            applyLiveHostNameDisplay(inLiveHostName.value.trim() || '溫哥華小鹿');
         });
     }
-    if (btnLiveRandName) btnLiveRandName.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveHostName(); });
-    if (btnLiveRandNameBtn) btnLiveRandNameBtn.addEventListener('click', randomizeLiveHostName);
+    if (btnLiveRandName) btnLiveRandName.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveHostName(true); });
+    if (btnLiveRandNameBtn) btnLiveRandNameBtn.addEventListener('click', () => randomizeLiveHostName(true));
 
     // 本场点赞：1000 ~ 200万 随机（如 5.6萬、25.3萬、138.5萬、6890）
-    function randomizeLiveHostId() {
+    function randomizeLiveHostId(showMsg = true) {
         const { dispTxt } = generateRandom1kTo2M();
         applyLiveHostLikesDisplay(dispTxt);
-        window.showToast(`🎲 本場點讚已隨機為：${dispTxt}`);
+        if (showMsg) window.showToast(`🎲 本場點讚已隨機為：${dispTxt}`);
     }
     if (inLiveHostId && liveDispHostId) {
         inLiveHostId.addEventListener('input', () => {
             applyLiveHostLikesDisplay(inLiveHostId.value.trim() || '25.6萬');
         });
     }
-    if (btnLiveRandId) btnLiveRandId.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveHostId(); });
-    if (btnLiveRandIdBtn) btnLiveRandIdBtn.addEventListener('click', randomizeLiveHostId);
+    if (btnLiveRandId) btnLiveRandId.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveHostId(true); });
+    if (btnLiveRandIdBtn) btnLiveRandIdBtn.addEventListener('click', () => randomizeLiveHostId(true));
 
     // 绑定画面左上角「主播名」与「本場點讚」：单击随机(1000~200万)，双击原地编辑文字
     bindLiveClickRandAndDblEdit(
         liveHostNameRow,
         liveDispHostName,
-        () => (liveDispHostName ? liveDispHostName.textContent.trim() : '小王小王'),
+        () => (liveDispHostName ? liveDispHostName.textContent.trim() : '溫哥華小鹿'),
         (v) => {
+            markFieldUserModified('in-live-host-name');
             applyLiveHostNameDisplay(v);
             window.showToast(`✅ 主播名已修改為：${v}`);
         },
-        randomizeLiveHostName,
+        () => randomizeLiveHostName(true),
         68
     );
     bindLiveClickRandAndDblEdit(
@@ -12715,32 +13758,231 @@ window.switchRightTab = function (mode) {
         liveDispHostId,
         () => (liveDispHostId ? liveDispHostId.textContent.trim() : '25.6萬'),
         (v) => {
+            markFieldUserModified('in-live-host-id');
             applyLiveHostLikesDisplay(v);
             window.showToast(`✅ 本場點讚已修改為：${v}`);
         },
-        randomizeLiveHostId,
+        () => randomizeLiveHostId(true),
         52
     );
 
-    // ★ 直播间顶部胶囊标签（Laya 精選 / 人氣榜 / 直播廣場）：支持右侧输入框自定义修改、单击随机、双击画面文字直接修改
-    const liveBrandTagPresets = ['Laya 精選', 'Laya 官方', 'Laya 熱播', 'Laya 認證', 'Laya 獨播', 'Laya 現場', '高顏值精選', '官方精選'];
-    const liveRankTagPresets = ['人氣榜', '小時榜', '熱度榜', '魅力榜', '高光榜', '同城榜', '新星榜', 'PK熱榜'];
+    /* ==========================================================================
+       ★ 需求二：直播间顶部「限时福利+Logo」标签区全维度定制（文字编辑/位置拖动/字号/外框宽高/轮播与8种炫彩动画可开关）
+       ========================================================================== */
+    const liveBrandTopicGroupPresets = [
+        ['限時福利', 'Laya 精選', '獨家未刪減', '今晚9點開播', '新人必看'],
+        ['限時福利', '高能名場面', '全場最高能', '點關注不迷路', '寵粉福袋中'],
+        ['限時福利', 'Laya 獨播', '深夜陪伴局', '高清無水印', '前排領福利'],
+        ['限時福利', '官方精選', '主播才藝秀', '互動抽大獎', '每晚準時見']
+    ];
     const liveSquareTagPresets = ['直播廣場', '熱門直播', '同城直播', '更多直播', '精選頻道', '發現更多'];
+    const btnLiveAddBrandTopic = document.getElementById('btn-live-add-brand-topic');
+    const btnLiveRandSquareTag = document.getElementById('btn-live-rand-square-tag');
+    const btnLiveRandSquareTagBtn = document.getElementById('btn-live-rand-square-tag-btn');
+    const liveBrandTopicsChipsBox = document.getElementById('live-brand-topics-chips');
 
-    function applyLiveBrandTagDisplay(val) {
-        const cleanVal = String(val || '').trim() || 'Laya 精選';
-        if (liveLayaBrandTxt) liveLayaBrandTxt.textContent = cleanVal;
+    // 顶部标签定制控件
+    const swLiveBrandCarousel = document.getElementById('sw-live-brand-carousel');
+    const inLiveBrandFontSize = document.getElementById('in-live-brand-font-size');
+    const txtLiveBrandFontSize = document.getElementById('txt-live-brand-font-size');
+    const inLiveBrandBoxW = document.getElementById('in-live-brand-box-w');
+    const txtLiveBrandBoxW = document.getElementById('txt-live-brand-box-w');
+    const inLiveBrandBoxH = document.getElementById('in-live-brand-box-h');
+    const txtLiveBrandBoxH = document.getElementById('txt-live-brand-box-h');
+    const inLiveBrandPosX = document.getElementById('in-live-brand-pos-x');
+    const inLiveBrandPosY = document.getElementById('in-live-brand-pos-y');
+    const txtLiveBrandPos = document.getElementById('txt-live-brand-pos');
+    const swLiveBrandAnim = document.getElementById('sw-live-brand-anim');
+    const selLiveBrandAnim = document.getElementById('sel-live-brand-anim');
+    const liveBrandAnimBtnsBox = document.getElementById('live-brand-anim-btns');
+    const btnLiveBrandReset = document.getElementById('btn-live-brand-reset');
+
+    const BRAND_ANIM_ALL_CLASSES = [
+        'anim-none', 'anim-shimmer', 'anim-rainbow', 'anim-breathe',
+        'anim-typewriter', 'anim-wave', 'anim-bounce', 'anim-spin', 'anim-fade'
+    ];
+
+    let liveBrandTopicsList = ['限時福利', 'Laya 精選', '獨家未刪減', '今晚9點開播', '新人必看'];
+    let liveBrandTopicCursor = 0;
+    let liveBrandTickerTimer = null;
+
+    function getEffectiveLiveBrandAnimType() {
+        if (swLiveBrandAnim && !swLiveBrandAnim.checked) return 'none';
+        const val = selLiveBrandAnim ? selLiveBrandAnim.value : 'shimmer';
+        return val || 'none';
+    }
+    window.__getEffectiveLiveBrandAnimType = getEffectiveLiveBrandAnimType;
+
+    function applyLiveBrandPillCustomStyle(shouldSave = false) {
+        const fontPx = Math.min(16, Math.max(7, parseFloat(inLiveBrandFontSize ? inLiveBrandFontSize.value : '9') || 9));
+        const boxW = Math.min(200, Math.max(54, parseInt(inLiveBrandBoxW ? inLiveBrandBoxW.value : '92', 10) || 92));
+        const boxH = Math.min(36, Math.max(15, parseInt(inLiveBrandBoxH ? inLiveBrandBoxH.value : '20', 10) || 20));
+        const posX = Math.min(160, Math.max(-80, parseInt(inLiveBrandPosX ? inLiveBrandPosX.value : '0', 10) || 0));
+        const posY = Math.min(180, Math.max(-36, parseInt(inLiveBrandPosY ? inLiveBrandPosY.value : '0', 10) || 0));
+        const logoPx = Math.max(11, Math.min(boxH - 4, Math.round(fontPx * 1.45)));
+        const animType = getEffectiveLiveBrandAnimType();
+
+        if (liveLayaBrandPill) {
+            liveLayaBrandPill.style.setProperty('--brand-pill-font-size', `${fontPx}px`);
+            liveLayaBrandPill.style.setProperty('--brand-pill-w', `${boxW}px`);
+            liveLayaBrandPill.style.setProperty('--brand-pill-h', `${boxH}px`);
+            liveLayaBrandPill.style.setProperty('--brand-pill-x', `${posX}px`);
+            liveLayaBrandPill.style.setProperty('--brand-pill-y', `${posY}px`);
+            liveLayaBrandPill.style.setProperty('--brand-logo-size', `${logoPx}px`);
+        }
+
+        if (liveLayaBrandTxt) {
+            BRAND_ANIM_ALL_CLASSES.forEach(cls => liveLayaBrandTxt.classList.remove(cls));
+            liveLayaBrandTxt.classList.add(`anim-${animType}`);
+        }
+
+        if (liveBrandAnimBtnsBox) {
+            liveBrandAnimBtnsBox.querySelectorAll('.live-brand-anim-pill-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-brand-anim') === animType);
+            });
+        }
+
+        if (txtLiveBrandFontSize) txtLiveBrandFontSize.textContent = `${fontPx}px`;
+        if (txtLiveBrandBoxW) txtLiveBrandBoxW.textContent = `${boxW}px`;
+        if (txtLiveBrandBoxH) txtLiveBrandBoxH.textContent = `${boxH}px`;
+        if (txtLiveBrandPos) txtLiveBrandPos.textContent = `X:${posX} · Y:${posY}`;
+
+        if (shouldSave && !window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+    }
+
+    function parseBrandTopicsInputString(rawStr) {
+        const parts = String(rawStr || '')
+            .split(/\s*[|｜,，、/\n]+\s*/)
+            .map(s => s.trim())
+            .filter(Boolean);
+        return parts.length > 0 ? parts : ['限時福利', 'Laya 精選', '獨家未刪減', '今晚9點開播', '新人必看'];
+    }
+
+    function renderLiveBrandTopicChipsUI() {
+        if (!liveBrandTopicsChipsBox) return;
+        liveBrandTopicsChipsBox.innerHTML = '';
+        liveBrandTopicsList.forEach((topic, idx) => {
+            const chip = document.createElement('span');
+            chip.className = 'live-brand-topic-chip' + (idx === (liveBrandTopicCursor % liveBrandTopicsList.length) ? ' active' : '');
+            const txtSpan = document.createElement('span');
+            txtSpan.textContent = topic;
+            txtSpan.title = '點擊立即切換展示該話題 · 雙擊修改';
+            txtSpan.addEventListener('click', (e) => {
+                e.stopPropagation();
+                liveBrandTopicCursor = idx;
+                updateStageBrandTickerActiveText(false);
+                renderLiveBrandTopicChipsUI();
+            });
+            txtSpan.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                const edited = window.prompt('修改滾動話題標籤文字：', topic);
+                if (edited && edited.trim()) {
+                    liveBrandTopicsList[idx] = edited.trim();
+                    markFieldUserModified('in-live-brand-tag');
+                    syncBrandTopicsToInputAndStage(true);
+                }
+            });
+            chip.appendChild(txtSpan);
+            if (liveBrandTopicsList.length > 1) {
+                const delBtn = document.createElement('span');
+                delBtn.className = 'chip-del';
+                delBtn.textContent = '×';
+                delBtn.title = '刪除該條話題';
+                delBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    liveBrandTopicsList.splice(idx, 1);
+                    if (liveBrandTopicCursor >= liveBrandTopicsList.length) liveBrandTopicCursor = 0;
+                    markFieldUserModified('in-live-brand-tag');
+                    syncBrandTopicsToInputAndStage(true);
+                });
+                chip.appendChild(delBtn);
+            }
+            liveBrandTopicsChipsBox.appendChild(chip);
+        });
+    }
+
+    function updateStageBrandTickerActiveText(animateSlide = true) {
+        if (!liveLayaBrandTxt) return;
+        if (!Array.isArray(liveBrandTopicsList) || liveBrandTopicsList.length === 0) {
+            liveBrandTopicsList = ['Laya 精選'];
+        }
+        const activeTxt = liveBrandTopicsList[liveBrandTopicCursor % liveBrandTopicsList.length] || 'Laya 精選';
+        const stageTradTxt = typeof window.toStageTrad === 'function' ? window.toStageTrad(activeTxt) : activeTxt;
+
+        liveLayaBrandTxt.textContent = stageTradTxt;
+        liveLayaBrandTxt.setAttribute('data-text', stageTradTxt);
+        liveLayaBrandTxt.classList.remove('is-slide-next', 'is-scrolling-marquee', 'is-switching-out', 'is-switching-in');
+
+        const activeAnim = getEffectiveLiveBrandAnimType();
+        const charCount = Array.from(stageTradTxt).length;
+        if (activeAnim === 'none') {
+            if (charCount >= 7) {
+                const shiftPx = -Math.max(18, (charCount - 6) * 9);
+                liveLayaBrandTxt.style.setProperty('--marquee-shift', `${shiftPx}px`);
+                void liveLayaBrandTxt.offsetWidth;
+                liveLayaBrandTxt.classList.add('is-scrolling-marquee');
+            } else if (animateSlide) {
+                void liveLayaBrandTxt.offsetWidth;
+                liveLayaBrandTxt.classList.add('is-slide-next');
+            }
+        }
+        applyLiveBrandPillCustomStyle(false);
+    }
+
+    function syncBrandTopicsToInputAndStage(shouldSave = false) {
+        const joined = liveBrandTopicsList.join(' | ');
         if (inLiveBrandTag && document.activeElement !== inLiveBrandTag) {
-            inLiveBrandTag.value = cleanVal;
+            inLiveBrandTag.value = joined;
+        }
+        updateStageBrandTickerActiveText(false);
+        renderLiveBrandTopicChipsUI();
+        if (shouldSave && !window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
         }
     }
-    function applyLiveRankTagDisplay(val) {
-        const cleanVal = String(val || '').trim() || '人氣榜';
-        if (liveSubTxtRank) liveSubTxtRank.textContent = cleanVal;
-        if (inLiveRankTag && document.activeElement !== inLiveRankTag) {
-            inLiveRankTag.value = cleanVal;
+
+    function applyLiveBrandTagDisplay(val, shouldSave = false) {
+        liveBrandTopicsList = parseBrandTopicsInputString(val);
+        if (liveBrandTopicCursor >= liveBrandTopicsList.length) {
+            liveBrandTopicCursor = 0;
         }
+        syncBrandTopicsToInputAndStage(shouldSave);
     }
+
+    function stepNextLiveBrandTopic(animate = true) {
+        if (!Array.isArray(liveBrandTopicsList) || liveBrandTopicsList.length <= 1) return;
+        liveBrandTopicCursor = (liveBrandTopicCursor + 1) % liveBrandTopicsList.length;
+        updateStageBrandTickerActiveText(animate);
+        renderLiveBrandTopicChipsUI();
+    }
+
+    function restartLiveBrandTickerTimer() {
+        if (liveBrandTickerTimer) clearInterval(liveBrandTickerTimer);
+        if (swLiveBrandCarousel && !swLiveBrandCarousel.checked) {
+            liveBrandTickerTimer = null;
+            return;
+        }
+        liveBrandTickerTimer = setInterval(() => {
+            if (window.__isExportRecording) return;
+            if (swLiveBrandCarousel && !swLiveBrandCarousel.checked) return;
+            if (liveLayaBrandPill && liveLayaBrandPill.querySelector('.live-inline-edit-input')) return;
+            stepNextLiveBrandTopic(true);
+        }, 2800);
+    }
+    restartLiveBrandTickerTimer();
+
+    // 供 30fps/60fps Canvas 录屏与截图实时获取当前时刻正在轮播的动态话题文字
+    window.__getActiveLiveBrandTopicAtTime = function (elapsedSec = 0) {
+        if (!Array.isArray(liveBrandTopicsList) || liveBrandTopicsList.length === 0) return '限時福利';
+        const carouselOn = !swLiveBrandCarousel || swLiveBrandCarousel.checked;
+        const step = carouselOn ? Math.floor((Number(elapsedSec) || 0) / 2.8) : 0;
+        const idx = (liveBrandTopicCursor + step) % liveBrandTopicsList.length;
+        const raw = liveBrandTopicsList[idx] || '限時福利';
+        return typeof window.toStageTrad === 'function' ? window.toStageTrad(raw) : raw;
+    };
+
     function applyLiveSquareTagDisplay(val) {
         const cleanVal = String(val || '').trim() || '直播廣場';
         if (liveSubTxtSquare) liveSubTxtSquare.textContent = cleanVal;
@@ -12749,82 +13991,180 @@ window.switchRightTab = function (mode) {
         }
     }
 
-    function randomizeLiveBrandTag() {
-        const cur = liveLayaBrandTxt ? liveLayaBrandTxt.textContent.trim() : '';
-        const candidates = liveBrandTagPresets.filter(t => t !== cur);
-        const pick = candidates[Math.floor(Math.random() * candidates.length)] || 'Laya 精選';
-        applyLiveBrandTagDisplay(pick);
-        window.showToast(`🎲 品牌標籤已隨機為：${pick}`);
+    let brandGroupPresetIdx = 0;
+    function randomizeLiveBrandTag(showMsg = true) {
+        brandGroupPresetIdx = (brandGroupPresetIdx + 1 + Math.floor(Math.random() * (liveBrandTopicGroupPresets.length - 1))) % liveBrandTopicGroupPresets.length;
+        const pickedGroup = liveBrandTopicGroupPresets[brandGroupPresetIdx].slice();
+        liveBrandTopicCursor = 0;
+        if (showMsg) markFieldUserModified('in-live-brand-tag');
+        applyLiveBrandTagDisplay(pickedGroup.join(' | '), showMsg);
+        if (showMsg) window.showToast(`🎲 頂部滾動話題已切換為：${pickedGroup.join(' · ')}`);
     }
-    function randomizeLiveRankTag() {
-        const cur = liveSubTxtRank ? liveSubTxtRank.textContent.trim() : '';
-        const candidates = liveRankTagPresets.filter(t => t !== cur);
-        const pick = candidates[Math.floor(Math.random() * candidates.length)] || '人氣榜';
-        applyLiveRankTagDisplay(pick);
-        window.showToast(`🎲 榜單標籤已隨機為：${pick}`);
-    }
-    function randomizeLiveSquareTag() {
+    function randomizeLiveSquareTag(showMsg = true) {
         const cur = liveSubTxtSquare ? liveSubTxtSquare.textContent.trim() : '';
         const candidates = liveSquareTagPresets.filter(t => t !== cur);
         const pick = candidates[Math.floor(Math.random() * candidates.length)] || '直播廣場';
         applyLiveSquareTagDisplay(pick);
-        window.showToast(`🎲 右側標籤已隨機為：${pick}`);
+        if (showMsg) window.showToast(`🎲 右側標籤已隨機為：${pick}`);
     }
 
     if (inLiveBrandTag) {
         inLiveBrandTag.addEventListener('input', () => {
-            applyLiveBrandTagDisplay(inLiveBrandTag.value.trim() || 'Laya 精選');
+            markFieldUserModified('in-live-brand-tag');
+            applyLiveBrandTagDisplay(inLiveBrandTag.value.trim() || 'Laya 精選', true);
         });
     }
-    if (btnLiveRandBrandTag) btnLiveRandBrandTag.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveBrandTag(); });
-    if (btnLiveRandBrandTagBtn) btnLiveRandBrandTagBtn.addEventListener('click', randomizeLiveBrandTag);
+    if (btnLiveAddBrandTopic) {
+        btnLiveAddBrandTopic.addEventListener('click', () => {
+            const newTopic = window.prompt('新增一條頂部滾動話題（如：獨家未刪減 / 今晚9點開播 / 限時福利）：', '限時福利');
+            if (newTopic && newTopic.trim()) {
+                liveBrandTopicsList.push(newTopic.trim());
+                liveBrandTopicCursor = liveBrandTopicsList.length - 1;
+                markFieldUserModified('in-live-brand-tag');
+                syncBrandTopicsToInputAndStage(true);
+                window.showToast(`✅ 已新增滾動話題：${newTopic.trim()}`);
+            }
+        });
+    }
+    if (btnLiveRandBrandTag) btnLiveRandBrandTag.addEventListener('click', (e) => { e.preventDefault(); randomizeLiveBrandTag(true); });
+    if (btnLiveRandBrandTagBtn) btnLiveRandBrandTagBtn.addEventListener('click', () => randomizeLiveBrandTag(true));
 
-    if (inLiveRankTag) {
-        inLiveRankTag.addEventListener('input', () => {
-            applyLiveRankTagDisplay(inLiveRankTag.value.trim() || '人氣榜');
-        });
-    }
     if (inLiveSquareTag) {
         inLiveSquareTag.addEventListener('input', () => {
             applyLiveSquareTagDisplay(inLiveSquareTag.value.trim() || '直播廣場');
         });
     }
-    if (btnLiveRandRankTag) {
-        btnLiveRandRankTag.addEventListener('click', (e) => {
+    if (btnLiveRandSquareTag) {
+        btnLiveRandSquareTag.addEventListener('click', (e) => {
             e.preventDefault();
-            randomizeLiveRankTag();
-            randomizeLiveSquareTag();
+            randomizeLiveSquareTag(true);
         });
     }
-    if (btnLiveRandRankTagBtn) {
-        btnLiveRandRankTagBtn.addEventListener('click', () => {
-            randomizeLiveRankTag();
-            randomizeLiveSquareTag();
+    if (btnLiveRandSquareTagBtn) {
+        btnLiveRandSquareTagBtn.addEventListener('click', () => {
+            randomizeLiveSquareTag(true);
         });
     }
 
+    // 单击画面 #live-laya-brand-pill 切换下一条滚动话题，双击原地编辑当前话题或完整列表，按住拖动可自由移位
     bindLiveClickRandAndDblEdit(
         liveLayaBrandPill,
         liveLayaBrandTxt,
-        () => (liveLayaBrandTxt ? liveLayaBrandTxt.textContent.trim() : 'Laya 精選'),
+        () => (liveBrandTopicsList[liveBrandTopicCursor % liveBrandTopicsList.length] || '限時福利'),
         (v) => {
-            applyLiveBrandTagDisplay(v);
-            window.showToast(`✅ 品牌標籤已修改為：${v}`);
+            const cleanV = String(v || '').trim();
+            if (!cleanV) return;
+            markFieldUserModified('in-live-brand-tag');
+            if (cleanV.includes('|') || cleanV.includes('｜') || cleanV.includes(',')) {
+                applyLiveBrandTagDisplay(cleanV, true);
+            } else {
+                liveBrandTopicsList[liveBrandTopicCursor % liveBrandTopicsList.length] = cleanV;
+                syncBrandTopicsToInputAndStage(true);
+            }
+            window.showToast(`✅ 頂部標籤已修改為：${cleanV}`);
         },
-        randomizeLiveBrandTag,
-        66
-    );
-    bindLiveClickRandAndDblEdit(
-        liveSubRankPill,
-        liveSubTxtRank,
-        () => (liveSubTxtRank ? liveSubTxtRank.textContent.trim() : '人氣榜'),
-        (v) => {
-            applyLiveRankTagDisplay(v);
-            window.showToast(`✅ 榜單標籤已修改為：${v}`);
+        () => {
+            if (Date.now() < (window.__suppressBrandPillClickUntil || 0)) return;
+            stepNextLiveBrandTopic(true);
         },
-        randomizeLiveRankTag,
-        52
+        74
     );
+
+    // 绑定顶部标签大小、外框宽高、位置拖动与动画切换事件
+    [inLiveBrandFontSize, inLiveBrandBoxW, inLiveBrandBoxH, inLiveBrandPosX, inLiveBrandPosY].forEach(el => {
+        if (!el) return;
+        el.addEventListener('input', () => applyLiveBrandPillCustomStyle(true));
+    });
+    if (swLiveBrandCarousel) {
+        swLiveBrandCarousel.addEventListener('change', () => {
+            restartLiveBrandTickerTimer();
+            if (!window.__isRestoringStorage && typeof triggerSaveStorage === 'function') triggerSaveStorage();
+        });
+    }
+    if (swLiveBrandAnim) {
+        swLiveBrandAnim.addEventListener('change', () => {
+            if (swLiveBrandAnim.checked && selLiveBrandAnim && selLiveBrandAnim.value === 'none') {
+                selLiveBrandAnim.value = 'shimmer';
+            }
+            applyLiveBrandPillCustomStyle(true);
+        });
+    }
+    if (selLiveBrandAnim) {
+        selLiveBrandAnim.addEventListener('change', () => {
+            if (swLiveBrandAnim) {
+                swLiveBrandAnim.checked = (selLiveBrandAnim.value !== 'none');
+            }
+            applyLiveBrandPillCustomStyle(true);
+        });
+    }
+    if (liveBrandAnimBtnsBox) {
+        liveBrandAnimBtnsBox.querySelectorAll('.live-brand-anim-pill-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const animVal = btn.getAttribute('data-brand-anim') || 'none';
+                if (selLiveBrandAnim) selLiveBrandAnim.value = animVal;
+                if (swLiveBrandAnim) swLiveBrandAnim.checked = (animVal !== 'none');
+                applyLiveBrandPillCustomStyle(true);
+            });
+        });
+    }
+    if (btnLiveBrandReset) {
+        btnLiveBrandReset.addEventListener('click', () => {
+            if (inLiveBrandFontSize) inLiveBrandFontSize.value = '9';
+            if (inLiveBrandBoxW) inLiveBrandBoxW.value = '92';
+            if (inLiveBrandBoxH) inLiveBrandBoxH.value = '20';
+            if (inLiveBrandPosX) inLiveBrandPosX.value = '0';
+            if (inLiveBrandPosY) inLiveBrandPosY.value = '0';
+            if (swLiveBrandCarousel) swLiveBrandCarousel.checked = true;
+            if (swLiveBrandAnim) swLiveBrandAnim.checked = true;
+            if (selLiveBrandAnim) selLiveBrandAnim.value = 'shimmer';
+            restartLiveBrandTickerTimer();
+            applyLiveBrandPillCustomStyle(true);
+            window.showToast('↺ 已還原頂部「限時福利+Logo」標籤默認尺寸與位置');
+        });
+    }
+
+    // 支持直接在手机直播间画面按住拖动 #live-laya-brand-pill 自由调整位置（4px 阈值与单击/双击无冲突）
+    if (liveLayaBrandPill) {
+        liveLayaBrandPill.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            if (e.target && e.target.closest('.live-inline-edit-input')) return;
+            const startClientX = e.clientX;
+            const startClientY = e.clientY;
+            const startPosX = parseInt(inLiveBrandPosX ? inLiveBrandPosX.value : '0', 10) || 0;
+            const startPosY = parseInt(inLiveBrandPosY ? inLiveBrandPosY.value : '0', 10) || 0;
+            const rect = renderTarget ? renderTarget.getBoundingClientRect() : null;
+            const stageScale = (rect && renderTarget && renderTarget.offsetWidth > 0)
+                ? (rect.width / renderTarget.offsetWidth)
+                : 1;
+            let hasDragged = false;
+
+            const onMove = (mv) => {
+                const rawDx = mv.clientX - startClientX;
+                const rawDy = mv.clientY - startClientY;
+                if (!hasDragged && Math.hypot(rawDx, rawDy) < 4) return;
+                hasDragged = true;
+                window.__suppressBrandPillClickUntil = Date.now() + 280;
+                liveLayaBrandPill.classList.add('is-dragging');
+                const nextX = Math.min(160, Math.max(-80, Math.round(startPosX + rawDx / stageScale)));
+                const nextY = Math.min(180, Math.max(-36, Math.round(startPosY + rawDy / stageScale)));
+                if (inLiveBrandPosX) inLiveBrandPosX.value = String(nextX);
+                if (inLiveBrandPosY) inLiveBrandPosY.value = String(nextY);
+                applyLiveBrandPillCustomStyle(false);
+            };
+            const onUp = () => {
+                window.removeEventListener('mousemove', onMove);
+                window.removeEventListener('mouseup', onUp);
+                if (hasDragged) {
+                    liveLayaBrandPill.classList.remove('is-dragging');
+                    window.__suppressBrandPillClickUntil = Date.now() + 220;
+                    triggerSaveStorage();
+                }
+            };
+            window.addEventListener('mousemove', onMove);
+            window.addEventListener('mouseup', onUp);
+        });
+    }
+    applyLiveBrandPillCustomStyle(false);
     bindLiveClickRandAndDblEdit(
         liveSubSquarePill,
         liveSubTxtSquare,
@@ -12833,7 +14173,7 @@ window.switchRightTab = function (mode) {
             applyLiveSquareTagDisplay(v);
             window.showToast(`✅ 右側標籤已修改為：${v}`);
         },
-        randomizeLiveSquareTag,
+        () => randomizeLiveSquareTag(true),
         58
     );
 
@@ -13149,13 +14489,19 @@ window.switchRightTab = function (mode) {
     }
 
     if (inLiveDanmakuList) {
-        inLiveDanmakuList.addEventListener('input', () => {
+        inLiveDanmakuList.addEventListener('input', (e) => {
+            if (e && e.isTrusted && !window.__isRestoringStorage && !window.__isAutoRandomizing) {
+                if (typeof markFieldUserModified === 'function') markFieldUserModified('in-live-danmaku-list');
+                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
+            }
             renderLiveChatBubbles(false);
         });
         inLiveDanmakuList.addEventListener('paste', () => {
             setTimeout(() => {
+                if (typeof markFieldUserModified === 'function') markFieldUserModified('in-live-danmaku-list');
                 normalizeLiveDanmakuTextarea(true);
                 renderLiveChatBubbles(false);
+                if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
             }, 20);
         });
     }
@@ -13175,81 +14521,455 @@ window.switchRightTab = function (mode) {
         });
     }
 
-    // ★ 多场景分行弹幕预设池（混合普通无牌观众「名字：文案」与「名字 来了」进场行，真实感拉满）
-    const LIVE_AI_SCENE_DANMAKU_POOLS = {
-        classic: [
-            '微醺小貓：主播今天狀態太好了吧',
-            '輕輕吹風 來了',
-            '阿傑：666 這波操作太頂了',
-            '晚風溫柔：這首歌絕了，求歌名！',
-            '再次邂逅說愛你 來了',
-            '羊🐑：前排打卡支持主播',
-            '星河少女：聲音好甜，聽著太治癒了',
-            '麥兜黑鳳梨 來了',
-            '夜色有點濃：哈哈哈哈笑死我了',
-            '皓哥：已關注 比心！氣氛拉滿',
-            '南城舊夢 來了',
-            '石頭baby：蹲一個歌單，每天準時看',
-            '漫渡：主播加油，今天人好多呀',
-            '深海裡的星星 來了'
+    /* ==========================================================================
+       ★ 需求一 & 需求四：真人说话风弹幕引擎（抖音29款黄脸表情白名单+去重+三形态混排+高质量离线兜底）与 AI 暗号重构
+       ========================================================================== */
+    // 已定稿抖音黄脸小表情白名单（共 29 个，严禁出现 🔥🎉💕💖🐑🌈🐳 等彩色符号 emoji）
+    const ALLOWED_DOUYIN_EMOJIS = [
+        // 笑 (5)
+        '😊', '😁', '😄', '😂', '🤣',
+        // 动作 (6)
+        '🤦', '😳', '😘', '🤗', '🙏', '👏',
+        // 情绪 (6)
+        '😭', '😢', '😅', '😲', '😡', '😴',
+        // 互动 (6)
+        '👍', '👌', '💪', '👀', '🐮', '🫶',
+        // 氛围 (6)
+        '❤️', '🌹', '🎁', '🎆', '🍺', '☕'
+    ];
+    const ALLOWED_SINGLE_EMOJI_SET = new Set(ALLOWED_DOUYIN_EMOJIS.filter(e => e !== '❤️'));
+
+    // 严禁出现的模板化 AI 高频套话正则
+    const BANNED_AI_CLICHE_REGEX = /(氛圍感拉滿|氛围感拉满|氣氛拉滿|气氛拉满|張力拉滿|张力拉满|狀態拉滿|状态拉满|直接拉滿|直接拉满|拉滿|拉满|治癒系天花板|治愈系天花板|純欲天花板|纯欲天花板|天花板|絕絕子|绝绝子|yyds|狠狠愛住|狠狠爱住|一整個拿捏住|一整个拿捏住|拿捏住|太頂了|太顶了|直接封神|封神|直接跪了|電影級質感|电影级质感|太治癒|太治愈|治癒了|治愈了)/i;
+
+    // 弹幕表情清洗守卫：只保留文字标点与 29 款抖音黄脸 emoji，剥离一切禁用彩色符号 emoji
+    function sanitizeDanmakuAllowedEmojisOnly(rawStr, stripAllEmojis = false) {
+        let s = String(rawStr || '')
+            .replace(/\u200D[\u2640\u2642]\uFE0F?/g, '')
+            .replace(/[\u{1F3FB}-\u{1F3FF}]/gu, '');
+        // 将红心统一映射为占位符 \uE001 再按码点过滤
+        s = s.replace(/\u2764\uFE0F?/g, stripAllEmojis ? '' : '\uE001');
+        s = s.replace(/[\uFE0E\uFE0F\u200D\u20E3]/g, '');
+        let out = '';
+        for (const ch of Array.from(s)) {
+            if (ch === '\uE001') {
+                if (!stripAllEmojis) out += '❤️';
+                continue;
+            }
+            if (ALLOWED_SINGLE_EMOJI_SET.has(ch)) {
+                if (!stripAllEmojis) out += ch;
+                continue;
+            }
+            if (/[\p{Extended_Pictographic}\p{Emoji_Presentation}\u2600-\u27BF\u{1F000}-\u{1FAFF}]/u.test(ch)) {
+                continue;
+            }
+            out += ch;
+        }
+        return out.replace(/\s{2,}/g, ' ').trim();
+    }
+    window.__sanitizeDanmakuAllowedEmojisOnly = sanitizeDanmakuAllowedEmojisOnly;
+
+    function extractAllowedEmojisList(str) {
+        const clean = sanitizeDanmakuAllowedEmojisOnly(str, false).replace(/\u2764\uFE0F?/g, '\uE001');
+        const list = [];
+        for (const ch of Array.from(clean)) {
+            if (ch === '\uE001') list.push('❤️');
+            else if (ALLOWED_SINGLE_EMOJI_SET.has(ch)) list.push(ch);
+        }
+        return list;
+    }
+
+    // 高质量真人短句离线弹幕素材库（2~10字居多、口语化、无AI腔，AI不可用时100%真实兜底）
+    const REAL_HUMAN_DANMAKU_CORPUS = {
+        general: [
+            '哈哈哈', '哈哈', '笑死我了', '哈哈哈哈絕了', '哈哈哈哈哈哈哈',
+            '臥槽', '666', '牛啊', '真的假的', '太強了',
+            '愛了愛了', '太美了吧', '好看好看', '絕了', '好甜啊',
+            '來了來了', '路過', '打卡', '有人嗎', '前排',
+            '主播多大了', '主播哪裡人', '這多少錢', '怎麼買', '有連結嗎',
+            '剛刷到', '晚上好呀', '今天人好多', '終於開播了', '蹲一會兒',
+            '可以啊這波', '笑不活了', '有點東西', '越看越順眼', '幾點下播',
+            '又刷到你了', '這畫質真清楚', '一點都不卡', '主播說話好溫柔', '支持一下'
         ],
         beauty_dance: [
-            '微醺小貓：主播今天這身穿搭絕了，愛了愛了💖',
-            '輕輕吹風 來了',
-            '羊🐑：前排打卡！主播好漂亮，狀態拉滿🔥',
-            '阿傑：66666 這身材比例太頂了吧',
-            '再次邂逅說愛你 來了',
-            '石頭baby：聲音好甜，人美聲甜說的就是主播吧',
-            '夜色有點濃：已關注 比心！每天準時蹲直播間',
-            '晚風溫柔 來了',
-            '希拉：大家把讚點到 10 萬，讓主播再跳一段！',
-            '皓哥：禮物走一波，這個直播間氛圍太好了',
-            '星河少女：求今天口紅色號和穿搭連結！',
-            '捉事盧鑫 來了'
+            '太美了吧', '好看好看', '愛了愛了', '這套好看', '今天這身絕了',
+            '衣服哪買的', '有連結嗎', '這多少錢', '主播多大了', '主播哪裡人',
+            '求口紅色號', '身材真好', '笑起來好甜', '哈哈哈可愛', '耐看型',
+            '剛刷到就不想划走了', '前排看美女', '髮型好看', '再跳一段唄', '666好看'
         ],
         music_singing: [
-            '微醺小貓：前排！這首歌一開口直接跪了',
-            '輕輕吹風 來了',
-            '阿傑：求歌名！這個版本的伴奏太好聽了',
-            '晚風溫柔：聲音好甜，主播聲音也太好聽了吧',
-            '麥兜黑鳳梨 來了',
-            '星河少女：蹲一個歌單，今晚單曲循環預定',
-            '漫渡：太治癒了，戴上耳機聽簡直是享受',
-            '再次邂逅說愛你 來了',
-            '石頭baby：這首歌絕了，高音部分穩得像CD一樣',
-            '皓哥：666 實力派唱將，比原唱還有感覺',
-            '夜色有點濃：已關注 比心，每天睡前必聽',
-            '深海裡的星星 來了'
+            '這首好聽', '求歌名', '唱得真穩', '聲音好好聽', '再來一首',
+            '前奏一響就愛了', '開口脆', '666好聽', '這是什麼歌', '點歌可以嗎',
+            '聽入迷了', '高音牛啊', '比原唱好聽', '來了來了', '睡前聽剛剛好',
+            '哈哈哈好聽', '伴奏不錯', '嗓子真好', '每天都來聽', '絕了這嗓音'
         ],
         mahjong_game: [
-            '羊🐑：這牌也不咋地嘛，全靠主播技術撐著',
-            '輕輕吹風 來了',
-            '🌈七月初五🐟🐳：除了小王和絲滑姐，沒人能打出這操作',
-            '蒙蒙：昨天的牌才有節目效果，笑死我了哈哈哈',
-            '再次邂逅說愛你 來了',
-            '阿傑：666 這波預判直接封神，對面徹底懵了',
-            '捉事盧鑫：這把節奏太穩了，坐等清一色自摸！',
-            '混凝土銷售 來了',
-            '皓哥：這局要是贏了，我直接刷一組嘉年華',
-            '夜色有點濃：家庭娛樂局氣氛就是好，百看不厭',
-            '石頭baby：注意看右手邊那張牌，伏筆早就埋好了',
-            '風止何安 來了'
+            '臥槽666', '這牌能胡嗎', '對面懵了', '等一個自摸', '哈哈這手氣',
+            '別打出去了', '笑死我了', '牛啊這波', '真的假的', '太強了',
+            '這把穩了', '哈哈哈哈絕了', '看傻了', '神預判啊', '主播牌技可以',
+            '換我早輸了', '刺激刺激', '這都能贏', '前排圍觀', '太逗了吧'
         ],
         drama_cinema: [
-            '微醺小貓：前排！這段劇情張力拉滿，演技太頂了',
-            '輕輕吹風 來了',
-            '阿傑：注意看他最後那個眼神，信息量太大了',
-            '晚風溫柔：這畫質和運鏡絕了，完全是電影級質感',
-            '再次邂逅說愛你 來了',
-            '石頭baby：666 第一次看覺得好笑，看懂之後背後發涼',
-            '夜色有點濃：哈哈哈哈這反轉真的沒猜到，編劇腦洞太大了',
-            '南城舊夢 來了',
-            '漫渡：配樂一響雞皮疙瘩都起來了，太有代入感了',
-            '皓哥：表面風平浪靜，實際上每一句話都在博弈',
-            '星河少女：已關注 比心，這個系列百看不厭',
-            '深海裡的星星 來了'
+            '臥槽反轉了', '這段看過', '眼神有戲', '看入迷了', '後面更刺激',
+            '真的假的', '這是什麼劇', '演技可以啊', '哈哈哈哈笑死', '絕了這段',
+            '細節拉得真足', '沒猜到結局', '求劇名', '畫質好清晰', '前排追劇',
+            '太強了吧', '這台詞絕了', '越看越上頭', '有人看懂嗎', '666好看'
         ]
     };
+
+    // 同一直播会话级弹幕去重记忆池 + 上一条表情记忆（确保不重复、连续多条不用同表情）
+    const liveSessionUsedDanmakuSet = new Set();
+    let lastBatchTailEmoji = '';
+
+    function buildThemedHumanPhrases(themeText, secretCode) {
+        const rawT = String(themeText || '').trim();
+        const tradTheme = typeof window.toStageTrad === 'function' ? window.toStageTrad(rawT) : rawT;
+        const codeStr = String(secretCode || '4748').trim() || '4748';
+        const res = [];
+        if (/穿搭|衣服|裙|好看|美|顏值|颜值|妝|妆/.test(rawT)) {
+            res.push('今天這套穿搭真好看', '衣服好好看哪買的', '這身太適合你了', '穿搭絕了求連結', '今天狀態真好');
+        } else if (/連結|链接|多少錢|多少钱|買|买|同款|價格|价格|福利/.test(rawT)) {
+            res.push('這多少錢', '有連結嗎', '怎麼買呀', '求同款連結', '包郵嗎主播');
+        } else if (/心情|聊|陪|晚安|開心|开心/.test(rawT)) {
+            res.push('今天心情不錯呀', '下班過來聽你聊天', '哈哈今天挺開心的', '晚上好呀主播', '陪主播嘮會兒');
+        } else if (tradTheme) {
+            const shortKw = tradTheme.slice(0, 8);
+            res.push(`${shortKw}真不錯`, `哈哈${shortKw}`, `衝著${shortKw}來的`);
+        }
+        res.push(codeStr, `發${codeStr}是吧`, `${codeStr}已發`, `${codeStr}安排一下`);
+        return res;
+    }
+
+    function insertEmojiRandomPosition(pureText, emoji, seedIdx = 0) {
+        const chars = Array.from(String(pureText || '').trim());
+        if (chars.length === 0) return emoji;
+        const roll = (seedIdx + Math.floor(Math.random() * 3)) % 3;
+        if (roll === 0) {
+            // 句首
+            return `${emoji}${chars.join('')}`;
+        }
+        if (roll === 1 && chars.length >= 3) {
+            // 句中
+            const mid = Math.max(1, Math.min(chars.length - 1, Math.floor(chars.length / 2)));
+            return `${chars.slice(0, mid).join('')}${emoji}${chars.slice(mid).join('')}`;
+        }
+        // 句尾
+        return `${chars.join('')}${emoji}`;
+    }
+
+    // 核心合成器：输出满足「真人短句 + 无AI腔 + 29黄脸表情不重复 + 纯表情/文字+表情/纯文字三形态并存 + 会话内文字不重复」的分行弹幕
+    function composeAuthenticLiveDanmakuBatch(options = {}) {
+        const {
+            rawCandidateLines = [],
+            category = 'general',
+            contextText = '',
+            forceIncludeSecret = null,
+            totalRows = 14
+        } = options;
+
+        const isSimp = window.__currentLangMode === 'simp';
+        const joinWord = isSimp ? '来了' : '來了';
+        const secretOn = forceIncludeSecret !== null
+            ? !!forceIncludeSecret
+            : !!(swLiveAiSecret && swLiveAiSecret.checked);
+        const secretCode = (inLiveSecretCode && inLiveSecretCode.value.trim()) ? inLiveSecretCode.value.trim() : '4748';
+        const secretTheme = (inLiveSecretTheme && inLiveSecretTheme.value.trim()) ? inLiveSecretTheme.value.trim() : '夸主播今天这套穿搭好看';
+
+        // 若会话已累计超过 110 条，自动释放最早批次防止无限耗尽
+        if (liveSessionUsedDanmakuSet.size > 110) {
+            liveSessionUsedDanmakuSet.clear();
+        }
+
+        // 1) 收集纯文字候选短句（优先采用已过滤 AI 腔的候选行 + 暗号主题短句 + 对应场景真人素材库兜底）
+        const purePhraseQueue = [];
+        const pushCleanPhrase = (rawMsg) => {
+            let txt = sanitizeDanmakuAllowedEmojisOnly(rawMsg, true)
+                .replace(/^[：:\-\s]+/, '')
+                .trim();
+            if (!txt) return;
+            if (BANNED_AI_CLICHE_REGEX.test(txt)) return;
+            if (Array.from(txt).length > 16) return;
+            const stageTxt = (!isSimp && typeof window.toStageTrad === 'function') ? window.toStageTrad(txt) : txt;
+            if (!liveSessionUsedDanmakuSet.has(stageTxt) && !purePhraseQueue.includes(stageTxt)) {
+                purePhraseQueue.push(stageTxt);
+            }
+        };
+
+        if (secretOn) {
+            buildThemedHumanPhrases(secretTheme, secretCode).forEach(pushCleanPhrase);
+        }
+
+        (rawCandidateLines || []).forEach(line => {
+            const trimmed = String(line || '').trim();
+            if (!trimmed || /(\s|^|：|:)(來了|来了|進入直播間|进入直播间)[！!~～]*$/.test(trimmed)) return;
+            const cIdx = trimmed.indexOf('：') !== -1 ? trimmed.indexOf('：') : trimmed.indexOf(':');
+            const msgBody = cIdx > 0 ? trimmed.slice(cIdx + 1).trim() : trimmed;
+            pushCleanPhrase(msgBody);
+        });
+
+        // 提取视频/标题简短自然词（不拼任何 AI 套话）
+        const cleanTokens = String(contextText || '')
+            .replace(/#[\S]+/g, m => ' ' + m.slice(1) + ' ')
+            .split(/[\s,，。！？!?:：；;、/\-—_（）()【】\[\]《》""''「」]+/)
+            .map(s => s.trim())
+            .filter(s => s.length >= 2 && s.length <= 6 && !/^(mp4|mov|webm|video|screenrecording|IMG|VID|作者声明|虚构演绎|仅供娱乐|小王小王)$/i.test(s));
+        if (cleanTokens.length > 0) {
+            pushCleanPhrase(`衝著${cleanTokens[0]}來的`);
+        }
+
+        const catPool = (REAL_HUMAN_DANMAKU_CORPUS[category] || []).slice().sort(() => Math.random() - 0.5);
+        const genPool = REAL_HUMAN_DANMAKU_CORPUS.general.slice().sort(() => Math.random() - 0.5);
+        [...catPool, ...genPool].forEach(pushCleanPhrase);
+
+        // 若极端情况下候选不足，放宽会话去重兜底，但依然保证本批次内 100% 不重复
+        if (purePhraseQueue.length < 12) {
+            [...catPool, ...genPool].forEach(rawMsg => {
+                const stageTxt = (!isSimp && typeof window.toStageTrad === 'function') ? window.toStageTrad(rawMsg) : rawMsg;
+                if (!purePhraseQueue.includes(stageTxt)) purePhraseQueue.push(stageTxt);
+            });
+        }
+
+        // 2) 准备本批次去重黄脸表情池（打乱全部 29 个抖音黄脸 emoji，每个最多只用 1 次，且首条避开上一批末尾表情）
+        const emojiDeck = ALLOWED_DOUYIN_EMOJIS.slice().sort(() => Math.random() - 0.5);
+        const usedBatchEmojis = new Set();
+        const claimDistinctEmoji = () => {
+            for (let i = 0; i < emojiDeck.length; i++) {
+                const em = emojiDeck[i];
+                if (!usedBatchEmojis.has(em) && em !== lastBatchTailEmoji) {
+                    usedBatchEmojis.add(em);
+                    lastBatchTailEmoji = em;
+                    return em;
+                }
+            }
+            return ALLOWED_DOUYIN_EMOJIS[0];
+        };
+
+        // 3) 组装三种形态弹幕（纯文字 4~5 条 + 文字+表情[句首/句中/句尾随机] 5 条 + 纯表情 2 条 = 11 条评论 + 3 条进场 = 14 条）
+        const commentCount = Math.max(9, totalRows - 3);
+        const pureEmojiCount = 2;
+        const textWithEmojiCount = Math.max(4, Math.round((commentCount - pureEmojiCount) * 0.52));
+        const pureTextCount = Math.max(3, commentCount - pureEmojiCount - textWithEmojiCount);
+
+        const formSlots = [
+            ...Array(pureTextCount).fill('pure_text'),
+            ...Array(textWithEmojiCount).fill('text_emoji'),
+            ...Array(pureEmojiCount).fill('pure_emoji')
+        ];
+        // 打乱三种形态出现顺序，但避免两条纯表情紧挨着同质化
+        for (let i = formSlots.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const tmp = formSlots[i];
+            formSlots[i] = formSlots[j];
+            formSlots[j] = tmp;
+        }
+
+        const pickUniqueViewerNick = (idx) => {
+            if (typeof window.claimUniqueNickname === 'function') {
+                return sanitizeDanmakuAllowedEmojisOnly(window.claimUniqueNickname(), true) || fallbackNicknames[idx % fallbackNicknames.length];
+            }
+            return fallbackNicknames[idx % fallbackNicknames.length];
+        };
+
+        let phraseCursor = 0;
+        const commentRows = [];
+        const batchMsgSet = new Set();
+
+        formSlots.forEach((formType, idx) => {
+            const nick = pickUniqueViewerNick(idx);
+            let finalMsg = '';
+            if (formType === 'pure_emoji') {
+                const em1 = claimDistinctEmoji();
+                // 偶尔双不同黄脸表情，大部分单黄脸表情，均严格互不重复
+                if (idx % 2 === 1 && emojiDeck.length - usedBatchEmojis.size > 4) {
+                    const em2 = claimDistinctEmoji();
+                    finalMsg = `${em1}${em2}`;
+                } else {
+                    finalMsg = em1;
+                }
+            } else {
+                while (phraseCursor < purePhraseQueue.length && batchMsgSet.has(purePhraseQueue[phraseCursor])) {
+                    phraseCursor++;
+                }
+                const basePhrase = purePhraseQueue[phraseCursor++] || '666';
+                batchMsgSet.add(basePhrase);
+                liveSessionUsedDanmakuSet.add(basePhrase);
+
+                if (formType === 'text_emoji') {
+                    const em = claimDistinctEmoji();
+                    finalMsg = insertEmojiRandomPosition(basePhrase, em, idx);
+                } else {
+                    finalMsg = basePhrase;
+                }
+            }
+            liveSessionUsedDanmakuSet.add(finalMsg);
+            commentRows.push(`${nick}：${finalMsg}`);
+        });
+
+        // 4) 穿插 3 条「观众昵称 来了」进场行
+        const finalLines = [];
+        const joinInsertAfter = new Set([1, 5, 9]);
+        commentRows.forEach((row, idx) => {
+            finalLines.push(row);
+            if (joinInsertAfter.has(idx)) {
+                finalLines.push(`${pickUniqueViewerNick(idx + 20)} ${joinWord}`);
+            }
+        });
+
+        return finalLines;
+    }
+    window.__composeAuthenticLiveDanmakuBatch = composeAuthenticLiveDanmakuBatch;
+
+    // ★ 多场景分行弹幕预设池（真人短句 + 抖音黄脸去重 + 三形态混排）
+    const LIVE_AI_SCENE_DANMAKU_POOLS = {
+        classic: () => composeAuthenticLiveDanmakuBatch({ category: 'general' }),
+        beauty_dance: () => composeAuthenticLiveDanmakuBatch({ category: 'beauty_dance' }),
+        music_singing: () => composeAuthenticLiveDanmakuBatch({ category: 'music_singing' }),
+        mahjong_game: () => composeAuthenticLiveDanmakuBatch({ category: 'mahjong_game' }),
+        drama_cinema: () => composeAuthenticLiveDanmakuBatch({ category: 'drama_cinema' })
+    };
+
+    /* ==========================================================================
+       ★ 需求四：AI 暗号功能重构（默认关闭；开启后可编辑主题与暗号[默认4748]，含可编辑参考案例模板与直播间醒目引导）
+       ========================================================================== */
+    const swLiveAiSecret = document.getElementById('sw-live-ai-secret');
+    const boxLiveAiSecretBody = document.getElementById('box-live-ai-secret-body');
+    const txtLiveSecretStateBadge = document.getElementById('txt-live-secret-state-badge');
+    const inLiveSecretTheme = document.getElementById('in-live-secret-theme');
+    const inLiveSecretCode = document.getElementById('in-live-secret-code');
+    const selLiveSecretPos = document.getElementById('sel-live-secret-pos');
+    const inLiveSecretGuideTxt = document.getElementById('in-live-secret-guide-txt');
+    const btnLiveSecretGenDm = document.getElementById('btn-live-secret-gen-dm');
+    const inLiveSecretExTheme = document.getElementById('in-live-secret-ex-theme');
+    const inLiveSecretExCode = document.getElementById('in-live-secret-ex-code');
+    const inLiveSecretExDesc = document.getElementById('in-live-secret-ex-desc');
+    const btnLiveApplySecretExample = document.getElementById('btn-live-apply-secret-example');
+    const liveSecretTopBadge = document.getElementById('live-secret-top-badge');
+    const liveSecretTopTxt = document.getElementById('live-secret-top-txt');
+    const liveSecretGuideBar = document.getElementById('live-secret-guide-bar');
+    const liveSecretGuideDisp = document.getElementById('live-secret-guide-disp');
+
+    function renderLiveAiSecretState(shouldSave = false) {
+        const isEnabled = !!(swLiveAiSecret && swLiveAiSecret.checked);
+        const secretCode = (inLiveSecretCode && inLiveSecretCode.value.trim()) ? inLiveSecretCode.value.trim() : '4748';
+        const posMode = (selLiveSecretPos && selLiveSecretPos.value) ? selLiveSecretPos.value : 'guide-bar';
+        const rawGuideTpl = (inLiveSecretGuideTxt && inLiveSecretGuideTxt.value.trim())
+            ? inLiveSecretGuideTxt.value.trim()
+            : '公屏發送暗號【{code}】觸發專屬互動彈幕';
+        const resolvedGuide = rawGuideTpl.replace(/\{code\}|4748/g, secretCode);
+        const stageGuideTxt = typeof window.toStageTrad === 'function' ? window.toStageTrad(resolvedGuide) : resolvedGuide;
+        const stageTopTxt = (window.__currentLangMode === 'simp' ? '暗号 ' : '暗號 ') + secretCode;
+
+        if (boxLiveAiSecretBody) {
+            boxLiveAiSecretBody.style.display = isEnabled ? 'block' : 'none';
+        }
+        if (txtLiveSecretStateBadge) {
+            txtLiveSecretStateBadge.textContent = isEnabled ? `已开启 · 暗号 ${secretCode}` : '默认已关闭';
+            txtLiveSecretStateBadge.style.background = isEnabled ? 'rgba(16, 185, 129, 0.28)' : 'rgba(100, 116, 139, 0.35)';
+            txtLiveSecretStateBadge.style.color = isEnabled ? '#6ee7b7' : '#cbd5e1';
+        }
+        if (liveSecretTopTxt) liveSecretTopTxt.textContent = stageTopTxt;
+        if (liveSecretGuideDisp) liveSecretGuideDisp.textContent = stageGuideTxt;
+
+        const showTopBadge = isEnabled && (posMode === 'top-pill' || posMode === 'both');
+        const showGuideBar = isEnabled && (posMode === 'guide-bar' || posMode === 'both');
+        if (liveSecretTopBadge) liveSecretTopBadge.style.display = showTopBadge ? 'inline-flex' : 'none';
+        if (liveSecretGuideBar) liveSecretGuideBar.style.display = showGuideBar ? 'inline-flex' : 'none';
+
+        if (shouldSave && !window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+    }
+
+    if (swLiveAiSecret) {
+        swLiveAiSecret.addEventListener('change', () => {
+            renderLiveAiSecretState(true);
+            window.showToast(swLiveAiSecret.checked
+                ? `🔑 已開啟 AI 暗號互動（暗號：${inLiveSecretCode?.value || '4748'}）`
+                : '🙈 已關閉 AI 暗號互動');
+        });
+    }
+    [inLiveSecretTheme, inLiveSecretCode, inLiveSecretGuideTxt, inLiveSecretExTheme, inLiveSecretExCode, inLiveSecretExDesc].forEach(el => {
+        if (!el) return;
+        el.addEventListener('input', () => renderLiveAiSecretState(true));
+    });
+    if (selLiveSecretPos) {
+        selLiveSecretPos.addEventListener('change', () => renderLiveAiSecretState(true));
+    }
+    if (btnLiveApplySecretExample) {
+        btnLiveApplySecretExample.addEventListener('click', () => {
+            const exTheme = (inLiveSecretExTheme && inLiveSecretExTheme.value.trim()) || '夸主播今天这套穿搭好看';
+            const exCode = (inLiveSecretExCode && inLiveSecretExCode.value.trim()) || '4748';
+            if (inLiveSecretTheme) inLiveSecretTheme.value = exTheme;
+            if (inLiveSecretCode) inLiveSecretCode.value = exCode;
+            if (inLiveSecretGuideTxt) inLiveSecretGuideTxt.value = `公屏發送暗號【${exCode}】觸發專屬互動彈幕`;
+            renderLiveAiSecretState(true);
+            window.showToast(`📋 已套用參考案例：主題「${exTheme}」· 暗號「${exCode}」`);
+        });
+    }
+
+    async function triggerSecretThemeDanmakuGeneration(fromViewerSend = false) {
+        if (renderTarget && renderTarget.classList.contains('mode-mobile-port') && !renderTarget.classList.contains('dy-live-open')) {
+            enterLayaLiveRoom();
+        }
+        const secretCode = (inLiveSecretCode && inLiveSecretCode.value.trim()) || '4748';
+        const secretTheme = (inLiveSecretTheme && inLiveSecretTheme.value.trim()) || '夸主播今天这套穿搭好看';
+        const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
+        const canCallCloudAi = (lastAiCallTimestamp === 0 || sinceLastSec >= TEAM_AI_COOLDOWN_SEC)
+            && getDailyAiQuotaState().remain > 0
+            && verifyTeamAiPasscode(false);
+
+        let aiLines = null;
+        if (canCallCloudAi && !fromViewerSend) {
+            startAiButtonCooldown(Date.now());
+            try {
+                const { frames } = await extractCurrentVideoFramesAndStats(null);
+                aiLines = await requestCloudVisionVideoDanmaku(frames, `互動主題：${secretTheme}；觀眾暗號：${secretCode}`);
+                if (aiLines && aiLines.length >= 4) consumeOneDailyAiQuota();
+            } catch (e) {
+                aiLines = null;
+            }
+            syncAllAiButtonsCooldownUI();
+        }
+
+        const lines = composeAuthenticLiveDanmakuBatch({
+            rawCandidateLines: aiLines || [],
+            category: 'beauty_dance',
+            contextText: secretTheme,
+            forceIncludeSecret: true
+        });
+        if (inLiveDanmakuList) {
+            markFieldUserModified('in-live-danmaku-list');
+            inLiveDanmakuList.value = lines.join('\n');
+        }
+        liveChatCursor = 0;
+        renderLiveChatBubbles(false);
+        restartLiveChatRollTimer();
+        triggerSaveStorage();
+        window.showToast(`🔑 已圍繞主題「${secretTheme}」與暗號「${secretCode}」生成真人彈幕`);
+    }
+
+    if (btnLiveSecretGenDm) {
+        btnLiveSecretGenDm.addEventListener('click', () => triggerSecretThemeDanmakuGeneration(false));
+    }
+    [liveSecretTopBadge, liveSecretGuideBar].forEach(el => {
+        if (!el) return;
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            triggerSecretThemeDanmakuGeneration(true);
+        });
+        el.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            const curCode = (inLiveSecretCode && inLiveSecretCode.value.trim()) || '4748';
+            const nextCode = window.prompt('修改直播間互動暗號：', curCode);
+            if (nextCode && nextCode.trim()) {
+                if (inLiveSecretCode) inLiveSecretCode.value = nextCode.trim();
+                renderLiveAiSecretState(true);
+                window.showToast(`✅ 互動暗號已修改為：${nextCode.trim()}`);
+            }
+        });
+    });
+    // 初始化确保默认关闭隐藏
+    renderLiveAiSecretState(false);
 
     let randDmPoolIndex = 0;
     if (btnLiveRandDmBatch) {
@@ -13260,15 +14980,17 @@ window.switchRightTab = function (mode) {
             const keys = Object.keys(LIVE_AI_SCENE_DANMAKU_POOLS);
             randDmPoolIndex = (randDmPoolIndex + 1) % keys.length;
             const pickedKey = keys[randDmPoolIndex];
-            const lines = LIVE_AI_SCENE_DANMAKU_POOLS[pickedKey].slice().sort(() => Math.random() - 0.5);
+            const poolBuilder = LIVE_AI_SCENE_DANMAKU_POOLS[pickedKey];
+            const lines = typeof poolBuilder === 'function' ? poolBuilder() : composeAuthenticLiveDanmakuBatch({ category: 'general' });
             if (inLiveDanmakuList) {
+                markFieldUserModified('in-live-danmaku-list');
                 inLiveDanmakuList.value = lines.join('\n');
             }
             liveChatCursor = 0;
             renderLiveChatBubbles(false);
             restartLiveChatRollTimer();
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-            window.showToast(`🎲 已切換一套分行彈幕（共 ${lines.length} 條）`);
+            window.showToast(`🎲 已換一批真人風格彈幕（共 ${lines.length} 條 · 黃臉表情不重複）`);
         });
     }
 
@@ -13414,28 +15136,11 @@ window.switchRightTab = function (mode) {
             sceneLabel = '高顏值主播互動';
         }
 
-        const basePool = (LIVE_AI_SCENE_DANMAKU_POOLS[category] || LIVE_AI_SCENE_DANMAKU_POOLS.classic).slice();
-        const hostName = (inLiveHostName && inLiveHostName.value.trim()) ? inLiveHostName.value.trim() : '主播';
-
-        // 提取标题或视频文件名中的有效关键词，生成 2~3 条专属定制弹幕穿插在顶部
-        const cleanTokens = String(contextText || '')
-            .replace(/#[\S]+/g, m => ' ' + m.slice(1) + ' ')
-            .split(/[\s,，。！？!?:：；;、/\-—_（）()【】\[\]《》""''「」]+/)
-            .map(s => s.trim())
-            .filter(s => s.length >= 2 && s.length <= 9 && !/^(mp4|mov|webm|video|screenrecording|IMG|VID|作者声明|虚构演绎|仅供娱乐|小王小王)$/i.test(s));
-
-        const customLines = [];
-        if (cleanTokens.length > 0) {
-            const kw = typeof window.toStageTrad === 'function' ? window.toStageTrad(cleanTokens[0]) : cleanTokens[0];
-            customLines.push(`羊🐑：衝著「${kw}」進來的，${hostName}這波直播太頂了🔥`);
-            customLines.push(`輕輕吹風：這段${kw}畫面好清晰，前排打卡支持！`);
-        } else {
-            customLines.push(`羊🐑：剛刷到${hostName}的直播間，這狀態直接拉滿🔥`);
-        }
-
-        const shuffledPool = basePool.slice().sort(() => Math.random() - 0.5);
-        const merged = [...customLines, ...shuffledPool];
-        return { lines: merged.slice(0, 14), sceneLabel };
+        const lines = composeAuthenticLiveDanmakuBatch({
+            category,
+            contextText
+        });
+        return { lines, sceneLabel };
     }
 
     // ★ 调用云端 Gemini 3.8 Flash Vision API (支持 AQ. 与 AIza Key)、OpenAI/DeepSeek 兼容接口或 Google Apps Script 代理
@@ -13443,9 +15148,16 @@ window.switchRightTab = function (mode) {
         const { apiKey, apiUrl } = getActiveLiveAiKeyAndUrl();
         const hostName = (inLiveHostName && inLiveHostName.value.trim()) ? inLiveHostName.value.trim() : '主播';
         const randSeed = Math.floor(1000 + Math.random() * 9000);
+        const secretOn = !!(swLiveAiSecret && swLiveAiSecret.checked);
+        const secretCode = (inLiveSecretCode && inLiveSecretCode.value.trim()) || '4748';
+        const secretTheme = (inLiveSecretTheme && inLiveSecretTheme.value.trim()) || '';
+        const secretRulePrompt = secretOn
+            ? `6.當前主播已開啟互動暗號【${secretCode}】，主題為「${secretTheme}」，請穿插 2~3 條觀眾發送「${secretCode}」及圍繞「${secretTheme}」的真實口語短句。`
+            : '';
+        const commonStyleRules = `要求：1.必須是真實觀眾隨手打的口語短句（2~10字為主，如：哈哈哈、笑死我了、臥槽、666、牛啊、真的假的、太美了吧、好看好看、來了來了、路過、主播哪裡人、這多少錢、有連結嗎）；2.嚴禁任何AI腔套話（絕對禁用：氛圍感拉滿、治癒系天花板、絕絕子、yyds、狠狠愛住、一整個拿捏住、太頂了、直接封神）；3.表情只允許從以下抖音黃臉小表情中挑選且每條表情互不相同（😊 😁 😄 😂 🤣 🤦 😳 😘 🤗 🙏 👏 😭 😢 😅 😲 😡 😴 👍 👌 💪 👀 🐮 🫶 ❤️ 🌹 🎁 🎆 🍺 ☕），嚴禁出現🔥🎉💕💖等彩色符號；4.混合出現「純表情」「文字+表情（表情隨機在句首/句中/句尾）」「純文字」三種形態，每條文字互不重複；5.全部繁體中文，每行一條無編號，只輸出這14行文本。${secretRulePrompt}`;
         const promptText = frames && frames.length > 0
-            ? `你是一個抖音/Laya直播間的真實觀眾彈幕與台詞互動生成助手。請仔細觀察上傳的直播視頻畫面截圖（主播暱稱：${hostName}，參考標題信息：${contextText || '無'}，刷新批次：${randSeed}），重點識別：1.畫面中的人物外貌、穿搭、動作神態與情緒；2.畫面上的字幕、台詞文字、牌局或道具細節；3.場景環境與劇情氛圍。請直接針對畫面正在發生的內容和台詞細節，生成 14 條高度貼合畫面劇情的直播間公屏滾動內容（其中 11 條格式為「觀眾暱稱：彈幕內容」，另外穿插 3 條格式為「觀眾暱稱 來了」的新觀眾進場提示）。要求：1.全部使用繁體中文；2.每行一條，絕對不要序號或編號，不要用逗號併成一行；3.語氣自然接地氣且每條不重複；4.嚴禁出現「黑屏」「卡住了」「看不見」等詞彙；5.只輸出這14行文本，不要任何解釋或開頭語。`
-            : `你是一個抖音/Laya直播間的真實觀眾彈幕生成助手。請根據當前直播間信息（主播暱稱：${hostName}，主題與標籤：${contextText || '熱門才藝顏值互動直播'}，刷新批次：${randSeed}），生成 14 條生動自然的直播間公屏滾動內容（其中 11 條格式為「觀眾暱稱：彈幕內容」，另外穿插 3 條格式為「觀眾暱稱 來了」的新觀眾進場提示）。要求：1.全部使用繁體中文；2.每行一條，不要編號，不要用逗號併成一行；3.只輸出這14行文本，不要任何解釋。`;
+            ? `你是抖音/Laya直播間的真實觀眾彈幕生成助手。觀察直播畫面截圖（主播：${hostName}，參考信息：${contextText || '無'}，批次：${randSeed}），針對畫面細節生成 14 條真實公屏內容（11 條「觀眾暱稱：彈幕內容」+ 3 條「觀眾暱稱 來了」）。${commonStyleRules}`
+            : `你是抖音/Laya直播間的真實觀眾彈幕生成助手。根據直播間信息（主播：${hostName}，參考主題：${contextText || '直播互動'}，批次：${randSeed}），生成 14 條真實公屏內容（11 條「觀眾暱稱：彈幕內容」+ 3 條「觀眾暱稱 來了」）。${commonStyleRules}`;
 
         const cleanParsedAiLines = (rawText) => {
             const lines = splitDanmakuTextToMultiline(rawText)
@@ -13645,10 +15357,18 @@ window.switchRightTab = function (mode) {
                 const localRes = buildSmartLocalVideoAiDanmaku(stats, contextText);
                 matchedLines = localRes.lines;
                 sceneLabel = localRes.sceneLabel;
+            } else {
+                // 对云端 AI 返回内容强制执行「去AI套话 + 29黄脸表情去重 + 三形态混排 + 会话文字去重」质检合成
+                matchedLines = composeAuthenticLiveDanmakuBatch({
+                    rawCandidateLines: matchedLines,
+                    category: 'general',
+                    contextText
+                });
             }
 
             // A) 填充直播间公屏滚动弹幕列表
             if (inLiveDanmakuList && matchedLines.length > 0) {
+                markFieldUserModified('in-live-danmaku-list');
                 inLiveDanmakuList.value = matchedLines.join('\n');
                 inLiveDanmakuList.style.borderColor = '#10b981';
                 inLiveDanmakuList.style.boxShadow = '0 0 0 2px rgba(16, 185, 129, 0.35)';
@@ -13835,7 +15555,6 @@ window.switchRightTab = function (mode) {
         'top-viewers': ['#live-viewer-pill-top'],
         'exit-btn': ['#live-btn-exit-top'],
         'live-pill': ['#live-left-live-pill'],
-        'rank-pill': ['#live-sub-rank-pill'],
         'brand-pill': ['#live-laya-brand-pill'],
         'square-pill': ['#live-sub-square-pill'],
         'sys-notice': ['#live-sys-notice'],
@@ -13975,20 +15694,31 @@ window.switchRightTab = function (mode) {
 
     function sendUserLiveChat() {
         if (!liveChatInput) return;
-        const txt = (liveChatInput.value || '').trim();
-        if (!txt) {
+        const rawTxt = (liveChatInput.value || '').trim();
+        if (!rawTxt) {
             window.showToast('💬 請先輸入要發送的彈幕內容');
             return;
         }
+        const txt = sanitizeDanmakuAllowedEmojisOnly(rawTxt, false) || rawTxt;
+        const secretOn = !!(swLiveAiSecret && swLiveAiSecret.checked);
+        const secretCode = (inLiveSecretCode && inLiveSecretCode.value.trim()) || '4748';
+        if (secretOn && txt.includes(secretCode)) {
+            liveChatInput.value = '';
+            triggerSecretThemeDanmakuGeneration(true);
+            spawnSingleLiveHeart();
+            return;
+        }
         if (inLiveDanmakuList) {
+            markFieldUserModified('in-live-danmaku-list');
             const cur = inLiveDanmakuList.value.trim();
-            const fmtLine = (txt.includes('：') || txt.includes(':')) ? txt : `Laya鐵粉：${txt}`;
+            const fmtLine = (txt.includes('：') || txt.includes(':')) ? txt : `小羊：${txt}`;
             inLiveDanmakuList.value = cur ? `${fmtLine}\n${cur}` : fmtLine;
         }
         liveChatCursor = 0;
         renderLiveChatBubbles(false);
         liveChatInput.value = '';
         spawnSingleLiveHeart();
+        triggerSaveStorage();
         window.showToast(`🚀 已發送直播彈幕：${txt}`);
     }
     if (liveBtnSend) {
@@ -14032,16 +15762,36 @@ window.switchRightTab = function (mode) {
             window.showToast('↗️ 已分享當前直播間');
         });
     }
+    let isLiveBotLiked = false;
     if (liveBotBtnLike) {
         liveBotBtnLike.addEventListener('click', (e) => {
             e.stopPropagation();
+            isLiveBotLiked = true;
+            liveBotBtnLike.classList.add('liked');
+            const svgEl = document.getElementById('live-bot-svg-like') || liveBotBtnLike.querySelector('svg');
+            if (svgEl) {
+                svgEl.setAttribute('fill', '#fe2c55');
+            }
+            liveBotBtnLike.classList.remove('like-bounce-anim');
+            void liveBotBtnLike.offsetWidth;
+            liveBotBtnLike.classList.add('like-bounce-anim');
             for (let i = 0; i < 5; i++) {
                 setTimeout(spawnSingleLiveHeart, i * 90);
             }
         });
+        liveBotBtnLike.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            isLiveBotLiked = false;
+            liveBotBtnLike.classList.remove('liked', 'like-bounce-anim');
+            const svgEl = document.getElementById('live-bot-svg-like') || liveBotBtnLike.querySelector('svg');
+            if (svgEl) {
+                svgEl.setAttribute('fill', '#ffffff');
+            }
+        });
     }
 
-    // ★ 录屏导出 MP4 (30fps) 专用的直播间右侧动态矢量飘心与表情离屏精灵缓存（1:1 还原编辑器 SVG 彩心与 drop-shadow 柔光，且消除主画布每帧高斯模糊开销）
+    // ★ 录屏导出 MP4 (30fps/60fps) 专用的直播间右侧动态小表情与彩心离屏精灵缓存（1:1 还原编辑器 24px 精致贴边微光晕，且消除主画布每帧高斯模糊开销）
     const EXPORT_HEART_COLORS = ['#ff5e97', '#a855f7', '#f43f5e', '#ec4899'];
     const liveCheerSpriteCache = new Map();
     const liveGiftIconSpriteCache = new Map();
@@ -14374,22 +16124,23 @@ window.switchRightTab = function (mode) {
     }
     setTimeout(ensureExportGiftAvatarPoolLoaded, 400);
 
-    // ★ 在录屏 Canvas 上绘制单条或多行自动换行弹幕胶囊气泡（1:1 还原预览画面 flex-wrap 换行效果，绝不截断成 ...）
-    function drawSingleLiveChatBubbleOnCanvas(ctx, baseX, rowTopY, maxBubbleW, rowData, badgeSeedIdx, s, dmTextColor, showRowHeart, fontStack, dryRun = false) {
+    // ★ 在录屏 Canvas 上绘制单条或多行自动换行弹幕胶囊气泡（框体比例 boxS 与里面文字比例 fontS 完全独立分开，1:1 还原预览画面）
+    function drawSingleLiveChatBubbleOnCanvas(ctx, baseX, rowTopY, maxBubbleW, rowData, badgeSeedIdx, fontS, boxS, dmTextColor, showRowHeart, fontStack, dryRun = false) {
         const { lv, fanLv, isAdmin, nickPart, msg, isJoinRow } = rowData;
         const hasBadges = (lv > 0 || fanLv > 0 || isAdmin);
-        const padX = Math.round(7.5 * s);
-        const padY = Math.round(3.2 * s);
-        const itemGap = Math.round(3.5 * s);
-        const badgeH = Math.round(13.2 * s);
-        const fontPx = Math.round(10 * s);
-        const lineStepH = Math.round(14.2 * s);
+        const padX = Math.round(7.5 * boxS);
+        const padY = Math.round(2.8 * boxS);
+        const cornerR = Math.round(10.5 * boxS);
+        const itemGap = Math.round(3.5 * fontS);
+        const badgeH = Math.round(13.2 * fontS);
+        const fontPx = Math.max(7, Math.round(10 * fontS));
+        const lineStepH = Math.max(Math.round(fontPx * 1.34), Math.round(14.0 * fontS));
 
         ctx.save();
         ctx.font = `800 ${fontPx}px "Inter", ${fontStack}`;
-        const lvW = lv > 0 ? Math.ceil((lv >= 10 ? 26.5 : 21.5) * s) : 0;
-        const fanW = fanLv > 0 ? Math.ceil((fanLv >= 10 ? 26.2 : 21.2) * s) : 0;
-        const admW = isAdmin ? Math.ceil(14.5 * s) : 0;
+        const lvW = lv > 0 ? Math.ceil((lv >= 10 ? 26.5 : 21.5) * fontS) : 0;
+        const fanW = fanLv > 0 ? Math.ceil((fanLv >= 10 ? 26.2 : 21.2) * fontS) : 0;
+        const admW = isAdmin ? Math.ceil(14.5 * fontS) : 0;
         const nickFull = isJoinRow ? `${nickPart} ` : `${nickPart}：`;
         const nickW = ctx.measureText(nickFull).width;
 
@@ -14402,15 +16153,15 @@ window.switchRightTab = function (mode) {
         ctx.font = `600 ${fontPx}px ${fontStack}`;
         const displayMsg = String(msg || '');
         const effectiveShowHeart = showRowHeart && !isJoinRow;
-        const heartW = effectiveShowHeart ? Math.ceil(12 * s) : 0;
+        const heartW = effectiveShowHeart ? Math.ceil(12 * fontS) : 0;
         const msgW = ctx.measureText(displayMsg).width;
-        const innerMaxW = Math.max(85 * s, maxBubbleW - padX * 2);
+        const innerMaxW = Math.max(72 * boxS, maxBubbleW - padX * 2);
 
         // 判断是否单行即可放下，或者像预览画面 (.live-chat-bubble flex-wrap: wrap) 一样将长弹幕换到第二行完整展示
         const fitsSingleLine = isJoinRow || ((prefixContentW + msgW + heartW) <= innerMaxW);
 
         if (fitsSingleLine) {
-            const rowH = Math.round(19.2 * s);
+            const rowH = Math.max(Math.round(14 * boxS), Math.round(padY * 2 + Math.max(badgeH, Math.round(fontPx * 1.28))));
             const totalBubbleW = Math.min(maxBubbleW, Math.ceil(padX * 2 + prefixContentW + msgW + heartW));
             if (dryRun) {
                 ctx.restore();
@@ -14418,10 +16169,10 @@ window.switchRightTab = function (mode) {
             }
 
             // 1) 圆角深色半透明气泡背景
-            drawLiveRoundRect(ctx, baseX, rowTopY, totalBubbleW, rowH, Math.round(10.5 * s));
+            drawLiveRoundRect(ctx, baseX, rowTopY, totalBubbleW, rowH, cornerR);
             ctx.fillStyle = 'rgba(10, 12, 20, 0.50)';
             ctx.fill();
-            ctx.lineWidth = Math.max(1, 0.8 * s);
+            ctx.lineWidth = Math.max(1, 0.8 * boxS);
             ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
             ctx.stroke();
 
@@ -14429,22 +16180,22 @@ window.switchRightTab = function (mode) {
             let curX = baseX + padX;
             const badgeY = rowTopY + Math.round((rowH - badgeH) / 2);
             if (lv > 0) {
-                const actualLvW = drawCanvasLvBadge(ctx, curX, badgeY, lv, s, fontStack);
+                const actualLvW = drawCanvasLvBadge(ctx, curX, badgeY, lv, fontS, fontStack);
                 curX += actualLvW + itemGap;
             }
             if (fanLv > 0) {
-                const actualFanW = drawCanvasFanBadge(ctx, curX, badgeY, fanLv, s, fontStack);
+                const actualFanW = drawCanvasFanBadge(ctx, curX, badgeY, fanLv, fontS, fontStack);
                 curX += actualFanW + itemGap;
             }
             if (isAdmin) {
-                const aw = Math.round(14.2 * s);
-                drawLiveRoundRect(ctx, curX, badgeY, aw, badgeH, 3.5 * s);
+                const aw = Math.round(14.2 * fontS);
+                drawLiveRoundRect(ctx, curX, badgeY, aw, badgeH, 3.5 * fontS);
                 const agrad = ctx.createLinearGradient(curX, badgeY, curX + aw, badgeY);
                 agrad.addColorStop(0, '#ef4444');
                 agrad.addColorStop(1, '#f43f5e');
                 ctx.fillStyle = agrad;
                 ctx.fill();
-                ctx.font = `800 ${Math.round(8 * s)}px ${fontStack}`;
+                ctx.font = `800 ${Math.round(8 * fontS)}px ${fontStack}`;
                 ctx.fillStyle = '#ffffff';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
@@ -14488,14 +16239,14 @@ window.switchRightTab = function (mode) {
             curX += msgW;
 
             if (effectiveShowHeart) {
-                drawVectorHeartOnCanvas(ctx, curX + 6 * s, textMidY, 9.5 * s, '#c084fc', 0.95);
+                drawVectorHeartOnCanvas(ctx, curX + 6 * fontS, textMidY, 9.5 * fontS, '#c084fc', 0.95);
             }
             ctx.restore();
             return rowH;
         }
 
         // ★ 多行完整换行模式（如预览图中「江南煙雨客：\n身材管理得太厲害了，愛了愛了」与「🧡19 浪漫遊蕩者：\n主播今天完全是在瘋狂試探邊緣啊」）
-        const msgWrapMaxW = Math.max(70 * s, innerMaxW - heartW);
+        const msgWrapMaxW = Math.max(60 * boxS, innerMaxW - heartW);
         const msgLines = wrapCanvasTextLines(ctx, displayMsg, msgWrapMaxW);
         let maxMsgLineW = 0;
         for (let mIdx = 0; mIdx < msgLines.length; mIdx++) {
@@ -14512,10 +16263,10 @@ window.switchRightTab = function (mode) {
         }
 
         // 1) 绘制多行圆角深色半透明气泡背景
-        drawLiveRoundRect(ctx, baseX, rowTopY, totalBubbleW, rowH, Math.round(10.5 * s));
+        drawLiveRoundRect(ctx, baseX, rowTopY, totalBubbleW, rowH, cornerR);
         ctx.fillStyle = 'rgba(10, 12, 20, 0.50)';
         ctx.fill();
-        ctx.lineWidth = Math.max(1, 0.8 * s);
+        ctx.lineWidth = Math.max(1, 0.8 * boxS);
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.07)';
         ctx.stroke();
 
@@ -14525,22 +16276,22 @@ window.switchRightTab = function (mode) {
         const badgeY = Math.round(line1MidY - badgeH / 2);
 
         if (lv > 0) {
-            const actualLvW = drawCanvasLvBadge(ctx, curX, badgeY, lv, s, fontStack);
+            const actualLvW = drawCanvasLvBadge(ctx, curX, badgeY, lv, fontS, fontStack);
             curX += actualLvW + itemGap;
         }
         if (fanLv > 0) {
-            const actualFanW = drawCanvasFanBadge(ctx, curX, badgeY, fanLv, s, fontStack);
+            const actualFanW = drawCanvasFanBadge(ctx, curX, badgeY, fanLv, fontS, fontStack);
             curX += actualFanW + itemGap;
         }
         if (isAdmin) {
-            const aw = Math.round(14.2 * s);
-            drawLiveRoundRect(ctx, curX, badgeY, aw, badgeH, 3.5 * s);
+            const aw = Math.round(14.2 * fontS);
+            drawLiveRoundRect(ctx, curX, badgeY, aw, badgeH, 3.5 * fontS);
             const agrad = ctx.createLinearGradient(curX, badgeY, curX + aw, badgeY);
             agrad.addColorStop(0, '#ef4444');
             agrad.addColorStop(1, '#f43f5e');
             ctx.fillStyle = agrad;
             ctx.fill();
-            ctx.font = `800 ${Math.round(8 * s)}px ${fontStack}`;
+            ctx.font = `800 ${Math.round(8 * fontS)}px ${fontStack}`;
             ctx.fillStyle = '#ffffff';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
@@ -14585,7 +16336,7 @@ window.switchRightTab = function (mode) {
             ctx.fillText(lineTxt, msgStartX, lineMidY);
             if (effectiveShowHeart && mIdx === msgLines.length - 1) {
                 const lw = ctx.measureText(lineTxt).width;
-                drawVectorHeartOnCanvas(ctx, msgStartX + lw + 6 * s, lineMidY, 9.5 * s, '#c084fc', 0.95);
+                drawVectorHeartOnCanvas(ctx, msgStartX + lw + 6 * fontS, lineMidY, 9.5 * fontS, '#c084fc', 0.95);
             }
         }
 
@@ -14736,10 +16487,13 @@ window.switchRightTab = function (mode) {
         const elapsedMs = Math.max(0, elapsedSec * 1000);
         const expSnap = window.__liveExportInitialState || null;
 
-        const scalePct = inLiveDmScale ? (parseInt(inLiveDmScale.value, 10) || 100) : 100;
-        const dmScale = Math.min(2.20, Math.max(0.75, scalePct / 100));
-        const s = scaleRatioX * dmScale;
-        const rowGap = Math.round(3.5 * s);
+        const fontScalePct = getLiveDmFontScalePct();
+        const dmFontScale = Math.min(2.60, Math.max(0.60, fontScalePct / 100));
+        const boxScalePct = getLiveDmBoxScalePct();
+        const dmBoxScale = Math.min(1.80, Math.max(0.70, boxScalePct / 100));
+        const fontS = scaleRatioX * dmFontScale;
+        const boxS = scaleRatioX * dmBoxScale;
+        const rowGap = Math.round(3.5 * boxS);
 
         const widthPct = inLiveDmAreaWidth ? (parseInt(inLiveDmAreaWidth.value, 10) || 93) : 93;
         const layout = window.__liveExportLayout || {};
@@ -14760,7 +16514,7 @@ window.switchRightTab = function (mode) {
         let curBottomY = (layout.joinBox && (layout.joinBox.y + layout.joinBox.h))
             || (layout.scrollBox && (layout.scrollBox.y + layout.scrollBox.h))
             || (layout.botBarBox && (layout.botBarBox.y - Math.round(4 * scaleRatioY) + offYPx))
-            || (layout.chatBox && (layout.chatBox.y + layout.chatBox.h + Math.round(21 * s)))
+            || (layout.chatBox && (layout.chatBox.y + layout.chatBox.h + Math.round(21 * boxS)))
             || (Math.round(outH - 92 * scaleRatioY) + offYPx);
 
         const speedLv = getLiveDmSpeedVal();
@@ -14817,6 +16571,111 @@ window.switchRightTab = function (mode) {
             ctx.restore();
         }
 
+        // 0.5) 顶部动态轮播/横向滚动话题标签文字 (#live-laya-brand-txt，在高清截图与 MP4 录屏导出中 1:1 动态渲染自定义字号与 8 种炫彩动画)
+        const showBrandPill = (liveVisStateMap['brand-pill'] !== false)
+            && (!liveLayaBrandPill || liveLayaBrandPill.dataset.liveHidden !== 'true');
+        if (showBrandPill && layout.brandViewportBox && layout.brandViewportBox.w > 0 && typeof window.__getActiveLiveBrandTopicAtTime === 'function') {
+            const bv = layout.brandViewportBox;
+            const topicPeriod = 2.8;
+            const carouselOn = !swLiveBrandCarousel || swLiveBrandCarousel.checked;
+            const topicStep = carouselOn ? Math.floor(elapsedSec / topicPeriod) : 0;
+            const stepLocalSec = carouselOn ? (elapsedSec - topicStep * topicPeriod) : 0.8;
+            const activeTopicStr = window.__getActiveLiveBrandTopicAtTime(elapsedSec);
+            const customBrandFont = parseFloat(inLiveBrandFontSize ? inLiveBrandFontSize.value : '9') || 9;
+            const brandFontPx = Math.max(7, Math.round(customBrandFont * scaleRatioX));
+            const brandAnimType = typeof window.__getEffectiveLiveBrandAnimType === 'function'
+                ? window.__getEffectiveLiveBrandAnimType()
+                : 'shimmer';
+
+            ctx.save();
+            ctx.beginPath();
+            ctx.rect(bv.x - 1 * scaleRatioX, bv.y - 2 * scaleRatioY, bv.w + 2 * scaleRatioX, bv.h + 4 * scaleRatioY);
+            ctx.clip();
+
+            let slideOffY = 0;
+            let slideAlpha = 1;
+            if (carouselOn && topicStep > 0 && stepLocalSec < 0.34) {
+                const t = stepLocalSec / 0.34;
+                const ease = 1 - Math.pow(1 - t, 3);
+                slideOffY = (1 - ease) * (7 * scaleRatioY);
+                slideAlpha = 0.25 + 0.75 * ease;
+            }
+
+            ctx.font = `700 ${brandFontPx}px ${activeFont}`;
+            let drawTopicStr = activeTopicStr;
+            if (brandAnimType === 'typewriter' && elapsedSec > 0) {
+                const chars = Array.from(activeTopicStr);
+                const twPhase = (elapsedSec % 2.4) / 2.4;
+                const visibleLen = twPhase < 0.72
+                    ? Math.max(1, Math.ceil((twPhase / 0.72) * chars.length))
+                    : chars.length;
+                drawTopicStr = chars.slice(0, visibleLen).join('');
+            }
+
+            const topicW = ctx.measureText(drawTopicStr).width;
+            let marqueeOffX = 0;
+            if (brandAnimType === 'none' && topicW > bv.w + 2 * scaleRatioX && elapsedSec > 0) {
+                const overflowW = topicW - bv.w + 6 * scaleRatioX;
+                const mProg = Math.min(1, Math.max(0, (stepLocalSec - 0.35) / Math.max(0.8, topicPeriod - 0.65)));
+                const mWave = 0.5 - 0.5 * Math.cos(mProg * Math.PI * 2);
+                marqueeOffX = -overflowW * mWave;
+            }
+
+            let animScaleX = 1, animScaleY = 1, animOffY = 0;
+            if (brandAnimType === 'breathe') {
+                slideAlpha *= (0.45 + 0.55 * (0.5 + 0.5 * Math.cos((elapsedSec / 1.6) * Math.PI * 2)));
+            } else if (brandAnimType === 'fade') {
+                slideAlpha *= (0.16 + 0.84 * (0.5 + 0.5 * Math.cos((elapsedSec / 2.0) * Math.PI * 2)));
+            } else if (brandAnimType === 'wave') {
+                animOffY = Math.sin((elapsedSec / 1.35) * Math.PI * 2) * (1.8 * scaleRatioY);
+            } else if (brandAnimType === 'bounce') {
+                const bWave = Math.abs(Math.sin((elapsedSec / 1.25) * Math.PI));
+                animScaleX = 1 + bWave * 0.10;
+                animScaleY = 1 - bWave * 0.05;
+                animOffY = -bWave * (1.4 * scaleRatioY);
+            } else if (brandAnimType === 'spin') {
+                const spPhase = (elapsedSec % 2.6) / 2.6;
+                if (spPhase < 0.36) {
+                    animScaleY = Math.max(0.18, Math.abs(Math.cos((spPhase / 0.36) * Math.PI * 2)));
+                }
+            }
+
+            ctx.globalAlpha = slideAlpha;
+            if (brandAnimType === 'shimmer') {
+                const shift = ((elapsedSec * 48) % 120) * scaleRatioX;
+                const grad = ctx.createLinearGradient(bv.x - shift, bv.y, bv.x + Math.max(bv.w, topicW) * 1.8 - shift, bv.y);
+                grad.addColorStop(0, '#f5f3ff');
+                grad.addColorStop(0.28, '#fde047');
+                grad.addColorStop(0.55, '#f472b6');
+                grad.addColorStop(0.8, '#e9d5ff');
+                grad.addColorStop(1, '#fde047');
+                ctx.fillStyle = grad;
+            } else if (brandAnimType === 'rainbow') {
+                const shift = ((elapsedSec * 56) % 140) * scaleRatioX;
+                const grad = ctx.createLinearGradient(bv.x - shift, bv.y, bv.x + Math.max(bv.w, topicW) * 1.9 - shift, bv.y);
+                grad.addColorStop(0, '#ff6b6b');
+                grad.addColorStop(0.22, '#feca57');
+                grad.addColorStop(0.45, '#48dbfb');
+                grad.addColorStop(0.68, '#ff9ff3');
+                grad.addColorStop(0.88, '#54a0ff');
+                grad.addColorStop(1, '#ff6b6b');
+                ctx.fillStyle = grad;
+            } else if (brandAnimType === 'breathe' || brandAnimType === 'bounce') {
+                ctx.fillStyle = '#fef08a';
+            } else {
+                ctx.fillStyle = '#f5f3ff';
+            }
+
+            const drawX = bv.x + marqueeOffX;
+            const drawY = bv.y + bv.h * 0.52 + slideOffY + animOffY;
+            ctx.translate(drawX + topicW * 0.5, drawY);
+            ctx.scale(animScaleX, animScaleY);
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(drawTopicStr, -topicW * 0.5, 0);
+            ctx.restore();
+        }
+
         // 1) 第 1 层（最底部）：高频观众进场通道 (#live-join-ticker-row，如「漫渡 來了」，带滑入微动效)
         const showJoinTicker = liveDmVisible
             && (liveVisStateMap['join-ticker'] !== false)
@@ -14835,9 +16694,11 @@ window.switchRightTab = function (mode) {
             const v = liveJoinViewerPool[(baseJoinCursor + joinSteps) % liveJoinViewerPool.length];
             const isSimp = window.__currentLangMode === 'simp';
             const joinTxt = isSimp ? ' 来了' : ' 來了';
-            const jRowH = Math.round(18.5 * s);
-            const jPadX = Math.round(7.5 * s);
-            const jFontPx = Math.round(9.6 * s);
+            const jPadX = Math.round(7.5 * boxS);
+            const jPadY = Math.round(2.2 * boxS);
+            const jFontPx = Math.max(7, Math.round(9.6 * fontS));
+            const badgeH = Math.round(13.2 * fontS);
+            const jRowH = Math.max(Math.round(15 * boxS), Math.round(jPadY * 2 + Math.max(badgeH, Math.round(jFontPx * 1.26))));
             const jY = curBottomY - jRowH;
             const jX = baseX + joinOffsetX;
 
@@ -14847,22 +16708,21 @@ window.switchRightTab = function (mode) {
             const nickW = ctx.measureText(v.nick).width;
             ctx.font = `600 ${jFontPx}px ${activeFont}`;
             const suffixW = ctx.measureText(joinTxt).width;
-            const lvEstW = v.lv > 0 ? Math.ceil((v.lv >= 10 ? 26.5 : 21.5) * s) + Math.round(4 * s) : 0;
+            const lvEstW = v.lv > 0 ? Math.ceil((v.lv >= 10 ? 26.5 : 21.5) * fontS) + Math.round(4 * fontS) : 0;
             const jPillW = Math.ceil(jPadX * 2 + lvEstW + nickW + suffixW);
 
-            drawLiveRoundRect(ctx, jX, jY, jPillW, jRowH, Math.round(10 * s));
+            drawLiveRoundRect(ctx, jX, jY, jPillW, jRowH, Math.round(10 * boxS));
             ctx.fillStyle = 'rgba(12, 14, 24, 0.50)';
             ctx.fill();
-            ctx.lineWidth = Math.max(1, 0.8 * s);
+            ctx.lineWidth = Math.max(1, 0.8 * boxS);
             ctx.strokeStyle = joinSlideProgress < 1 ? 'rgba(147, 197, 253, 0.32)' : 'rgba(255, 255, 255, 0.08)';
             ctx.stroke();
 
             let jCurX = jX + jPadX;
             if (v.lv > 0) {
-                const badgeH = Math.round(13.2 * s);
                 const badgeY = jY + Math.round((jRowH - badgeH) / 2);
-                const realLvW = drawCanvasLvBadge(ctx, jCurX, badgeY, v.lv, s, activeFont);
-                jCurX += realLvW + Math.round(4 * s);
+                const realLvW = drawCanvasLvBadge(ctx, jCurX, badgeY, v.lv, fontS, activeFont);
+                jCurX += realLvW + Math.round(4 * fontS);
             }
 
             const jMidY = jY + jRowH * 0.53;
@@ -14917,7 +16777,7 @@ window.switchRightTab = function (mode) {
                 const badgeSeedIdx = allLines.length <= count ? safeStep : globalIdx;
                 const parsedRow = parseSingleLiveDanmakuRow(rawLine, badgeSeedIdx);
                 const h = drawSingleLiveChatBubbleOnCanvas(
-                    ctx, baseX, 0, maxBubbleW, parsedRow, badgeSeedIdx, s, dmTextColor, showRowHeart, activeFont, true
+                    ctx, baseX, 0, maxBubbleW, parsedRow, badgeSeedIdx, fontS, boxS, dmTextColor, showRowHeart, activeFont, true
                 );
                 return { parsedRow, badgeSeedIdx, h };
             };
@@ -14952,7 +16812,7 @@ window.switchRightTab = function (mode) {
                 const slideShift = Math.round(easeOut * (outSpec.h + rowGap));
                 drawY = listTopY - slideShift;
                 drawSingleLiveChatBubbleOnCanvas(
-                    ctx, baseX, drawY, maxBubbleW, outSpec.parsedRow, outSpec.badgeSeedIdx, s, dmTextColor, showRowHeart, activeFont, false
+                    ctx, baseX, drawY, maxBubbleW, outSpec.parsedRow, outSpec.badgeSeedIdx, fontS, boxS, dmTextColor, showRowHeart, activeFont, false
                 );
                 drawY += outSpec.h + rowGap;
             }
@@ -14960,7 +16820,7 @@ window.switchRightTab = function (mode) {
             for (let i = 0; i < curSpecs.length; i++) {
                 const sp = curSpecs[i];
                 drawSingleLiveChatBubbleOnCanvas(
-                    ctx, baseX, drawY, maxBubbleW, sp.parsedRow, sp.badgeSeedIdx, s, dmTextColor, showRowHeart, activeFont, false
+                    ctx, baseX, drawY, maxBubbleW, sp.parsedRow, sp.badgeSeedIdx, fontS, boxS, dmTextColor, showRowHeart, activeFont, false
                 );
                 drawY += sp.h + rowGap;
             }
@@ -14978,15 +16838,15 @@ window.switchRightTab = function (mode) {
             const welcomeStr = (liveRoomWelcomeTxt && liveRoomWelcomeTxt.textContent.trim())
                 || (inLiveWelcomeTxt && inLiveWelcomeTxt.value.trim())
                 || liveWelcomePresets[0];
-            const wFontPx = Math.round(9 * s);
-            const wPadX = Math.round(7.5 * s);
-            const wPadY = Math.round(3.4 * s);
-            const wLineH = Math.round(13 * s);
-            const iconBoxW = Math.round(13.5 * s);
+            const wFontPx = Math.max(7, Math.round(9 * fontS));
+            const wPadX = Math.round(7.5 * boxS);
+            const wPadY = Math.round(3.2 * boxS);
+            const wLineH = Math.max(Math.round(wFontPx * 1.35), Math.round(12.8 * fontS));
+            const iconBoxW = Math.round(13.5 * fontS);
 
             ctx.save();
             ctx.font = `700 ${wFontPx}px ${activeFont}`;
-            const wLines = wrapCanvasTextLines(ctx, welcomeStr, Math.max(80 * s, maxBubbleW - wPadX * 2 - iconBoxW));
+            const wLines = wrapCanvasTextLines(ctx, welcomeStr, Math.max(80 * boxS, maxBubbleW - wPadX * 2 - iconBoxW));
             let maxWL = 0;
             wLines.forEach(l => {
                 const lw = ctx.measureText(l).width;
@@ -14996,26 +16856,26 @@ window.switchRightTab = function (mode) {
             const wW = Math.min(maxBubbleW, Math.ceil(wPadX * 2 + iconBoxW + maxWL));
             const wY = curBottomY - wH;
 
-            drawLiveRoundRect(ctx, baseX, wY, wW, wH, Math.round(8.5 * s));
+            drawLiveRoundRect(ctx, baseX, wY, wW, wH, Math.round(8.5 * boxS));
             ctx.fillStyle = 'rgba(12, 14, 24, 0.54)';
             ctx.fill();
-            ctx.lineWidth = Math.max(1, 0.85 * s);
+            ctx.lineWidth = Math.max(1, 0.85 * boxS);
             ctx.strokeStyle = 'rgba(168, 85, 247, 0.28)';
             ctx.stroke();
 
             // 左侧白色小耳机矢量图标 (避免 Emoji 在不同系统色差)
             const hcX = baseX + wPadX + iconBoxW * 0.38;
             const hcY = wY + wH * 0.5;
-            const hr = 4.2 * s;
+            const hr = 4.2 * fontS;
             ctx.save();
             ctx.strokeStyle = 'rgba(243, 232, 255, 0.92)';
-            ctx.lineWidth = Math.max(1.2, 1.35 * s);
+            ctx.lineWidth = Math.max(1.2, 1.35 * fontS);
             ctx.beginPath();
             ctx.arc(hcX, hcY, hr, Math.PI, 0, false);
             ctx.stroke();
             ctx.fillStyle = 'rgba(243, 232, 255, 0.92)';
-            ctx.fillRect(hcX - hr - 0.8 * s, hcY - 0.5 * s, 2 * s, 3.6 * s);
-            ctx.fillRect(hcX + hr - 1.2 * s, hcY - 0.5 * s, 2 * s, 3.6 * s);
+            ctx.fillRect(hcX - hr - 0.8 * fontS, hcY - 0.5 * fontS, 2 * fontS, 3.6 * fontS);
+            ctx.fillRect(hcX + hr - 1.2 * fontS, hcY - 0.5 * fontS, 2 * fontS, 3.6 * fontS);
             ctx.restore();
 
             ctx.font = `700 ${wFontPx}px ${activeFont}`;
@@ -15041,14 +16901,14 @@ window.switchRightTab = function (mode) {
             const noticeStr = (noticeElRef && noticeElRef.textContent.trim())
                 || (inLiveNoticeTxt && inLiveNoticeTxt.value.trim())
                 || liveNoticePresets[0];
-            const nFontPx = Math.round(8.8 * s);
-            const nPadX = Math.round(7.5 * s);
-            const nPadY = Math.round(3.5 * s);
-            const nLineH = Math.round(12.8 * s);
+            const nFontPx = Math.max(7, Math.round(8.8 * fontS));
+            const nPadX = Math.round(7.5 * boxS);
+            const nPadY = Math.round(3.5 * boxS);
+            const nLineH = Math.max(Math.round(nFontPx * 1.35), Math.round(12.6 * fontS));
 
             ctx.save();
             ctx.font = `600 ${nFontPx}px ${activeFont}`;
-            const nLines = wrapCanvasTextLines(ctx, noticeStr, Math.max(80 * s, maxBubbleW - nPadX * 2));
+            const nLines = wrapCanvasTextLines(ctx, noticeStr, Math.max(80 * boxS, maxBubbleW - nPadX * 2));
             let maxNL = 0;
             nLines.forEach(l => {
                 const lw = ctx.measureText(l).width;
@@ -15058,10 +16918,10 @@ window.switchRightTab = function (mode) {
             const nW = Math.min(maxBubbleW, Math.ceil(nPadX * 2 + maxNL));
             const nY = curBottomY - nH;
 
-            drawLiveRoundRect(ctx, baseX, nY, nW, nH, Math.round(8.5 * s));
+            drawLiveRoundRect(ctx, baseX, nY, nW, nH, Math.round(8.5 * boxS));
             ctx.fillStyle = 'rgba(12, 14, 24, 0.54)';
             ctx.fill();
-            ctx.lineWidth = Math.max(1, 0.85 * s);
+            ctx.lineWidth = Math.max(1, 0.85 * boxS);
             ctx.strokeStyle = 'rgba(168, 85, 247, 0.24)';
             ctx.stroke();
 
@@ -15193,7 +17053,7 @@ window.switchRightTab = function (mode) {
                 bannerAlpha = Math.max(0, 1 - outEase);
             }
 
-            const gs = scaleRatioX * Math.min(1.45, Math.max(0.80, dmScale));
+            const gs = scaleRatioX;
             const gH = Math.round(30 * gs);
             const gY = Math.max(78 * scaleRatioY, curBottomY - gH);
             const gX = baseX + slideOffsetX;
@@ -15351,7 +17211,7 @@ window.switchRightTab = function (mode) {
             } // end if (!inExportEmptyGap)
         }
 
-        // 6) 动态绘制右下角向上飘动的表情与彩心粒子（使用离屏精灵缓存 1:1 还原编辑器 drop-shadow 光效，零主画布模糊开销）
+        // 6) 动态绘制右下角向上飘动的小表情与彩心粒子（使用离屏精灵缓存 1:1 还原编辑器 24px 精致贴边微光晕，零主画布模糊开销）
         const density = getLiveHeartDensityVal();
         const showFloatingHearts = density > 0
             && (liveVisStateMap['float-hearts'] !== false && liveVisStateMap['floating-hearts'] !== false)
@@ -15422,6 +17282,160 @@ window.switchRightTab = function (mode) {
         }
     };
 
+    // ★ 问题四.2 & 问题五.1：直播间实时数字每次打开随机（在线 1000~200万，本场点赞 = 在线人数若干倍，观众头像3张随机换，主播昵称/送礼人名及头像去重随机 + Gemini Flash AI 生成海外华人昵称）
+    window.__randomizeLiveRoomSimulationOnBoot = function () {
+        const modSet = window.__userModifiedFieldSet || new Set();
+
+        // 1) 主播昵称 #live-disp-host-name
+        if (!modSet.has('in-live-host-name')) {
+            const hostNick = (typeof window.claimUniqueNickname === 'function')
+                ? window.claimUniqueNickname()
+                : '溫哥華小鹿';
+            applyLiveHostNameDisplay(hostNick);
+        }
+
+        // 2) 在线人数 #live-disp-viewers / #live-left-live-viewers (1000 ~ 200万) 与本场点赞 #live-disp-host-id (= 在线人数 2.2 ~ 6.5 倍)
+        let viewerNumVal = parseInt(inLiveViewers ? inLiveViewers.value : '102000', 10) || 102000;
+        if (!modSet.has('in-live-viewers-text') && !modSet.has('in-live-viewers')) {
+            const vGen = generateRandom1kTo2M();
+            viewerNumVal = vGen.numVal;
+            applyLiveViewersDisplay(vGen.dispTxt, vGen.numVal);
+        }
+        if (!modSet.has('in-live-host-id')) {
+            const mult = 2.2 + Math.random() * 4.3; // 本场点赞 = 在线人数 2.2~6.5 倍
+            const likesNum = Math.min(9990000, Math.max(2500, Math.round(viewerNumVal * mult)));
+            const likesTxt = formatLiveLikesNumberText(likesNum);
+            applyLiveHostLikesDisplay(likesTxt);
+        }
+
+        // 3) 右上角 3 张观众头像 #live-aud-avatars 随机更换（走 340+ 海外华人真人库去重）
+        if (typeof syncLiveAudienceAvatars === 'function') {
+            syncLiveAudienceAvatars(true);
+        }
+
+        // 4) 送礼人名 #live-gift-sender-name 与送礼真人头像随机更换
+        if (!modSet.has('in-live-gift-user')) {
+            const giftNick = (typeof window.claimUniqueNickname === 'function')
+                ? window.claimUniqueNickname()
+                : '洛杉磯老陳';
+            if (inLiveGiftUser) inLiveGiftUser.value = giftNick;
+            if (liveGiftSenderName) liveGiftSenderName.textContent = giftNick;
+            pickNextRealHumanGiftAvatar(giftNick, true);
+            applyLiveGiftBannerState(false, false);
+        }
+
+        // 5) 顶部动态轮播话题标签 #live-laya-brand-pill：若用户未手动编辑过，则每次加载随机选用一组热门轮播话题
+        if (!modSet.has('in-live-brand-tag')) {
+            const randGrp = liveBrandTopicGroupPresets[Math.floor(Math.random() * liveBrandTopicGroupPresets.length)].slice();
+            liveBrandTopicCursor = Math.floor(Math.random() * randGrp.length);
+            applyLiveBrandTagDisplay(randGrp.join(' | '), false);
+        }
+
+        // 6) 若公屏弹幕未被用户手动编辑过，每次打开会话自动合成一批全新的「真人短句 + 抖音29黄脸表情去重 + 三形态随机混排」直播弹幕并换上不重复的海外华人昵称
+        if (!modSet.has('in-live-danmaku-list') && inLiveDanmakuList) {
+            if (typeof window.__composeAuthenticLiveDanmakuBatch === 'function') {
+                const freshBatch = window.__composeAuthenticLiveDanmakuBatch({
+                    category: 'general',
+                    totalRows: 15
+                });
+                if (freshBatch && freshBatch.length > 0) {
+                    inLiveDanmakuList.value = freshBatch.join('\n');
+                    renderLiveChatBubbles(false);
+                }
+            } else if (typeof window.claimUniqueNickname === 'function') {
+                const rawLines = String(inLiveDanmakuList.value || '').split(/\r?\n/).filter(Boolean);
+                if (rawLines.length > 0) {
+                    const updatedLines = rawLines.map((line) => {
+                        const freshNick = window.claimUniqueNickname();
+                        if (/(\s)(來了|来了)$/.test(line.trim())) {
+                            return `${freshNick} ${window.__currentLangMode === 'simp' ? '来了' : '來了'}`;
+                        }
+                        const colonIdx = line.indexOf('：') >= 0 ? line.indexOf('：') : line.indexOf(':');
+                        if (colonIdx > 0) {
+                            return `${freshNick}：${line.slice(colonIdx + 1).trim()}`;
+                        }
+                        return `${freshNick}：${line.trim()}`;
+                    });
+                    inLiveDanmakuList.value = updatedLines.join('\n');
+                    renderLiveChatBubbles(false);
+                }
+            }
+        }
+    };
+
+    // ★ 问题五.1：复用已内置的团队共享 Gemini Flash AI 接口（口令 0000、独立 30 秒预热冷却，不锁定用户 AI 弹幕按钮、不扣减用户每日配额），后台静默补充海外华人昵称
+    const AI_NICK_WARMUP_TS_KEY = 'LAYA_AI_NICK_WARMUP_TS_V1';
+    async function requestGeminiOverseasNicknamesOnLoad() {
+        try {
+            // 若本地 AI 昵称缓存仍有 >= 8 条本机未使用的候选昵称，直接复用，无需每次刷新都请求网络
+            try {
+                const cachedAi = JSON.parse(localStorage.getItem(AI_NICKNAMES_CACHE_KEY) || '[]');
+                const usedRaw = JSON.parse(localStorage.getItem(USED_NICKNAMES_STORAGE_KEY) || '[]');
+                const usedSetLocal = new Set(Array.isArray(usedRaw) ? usedRaw : []);
+                if (Array.isArray(cachedAi)) {
+                    const unusedCached = cachedAi.filter(n => n && !usedSetLocal.has(n));
+                    if (unusedCached.length >= 8) return;
+                }
+            } catch (_cErr) {}
+
+            const lastWarmupTs = parseInt(localStorage.getItem(AI_NICK_WARMUP_TS_KEY) || '0', 10) || 0;
+            if (lastWarmupTs > 0 && (Date.now() - lastWarmupTs) < TEAM_AI_COOLDOWN_SEC * 1000) {
+                return; // 遵守 30 秒间隔保护，冷却期内直接走本地 325+ 大昵称库
+            }
+            const passOk = verifyTeamAiPasscode(false);
+            if (!passOk) return;
+
+            const { apiKey } = getActiveLiveAiKeyAndUrl();
+            if (!apiKey || !/^(AIza|AQ\.)/i.test(apiKey)) return;
+
+            try { localStorage.setItem(AI_NICK_WARMUP_TS_KEY, String(Date.now())); } catch (_e) {}
+
+            const seed = Math.floor(1000 + Math.random() * 9000);
+            const prompt = `請生成 20 個「海外華人/真實社交用戶風格」的繁體中文暱稱（例如：溫哥華小鹿、洛杉磯老陳、多倫多Sandy、墨爾本阿豪、悉尼小陳、倫敦Chloé、西雅圖老林、東京小夏、新加坡阿杰、灣區工程師阿哲 等，批次號：${seed}）。要求：1.每行一個暱稱，不要序號、不要標點解釋；2.風格自然真實，涵蓋北美/澳洲/歐洲/日韓新馬港澳台華人日常網名；3.長度 3~8 個字。`;
+
+            const modelsToTry = [
+                { id: 'gemini-3.8-flash', genCfg: { thinkingConfig: { thinkingLevel: 'LOW' }, maxOutputTokens: 1024, temperature: 0.95 } },
+                { id: 'gemini-2.5-flash', genCfg: { maxOutputTokens: 512, temperature: 0.95 } }
+            ];
+            let outTxt = '';
+            for (const mSpec of modelsToTry) {
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/${mSpec.id}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        generationConfig: mSpec.genCfg
+                    })
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    const parts = json?.candidates?.[0]?.content?.parts || [];
+                    outTxt = parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('\n');
+                    if (outTxt.trim()) break;
+                }
+            }
+            if (!outTxt) return;
+
+            const nicks = String(outTxt)
+                .split(/[\r\n,，、|]+/)
+                .map(s => s.replace(/^(\d+[\.、\)\s]+|[-•*]\s*)/, '').trim())
+                .filter(s => s.length >= 2 && s.length <= 12 && !/^(好的|以下|暱稱)/.test(s));
+
+            if (nicks.length >= 4) {
+                nicks.forEach(n => {
+                    if (!NICKNAME_POOL.includes(n)) NICKNAME_POOL.unshift(n);
+                });
+                try {
+                    localStorage.setItem(AI_NICKNAMES_CACHE_KEY, JSON.stringify(nicks.slice(0, 40)));
+                } catch (e) {}
+            }
+        } catch (e) {
+            // AI 失败或离线时完全静默回退到本地 325+ 海外华人昵称库
+        }
+    }
+    setTimeout(requestGeminiOverseasNicknamesOnLoad, 600);
+
     // 初始化清理旧版 8888 / 1000 缓存并同步所有直播间顶部数值
     if (localStorage.getItem('LAYA_LIVE_V23_1K_2M_MIGRATED') !== '1') {
         if (inLiveHostId && (inLiveHostId.value === '8888' || inLiveHostId.value === '1.8萬')) {
@@ -15489,18 +17503,17 @@ window.switchRightTab = function (mode) {
         applyLiveDmScaleAndArea(false);
         applyLiveWelcomeDisplay(inLiveWelcomeTxt ? inLiveWelcomeTxt.value : '');
         applyLiveNoticeDisplay(inLiveNoticeTxt ? inLiveNoticeTxt.value : '');
-        applyLiveGiftBannerState(false, true);
+        applyLiveGiftBannerState(false, !liveGiftSenderAv || liveGiftSenderAv.dataset.hasRealHumanAv !== 'true');
         renderLiveChatBubbles(false);
         restartLiveChatRollTimer();
         restartLiveHeartTimer();
         restartLiveGiftAutoCycleTimer();
     }, 140);
 
-    applyLiveHostNameDisplay(inLiveHostName ? inLiveHostName.value : '小王小王');
+    applyLiveHostNameDisplay(inLiveHostName ? inLiveHostName.value : '溫哥華小鹿');
     applyLiveHostLikesDisplay((inLiveHostId && inLiveHostId.value !== '8888') ? inLiveHostId.value : '25.6萬');
     applyLiveViewersDisplay((inLiveViewersText && inLiveViewersText.value !== '1000') ? inLiveViewersText.value : '10.2萬', null);
-    applyLiveBrandTagDisplay(inLiveBrandTag ? inLiveBrandTag.value : 'Laya 精選');
-    applyLiveRankTagDisplay(inLiveRankTag ? inLiveRankTag.value : '人氣榜');
+    applyLiveBrandTagDisplay(inLiveBrandTag ? inLiveBrandTag.value : 'Laya 精選 | 獨家未刪減 | 今晚9點開播 | 新人必看 | 限時福利');
     applyLiveSquareTagDisplay(inLiveSquareTag ? inLiveSquareTag.value : '直播廣場');
     applyLiveWelcomeDisplay(inLiveWelcomeTxt ? inLiveWelcomeTxt.value : '');
     applyLiveNoticeDisplay(inLiveNoticeTxt ? inLiveNoticeTxt.value : '');
@@ -16031,9 +18044,9 @@ window.switchRightTab = function (mode) {
                         locate('dy', 'card-dy-live-settings', '#in-live-brand-tag');
                         return;
                     }
-                    // 人气榜 / 直播广场胶囊
-                    if (t.closest('#live-sub-rank-pill, #live-sub-square-pill')) {
-                        locate('dy', 'card-dy-live-settings', '#in-live-rank-tag');
+                    // 直播广场胶囊
+                    if (t.closest('#live-sub-square-pill')) {
+                        locate('dy', 'card-dy-live-settings', '#in-live-square-tag');
                         return;
                     }
                     // 公屏顶部绿色系统提示语

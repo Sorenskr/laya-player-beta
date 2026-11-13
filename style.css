@@ -393,23 +393,33 @@ main {
     user-select: none !important;
 }
 
-/* 全局素材画面放大镜悬浮控制栏 */
+/* 全局素材画面放大镜悬浮控制栏（紧凑双排停靠左下角留白区，绝不遮挡居中 9:16 手机画面） */
 .stage-magnifier-bar {
     position: absolute;
-    left: 14px;
-    bottom: 14px;
+    left: 12px;
+    bottom: 12px;
     z-index: 130;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 6px;
-    padding: 6px 10px;
+    gap: 5px;
+    max-width: 282px;
+    padding: 6px 8px;
     border-radius: 10px;
-    background: rgba(11, 15, 25, 0.88);
-    border: 1px solid rgba(56, 189, 248, 0.42);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.65), 0 0 14px rgba(14, 165, 233, 0.18);
+    background: rgba(11, 15, 25, 0.84);
+    border: 1px solid rgba(56, 189, 248, 0.36);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 12px rgba(14, 165, 233, 0.14);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
     user-select: none;
+    opacity: 0.78;
+    transition: opacity 0.18s ease, border-color 0.18s ease;
+}
+
+.stage-magnifier-bar:hover,
+.stage-magnifier-bar:focus-within {
+    opacity: 1;
+    border-color: rgba(56, 189, 248, 0.65);
 }
 
 .stage-mag-btn {
@@ -481,30 +491,27 @@ main {
 }
 
 .stage-mag-slider {
-    width: 88px;
+    width: 68px;
     height: 4px;
     accent-color: #38bdf8;
     cursor: pointer;
 }
 
 .stage-mag-pct {
-    min-width: 42px;
+    min-width: 40px;
     text-align: center;
-    font-size: 11.5px;
+    font-size: 11px;
     font-weight: 800;
     color: #38bdf8;
     background: rgba(15, 23, 42, 0.85);
     border: 1px solid rgba(56, 189, 248, 0.32);
     border-radius: 5px;
-    padding: 3px 5px;
+    padding: 3px 4px;
     cursor: pointer;
 }
 
 .stage-mag-divider {
-    width: 1px;
-    height: 18px;
-    background: rgba(148, 163, 184, 0.25);
-    margin: 0 2px;
+    display: none;
 }
 
 .stage-pan-hint-pill {
@@ -1808,6 +1815,44 @@ main {
     color: rgba(255, 255, 255, 0.9);
 }
 
+/* 顶部通知栏（状态栏）Laya 专属小图标：与通知栏文字同一视觉层级、自动避让不遮挡文字 */
+.dy-sb-laya-notif-wrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: var(--sb-laya-size, 12.5px);
+    height: var(--sb-laya-size, 12.5px);
+    margin-left: var(--sb-laya-gap-l, 2px);
+    margin-right: var(--sb-laya-gap-r, 0px);
+    transform: translateY(var(--sb-laya-y, 0px));
+    border-radius: 3px;
+    overflow: hidden;
+    cursor: grab;
+    opacity: 0.95;
+    vertical-align: middle;
+    transition: box-shadow 0.15s ease, opacity 0.15s ease;
+}
+.dy-sb-laya-notif-wrap:hover {
+    opacity: 1;
+    box-shadow: 0 0 0 1.2px rgba(192, 132, 252, 0.85);
+}
+.dy-sb-laya-notif-wrap.is-dragging {
+    cursor: grabbing;
+    box-shadow: 0 0 0 1.5px #fde047;
+}
+.dy-sb-laya-notif-icon {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 2.8px;
+    pointer-events: none;
+}
+#render-target.theme-light .dy-sb-laya-notif-wrap {
+    box-shadow: 0 0 0 0.6px rgba(22, 24, 35, 0.16);
+}
+
 /* 顶部中央开孔/灵动岛/刘海/挖孔区域 */
 .dy-sb-center {
     position: absolute;
@@ -2276,6 +2321,8 @@ main {
 
 .laya-app-nav-item {
     position: relative;
+    isolation: isolate;
+    z-index: 1;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -2291,7 +2338,8 @@ main {
 
 .laya-app-nav-txt {
     position: relative;
-    z-index: 2;
+    z-index: 3;
+    color: inherit;
     white-space: nowrap;
 }
 
@@ -2303,17 +2351,21 @@ main {
     width: 42px;
     height: 24px;
     margin-left: -21px;
-    margin-top: -11px;
+    margin-top: -10px;
     transform: none !important;
     object-fit: contain;
     pointer-events: none;
-    z-index: 1;
+    z-index: 0;
 }
 
 .laya-app-nav-item.active {
     color: #ffffff;
     font-size: 15.5px;
     font-weight: 800;
+}
+
+.laya-app-nav-item.active .laya-app-nav-txt {
+    text-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.36);
 }
 
 .laya-app-nav-item.active .laya-app-nav-glow {
@@ -2452,6 +2504,41 @@ main {
     justify-content: center;
     color: #fff;
     margin-bottom: 1px;
+    filter: none !important;
+    text-shadow: none !important;
+}
+
+#dy-btn-like svg,
+#live-bot-btn-like svg,
+#dyl-btn-like svg {
+    filter: none !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+    transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1), fill 0.15s ease;
+}
+
+#dy-btn-like.liked #dy-svg-like,
+#dy-btn-like.liked svg,
+#live-bot-btn-like.liked #live-bot-svg-like,
+#live-bot-btn-like.liked svg,
+#dyl-btn-like.liked svg {
+    fill: #fe2c55 !important;
+    color: #fe2c55 !important;
+}
+
+#dyl-btn-like.liked svg {
+    stroke: #fe2c55 !important;
+}
+
+@keyframes likeHeartScaleBounce {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.28); }
+    68% { transform: scale(0.90); }
+    100% { transform: scale(1); }
+}
+
+.like-bounce-anim {
+    animation: likeHeartScaleBounce 0.32s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .dy-action-txt {
@@ -5399,6 +5486,56 @@ input[type="range"] {
     cursor: text;
 }
 
+/* 竖屏评论区抽屉右侧：仅在鼠标移入评论区时显示的「里面文字独立缩放条」（导出截图与视频时自动忽略） */
+.dy-cmt-font-quick-bar {
+    margin-left: auto;
+    margin-bottom: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    background: rgba(15, 23, 42, 0.06);
+    border: 1px solid rgba(15, 23, 42, 0.14);
+    border-radius: 999px;
+    padding: 1.5px 4px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.16s ease;
+}
+.dy-comment-drawer:hover .dy-cmt-font-quick-bar {
+    opacity: 1;
+    pointer-events: auto;
+}
+#render-target.theme-dark .dy-cmt-font-quick-bar {
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.18);
+}
+.dy-cmt-font-qbtn {
+    border: none;
+    background: rgba(254, 44, 85, 0.14);
+    color: #e11d48;
+    font-size: 9.5px;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 999px;
+    cursor: pointer;
+    line-height: 1.25;
+}
+.dy-cmt-font-qbtn:hover {
+    background: #fe2c55;
+    color: #ffffff;
+}
+.dy-cmt-font-qval {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #475569;
+    padding: 0 3px;
+    cursor: pointer;
+    user-select: none;
+}
+#render-target.theme-dark .dy-cmt-font-qval {
+    color: #cbd5e1;
+}
+
 /* 3. 可上下滑动的评论列表 */
 .dy-cmt-list {
     flex: 1;
@@ -6937,6 +7074,8 @@ input[type="range"] {
 }
 #render-target .laya-app-nav-item {
     position: relative !important;
+    isolation: isolate !important;
+    z-index: 1 !important;
     display: inline-flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -6951,7 +7090,8 @@ input[type="range"] {
 }
 #render-target .laya-app-nav-txt {
     position: relative !important;
-    z-index: 2 !important;
+    z-index: 3 !important;
+    color: inherit !important;
     white-space: nowrap !important;
 }
 #render-target .laya-app-nav-item .laya-app-nav-glow {
@@ -6962,16 +7102,19 @@ input[type="range"] {
     width: 48px !important;
     height: 27px !important;
     margin-left: -24px !important;
-    margin-top: -12px !important;
+    margin-top: -11px !important;
     transform: none !important;
     object-fit: contain !important;
     pointer-events: none !important;
-    z-index: 1 !important;
+    z-index: 0 !important;
 }
 #render-target .laya-app-nav-item.active {
     color: #ffffff !important;
     font-size: 17.5px !important;
     font-weight: 800 !important;
+}
+#render-target .laya-app-nav-item.active .laya-app-nav-txt {
+    text-shadow: 0 1px 2.5px rgba(0, 0, 0, 0.38) !important;
 }
 #render-target .laya-app-nav-item.active .laya-app-nav-glow {
     display: block !important;
@@ -7238,7 +7381,7 @@ input[type="range"] {
 }
 #render-target.theme-light .dy-action-icon {
     color: #1f2329 !important;
-    filter: drop-shadow(0 1px 2px rgba(255, 255, 255, 0.85));
+    filter: none !important;
 }
 #render-target.theme-light .dy-action-txt {
     color: #1f2329 !important;
@@ -8018,23 +8161,290 @@ input[type="range"] {
     color: #161823;
     border-color: rgba(22, 24, 35, 0.12);
 }
-/* Laya 软件原生品牌胶囊（带 Laya.png 图标与品牌紫光晕） */
+/* Laya 软件原生品牌动态滚动话题胶囊（顶部「限时福利+Logo」标签区：支持自由拖动、字号、外框宽高与 8 种文字动画） */
 .live-laya-brand-pill {
     display: inline-flex;
     align-items: center;
-    gap: 3.5px;
-    background: linear-gradient(90deg, rgba(124, 58, 237, 0.38) 0%, rgba(168, 85, 247, 0.28) 100%);
-    border: 1px solid rgba(192, 132, 252, 0.5);
+    gap: 4px;
+    background: linear-gradient(90deg, rgba(124, 58, 237, 0.48) 0%, rgba(168, 85, 247, 0.34) 100%);
+    border: 1px solid rgba(192, 132, 252, 0.56);
     color: #f3e8ff;
-    font-size: 8.6px;
+    font-size: var(--brand-pill-font-size, 9px);
     font-weight: 700;
-    padding: 1.5px 6px 1.5px 3px;
+    padding: 0 6px 0 3px;
+    width: var(--brand-pill-w, 92px);
+    height: var(--brand-pill-h, 20px);
+    min-width: 48px;
+    min-height: 15px;
+    box-sizing: border-box;
     border-radius: 999px;
+    line-height: 1.15;
+    overflow: hidden;
+    position: relative;
+    transform: translate(var(--brand-pill-x, 0px), var(--brand-pill-y, 0px));
+    cursor: grab;
+    z-index: 35;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.live-laya-brand-pill:hover {
+    border-color: rgba(253, 224, 71, 0.78);
+}
+.live-laya-brand-pill.is-dragging {
+    cursor: grabbing !important;
+    border-color: #fde047 !important;
+    box-shadow: 0 0 8px rgba(168, 85, 247, 0.65);
+}
+.live-laya-brand-pill.is-editing-inline {
+    width: auto !important;
+    max-width: none !important;
+    overflow: visible !important;
+    z-index: 60;
+}
+.live-laya-brand-pill.is-editing-inline .live-brand-ticker-viewport {
+    max-width: none !important;
+    overflow: visible !important;
+}
+.live-brand-ticker-viewport {
+    display: inline-flex;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    overflow: hidden;
+    white-space: nowrap;
+    position: relative;
+}
+.live-brand-ticker-track {
+    display: inline-block;
+    white-space: nowrap;
+    font-size: var(--brand-pill-font-size, 9px);
     line-height: 1.2;
+    will-change: transform, opacity;
+}
+.live-brand-ticker-track.is-scrolling-marquee {
+    animation: liveBrandTopicMarquee 5.6s ease-in-out infinite alternate;
+}
+.live-brand-ticker-track.is-slide-next {
+    animation: liveBrandSlideCarousel 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ★ 顶部标签 8 种炫彩/动画效果 + 无动画 */
+.live-brand-ticker-track.anim-none {
+    color: #f5f3ff;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+}
+.live-brand-ticker-track.anim-shimmer {
+    background: linear-gradient(90deg, #f5f3ff 0%, #fde047 28%, #f472b6 54%, #e9d5ff 78%, #f5f3ff 100%);
+    background-size: 220% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: liveBrandAnimShimmer 2.4s linear infinite;
+}
+.live-brand-ticker-track.anim-rainbow {
+    background: linear-gradient(90deg, #ff6b6b 0%, #feca57 20%, #48dbfb 42%, #ff9ff3 64%, #54a0ff 84%, #ff6b6b 100%);
+    background-size: 240% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: liveBrandAnimShimmer 2.1s linear infinite;
+}
+.live-brand-ticker-track.anim-breathe {
+    color: #fef08a;
+    animation: liveBrandAnimBreathe 1.6s ease-in-out infinite;
+}
+.live-brand-ticker-track.anim-typewriter {
+    color: #f5f3ff;
+    overflow: hidden;
+    border-right: 1.5px solid #fde047;
+    padding-right: 1px;
+    animation: liveBrandAnimTypewriter 2.4s steps(8, end) infinite, liveBrandCaretBlink 0.65s step-end infinite;
+}
+.live-brand-ticker-track.anim-wave {
+    color: #f3e8ff;
+    display: inline-block;
+    animation: liveBrandAnimWave 1.35s ease-in-out infinite;
+}
+.live-brand-ticker-track.anim-bounce {
+    color: #fde68a;
+    display: inline-block;
+    transform-origin: center center;
+    animation: liveBrandAnimBounce 1.25s cubic-bezier(0.28, 0.84, 0.42, 1) infinite;
+}
+.live-brand-ticker-track.anim-spin {
+    color: #f5d0fe;
+    display: inline-block;
+    transform-origin: center center;
+    animation: liveBrandAnimSpin 2.6s ease-in-out infinite;
+}
+.live-brand-ticker-track.anim-fade {
+    color: #f5f3ff;
+    animation: liveBrandAnimFade 2.0s ease-in-out infinite;
+}
+
+@keyframes liveBrandAnimShimmer {
+    0% { background-position: 200% 50%; }
+    100% { background-position: -20% 50%; }
+}
+@keyframes liveBrandAnimBreathe {
+    0%, 100% { opacity: 1; text-shadow: 0 0 6px rgba(253, 224, 71, 0.85), 0 0 11px rgba(192, 132, 252, 0.65); }
+    50% { opacity: 0.42; text-shadow: 0 0 1px rgba(253, 224, 71, 0.15); }
+}
+@keyframes liveBrandAnimTypewriter {
+    0%, 8% { max-width: 0; }
+    62%, 88% { max-width: 150px; }
+    100% { max-width: 0; }
+}
+@keyframes liveBrandCaretBlink {
+    0%, 100% { border-color: #fde047; }
+    50% { border-color: transparent; }
+}
+@keyframes liveBrandAnimWave {
+    0%, 100% { transform: translateY(0) rotate(0deg); }
+    25% { transform: translateY(-1.8px) rotate(-2deg); }
+    50% { transform: translateY(0.5px) rotate(1.5deg); }
+    75% { transform: translateY(1.6px) rotate(-1deg); }
+}
+@keyframes liveBrandAnimBounce {
+    0%, 100% { transform: scale(1) translateY(0); }
+    35% { transform: scale(1.13, 0.92) translateY(-1.5px); }
+    60% { transform: scale(0.96, 1.05) translateY(0.5px); }
+}
+@keyframes liveBrandAnimSpin {
+    0%, 62%, 100% { transform: perspective(180px) rotateX(0deg) rotateZ(0deg); }
+    30% { transform: perspective(180px) rotateX(360deg) rotateZ(0deg); }
+}
+@keyframes liveBrandAnimFade {
+    0%, 100% { opacity: 1; transform: translateY(0); }
+    50% { opacity: 0.14; transform: translateY(1px); }
+}
+
+/* 设置面板中的动画快捷按钮矩阵 */
+.live-brand-anim-btn-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+.live-brand-anim-pill-btn {
+    padding: 2.5px 7px;
+    border-radius: 999px;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #cbd5e1;
+    background: rgba(30, 41, 59, 0.78);
+    border: 1px solid rgba(148, 163, 184, 0.32);
+    cursor: pointer;
+    transition: all 0.14s ease;
+}
+.live-brand-anim-pill-btn:hover {
+    color: #ffffff;
+    border-color: rgba(192, 132, 252, 0.65);
+}
+.live-brand-anim-pill-btn.active {
+    color: #1e1b4b;
+    background: linear-gradient(90deg, #fde047 0%, #f472b6 100%);
+    border-color: #fef08a;
+    font-weight: 800;
+}
+
+/* ★ 需求四：AI 暗号在直播间顶部的胶囊与醒目引导条样式 */
+.live-secret-top-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2.5px;
+    padding: 1.5px 6.5px;
+    border-radius: 999px;
+    background: linear-gradient(90deg, rgba(217, 119, 6, 0.78) 0%, rgba(225, 29, 72, 0.75) 100%);
+    border: 1px solid rgba(253, 224, 71, 0.75);
+    color: #fef08a;
+    font-size: 8.4px;
+    font-weight: 800;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    box-shadow: 0 1px 6px rgba(245, 158, 11, 0.35);
+}
+.live-secret-key-ico {
+    font-size: 8.5px;
+    line-height: 1;
+}
+.live-secret-guide-bar {
+    margin-top: 4px;
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    max-width: 96%;
+    padding: 2.5px 8px 2.5px 4px;
+    border-radius: 999px;
+    background: rgba(15, 18, 30, 0.68);
+    border: 1px solid rgba(251, 191, 36, 0.62);
+    color: #fef9c3;
+    font-size: 8.8px;
+    font-weight: 700;
+    line-height: 1.25;
+    cursor: pointer;
+    backdrop-filter: blur(4px);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.28);
+}
+.live-secret-guide-tag {
+    background: linear-gradient(90deg, #f59e0b 0%, #ef4444 100%);
+    color: #ffffff;
+    font-size: 7.8px;
+    font-weight: 900;
+    padding: 1px 5px;
+    border-radius: 999px;
+    flex-shrink: 0;
+}
+.live-secret-guide-main {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+@keyframes liveBrandSlideCarousel {
+    0% {
+        transform: translateX(18px);
+        opacity: 0.15;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+@keyframes liveBrandTopicMarquee {
+    0%, 18% { transform: translateX(0); }
+    82%, 100% { transform: translateX(var(--marquee-shift, var(--brand-marquee-dist, -32px))); }
+}
+.live-brand-topic-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    background: rgba(124, 58, 237, 0.24);
+    border: 1px solid rgba(192, 132, 252, 0.45);
+    color: #e9d5ff;
+    cursor: pointer;
+    user-select: none;
+}
+.live-brand-topic-chip.active {
+    background: rgba(168, 85, 247, 0.48);
+    border-color: #fde047;
+    color: #ffffff;
+}
+.live-brand-topic-chip .chip-del {
+    color: #fda4af;
+    font-weight: 800;
+    margin-left: 2px;
+    cursor: pointer;
 }
 .live-laya-logo-box {
-    width: 13px;
-    height: 13px;
+    width: var(--brand-logo-size, 13.5px);
+    height: var(--brand-logo-size, 13.5px);
     border-radius: 3.5px;
     overflow: hidden;
     display: inline-flex;
@@ -8050,7 +8460,7 @@ input[type="range"] {
     display: block;
 }
 
-/* 右侧：竖排多彩开心飘赞动画（火花✨🔥、笑脸🥳🤩😄、礼花礼炮🎉🎊🎆、彩心💖从下往上欢快飘动） */
+/* 右侧：开心鲜艳小表情与彩心混搭飘动动画 + 贴合边缘的精致柔和微光晕 */
 .live-floating-hearts {
     position: absolute;
     right: 6px;
@@ -8317,34 +8727,48 @@ input[type="range"] {
 }
 
 .live-chat-scroll-box {
+    --live-dm-box-scale: 1;
+    --live-dm-font-scale: 1;
     --live-dm-scale: 1;
     position: relative;
     width: var(--live-dm-width, 93%);
     display: flex;
     flex-direction: column;
-    gap: calc(3.5px * var(--live-dm-scale, 1));
+    gap: calc(3.5px * var(--live-dm-box-scale, 1));
     justify-content: flex-end;
     transition: width 0.12s ease;
 }
 .live-dm-edit-toolbar {
     position: relative;
     display: flex;
-    align-items: center;
+    flex-direction: column;
+    align-items: stretch;
     gap: 3px;
-    flex-wrap: nowrap;
     width: 98%;
-    margin-bottom: 2px;
-    padding: 2.5px 5px;
-    border-radius: 999px;
-    background: rgba(15, 23, 42, 0.88);
-    border: 1px solid rgba(56, 189, 248, 0.65);
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.58);
+    margin-bottom: 3px;
+    padding: 4px 6px;
+    border-radius: 10px;
+    background: rgba(15, 23, 42, 0.92);
+    border: 1px solid rgba(56, 189, 248, 0.68);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.65);
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
     transform: translateY(3px);
     transition: opacity 0.16s ease, visibility 0.16s ease, transform 0.16s ease;
     z-index: 38;
+    box-sizing: border-box;
+}
+.live-dm-toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-wrap: nowrap;
+    width: 100%;
+}
+.live-dm-toolbar-row.is-area-row {
+    padding-bottom: 2px;
+    border-bottom: 1px dashed rgba(148, 163, 184, 0.28);
 }
 .live-bottom-section.is-touching-dm-zone .live-dm-edit-toolbar,
 .live-bottom-section.is-zoom-editing .live-dm-edit-toolbar,
@@ -8366,17 +8790,53 @@ input[type="range"] {
     border: 1px solid rgba(192, 132, 252, 0.65);
     background: rgba(15, 23, 42, 0.95);
     color: #f3e8ff;
-    font-size: 8.6px;
+    font-size: 8.4px;
     font-weight: 800;
-    padding: 2.5px 6px;
+    padding: 2px 5.5px;
     border-radius: 999px;
     cursor: pointer;
     line-height: 1.2;
     white-space: nowrap;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.55);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.5);
     transition: transform 0.12s ease, background 0.15s ease;
 }
+.live-dm-tool-btn.is-area-btn {
+    border-color: rgba(56, 189, 248, 0.78);
+    background: rgba(14, 116, 144, 0.55);
+    color: #e0f2fe;
+}
+.live-dm-tool-btn.is-area-btn:hover {
+    background: rgba(14, 165, 233, 0.92);
+}
+.live-dm-tool-btn.is-font-btn {
+    border-color: rgba(232, 121, 249, 0.85);
+    background: rgba(126, 34, 206, 0.62);
+    color: #fae8ff;
+}
+.live-dm-tool-btn.is-font-btn:hover {
+    background: rgba(168, 85, 247, 0.95);
+}
+.live-dm-tool-badge {
+    font-size: 8px;
+    font-weight: 800;
+    padding: 1.5px 5px;
+    border-radius: 6px;
+    white-space: nowrap;
+    cursor: pointer;
+    user-select: none;
+}
+.live-dm-tool-badge.is-area-badge {
+    color: #bae6fd;
+    background: rgba(14, 165, 233, 0.18);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+}
+.live-dm-tool-badge.is-font-badge {
+    color: #f5d0fe;
+    background: rgba(168, 85, 247, 0.22);
+    border: 1px solid rgba(216, 180, 254, 0.55);
+}
 .live-dm-tool-btn.is-zoom-highlight {
+    margin-left: auto;
     background: linear-gradient(90deg, #0284c7, #7c3aed);
     border: 1.2px solid #fde047;
     color: #ffffff;
@@ -8412,7 +8872,6 @@ input[type="range"] {
     white-space: nowrap;
 }
 .live-dm-move-handle {
-    margin-left: auto;
     background: rgba(14, 165, 233, 0.88);
     border: 1px solid rgba(125, 211, 252, 0.8);
     color: #ffffff;
@@ -8433,12 +8892,12 @@ input[type="range"] {
     filter: brightness(1.1);
 }
 .live-dm-resize-handle {
-    background: rgba(124, 58, 237, 0.88);
-    border: 1px solid rgba(216, 180, 254, 0.75);
+    background: rgba(2, 132, 199, 0.88);
+    border: 1px solid rgba(125, 211, 252, 0.75);
     color: #ffffff;
     font-size: 8.2px;
     font-weight: 800;
-    padding: 2px 6px;
+    padding: 2px 5.5px;
     border-radius: 999px;
     cursor: nwse-resize;
     pointer-events: auto;
@@ -8446,19 +8905,20 @@ input[type="range"] {
     transition: transform 0.15s ease;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.55);
     white-space: nowrap;
+    margin-right: auto;
 }
 .live-chat-scroll-box.is-resizing-dm {
-    outline: 1px dashed rgba(192, 132, 252, 0.75);
+    outline: 1px dashed rgba(56, 189, 248, 0.82);
     outline-offset: 3px;
     border-radius: 8px;
 }
-/* 直播间系统防诈提示气泡 */
+/* 直播间系统防诈提示气泡：外框边距跟随框体比例 --live-dm-box-scale，文字字号跟随 --live-dm-font-scale */
 .live-sys-notice {
     background: rgba(12, 14, 24, 0.52);
     border: 1px solid rgba(168, 85, 247, 0.22);
-    border-radius: calc(8px * var(--live-dm-scale, 1));
-    padding: calc(3.5px * var(--live-dm-scale, 1)) calc(7.5px * var(--live-dm-scale, 1));
-    font-size: calc(8.8px * var(--live-dm-scale, 1));
+    border-radius: calc(8px * var(--live-dm-box-scale, 1));
+    padding: calc(3.5px * var(--live-dm-box-scale, 1)) calc(7.5px * var(--live-dm-box-scale, 1));
+    font-size: calc(8.8px * var(--live-dm-font-scale, 1));
     font-weight: 600;
     line-height: 1.28;
     color: #c4b5fd;
@@ -8467,16 +8927,16 @@ input[type="range"] {
     background: rgba(22, 24, 35, 0.08);
     color: #6d28d9;
 }
-/* 主播房间欢迎语 */
+/* 主播房间欢迎语：外框边距跟随框体比例 --live-dm-box-scale，文字字号跟随 --live-dm-font-scale */
 .live-room-welcome {
     display: inline-flex;
     align-items: center;
-    gap: calc(4px * var(--live-dm-scale, 1));
+    gap: calc(4px * var(--live-dm-box-scale, 1));
     background: rgba(12, 14, 24, 0.52);
     border: 1px solid rgba(168, 85, 247, 0.25);
-    border-radius: calc(8px * var(--live-dm-scale, 1));
-    padding: calc(3px * var(--live-dm-scale, 1)) calc(7.5px * var(--live-dm-scale, 1));
-    font-size: calc(9px * var(--live-dm-scale, 1));
+    border-radius: calc(8px * var(--live-dm-box-scale, 1));
+    padding: calc(3px * var(--live-dm-box-scale, 1)) calc(7.5px * var(--live-dm-box-scale, 1));
+    font-size: calc(9px * var(--live-dm-font-scale, 1));
     font-weight: 700;
     color: #f3e8ff;
     line-height: 1.25;
@@ -8484,16 +8944,16 @@ input[type="range"] {
     max-width: 100%;
 }
 .live-welcome-icon {
-    font-size: calc(10px * var(--live-dm-scale, 1));
+    font-size: calc(10px * var(--live-dm-font-scale, 1));
     flex-shrink: 0;
 }
 
-/* 四、弹幕列表：左侧等级牌（蓝牌+橙牌+红管字牌）+ 中间彩虹/彩色用户名+冒号+白色弹幕 + 右侧紫色飘心 */
+/* 四、弹幕列表：外框间距与气泡内边距跟随 --live-dm-box-scale，里面文字与行内勋章大小跟随 --live-dm-font-scale */
 .live-chat-list {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: calc(3.5px * var(--live-dm-scale, 1));
+    gap: calc(3.5px * var(--live-dm-box-scale, 1));
     will-change: transform;
 }
 .live-chat-list.is-rolling-step {
@@ -8514,14 +8974,14 @@ input[type="range"] {
     display: inline-flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: calc(3.5px * var(--live-dm-scale, 1));
+    gap: calc(3.5px * var(--live-dm-font-scale, 1));
     background: rgba(10, 12, 20, 0.46);
     border: 1px solid rgba(255, 255, 255, 0.05);
     color: #ffffff;
-    font-size: calc(10px * var(--live-dm-scale, 1));
+    font-size: calc(10px * var(--live-dm-font-scale, 1));
     font-weight: 600;
-    padding: calc(2.8px * var(--live-dm-scale, 1)) calc(7.5px * var(--live-dm-scale, 1));
-    border-radius: calc(11px * var(--live-dm-scale, 1));
+    padding: calc(2.8px * var(--live-dm-box-scale, 1)) calc(7.5px * var(--live-dm-box-scale, 1));
+    border-radius: calc(11px * var(--live-dm-box-scale, 1));
     max-width: 100%;
     line-height: 1.26;
     cursor: pointer;
@@ -8544,15 +9004,15 @@ input[type="range"] {
 .live-lv-badge {
     display: inline-flex;
     align-items: center;
-    gap: calc(2px * var(--live-dm-scale, 1));
+    gap: calc(2px * var(--live-dm-font-scale, 1));
     background: linear-gradient(90deg, #5a78fa 0%, #7b5dfa 100%);
     border: 0.5px solid rgba(255, 255, 255, 0.28);
     box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.32);
     color: #ffffff;
-    font-size: calc(8.4px * var(--live-dm-scale, 1));
+    font-size: calc(8.4px * var(--live-dm-font-scale, 1));
     font-weight: 800;
     font-family: "Inter", "SF Pro Display", -apple-system, sans-serif;
-    padding: calc(0.8px * var(--live-dm-scale, 1)) calc(5px * var(--live-dm-scale, 1)) calc(0.8px * var(--live-dm-scale, 1)) calc(3.5px * var(--live-dm-scale, 1));
+    padding: calc(0.8px * var(--live-dm-font-scale, 1)) calc(5px * var(--live-dm-font-scale, 1)) calc(0.8px * var(--live-dm-font-scale, 1)) calc(3.5px * var(--live-dm-font-scale, 1));
     border-radius: 999px;
     line-height: 1.15;
     flex-shrink: 0;
@@ -8568,8 +9028,8 @@ input[type="range"] {
     background: linear-gradient(90deg, #8655f8 0%, #b84bf8 100%);
 }
 .live-lv-svg {
-    width: calc(8.5px * var(--live-dm-scale, 1));
-    height: calc(8.5px * var(--live-dm-scale, 1));
+    width: calc(8.5px * var(--live-dm-font-scale, 1));
+    height: calc(8.5px * var(--live-dm-font-scale, 1));
     display: inline-block;
     flex-shrink: 0;
     filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.25));
@@ -8578,23 +9038,23 @@ input[type="range"] {
 .live-fan-badge {
     display: inline-flex;
     align-items: center;
-    gap: calc(2px * var(--live-dm-scale, 1));
+    gap: calc(2px * var(--live-dm-font-scale, 1));
     background: linear-gradient(90deg, #fb923c 0%, #f97316 55%, #f43f5e 100%);
     border: 0.5px solid rgba(255, 237, 213, 0.36);
     box-shadow: inset 0 0.5px 0 rgba(255, 255, 255, 0.32);
     color: #ffffff;
-    font-size: calc(8.4px * var(--live-dm-scale, 1));
+    font-size: calc(8.4px * var(--live-dm-font-scale, 1));
     font-weight: 800;
     font-family: "Inter", "SF Pro Display", -apple-system, sans-serif;
-    padding: calc(0.8px * var(--live-dm-scale, 1)) calc(5px * var(--live-dm-scale, 1)) calc(0.8px * var(--live-dm-scale, 1)) calc(3.2px * var(--live-dm-scale, 1));
+    padding: calc(0.8px * var(--live-dm-font-scale, 1)) calc(5px * var(--live-dm-font-scale, 1)) calc(0.8px * var(--live-dm-font-scale, 1)) calc(3.2px * var(--live-dm-font-scale, 1));
     border-radius: 999px;
     line-height: 1.15;
     flex-shrink: 0;
     letter-spacing: -0.2px;
 }
 .live-fan-svg {
-    width: calc(8.5px * var(--live-dm-scale, 1));
-    height: calc(8.5px * var(--live-dm-scale, 1));
+    width: calc(8.5px * var(--live-dm-font-scale, 1));
+    height: calc(8.5px * var(--live-dm-font-scale, 1));
     display: inline-block;
     flex-shrink: 0;
     filter: drop-shadow(0 0.5px 1px rgba(0, 0, 0, 0.22));
@@ -8606,10 +9066,10 @@ input[type="range"] {
     justify-content: center;
     background: linear-gradient(90deg, #ef4444 0%, #f43f5e 100%);
     color: #ffffff;
-    font-size: calc(8px * var(--live-dm-scale, 1));
+    font-size: calc(8px * var(--live-dm-font-scale, 1));
     font-weight: 800;
-    padding: calc(0.5px * var(--live-dm-scale, 1)) calc(4px * var(--live-dm-scale, 1));
-    border-radius: calc(3.5px * var(--live-dm-scale, 1));
+    padding: calc(0.5px * var(--live-dm-font-scale, 1)) calc(4px * var(--live-dm-font-scale, 1));
+    border-radius: calc(3.5px * var(--live-dm-font-scale, 1));
     line-height: 1.22;
     flex-shrink: 0;
 }
@@ -8620,17 +9080,17 @@ input[type="range"] {
     gap: 2px;
     background: linear-gradient(90deg, #a855f7 0%, #ec4899 100%);
     color: #ffffff;
-    font-size: calc(8px * var(--live-dm-scale, 1));
+    font-size: calc(8px * var(--live-dm-font-scale, 1));
     font-weight: 800;
-    padding: calc(0.5px * var(--live-dm-scale, 1)) calc(4.5px * var(--live-dm-scale, 1));
-    border-radius: calc(4px * var(--live-dm-scale, 1));
+    padding: calc(0.5px * var(--live-dm-font-scale, 1)) calc(4.5px * var(--live-dm-font-scale, 1));
+    border-radius: calc(4px * var(--live-dm-font-scale, 1));
     line-height: 1.2;
     flex-shrink: 0;
 }
 .live-chat-nick {
     color: #93c5fd;
     font-weight: 800;
-    font-size: calc(10px * var(--live-dm-scale, 1));
+    font-size: calc(10px * var(--live-dm-font-scale, 1));
 }
 #render-target.theme-light .live-chat-nick {
     color: #2563eb;
@@ -8638,13 +9098,13 @@ input[type="range"] {
 .live-chat-msg {
     color: #ffffff;
     font-weight: 600;
-    font-size: calc(10px * var(--live-dm-scale, 1));
+    font-size: calc(10px * var(--live-dm-font-scale, 1));
 }
 /* 弹幕行右侧紫色飘心动画图标 */
 .live-row-purple-heart {
     display: inline-flex;
     align-items: center;
-    font-size: calc(10px * var(--live-dm-scale, 1));
+    font-size: calc(10px * var(--live-dm-font-scale, 1));
     line-height: 1;
     margin-left: 2px;
     filter: drop-shadow(0 1px 3px rgba(168, 85, 247, 0.65));
@@ -8666,18 +9126,18 @@ input[type="range"] {
 
 /* 最底部独立高频进场通道 */
 .live-join-ticker-row {
-    min-height: 21px;
+    min-height: calc(19px * var(--live-dm-box-scale, 1));
     display: flex;
     align-items: center;
 }
 .live-join-pill {
     display: inline-flex;
     align-items: center;
-    gap: calc(4px * var(--live-dm-scale, 1));
+    gap: calc(4px * var(--live-dm-font-scale, 1));
     background: rgba(12, 14, 24, 0.44);
-    padding: calc(2px * var(--live-dm-scale, 1)) calc(8px * var(--live-dm-scale, 1));
-    border-radius: calc(10px * var(--live-dm-scale, 1));
-    font-size: calc(9.6px * var(--live-dm-scale, 1));
+    padding: calc(2px * var(--live-dm-box-scale, 1)) calc(8px * var(--live-dm-box-scale, 1));
+    border-radius: calc(10px * var(--live-dm-box-scale, 1));
+    font-size: calc(9.6px * var(--live-dm-font-scale, 1));
     line-height: 1.22;
     animation: liveJoinSlideIn 0.25s cubic-bezier(0.22, 1, 0.36, 1);
 }

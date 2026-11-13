@@ -15,7 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20261112_v51">
+    <link rel="stylesheet" href="style.css?v=20261113_v57">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
         .sidebar .tab-panel.active {
@@ -486,6 +486,10 @@
                             </span>
                             <span class="dy-sb-time interactive-elem" id="dy-sb-time" title="点击可随机切换时间">14:24</span>
                             <span class="dy-sb-carrier" id="dy-sb-carrier" style="display: none;">中国移动</span>
+                            <!-- 顶部通知栏 Laya 小图标（复用 logos.js 资源，支持调整大小与位置，不遮挡通知文字） -->
+                            <span class="dy-sb-laya-notif-wrap interactive-elem" id="dy-sb-laya-wrap" title="Laya 通知欄小圖標（按住可拖動位置 · 滾輪可調節大小）">
+                                <img src="Laya.png" class="dy-sb-laya-notif-icon" id="dy-sb-laya-icon" alt="Laya">
+                            </span>
                             <!-- 定位小箭头 (原生右上45度路径，无需CSS旋转，杜绝截图偏移) -->
                             <svg class="dy-sb-icon" id="dy-sb-loc" viewBox="0 0 24 24" fill="currentColor" title="定位服务">
                                 <path d="M21 3L3 10.53v.98l6.84 2.65L12.48 21h.98L21 3z"/>
@@ -935,17 +939,27 @@
                                         <span class="live-red-dot" id="live-red-breath-dot"></span>
                                         <span class="live-red-count" id="live-left-live-viewers">10.2萬人在線</span>
                                     </span>
-                                    <span class="live-sub-pill interactive-elem" id="live-sub-rank-pill" title="單擊隨機切換 · 雙擊直接輸入修改標籤文字"><span id="live-sub-txt-rank">人氣榜</span></span>
-                                    <span class="live-laya-brand-pill interactive-elem" id="live-laya-brand-pill" title="單擊隨機切換 · 雙擊直接輸入修改「Laya 精選」文字">
-                                        <span class="live-laya-logo-box">
+                                    <span class="live-laya-brand-pill interactive-elem" id="live-laya-brand-pill" title="按住拖動可自由移位 · 單擊切換下一條 · 雙擊直接編輯文字">
+                                        <span class="live-laya-logo-box" id="live-laya-logo-box">
                                             <img src="Laya2.png" class="live-laya-mini-logo" id="live-laya-mini-logo" alt="Laya">
                                         </span>
-                                        <span id="live-laya-brand-txt">Laya 精選</span>
+                                        <span class="live-brand-ticker-viewport" id="live-brand-ticker-viewport">
+                                            <span class="live-brand-ticker-track anim-shimmer" id="live-laya-brand-txt" data-text="限時福利">限時福利</span>
+                                        </span>
+                                    </span>
+                                    <span class="live-secret-top-badge interactive-elem" id="live-secret-top-badge" style="display: none;" title="點擊觸發 AI 暗號主題彈幕 · 雙擊可直接修改暗號">
+                                        <span class="live-secret-key-ico">🔑</span>
+                                        <span id="live-secret-top-txt">暗號 4748</span>
                                     </span>
                                 </div>
                                 <div class="live-top-sub-right">
                                     <span class="live-sub-pill interactive-elem" id="live-sub-square-pill" title="單擊隨機切換 · 雙擊直接輸入修改右側標籤文字"><span id="live-sub-txt-square">直播廣場</span> &gt;</span>
                                 </div>
+                            </div>
+                            <!-- AI 暗号开启后的直播间醒目弹幕引导条（默认关闭隐藏） -->
+                            <div class="live-secret-guide-bar interactive-elem" id="live-secret-guide-bar" style="display: none;" title="點擊立即觸發一波暗號主題彈幕 · 雙擊可直接修改暗號">
+                                <span class="live-secret-guide-tag">福利暗號</span>
+                                <span class="live-secret-guide-main" id="live-secret-guide-disp">公屏發送暗號【4748】觸發專屬互動彈幕</span>
                             </div>
                         </div>
 
@@ -957,15 +971,25 @@
 
                         <!-- 下方公屏區域：懸停/操作時才浮現的大小位置調節欄 + 紫色漸變禮物進場提示條 + 滾動彈幕列表 + 底部輸入欄 -->
                         <div class="live-bottom-section" id="live-bottom-section">
-                            <!-- 僅在鼠標碰觸/操作禮物與彈幕區時浮現的大小與位置控制欄（不碰完全隱藏，截圖與導出自動忽略） -->
+                            <!-- 僅在鼠標碰觸/操作禮物與彈幕區時浮現的大小與位置控制欄（兩塊完全分開：第1排專調評論區框體大小與挪位置，第2排專調裡面彈幕文字放大縮小，截圖與導出自動忽略） -->
                             <div class="live-dm-edit-toolbar" id="live-dm-onstage-toolbar">
-                                <button type="button" class="live-dm-tool-btn is-zoom-highlight" id="btn-live-canvas-zoom-edit" title="點擊放大底部禮物與評論區看細節（再點還原）">🔍 放大查看</button>
-                                <button type="button" class="live-dm-tool-btn is-reset-highlight" id="btn-live-canvas-reset-size" title="一鍵重置字號大小(100%)、寬度(93%)、行數(5行)與位置偏移">↺ 重置大小</button>
-                                <button type="button" class="live-dm-tool-btn" id="btn-live-onstage-spd-down" title="放慢彈幕與禮物速度">➖慢</button>
-                                <span class="live-dm-tool-spd" id="txt-live-onstage-spd">⚡5檔</span>
-                                <button type="button" class="live-dm-tool-btn" id="btn-live-onstage-spd-up" title="加快彈幕與禮物速度">➕快</button>
-                                <span class="live-dm-move-handle" id="live-dm-move-handle" title="按住左鍵上下左右拖動：自由調整禮物與彈幕區的位置">✥ 挪位置</span>
-                                <span class="live-dm-resize-handle" id="live-dm-resize-handle" title="按住左鍵左右拖拉改寬度、上下拖拉改高度/行數；滾動滾輪直接縮放字號與徽章大小">⤡ 拖拉/滾輪改大小</span>
+                                <div class="live-dm-toolbar-row is-area-row">
+                                    <span class="live-dm-move-handle" id="live-dm-move-handle" title="按住左鍵上下左右自由挪動評論區與禮物區位置（不影響文字大小）">✥ 挪位置</span>
+                                    <span class="live-dm-resize-handle" id="live-dm-resize-handle" title="按住左右拖拉改評論區寬窄、上下拖拉改評論區高度/行數；在此滾動滾輪縮放框體區域（不改裡面文字字號）">⤡ 拖區域</span>
+                                    <button type="button" class="live-dm-tool-btn is-area-btn" id="btn-live-area-down" title="縮小評論區區域（不改變裡面彈幕文字大小）">框-</button>
+                                    <span class="live-dm-tool-badge is-area-badge" id="txt-live-onstage-area" title="點擊單獨重置評論區區域大小與位置（保留當前文字大小）">93%·5行</span>
+                                    <button type="button" class="live-dm-tool-btn is-area-btn" id="btn-live-area-up" title="放大評論區區域（不改變裡面彈幕文字大小）">框+</button>
+                                </div>
+                                <div class="live-dm-toolbar-row is-font-row">
+                                    <button type="button" class="live-dm-tool-btn is-font-btn" id="btn-live-font-down" title="單獨縮小裡面彈幕文字大小（不改變評論區框體與位置）">字-</button>
+                                    <span class="live-dm-tool-badge is-font-badge" id="txt-live-onstage-font" title="點擊單獨還原彈幕文字為 100% 標準字號（不改變評論區框體與位置）">字100%</span>
+                                    <button type="button" class="live-dm-tool-btn is-font-btn" id="btn-live-font-up" title="單獨放大裡面彈幕文字大小（不改變評論區框體與位置）">字+</button>
+                                    <button type="button" class="live-dm-tool-btn" id="btn-live-onstage-spd-down" title="放慢彈幕與禮物速度">➖</button>
+                                    <span class="live-dm-tool-spd" id="txt-live-onstage-spd">⚡5檔</span>
+                                    <button type="button" class="live-dm-tool-btn" id="btn-live-onstage-spd-up" title="加快彈幕與禮物速度">➕</button>
+                                    <button type="button" class="live-dm-tool-btn is-zoom-highlight" id="btn-live-canvas-zoom-edit" title="臨時放大查看細節（再點還原）">🔍</button>
+                                    <button type="button" class="live-dm-tool-btn is-reset-highlight" id="btn-live-canvas-reset-size" title="一鍵重置評論區區域、位置與彈幕文字大小">↺</button>
+                                </div>
                             </div>
                             <!-- 三、禮物進場提示條：左側真人圓頭像 + 用戶名 + 送禮文案 + 專屬禮物圖標 + 大號連擊數字（每次彈出不同頭像/禮物/主題） -->
                             <div class="live-gift-combo-slot" id="live-gift-combo-slot">
@@ -1015,18 +1039,11 @@
                                             </svg>
                                         </div>
                                     </div>
-                                    <!-- 2. 粉色愛心圓形按鈕 -->
-                                    <div class="live-bot-item interactive-elem" id="live-bot-btn-like" title="點擊連發粉紫飄心">
+                                    <!-- 2. 白色 SVG 愛心圓形按鈕（點擊變紅 #fe2c55 + 縮放回彈，無 emoji 無輝光） -->
+                                    <div class="live-bot-item interactive-elem" id="live-bot-btn-like" title="點擊點讚變紅並連發 SVG 飄心">
                                         <div class="live-bot-icon heart-badge-icon">
-                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                                                <ellipse cx="12" cy="15.2" rx="9" ry="4.6" fill="rgba(168,85,247,0.42)"/>
-                                                <path d="M12 19.2l-1.2-1.08C6.4 14.18 3.6 11.65 3.6 8.55 3.6 6.02 5.58 4 8.1 4c1.43 0 2.8.67 3.9 1.72C13.1 4.67 14.47 4 15.9 4c2.52 0 4.5 2.02 4.5 4.55 0 3.1-2.8 5.63-7.2 9.57L12 19.2z" fill="url(#liveHeartGrad)"/>
-                                                <defs>
-                                                    <linearGradient id="liveHeartGrad" x1="3.6" y1="4" x2="20.4" y2="19.2" gradientUnits="userSpaceOnUse">
-                                                        <stop stop-color="#ff7eb3"/>
-                                                        <stop offset="1" stop-color="#ec4899"/>
-                                                    </linearGradient>
-                                                </defs>
+                                            <svg width="20" height="20" viewBox="0 0 24 24" fill="#ffffff" id="live-bot-svg-like">
+                                                <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
                                             </svg>
                                         </div>
                                     </div>
@@ -1095,7 +1112,7 @@
                         </div>
                     </div>
 
-                    <!-- 评论数与 AI 解析标签栏 -->
+                    <!-- 评论数与 AI 解析标签栏（右侧附带仅编辑时显示的评论文字独立缩放条，截图/导出视频自动隐藏） -->
                     <div class="dy-cmt-tabs-bar">
                         <div class="dy-cmt-tab-item active">
                             <span id="dy-cmt-tab-label" contenteditable="true" spellcheck="false">評論</span>
@@ -1103,6 +1120,11 @@
                         </div>
                         <div class="dy-cmt-tab-item">
                             <span id="dy-cmt-tab-ai" contenteditable="true" spellcheck="false" title="点击直接修改副标签文字">AI 解析</span>
+                        </div>
+                        <div class="dy-cmt-font-quick-bar" id="dy-cmt-font-quick-bar" title="单独放大/缩小评论区里面的文字大小（不改变评论区抽屉区域高度，导出自动隐藏）">
+                            <button type="button" class="dy-cmt-font-qbtn interactive-elem" id="btn-dy-cmt-stage-font-down" title="缩小评论文字">字-</button>
+                            <span class="dy-cmt-font-qval interactive-elem" id="txt-dy-cmt-stage-font" title="点击还原 1.0x 标准评论字号">1.0x</span>
+                            <button type="button" class="dy-cmt-font-qbtn interactive-elem" id="btn-dy-cmt-stage-font-up" title="放大评论文字">字+</button>
                         </div>
                     </div>
 
@@ -2277,6 +2299,61 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- ★ 需求三：最上面通知栏（状态栏）Laya 小图标独立定制面板 -->
+                <div class="form-row" id="box-dy-sb-laya-cfg" style="margin-top:8px; padding:8px 10px; border-radius:8px; background:rgba(124, 58, 237, 0.13); border:1px solid rgba(168, 85, 247, 0.38);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                        <span style="font-size:12px; font-weight:800; color:#e9d5ff;">🟣 顶部通知栏 Laya 小图标 (不遮挡文字 · 可拖动)</span>
+                        <div style="display:inline-flex; align-items:center; gap:6px;">
+                            <button type="button" class="sub-mini-act" id="btn-dy-sb-laya-reset" style="padding:1px 7px;" title="重置通知栏 Laya 小图标的大小与位置">↺ 重置</button>
+                            <label class="ios-toggle" title="显示或隐藏顶部通知栏 Laya 小图标">
+                                <input type="checkbox" id="sw-dy-sb-laya-icon" checked>
+                                <span class="slider-round"></span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="form-grid-2" style="gap:6px; margin-bottom:6px;">
+                        <div class="form-row" style="margin:0;">
+                            <label style="font-size:11px;">图标样式 (复用 logos.js)</label>
+                            <select id="sel-dy-sb-laya-logo">
+                                <option value="Laya.png" selected>🟣 Laya 圆角通知标</option>
+                                <option value="Laya2.png">✨ Laya 纯净透明标</option>
+                            </select>
+                        </div>
+                        <div class="form-row" style="margin:0;">
+                            <label style="font-size:11px;">排列锚点 (自动避让文字)</label>
+                            <select id="sel-dy-sb-laya-slot">
+                                <option value="after-time" selected>时间/运营商右侧 (推荐)</option>
+                                <option value="after-notifs">左侧通知图标末尾</option>
+                                <option value="before-time">时间文字最左侧</option>
+                                <option value="before-right">右侧信号图标前</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="form-grid-2" style="gap:8px;">
+                        <div class="form-row" style="margin:0;">
+                            <div class="range-box">
+                                <label style="font-size:11px;">图标大小</label>
+                                <span class="range-value" id="txt-dy-sb-laya-size">12.5px</span>
+                            </div>
+                            <input type="range" id="in-dy-sb-laya-size" min="9" max="19" step="0.5" value="12.5">
+                        </div>
+                        <div class="form-row" style="margin:0;">
+                            <div class="range-box">
+                                <label style="font-size:11px;">水平间距微调 X</label>
+                                <span class="range-value" id="txt-dy-sb-laya-x">2px</span>
+                            </div>
+                            <input type="range" id="in-dy-sb-laya-x" min="0" max="85" step="1" value="2">
+                        </div>
+                    </div>
+                    <div class="form-row" style="margin:4px 0 0 0;">
+                        <div class="range-box">
+                            <label style="font-size:11px;">垂直对齐微调 Y (与通知栏文字同视觉层级)</label>
+                            <span class="range-value" id="txt-dy-sb-laya-y">0px</span>
+                        </div>
+                        <input type="range" id="in-dy-sb-laya-y" min="-5" max="5" step="0.5" value="0">
+                    </div>
+                </div>
             </div>
 
             <!-- 竖屏内横屏取景与全屏观看设置 -->
@@ -2548,8 +2625,7 @@
                         <label class="live-vis-chip"><input type="checkbox" data-live-vis="top-viewers" checked><span>🔥 右上在线人数</span></label>
                         <label class="live-vis-chip"><input type="checkbox" data-live-vis="exit-btn" checked><span>✕ 右上关闭按钮</span></label>
                         <label class="live-vis-chip"><input type="checkbox" data-live-vis="live-pill" checked><span>🔴 LIVE在线红标</span></label>
-                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="rank-pill" checked><span>🏆 人气榜标签</span></label>
-                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="brand-pill" checked><span>🏷️ 品牌精选标签</span></label>
+                        <label class="live-vis-chip"><input type="checkbox" data-live-vis="brand-pill" checked><span>🏷️ 滚动精选标签</span></label>
                         <label class="live-vis-chip"><input type="checkbox" data-live-vis="square-pill" checked><span>🧭 直播广场标签</span></label>
                         <label class="live-vis-chip"><input type="checkbox" data-live-vis="sys-notice" checked><span>🛡️ 顶部绿色提示语</span></label>
                         <label class="live-vis-chip"><input type="checkbox" data-live-vis="welcome-bar" checked><span>🎧 直播间欢迎语</span></label>
@@ -2631,29 +2707,112 @@
                     <input type="range" id="in-live-viewers" min="1000" max="2000000" step="1000" value="102000">
                 </div>
 
-                <div class="form-grid-2" style="margin-top:4px;">
-                    <div class="form-row">
-                        <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px;">
-                            <span>🏷️ 品牌精选标签 <a href="javascript:void(0)" id="btn-live-rand-brand-tag" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></span>
-                            <span class="live-inline-vis-wrap" title="单独显示或关闭品牌精选胶囊标签"><input type="checkbox" data-live-vis="brand-pill" checked>显示</span>
-                        </label>
-                        <div class="input-with-dice">
-                            <input type="text" id="in-live-brand-tag" value="Laya 精選" placeholder="如 Laya 精選、Laya 官方">
-                            <button type="button" class="btn-inline-dice" id="btn-live-rand-brand-tag-btn" title="随机切换品牌精选标签">🎲</button>
+                <!-- ★ 需求二：顶部「限时福利+Logo」标签区全维度定制面板（文字/位置拖动/字号/外框宽高/8种炫彩动画可开关） -->
+                <div id="live-cfg-box-brand-pill" style="margin: 6px 0; padding: 8px 10px; border-radius: 8px; background: rgba(109, 40, 217, 0.14); border: 1px solid rgba(192, 132, 252, 0.38);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:6px;">
+                        <span style="font-size:12px; font-weight:800; color:#f3e8ff; display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                            <span>🏷️ 顶部「限时福利+Logo」标签定制 (可拖动移位 · 双击改字)</span>
+                            <a href="javascript:void(0)" id="btn-live-rand-brand-tag" style="color:#fde047; text-decoration:none; font-size:11.5px;">🎲随机组</a>
+                        </span>
+                        <div style="display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <label class="live-inline-vis-wrap" title="开启后多条话题自动轮播切换；关闭则固定显示当前选中话题">
+                                <input type="checkbox" id="sw-live-brand-carousel" checked>文字轮播
+                            </label>
+                            <label class="live-inline-vis-wrap" title="单独显示或隐藏顶部限时福利+Logo胶囊">
+                                <input type="checkbox" data-live-vis="brand-pill" checked>显示标签
+                            </label>
+                            <button type="button" class="sub-mini-act" id="btn-live-brand-reset" style="padding:1px 7px;" title="一键还原顶部标签默认位置、字号与外框尺寸">↺ 重置尺寸位置</button>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px;">
-                            <span>🏆 榜单与广场标签 <a href="javascript:void(0)" id="btn-live-rand-rank-tag" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></span>
-                            <span style="display:inline-flex; gap:4px;">
-                                <span class="live-inline-vis-wrap" title="单独显示或关闭人气榜标签"><input type="checkbox" data-live-vis="rank-pill" checked>榜单</span>
+
+                    <div class="form-grid-2" style="gap:6px; margin-bottom:6px;">
+                        <div class="form-row" style="margin:0;">
+                            <label style="font-size:11px;">编辑标签文字 (多条用 | 分隔支持轮播)</label>
+                            <div class="input-with-dice" style="gap:4px;">
+                                <input type="text" id="in-live-brand-tag" value="限時福利 | Laya 精選 | 獨家未刪減 | 今晚9點開播 | 新人必看" placeholder="多条用 | 或逗号分隔，支持轮播">
+                                <button type="button" class="btn-inline-dice" id="btn-live-add-brand-topic" title="新增一条滚动话题标签" style="font-size:12px; font-weight:800; color:#a7f3d0;">＋</button>
+                                <button type="button" class="btn-inline-dice" id="btn-live-rand-brand-tag-btn" title="随机切换一组热门滚动话题">🎲</button>
+                            </div>
+                        </div>
+                        <div class="form-row" style="margin:0;">
+                            <label style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:2px; font-size:11px;">
+                                <span>🧭 右侧广场标签 <a href="javascript:void(0)" id="btn-live-rand-square-tag" style="color:#c084fc; text-decoration:none; margin-left:2px;">🎲随机</a></span>
                                 <span class="live-inline-vis-wrap" title="单独显示或关闭直播广场标签"><input type="checkbox" data-live-vis="square-pill" checked>广场</span>
-                            </span>
-                        </label>
-                        <div class="input-with-dice" style="gap:4px;">
-                            <input type="text" id="in-live-rank-tag" value="人氣榜" placeholder="如 人氣榜" style="width:46%;">
-                            <input type="text" id="in-live-square-tag" value="直播廣場" placeholder="如 直播廣場" style="width:46%;">
-                            <button type="button" class="btn-inline-dice" id="btn-live-rand-rank-tag-btn" title="随机切换榜单与广场标签">🎲</button>
+                            </label>
+                            <div class="input-with-dice" style="gap:4px;">
+                                <input type="text" id="in-live-square-tag" value="直播廣場" placeholder="如 直播廣場">
+                                <button type="button" class="btn-inline-dice" id="btn-live-rand-square-tag-btn" title="随机切换右侧广场标签">🎲</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="live-brand-topics-chips" style="display:flex; flex-wrap:wrap; gap:4px; margin-bottom:7px;"></div>
+
+                    <!-- 文字大小 + 外框宽高 + 拖拽坐标微调 -->
+                    <div class="form-grid-2" style="gap:8px; margin-bottom:5px;">
+                        <div class="form-row" style="margin:0;">
+                            <div class="range-box">
+                                <label style="font-size:11px;">🔤 标签文字大小</label>
+                                <span class="range-value" id="txt-live-brand-font-size">9px</span>
+                            </div>
+                            <input type="range" id="in-live-brand-font-size" min="7" max="16" step="0.5" value="9">
+                        </div>
+                        <div class="form-row" style="margin:0;">
+                            <div class="range-box">
+                                <label style="font-size:11px;">↔️ 外框宽度</label>
+                                <span class="range-value" id="txt-live-brand-box-w">92px</span>
+                            </div>
+                            <input type="range" id="in-live-brand-box-w" min="54" max="200" step="1" value="92">
+                        </div>
+                    </div>
+                    <div class="form-grid-2" style="gap:8px; margin-bottom:7px;">
+                        <div class="form-row" style="margin:0;">
+                            <div class="range-box">
+                                <label style="font-size:11px;">↕️ 外框高度</label>
+                                <span class="range-value" id="txt-live-brand-box-h">20px</span>
+                            </div>
+                            <input type="range" id="in-live-brand-box-h" min="15" max="36" step="1" value="20">
+                        </div>
+                        <div class="form-row" style="margin:0;">
+                            <div class="range-box">
+                                <label style="font-size:11px;">✥ 标签位置偏移 (也可直接拖画面)</label>
+                                <span class="range-value" id="txt-live-brand-pos">X:0 · Y:0</span>
+                            </div>
+                            <div style="display:flex; gap:5px; align-items:center;">
+                                <input type="range" id="in-live-brand-pos-x" min="-80" max="160" step="1" value="0" title="水平位置偏移 X">
+                                <input type="range" id="in-live-brand-pos-y" min="-36" max="180" step="1" value="0" title="垂直位置偏移 Y">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 文字炫彩/动画效果可视化下拉 + 快捷预览按钮面板 -->
+                    <div style="padding:6px 8px; border-radius:7px; background:rgba(15, 23, 42, 0.65); border:1px solid rgba(168, 85, 247, 0.32);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:5px;">
+                            <label style="margin:0; font-size:11.5px; font-weight:800; color:#fde047; display:inline-flex; align-items:center; gap:5px; cursor:pointer;">
+                                <input type="checkbox" id="sw-live-brand-anim" checked style="width:13px; height:13px; margin:0; accent-color:#a855f7;">
+                                <span>✨ 开启标签文字炫彩/动画效果</span>
+                            </label>
+                            <select id="sel-live-brand-anim" style="width:auto; min-width:148px; padding:2px 6px; font-size:11.5px; font-weight:700; color:#f3e8ff; background:#151926; border:1px solid rgba(192,132,252,0.5); border-radius:5px;">
+                                <option value="shimmer" selected>✨ 流光渐变 (推荐)</option>
+                                <option value="rainbow">🌈 彩虹渐变</option>
+                                <option value="breathe">💫 呼吸闪烁</option>
+                                <option value="typewriter">⌨️ 打字机</option>
+                                <option value="wave">〰️ 波浪抖动</option>
+                                <option value="bounce">🏀 缩放弹跳</option>
+                                <option value="spin">🔄 旋转动效</option>
+                                <option value="fade">🌫️ 渐隐渐现</option>
+                                <option value="none">🚫 无动画 (静态纯色)</option>
+                            </select>
+                        </div>
+                        <div class="live-brand-anim-btn-grid" id="live-brand-anim-btns">
+                            <button type="button" class="live-brand-anim-pill-btn" data-brand-anim="none">🚫 无动画</button>
+                            <button type="button" class="live-brand-anim-pill-btn active" data-brand-anim="shimmer">✨ 流光渐变</button>
+                            <button type="button" class="live-brand-anim-pill-btn" data-brand-anim="rainbow">🌈 彩虹渐变</button>
+                            <button type="button" class="live-brand-anim-pill-btn" data-brand-anim="breathe">💫 呼吸闪烁</button>
+                            <button type="button" class="live-brand-anim-pill-btn" data-brand-anim="typewriter">⌨️ 打字机</button>
+                            <button type="button" class="live-brand-anim-pill-btn" data-brand-anim="wave">〰️ 波浪抖动</button>
+                            <button type="button" class="live-brand-anim-pill-btn" data-brand-anim="bounce">🏀 缩放弹跳</button>
+                            <button type="button" class="live-brand-anim-pill-btn" data-brand-anim="spin">🔄 旋转</button>
+                            <button type="button" class="live-brand-anim-pill-btn" data-brand-anim="fade">🌫️ 渐隐渐现</button>
                         </div>
                     </div>
                 </div>
@@ -2837,6 +2996,75 @@
                     </div>
                 </div>
 
+                <!-- ★ 需求四：AI 暗号互动功能重构（默认关闭；开启后可编辑主题与暗号，默认暗号 4748，含可编辑参考案例模板） -->
+                <div id="live-cfg-box-ai-secret" style="margin: 8px 0; padding: 8px 10px; border-radius: 8px; background: rgba(245, 158, 11, 0.10); border: 1px solid rgba(251, 191, 36, 0.38);">
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px;">
+                        <span style="font-size:12px; font-weight:800; color:#fde68a; display:inline-flex; align-items:center; gap:6px;">
+                            <span>🔑 AI 暗号互动与主题弹幕</span>
+                            <span id="txt-live-secret-state-badge" style="font-size:10.5px; padding:1px 6px; border-radius:999px; background:rgba(100,116,139,0.35); color:#cbd5e1; font-weight:700;">默认已关闭</span>
+                        </span>
+                        <label class="ios-toggle" title="默认关闭；手动开启后在直播间醒目展示暗号引导并支持围绕主题生成真实弹幕">
+                            <input type="checkbox" id="sw-live-ai-secret">
+                            <span class="slider-round"></span>
+                        </label>
+                    </div>
+
+                    <div id="box-live-ai-secret-body" style="display:none; margin-top:8px; padding-top:8px; border-top:1px dashed rgba(251, 191, 36, 0.3);">
+                        <div class="form-grid-2" style="gap:6px; margin-bottom:6px;">
+                            <div class="form-row" style="margin:0;">
+                                <label style="font-size:11px; color:#fef08a;">🎯 AI 生成主题 (围绕什么主题生成弹幕)</label>
+                                <input type="text" id="in-live-secret-theme" value="夸主播今天这套穿搭好看" placeholder="例：夸主播穿搭 / 求链接 / 聊今天心情">
+                            </div>
+                            <div class="form-row" style="margin:0;">
+                                <label style="font-size:11px; color:#fef08a;">🔢 观众互动暗号 (默认 4748)</label>
+                                <input type="text" id="in-live-secret-code" value="4748" placeholder="默认暗号 4748">
+                            </div>
+                        </div>
+
+                        <div class="form-grid-2" style="gap:6px; margin-bottom:7px;">
+                            <div class="form-row" style="margin:0;">
+                                <label style="font-size:11px;">📢 直播间醒目展示位置</label>
+                                <select id="sel-live-secret-pos">
+                                    <option value="guide-bar" selected>醒目弹幕引导条 (推荐)</option>
+                                    <option value="top-pill">顶部标签区暗号胶囊</option>
+                                    <option value="both">顶部胶囊 + 引导条同时展示</option>
+                                </select>
+                            </div>
+                            <div class="form-row" style="margin:0;">
+                                <label style="font-size:11px;">💬 引导条文案 ({code} 自动替换暗号)</label>
+                                <input type="text" id="in-live-secret-guide-txt" value="公屏發送暗號【{code}】觸發專屬互動彈幕" placeholder="公屏發送暗號【{code}】觸發專屬互動">
+                            </div>
+                        </div>
+
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:7px;">
+                            <span style="font-size:11px; color:#cbd5e1;">💡 观众在底部输入框发送暗号，或点击右侧按钮即可生成对应主题真人弹幕</span>
+                            <button type="button" class="sub-mini-act" id="btn-live-secret-gen-dm" style="background:linear-gradient(90deg,#d97706,#db2777); color:#fff; border:1px solid #fde047; font-weight:800; padding:3px 10px;">🤖 按主题+暗号生成弹幕</button>
+                        </div>
+
+                        <!-- 可编辑参考案例模板（供主播参考、直接修改或一键照抄套用） -->
+                        <div style="padding:7px 9px; border-radius:7px; background:rgba(15, 23, 42, 0.72); border:1px solid rgba(251, 191, 36, 0.28);">
+                            <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
+                                <span style="font-size:11px; font-weight:800; color:#fde047;">📝 参考案例示例模板 (可直接编辑修改 · 一键照抄套用)</span>
+                                <button type="button" class="sub-mini-act" id="btn-live-apply-secret-example" style="padding:1px 8px; background:rgba(245,158,11,0.25); color:#fef08a; border-color:rgba(251,191,36,0.55); font-weight:700;">📋 套用此示例</button>
+                            </div>
+                            <div class="form-grid-2" style="gap:5px; margin-bottom:4px;">
+                                <div class="form-row" style="margin:0;">
+                                    <label style="font-size:10.5px; color:#94a3b8;">主题示例：</label>
+                                    <input type="text" id="in-live-secret-ex-theme" value="夸主播今天这套穿搭好看" style="font-size:11px;">
+                                </div>
+                                <div class="form-row" style="margin:0;">
+                                    <label style="font-size:10.5px; color:#94a3b8;">暗号示例：</label>
+                                    <input type="text" id="in-live-secret-ex-code" value="4748" style="font-size:11px;">
+                                </div>
+                            </div>
+                            <div class="form-row" style="margin:0;">
+                                <label style="font-size:10.5px; color:#94a3b8;">说明示例：</label>
+                                <input type="text" id="in-live-secret-ex-desc" value="观众在直播间发送 4748，即可触发对应主题的弹幕" style="font-size:11px;">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="form-row" id="live-cfg-box-danmaku">
                     <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
                         <label style="margin:0; display:inline-flex; align-items:center; gap:6px; flex-wrap:wrap;">
@@ -2879,19 +3107,19 @@
                             </div>
                         </div>
                     </div>
-                    <textarea id="in-live-danmaku-list" rows="7" style="width:100%; background:#0f1219; color:#f1f5f9; border:1px solid #2b3142; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.5; resize:vertical;">微醺小貓：主播今天狀態太好了吧
+                    <textarea id="in-live-danmaku-list" rows="7" style="width:100%; background:#0f1219; color:#f1f5f9; border:1px solid #2b3142; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.5; resize:vertical;">微醺小貓：哈哈哈哈笑死我了😂
 輕輕吹風 來了
-阿傑：666 這波操作太頂了
-晚風溫柔：這首歌絕了，求歌名！
+阿傑：666牛啊
+晚風溫柔：👍
 再次邂逅說愛你 來了
-羊🐑：前排打卡支持主播
-星河少女：聲音好甜，聽著太治癒了
+小羊：太美了吧😘
+星河少女：主播哪裡人
 麥兜黑鳳梨 來了
-夜色有點濃：哈哈哈哈笑死我了
-皓哥：已關注 比心！氣氛拉滿
+夜色有點濃：😄好看好看
+皓哥：來了來了☕
 南城舊夢 來了
-石頭baby：蹲一個歌單，每天準時看
-漫渡：主播加油，今天人好多呀
+石頭baby：這多少錢👀
+漫渡：👏
 深海裡的星星 來了</textarea>
                 </div>
 
@@ -2915,22 +3143,54 @@
                     </div>
                 </div>
 
-                <div class="form-grid-2">
-                    <div class="form-row">
-                        <div class="range-box" style="flex-wrap:wrap; gap:4px;">
-                            <label style="display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap;">🔤 整体弹幕文字与徽章大小 <button type="button" id="btn-live-toggle-zoom-edit" style="background:linear-gradient(90deg,#0284c7,#7c3aed); color:#fff; border:1px solid #fde047; border-radius:999px; padding:2px 8px; font-size:11px; font-weight:800; cursor:pointer;">🔍放大查看细节</button> <button type="button" id="btn-live-reset-dm-size" style="background:rgba(245,158,11,0.28); color:#fef08a; border:1px solid rgba(250,204,21,0.75); border-radius:999px; padding:2px 8px; font-size:11px; font-weight:800; cursor:pointer;">↺重置大小</button></label>
-                            <span class="range-value" id="txt-live-dm-scale">100% (标准)</span>
+                <!-- ★ 彻底分开的两块控制：块1 = 评论区区域大小与挪位置（不改字号）；块2 = 里面弹幕文字独立放大缩小（不改区域框体） -->
+                <div class="form-grid-2" style="align-items:stretch;">
+                    <div class="form-row" style="background:rgba(14,165,233,0.08); border:1px solid rgba(56,189,248,0.42); border-radius:8px; padding:7px 9px; margin-bottom:0;">
+                        <div class="range-box" style="flex-wrap:wrap; gap:4px; margin-bottom:5px;">
+                            <label style="color:#7dd3fc; font-weight:800; display:inline-flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                                <span>📦 1. 评论区区域大小与位置</span>
+                                <button type="button" class="sub-mini-act" id="btn-live-panel-area-down" style="padding:1px 6px; font-size:10.5px; background:rgba(14,165,233,0.22); color:#bae6fd; border-color:rgba(56,189,248,0.55);" title="缩小评论区区域（不改变里面的弹幕文字大小）">框-</button>
+                                <button type="button" class="sub-mini-act" id="btn-live-panel-area-up" style="padding:1px 6px; font-size:10.5px; background:rgba(14,165,233,0.22); color:#bae6fd; border-color:rgba(56,189,248,0.55);" title="放大评论区区域（不改变里面的弹幕文字大小）">框+</button>
+                                <button type="button" class="sub-mini-act" id="btn-live-reset-dm-pos" style="padding:1px 6px; font-size:10.5px;" title="仅将挪动过的评论区位置归零">✥位置归零</button>
+                                <button type="button" class="sub-mini-act" id="btn-live-reset-dm-area" style="padding:1px 6px; font-size:10.5px; color:#fef08a; border-color:rgba(250,204,21,0.55);" title="仅重置评论区框体大小与位置（保留弹幕文字字号不变）">↺重置区域</button>
+                            </label>
+                            <span class="range-value" id="txt-live-dm-area" style="color:#7dd3fc;">宽93% · 5行 · 框100%</span>
                         </div>
-                        <input type="range" id="in-live-dm-scale" min="75" max="220" step="5" value="100">
+                        <div style="display:flex; flex-direction:column; gap:5px;">
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-size:10.5px; color:#cbd5e1; white-space:nowrap; width:54px;">区域宽度</span>
+                                <input type="range" id="in-live-dm-area-width" min="45" max="100" step="1" value="93" title="独立调节评论区框体宽度 (45%~100%)，不改变文字大小" style="flex:1;">
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-size:10.5px; color:#cbd5e1; white-space:nowrap; width:54px;">区域行数</span>
+                                <input type="range" id="in-live-dm-max-rows" min="2" max="12" step="1" value="5" title="独立调节评论区纵向高度/显示行数 (2~12行)，不改变文字大小" style="flex:1;">
+                            </div>
+                            <div style="display:flex; align-items:center; gap:6px;">
+                                <span style="font-size:10.5px; color:#cbd5e1; white-space:nowrap; width:54px;">框体缩放</span>
+                                <input type="range" id="in-live-dm-box-scale" min="70" max="180" step="5" value="100" title="独立放大/缩小评论区气泡框边距与行距 (70%~180%)，不改变里面弹幕文字大小" style="flex:1;">
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-row">
-                        <div class="range-box">
-                            <label>↔️ 弹幕区域宽度与同屏行数</label>
-                            <span class="range-value" id="txt-live-dm-area">宽93% · 5行</span>
+
+                    <div class="form-row" style="background:rgba(168,85,247,0.09); border:1px solid rgba(192,132,252,0.48); border-radius:8px; padding:7px 9px; margin-bottom:0; display:flex; flex-direction:column; justify-content:space-between;">
+                        <div>
+                            <div class="range-box" style="flex-wrap:wrap; gap:4px; margin-bottom:6px;">
+                                <label style="color:#e9d5ff; font-weight:800; display:inline-flex; align-items:center; gap:4px; flex-wrap:wrap;">
+                                    <span>🔤 2. 弹幕文字独立放大缩小</span>
+                                    <button type="button" class="sub-mini-act" id="btn-live-panel-font-down" style="padding:1px 7px; font-size:10.5px; background:rgba(168,85,247,0.28); color:#f3e8ff; border-color:rgba(192,132,252,0.65);" title="单独缩小里面的弹幕文字大小（不改变评论区框体大小与位置）">字-</button>
+                                    <button type="button" class="sub-mini-act" id="btn-live-panel-font-up" style="padding:1px 7px; font-size:10.5px; background:rgba(168,85,247,0.28); color:#f3e8ff; border-color:rgba(192,132,252,0.65);" title="单独放大里面的弹幕文字大小（不改变评论区框体大小与位置）">字+</button>
+                                    <button type="button" class="sub-mini-act" id="btn-live-reset-dm-font" style="padding:1px 6px; font-size:10.5px; color:#fef08a; border-color:rgba(250,204,21,0.55);" title="仅还原弹幕文字为 100% 标准大小（保留评论区框体大小与位置不变）">↺重置字号</button>
+                                </label>
+                                <span class="range-value" id="txt-live-dm-scale" style="color:#f0abfc;">100% (标准)</span>
+                            </div>
+                            <input type="range" id="in-live-dm-scale" min="60" max="260" step="5" value="100" title="独立放大/缩小评论区里面的弹幕文字字号 (60%~260%)，不改变评论区框体宽高与位置">
                         </div>
-                        <div style="display:flex; align-items:center; gap:6px;">
-                            <input type="range" id="in-live-dm-area-width" min="55" max="100" step="1" value="93" title="调节弹幕区域宽度 (55%~100%)" style="flex:1;">
-                            <input type="range" id="in-live-dm-max-rows" min="2" max="9" step="1" value="5" title="调节弹幕区域高度/同屏显示行数 (2~9行)" style="width:44%;">
+                        <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-top:6px; padding-top:5px; border-top:1px dashed rgba(192,132,252,0.25); font-size:10.5px; color:#cbd5e1;">
+                            <span>💡 区域框体与文字字号完全独立分开</span>
+                            <div style="display:inline-flex; gap:4px;">
+                                <button type="button" id="btn-live-toggle-zoom-edit" style="background:linear-gradient(90deg,#0284c7,#7c3aed); color:#fff; border:1px solid #fde047; border-radius:999px; padding:1.5px 8px; font-size:10.5px; font-weight:800; cursor:pointer;">🔍放大查看细节</button>
+                                <button type="button" id="btn-live-reset-dm-size" style="background:rgba(245,158,11,0.28); color:#fef08a; border:1px solid rgba(250,204,21,0.75); border-radius:999px; padding:1.5px 8px; font-size:10.5px; font-weight:800; cursor:pointer;" title="一键同时重置评论区区域、位置与弹幕文字大小">↺全部重置</button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -3270,15 +3530,27 @@
                     </label>
                 </div>
 
-                <div class="form-row" style="margin-top: 4px; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(254, 44, 85, 0.32); border-radius: 7px; padding: 7px 9px;">
-                    <div class="range-box" style="margin-bottom: 4px;">
-                        <label style="color: #fda4af; font-weight: 700;">🔠 评论区字号 (0.8x ~ 1.5x · 头像同步缩放)</label>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span class="range-value" id="txt-dy-cmt-font-scale">1.0x</span>
-                            <button type="button" class="sub-mini-act" id="btn-reset-cmt-font-scale" title="恢复默认 1.0x 字号与默认评论区高度" style="padding: 1px 6px; font-size: 10px;">重置</button>
+                <div class="form-grid-2" style="margin-top: 4px; gap: 6px;">
+                    <div class="form-row" style="margin:0; background: rgba(14, 165, 233, 0.08); border: 1px solid rgba(56, 189, 248, 0.35); border-radius: 7px; padding: 7px 9px;">
+                        <div class="range-box" style="margin-bottom: 4px;">
+                            <label style="color: #7dd3fc; font-weight: 700;">📦 评论区区域高度 (独立于字号)</label>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span class="range-value" id="txt-dy-cmt-area-height" style="color:#7dd3fc;">56%</span>
+                                <button type="button" class="sub-mini-act" id="btn-reset-cmt-drawer-area" title="仅恢复评论区默认区域高度（不改变评论文字字号）" style="padding: 1px 6px; font-size: 10px;">重置区域</button>
+                            </div>
                         </div>
+                        <input type="range" id="in-dy-cmt-area-height" min="24" max="82" step="1" value="56" title="独立放大/缩小评论区抽屉区域高度占比 (24%~82%)，不改变里面评论文字大小">
                     </div>
-                    <input type="range" id="in-dy-cmt-font-scale" min="0.8" max="1.5" step="0.05" value="1.0">
+                    <div class="form-row" style="margin:0; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(254, 44, 85, 0.35); border-radius: 7px; padding: 7px 9px;">
+                        <div class="range-box" style="margin-bottom: 4px;">
+                            <label style="color: #fda4af; font-weight: 700;">🔠 评论里面文字大小 (独立缩放)</label>
+                            <div style="display: flex; align-items: center; gap: 5px;">
+                                <span class="range-value" id="txt-dy-cmt-font-scale">1.0x</span>
+                                <button type="button" class="sub-mini-act" id="btn-reset-cmt-font-scale" title="仅恢复默认 1.0x 评论文字字号（不改变评论区区域高度）" style="padding: 1px 6px; font-size: 10px;">重置字号</button>
+                            </div>
+                        </div>
+                        <input type="range" id="in-dy-cmt-font-scale" min="0.65" max="1.85" step="0.05" value="1.0" title="独立放大/缩小评论区里面的文字与头像大小，不改变评论区区域高度">
+                    </div>
                 </div>
 
                 <div class="form-row">
@@ -3429,10 +3701,16 @@
                     <div>• <b>默认样式</b>：最基础白字黑边（可在下方轨道单独改色）</div>
                 </div>
 
-                <div class="form-row" style="margin-top: 4px; background:rgba(15, 23, 42, 0.55); border:1px solid rgba(16, 185, 129, 0.3); border-radius:7px; padding:8px;">
-                    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
-                        <label style="margin-bottom:0; color:#6ee7b7; font-weight:700;">📱 竖屏弹幕显示区域范围 (默认仅占画面上方区域 10%~24%)</label>
-                        <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-dm-port-range" style="padding:2px 6px; font-size:10px;" title="恢复竖屏上方区域 10% ~ 24%">恢复上方10%~24%</button>
+                <div class="form-row" style="margin-top: 4px; background:rgba(15, 23, 42, 0.55); border:1px solid rgba(16, 185, 129, 0.35); border-radius:7px; padding:8px;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
+                        <label style="margin-bottom:0; color:#6ee7b7; font-weight:700;">📦 1. 弹幕显示区域大小与整体挪位置 (不改字号)</label>
+                        <div style="display:inline-flex; gap:3px; flex-wrap:wrap;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-dm-area-up" style="padding:2px 6px; font-size:10px;" title="整体向上挪动弹幕显示区域（不改字号）">▲上移</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-dm-area-down" style="padding:2px 6px; font-size:10px;" title="整体向下挪动弹幕显示区域（不改字号）">▼下移</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-dm-area-shrink" style="padding:2px 6px; font-size:10px;" title="缩小弹幕显示区域高度（不改字号）">框-</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-dm-area-expand" style="padding:2px 6px; font-size:10px;" title="放大弹幕显示区域高度（不改字号）">框+</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-reset-dm-port-range" style="padding:2px 6px; font-size:10px;" title="恢复竖屏上方区域 10% ~ 24%">重置区域</button>
+                        </div>
                     </div>
                     <div class="form-grid-2" style="gap:8px;">
                         <div>
@@ -3440,14 +3718,14 @@
                                 <label style="font-size:11px;">上边界 (距顶部)</label>
                                 <span class="range-value" id="txt-dm-port-min">10%</span>
                             </div>
-                            <input type="range" id="in-dm-port-min" min="5" max="80" value="10">
+                            <input type="range" id="in-dm-port-min" min="4" max="82" value="10">
                         </div>
                         <div>
                             <div class="range-box">
                                 <label style="font-size:11px;">下边界 (距顶部)</label>
                                 <span class="range-value" id="txt-dm-port-max">24%</span>
                             </div>
-                            <input type="range" id="in-dm-port-max" min="14" max="90" value="24">
+                            <input type="range" id="in-dm-port-max" min="10" max="92" value="24">
                         </div>
                     </div>
                 </div>
@@ -3497,12 +3775,17 @@
                     </div>
                 </div>
 
-                <div class="form-row" style="margin-top: 6px;">
-                    <div class="range-box">
-                        <label>全局弹幕字号大小</label>
-                        <span class="range-value" id="txt-danmaku-size">14px</span>
+                <div class="form-row" style="margin-top: 6px; background:rgba(168, 85, 247, 0.08); border:1px solid rgba(192, 132, 252, 0.4); border-radius:7px; padding:8px;">
+                    <div class="range-box" style="margin-bottom:4px; flex-wrap:wrap; gap:4px;">
+                        <label style="color:#e9d5ff; font-weight:700;">🔤 2. 弹幕文字独立放大缩小 (不改区域与位置)</label>
+                        <div style="display:inline-flex; align-items:center; gap:4px;">
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-dm-font-down" style="padding:1px 7px; font-size:10.5px;" title="缩小所有弹幕文字大小（不改变弹幕区域和位置）">字-</button>
+                            <span class="range-value" id="txt-danmaku-size" style="color:#f0abfc;">14px</span>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-dm-font-up" style="padding:1px 7px; font-size:10.5px;" title="放大所有弹幕文字大小（不改变弹幕区域和位置）">字+</button>
+                            <button type="button" class="btn btn-secondary btn-sm" id="btn-dm-font-reset" style="padding:1px 6px; font-size:10px;" title="仅重置弹幕文字字号为默认 14px（不改变弹幕区域和位置）">重置字号</button>
+                        </div>
                     </div>
-                    <input type="range" id="in-danmaku-size" min="12" max="32" value="14">
+                    <input type="range" id="in-danmaku-size" min="10" max="44" value="14">
                 </div>
 
                 <div class="form-row">
@@ -3579,10 +3862,10 @@
     </div>
 </main>
 
-<script src="logos.js?v=20261112_v51"></script>
-<script src="player.js?v=20261112_v51"></script>
-<script src="danmaku.js?v=20261112_v51"></script>
-<script src="app.js?v=20261112_v51"></script>
+<script src="logos.js?v=20261113_v57"></script>
+<script src="player.js?v=20261113_v57"></script>
+<script src="danmaku.js?v=20261113_v57"></script>
+<script src="app.js?v=20261113_v57"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {

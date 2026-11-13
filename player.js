@@ -320,7 +320,8 @@ window.PlayerEngine = {
             window.PlayerEngine.cropOrient = 'land';
         } else if (targetMode === 'mode-mobile-port') {
             if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
-            window.PlayerEngine.cropOrient = (swDyLandBox && swDyLandBox.checked) ? 'land' : 'port';
+            window.PlayerEngine.cropOrient = 'port';
+            if (swDyLandBox) swDyLandBox.checked = false;
         } else if (targetMode === 'mode-dy-land') {
             if (typeof window.switchRightTab === 'function') window.switchRightTab('dy');
             window.PlayerEngine.cropOrient = 'land';
@@ -328,6 +329,10 @@ window.PlayerEngine = {
             if (typeof window.switchRightTab === 'function') window.switchRightTab('web');
             window.PlayerEngine.cropOrient = 'land';
         }
+        // 切换横/竖屏模式时，取景绿框默认最大化 (100%) 并居中
+        if (inMediaScale) inMediaScale.value = 100;
+        if (inPosX) inPosX.value = 50;
+        if (inPosY) inPosY.value = 50;
         checkMediaAspect();
         updateTransform();
         if (typeof window.updateStageFitScale === 'function') {
@@ -499,13 +504,17 @@ window.PlayerEngine = {
                     } else {
                         previewVideo.currentTime = 0;
                     }
-                    if (savedPlayState.posX && inPosX) inPosX.value = savedPlayState.posX;
-                    if (savedPlayState.posY && inPosY) inPosY.value = savedPlayState.posY;
-                    if (savedPlayState.scale && inMediaScale) inMediaScale.value = savedPlayState.scale;
+                    if (inPosX) inPosX.value = 50;
+                    if (inPosY) inPosY.value = 50;
+                    if (inMediaScale) inMediaScale.value = 100;
                     checkMediaAspect();
                     updateTransform();
                 };
                 previewVideo.addEventListener('loadedmetadata', restoreMetaHandler);
+            } else {
+                if (inPosX) inPosX.value = 50;
+                if (inPosY) inPosY.value = 50;
+                if (inMediaScale) inMediaScale.value = 100;
             }
 
             previewVideo.play().then(() => {
@@ -539,11 +548,12 @@ window.PlayerEngine = {
             previewImg.src = imgUrl;
             if (cropThumbImg) cropThumbImg.src = imgUrl;
             previewImg.onload = () => {
-                if (savedPlayState) {
-                    if (savedPlayState.posX && inPosX) inPosX.value = savedPlayState.posX;
-                    if (savedPlayState.posY && inPosY) inPosY.value = savedPlayState.posY;
-                    if (savedPlayState.scale && inMediaScale) inMediaScale.value = savedPlayState.scale;
-                }
+                const isPortNow = renderTarget.classList.contains('mode-mobile-port');
+                window.PlayerEngine.cropOrient = isPortNow ? 'port' : 'land';
+                if (isPortNow && swDyLandBox) swDyLandBox.checked = false;
+                if (inPosX) inPosX.value = 50;
+                if (inPosY) inPosY.value = 50;
+                if (inMediaScale) inMediaScale.value = 100;
                 checkMediaAspect();
                 updateTransform();
                 try {
@@ -1116,7 +1126,7 @@ window.PlayerEngine = {
         if (btnCropOrientPort) btnCropOrientPort.classList.toggle('active', orient === 'port');
         if (btnCropOrientLand) btnCropOrientLand.classList.toggle('active', orient === 'land');
         if (selCropOrient && selCropOrient.value !== orient) selCropOrient.value = orient;
-        if (swDyLandBox) swDyLandBox.checked = (orient === 'land');
+        if (isPortMode && swDyLandBox) swDyLandBox.checked = (orient === 'land');
 
         if (isPortMode) {
             renderTarget.classList.remove('land-port-box');
@@ -1140,26 +1150,21 @@ window.PlayerEngine = {
     window.PlayerEngine.checkMediaAspect = checkMediaAspect;
 
     function ensureGreenBoxMovable() {
-        const dims = window.PlayerEngine.getMediaNaturalDimensions();
-        const isLandMedia = dims.width >= dims.height;
-        const orient = window.PlayerEngine.cropOrient || 'land';
-        const sameOrient = (isLandMedia && orient === 'land') || (!isLandMedia && orient === 'port');
-        const curScale = parseFloat(inMediaScale.value) || 100;
-        if (sameOrient && curScale <= 105) {
-            inMediaScale.value = 120;
-        }
+        // 默认保持 100% 最大化撑满可用取景范围（拖拽绿框时由 startGreenBoxDrag 自动按需解锁移动）
     }
 
     function setCropOrientation(orient, showMsg = false) {
         window.PlayerEngine.cropOrient = (orient === 'port') ? 'port' : 'land';
+        if (inMediaScale) inMediaScale.value = 100;
+        if (inPosX) inPosX.value = 50;
+        if (inPosY) inPosY.value = 50;
         checkMediaAspect();
-        ensureGreenBoxMovable();
         updateTransform();
         setTimeout(updateTransform, 50);
         if (showMsg) {
             toast(orient === 'port'
-                ? '📱 已切换为：竖着取景框 (9:16)，可直接拖动绿框调整构图！'
-                : '🖼️ 已切换为：横着取景框 (16:9)，可直接拖动绿框调整构图！');
+                ? '📱 已切换为：竖着取景框 (9:16)，已默认最大化！'
+                : '🖼️ 已切换为：横着取景框 (16:9)，已默认最大化！');
         }
         if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
     }
@@ -1177,17 +1182,13 @@ window.PlayerEngine = {
 
     previewVideo.addEventListener('loadedmetadata', () => {
         const isPortMode = renderTarget.classList.contains('mode-mobile-port');
-        const isLandscapeVid = (previewVideo.videoWidth || 0) >= (previewVideo.videoHeight || 1);
-        if (isPortMode) {
-            if (isLandscapeVid) {
-                window.PlayerEngine.cropOrient = 'land';
-                if (swDyLandBox) swDyLandBox.checked = true;
-            } else {
-                window.PlayerEngine.cropOrient = (swDyLandBox && swDyLandBox.checked) ? 'land' : 'port';
-            }
-        }
+        // 严格跟随当前画幅模式：手机竖屏默认竖屏取景框 (9:16)，横屏模式默认横屏取景框 (16:9)，且默认最大化 (100%)
+        window.PlayerEngine.cropOrient = isPortMode ? 'port' : 'land';
+        if (isPortMode && swDyLandBox) swDyLandBox.checked = false;
+        if (inMediaScale) inMediaScale.value = 100;
+        if (inPosX) inPosX.value = 50;
+        if (inPosY) inPosY.value = 50;
         checkMediaAspect();
-        ensureGreenBoxMovable();
         updateTransform();
         const realDur = (previewVideo.duration && isFinite(previewVideo.duration) && previewVideo.duration > 0)
             ? previewVideo.duration
@@ -1725,6 +1726,31 @@ window.PlayerEngine = {
         if (previewProgRafId) cancelAnimationFrame(previewProgRafId);
         previewProgRafId = requestAnimationFrame(tickPreviewProgressRaf);
         updatePlayStateUI(true);
+
+        // 自动探测源视频真实帧率（若源视频为 60fps 则标记 window.__detectedSourceFps = 60，否则默认 30fps）
+        if (typeof previewVideo.requestVideoFrameCallback === 'function' && !previewVideo.__fpsProbed) {
+            previewVideo.__fpsProbed = true;
+            let lastMediaTime = null;
+            const deltas = [];
+            const probeStep = (now, metadata) => {
+                if (window.__isExportRecording || previewVideo.paused) return;
+                if (metadata && typeof metadata.mediaTime === 'number') {
+                    if (lastMediaTime !== null) {
+                        const dt = (metadata.mediaTime - lastMediaTime) / Math.max(0.25, previewVideo.playbackRate || 1);
+                        if (dt > 0.004 && dt < 0.1) deltas.push(dt);
+                    }
+                    lastMediaTime = metadata.mediaTime;
+                }
+                if (deltas.length < 6) {
+                    previewVideo.requestVideoFrameCallback(probeStep);
+                } else {
+                    const avgDt = deltas.reduce((a, b) => a + b, 0) / deltas.length;
+                    const estFps = avgDt > 0 ? (1 / avgDt) : 30;
+                    window.__detectedSourceFps = (estFps >= 48) ? 60 : 30;
+                }
+            };
+            previewVideo.requestVideoFrameCallback(probeStep);
+        }
     });
     previewVideo.addEventListener('pause', () => {
         if (previewProgRafId) {
@@ -1764,7 +1790,7 @@ window.PlayerEngine = {
         const fitMode = selCropFit ? selCropFit.value : 'cover';
         const rawScale = parseFloat(inMediaScale.value);
         const scaleVal = Number.isNaN(rawScale) ? 100 : rawScale;
-        const zoom = fitMode === 'cover' ? Math.max(1.03, scaleVal / 100) : (scaleVal / 100);
+        const zoom = fitMode === 'cover' ? Math.max(1.0, scaleVal / 100) : (scaleVal / 100);
         const rawX = parseFloat(inPosX.value);
         const rawY = parseFloat(inPosY.value);
         const xPct = Math.min(100, Math.max(0, Number.isNaN(rawX) ? 50 : rawX));
@@ -1789,8 +1815,8 @@ window.PlayerEngine = {
                 baseH = baseW / mAspect;
             }
         }
-        // ★ 边缘防白边出血量 (bleed=12px)：彻底裁切掉源视频自带的录屏窗口白边与亚像素亮线
-        const bleed = fitMode === 'cover' ? 12 : 0;
+        // ★ 边缘防亚像素亮线出血量 (bleed=2px)：既消除亚像素缝隙，又保证 100% 最大化时画面完整不裁边
+        const bleed = fitMode === 'cover' ? 2 : 0;
         const coreW = baseW * zoom;
         const coreH = baseH * zoom;
         const renderW = Math.ceil(coreW + bleed * 2);
@@ -1798,7 +1824,7 @@ window.PlayerEngine = {
         const offX = Math.floor(-bleed + (targetW - coreW) * posX);
         const offY = Math.floor(-bleed + (targetH - coreH) * posY);
         return {
-            mediaW, mediaH, mAspect, cAspect,
+            mediaW, mediaH, mAspect, cAspect, baseW, baseH,
             zoom, scaleVal, posX, posY, xPct, yPct,
             renderW, renderH, offX, offY
         };
@@ -1860,8 +1886,9 @@ window.PlayerEngine = {
         cropWindowBody.style.width = bodyW + 'px';
         cropWindowBody.style.height = bodyH + 'px';
 
-        const visWFrac = Math.min(1, targetW / rect.renderW);
-        const visHFrac = Math.min(1, targetH / rect.renderH);
+        const userZoom = Math.max(1, (rect.scaleVal || 100) / 100);
+        const visWFrac = Math.min(1, targetW / ((rect.baseW || targetW) * userZoom));
+        const visHFrac = Math.min(1, targetH / ((rect.baseH || targetH) * userZoom));
         const boxW = Math.max(24, Math.round(bodyW * visWFrac));
         const boxH = Math.max(24, Math.round(bodyH * visHFrac));
         cropSelectionBox.style.width = boxW + 'px';
