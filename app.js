@@ -1029,17 +1029,15 @@ window.switchRightTab = function (mode, opts) {
 
     if (mBtnVol) {
         mBtnVol.addEventListener('click', () => {
-            const previewVideo = document.getElementById('preview-video');
-            if (previewVideo && window.PlayerEngine && window.PlayerEngine.isVideoMode) {
-                if (typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
-                    window.PlayerEngine.setVideoSoundMuted(!previewVideo.muted, true);
-                } else {
-                    previewVideo.muted = !previewVideo.muted;
-                    window.showToast(previewVideo.muted ? '🔇 视频已静音' : '🔊 视频原声已开启');
-                }
-            } else {
-                window.showToast('🔊 音量控制');
-            }
+            const pct = (window.PlayerEngine && typeof window.PlayerEngine.getVolume === 'function')
+                ? Math.round(window.PlayerEngine.getVolume() * 100)
+                : 100;
+            const isUserMuted = (window.PlayerEngine && typeof window.PlayerEngine.isUserMuted === 'function')
+                ? window.PlayerEngine.isUserMuted()
+                : false;
+            window.showToast(isUserMuted
+                ? '🔇 当前已静音（请点击下方时间轴右侧静音按键恢复声音）'
+                : `🔊 视频原声常开中（当前音量 ${pct}% · 移至画面右侧细条可拖动调音量，仅时间轴右侧静音键可静音）`);
         });
     }
 
@@ -1325,61 +1323,116 @@ window.switchRightTab = function (mode, opts) {
         });
     }
 
-    // 海外华人/真实用户风格繁体中文昵称大词库（325+ 条，离线可用，配合 Gemini Flash AI 实时生成与双层去重）
-    const NICKNAME_POOL = [
-        '溫哥華小鹿', '洛杉磯老陳', '多倫多Sandy', '墨爾本阿豪', '悉尼小陳', '舊金山阿凱', '倫敦Chloé', '紐約Kevin',
-        '西雅圖老林', '東京小夏', '新加坡阿杰', '吉隆坡家豪', '奧克蘭Mia', '台北林小柔', '香港阿Wing', '芝加哥Leo',
-        '波士頓小魚', '休斯頓老張', '布里斯班阿翔', '巴黎艾米麗', '法蘭克福老周', '阿姆斯特丹Kiki', '米蘭小C', '馬德里阿偉',
-        '溫哥華阿May', '多倫多老吳', '加州陽光Eric', '灣區工程師阿哲', '曼哈頓夜貓', '皇后區小辣椒', '布魯克林阿Ken', '爾灣林太太',
-        '聖地亞哥海風', '帕羅奧圖Alex', '聖荷西老王', '拉斯維加斯阿龍', '西雅圖雨夜', '波特蘭小森', '溫哥華列治文老饕', '本拿比小陳',
-        '多倫多萬錦阿欣', '士嘉堡老劉', '密西沙加Grace', '卡爾加里老鄭', '蒙特利爾小雅', '渥太華Daniel', '悉尼唐人街阿強', '墨爾本BoxHill小周',
-        '珀斯看海的貓', '阿德萊德老許', '黃金海岸Sunny', '堪培拉小趙', '奧克蘭北岸阿明', '惠靈頓吹風', '基督城小葉', '倫敦Soho阿杰',
-        '曼徹斯特老高', '愛丁堡風笛', '伯明翰小蘇', '劍橋讀書的貓', '牛津小胡', '都柏林阿森', '東京新宿老李', '大阪心齋橋阿欣',
-        '京都抹茶控', '橫濱海風Ryan', '札幌看雪的魚', '福岡拉麵大王', '沖繩潛水員阿凱', '首爾弘大Mia', '濟州島橘子汽水', '新加坡烏節路阿文',
-        '裕廊東老林', '牛車水小辣椒', '樟宜夜歸人', '吉隆坡阿豪', '檳城老街阿叔', '新山小K', '馬六甲海風', '亞庇看日落',
-        '古晉小陳', '怡保白咖啡', '曼谷通羅阿杰', '清邁慢生活', '普吉島浪人', '台北信義區小柔', '大安區老陳', '西門町阿翔',
-        '淡水看夕陽', '九份老街的貓', '台中逢甲夜市王', '台南全糖去冰', '高雄駁二阿宏', '新竹竹科小工程師', '桃園機場常客', '基隆廟口老饕',
-        '花蓮看海的人', '宜蘭民宿小老闆', '墾丁衝浪男孩', '香港中環白領', '銅鑼灣阿詩', '旺角卡門', '尖沙咀看海', '九龍塘老陳',
-        '元朗小魚', '沙田阿軒', '將軍澳夜跑', '澳門氹仔老周', '大三巴小敏', 'Chloe_tw', 'Kevin.88', 'Jason_HK',
-        '阿傑Jay', '子瑜', '林小柔', 'Mia_chen', 'Alex_W', '半糖去冰', '夜貓子Owl', 'Ethan_Lin',
-        '微風信義', 'Sophia.L', '台北小辣椒', 'Lucas_MY', '港島妹妹', 'Olivia_99', 'Kuala_阿豪', 'Ryan_Tpe',
-        '忠孝東路走九遍', '貓空看星星', 'abella.vibes', '珍奶要波霸', 'Daniel_K', '小確幸', 'Leo_studio', '深夜食堂',
-        'Vivian.c', '維多利亞港的風', 'Marcus_852', '星際漫遊者', '萱萱_tw', '建宏_TPE', '芷晴_hk', '宇軒.my',
-        'Amber_Lin', '家豪_888', '心凌Cyndi', '溫哥華冰美式', '洛杉磯日落大道', '聖莫尼卡海風', '比佛利小公主', '好萊塢追光者',
-        '硅谷熬夜王', '金門大橋的風', '優勝美地露營客', '太浩湖滑雪板', '西雅圖咖啡師', '華盛頓櫻花雨', '邁阿密海灘阿豪', '奧蘭多煙火',
-        '亞特蘭大老蘇', '達拉斯牛仔阿K', '丹佛雪山客', '鳳凰城仙人掌', '費城老街阿明', '底特律老車迷', '明尼蘇達看雪', '夏威夷衝浪阿杰',
-        '檀香山小辣椒', '關島潛水員', '多倫多塔下的貓', '安大略湖畔', '尼亞加拉看瀑布', '溫哥華斯坦利公園', '惠斯勒滑雪狂', '維多利亞港灣',
-        '班夫國家公園鹿', '魁北克古城小雅', '哈利法克斯海風', '悉尼歌劇院旁', '邦迪海灘衝浪', '達令港夜景', '藍山徒步者', '墨爾本咖啡巷',
-        '大洋路自駕王', '菲利普島看企鵝', '亞拉河谷品酒師', '布里斯班南岸', '陽光海岸阿哲', '凱恩斯大堡礁', '塔斯馬尼亞追極光', '霍巴特小漁夫',
-        '奧克蘭天空塔', '羅托魯瓦溫泉', '皇后鎮跳傘王', '瓦納卡孤獨的樹', '蒂卡波看星空', '倫敦泰晤士河風', '大本鐘下的貓', '海德公園晨跑',
-        '諾丁山舊書店', '卡姆登集市控', '布萊頓海邊阿欣', '利物浦搖滾迷', '格拉斯哥老林', '卡迪夫灣小C', '貝爾法斯特阿強', '巴黎塞納河左岸',
-        '埃菲爾鐵塔夜燈', '蒙馬特畫家', '里昂美食家老陳', '尼斯蔚藍海岸', '馬賽老港海風', '普羅旺斯薰衣草', '波爾多紅酒客', '柏林勃蘭登堡',
-        '慕尼黑啤酒節阿豪', '漢堡港水手', '科隆大教堂旁', '海德堡哲學小徑', '蘇黎世湖畔小葉', '日內瓦鐘錶匠', '盧塞恩天鵝湖', '維也納金色大廳',
-        '薩爾茨堡音樂迷', '阿姆斯特丹運河船', '鹿特丹方塊屋', '布魯塞爾華夫餅', '羅馬許願池小鹿', '佛羅倫薩看日落', '威尼斯貢多拉', '米蘭大教堂鴿子',
-        '那不勒斯披薩王', '巴塞羅那高迪迷', '馬德里伯納烏阿杰', '塞維利亞弗拉明戈', '里斯本黃色電車', '波爾圖酒窖老吳', '雅典衛城看海', '聖托里尼藍頂',
-        '布拉格查理大橋', '布達佩斯多瑙河', '華沙老城阿森', '斯德哥爾摩群島', '奧斯陸峽灣行者', '哥本哈根小美人魚', '赫爾辛基極光獵人', '雷克雅未克冰川',
-        '東京鐵塔的貓', '澀谷十字路口', '銀座下午茶Sophia', '秋葉原手辦王', '淺草寺求籤人', '鎌倉高校前看海', '箱根溫泉常客', '富士山下的阿凱',
-        '大阪道頓堀吃貨', '京都嵐山竹林', '奈良餵鹿少女', '神戶牛排老饕', '名古屋手羽先', '廣島嚴島神社', '金澤兼六園小雅', '輕井澤森林客',
-        '首爾江南小姊姊', '明洞逛街狂', '梨泰院夜未眠', '釜山海雲台阿豪', '仁川機場轉機王', '新加坡濱海灣花園', '克拉碼頭微醺', '聖淘沙海灘客',
-        '東海岸騎行阿杰', '吉隆坡雙子塔夜色', '武吉免登阿強', '雲頂高原吹風', '蘭卡威天空之橋', '仙本那潛水小魚', '曼谷湄南河晚風', '芭堤雅海景房',
-        '蘇梅島椰子冰', '華欣火車站的貓', '胡志明市滴漏咖啡', '河內三十六行街', '峴港美溪海灘', '馬尼拉灣日落', '長灘島白沙灘', '宿霧看鯨鯊',
-        '雅加達老城阿明', '巴厘島烏布森林', '金巴蘭海灘燒烤', '迪拜哈利法塔下', '阿布扎比沙漠客', '開羅金字塔行者', '卡薩布蘭卡舊夢', '開普敦好望角',
-        '約翰內斯堡老陳', '聖保羅華人街阿豪', '布宜諾斯艾利斯探戈', '聖地亞哥安第斯山', '利馬馬丘比丘客', '墨西哥城塔可王', '坎昆加勒比海風', '哈瓦那老爺車'
+    // ★ 海外华人真实用户繁体中文/中英混搭昵称大词库（严格按 85%+ 海外华人男性用户 + ~15% 女性用户构成，配合 Gemini Flash AI 实时生成与全历史查重守卫）
+    const OVERSEAS_MALE_NICKNAME_POOL = [
+        '溫哥華老陳', '洛杉磯阿豪', '多倫多老吳', '墨爾本大衛', '悉尼唐人街阿強', '舊金山阿凱', '紐約Kevin陳', '西雅圖老林',
+        '新加坡阿杰', '吉隆坡家豪', '芝加哥Leo', '休斯頓老張', '布里斯班阿翔', '法蘭克福老周', '馬德里阿偉', '加州陽光Eric',
+        '灣區工程師阿哲', '布魯克林阿Ken', '帕羅奧圖Alex', '聖荷西老王', '拉斯維加斯阿龍', '列治文老饕陳哥', '本拿比小陳', '士嘉堡老劉',
+        '卡爾加里老鄭', '渥太華Daniel', '墨爾本BoxHill小周', '阿德萊德老許', '堪培拉小趙', '奧克蘭北岸阿明', '倫敦Soho阿杰', '曼徹斯特老高',
+        '牛津小胡', '都柏林阿森', '東京新宿老李', '橫濱海風Ryan', '沖繩潛水員阿凱', '新加坡烏節路阿文', '裕廊東老林', '檳城老街阿輝',
+        '新山阿K', '古晉小陳', '曼谷通羅阿杰', '台北大安老陳', '西門町阿翔', '台中逢甲阿宏', '高雄駁二志豪', '竹科工程師建宏',
+        '宜蘭民宿陳老闆', '墾丁衝浪阿哲', '九龍塘老陳', '沙田阿軒', '澳門氹仔老周', 'Kevin_Lin88', 'Jason_HK852', '阿傑Jay_MY',
+        'Alex_Wong', 'Ethan_Lin', 'Lucas_MY', 'Kuala_阿豪', 'Ryan_Tpe', 'Daniel_Kuo', 'Leo_Chen', 'Marcus_852',
+        '建宏_TPE', '宇軒_MY', '家豪_888', '硅谷搬磚阿偉', '邁阿密海灘阿豪', '亞特蘭大老蘇', '達拉斯牛仔阿K', '費城老街阿明',
+        '夏威夷衝浪阿杰', '陽光海岸阿哲', '格拉斯哥老林', '貝爾法斯特阿強', '里昂老陳', '慕尼黑阿豪', '馬德里阿杰', '波爾圖老吳',
+        '華沙老城阿森', '富士山下的阿凱', '神戶老饕張哥', '釜山海雲台阿豪', '東海岸騎行阿杰', '武吉免登阿強', '雅加達老城阿明', '約翰內斯堡老陳',
+        '聖保羅華人街阿豪', '法拉盛老趙', '皇后區阿斌', '長島老孫', '新澤西David王', '波士頓阿誠', '爾灣張先生', '聖蓋博老黃',
+        '羅蘭崗阿峰', '蒙市老蔡', '阿罕布拉小鄭', '庫比蒂諾碼農老徐', '佛利蒙阿鵬', '奧斯汀工程師Ken', '西雅圖貝爾維尤老郭', '波特蘭阿毅',
+        '溫哥華本拿比阿良', '高貴林老潘', '素里阿興', '維多利亞港老梁', '多倫多北約克阿俊', '萬錦老鄧', '密西沙加Eric黃', '滑鐵盧阿博',
+        '蒙特利爾老何', '埃德蒙頓阿軍', '溫尼伯老唐', '悉尼車士活阿威', '帕拉馬塔老馮', '赫斯特維爾阿昌', '墨爾本Glen老宋', '唐卡斯特阿東',
+        '黃金海岸衝浪阿泰', '珀斯老謝', '奧克蘭東區老盧', '基督城阿澤', '惠靈頓老范', '倫敦金絲雀碼頭Ray', '伯明翰阿坤', '利物浦老曹',
+        '愛丁堡阿駿', '劍橋博後老韓', '曼城阿添', '巴黎十三區老林', '米蘭華人街阿勇', '巴塞羅那老石', '柏林阿康', '杜塞爾多夫老沈',
+        '阿姆斯特丹阿耀', '蘇黎世老方', '維也納阿倫', '東京池袋老馬', '上野阿浩', '橫濱中華街老董', '大阪難波阿信', '名古屋老丁',
+        '福岡阿剛', '札幌老白', '首爾大林洞老金', '仁川阿柱', '新加坡大巴窯阿順', '勿洛老楊', '武吉知馬Victor', '樟宜阿成',
+        '吉隆坡甲洞阿發', '蕉賴老廖', '八打靈再也Kelvin', '蒲種阿賢', '巴生肉骨茶老吳', '怡保阿華', '馬六甲老鍾', '新山MountAustin阿豪',
+        '亞庇阿忠', '詩巫老江', '台北內湖工程師阿凱', '板橋老游', '新店阿瑋', '中和老彭', '桃園青埔阿智', '新竹竹北Ray',
+        '台中西屯阿慶', '台南安平老邱', '高雄左營阿仁', '基隆老簡', '香港觀塘阿朗', '荃灣老麥', '元朗阿熙', '將軍澳Kelvin',
+        '大埔老譚', '屯門阿昇', '北角老莫', '西環Bosco', '深水埗輝哥', '旺角阿迪', '志豪_TW', '冠宇_886',
+        '柏翰_TPE', '承恩_CA', '俊傑_LA', '偉倫_SG', '明哲_NY', '子軒_AU', '浩然_UK', '振華_MY',
+        '博文_TOR', '家瑋_VAN', '宗翰_TW', '彥廷_886', '哲瑋_SF', '敬軒_HK', '卓然_MEL', '國棟_SYD'
     ];
+    const OVERSEAS_FEMALE_NICKNAME_POOL = [
+        '多倫多Sandy', '倫敦Chloé', '奧克蘭Mia', '台北林小柔', '爾灣林太太', '溫哥華阿May', '密西沙加Grace', '大阪心齋橋阿欣',
+        '台北信義區小柔', '銅鑼灣阿詩', 'Chloe_tw', 'Mia_chen', 'Sophia.L', 'Olivia_99', 'Vivian_HK', '萱萱_tw',
+        '芷晴_hk', 'Amber_Lin', '銀座下午茶Sophia', '金澤小雅', '溫哥華小鹿', '墨爾本Cathy', '悉尼小敏', '新加坡Rachel',
+        '吉隆坡嘉欣', '西雅圖Jenny', '法拉盛小魚', '東京小夏', '九龍塘阿欣', '台中曉雯'
+    ];
+    // 兼容旧引用：主池保持约 86% 海外华人男性 + 14% 海外华人女性混合排布
+    const NICKNAME_POOL = [];
+    (function buildWeightedMainPool() {
+        let mIdx = 0, fIdx = 0;
+        while (mIdx < OVERSEAS_MALE_NICKNAME_POOL.length || fIdx < OVERSEAS_FEMALE_NICKNAME_POOL.length) {
+            for (let k = 0; k < 6 && mIdx < OVERSEAS_MALE_NICKNAME_POOL.length; k++) {
+                NICKNAME_POOL.push(OVERSEAS_MALE_NICKNAME_POOL[mIdx++]);
+            }
+            if (fIdx < OVERSEAS_FEMALE_NICKNAME_POOL.length) {
+                NICKNAME_POOL.push(OVERSEAS_FEMALE_NICKNAME_POOL[fIdx++]);
+            }
+        }
+    })();
+
+    const FEMALE_NICK_HINT_REGEX = /(小鹿|小柔|小魚|小夏|小敏|小雅|阿欣|阿詩|阿May|太太|少女|小貓|姐姐|妹妹|公主|甜豆|萱萱|芷晴|嘉欣|曉雯|心凌|子瑜|Sandy|Chloé|Chloe|Mia|Grace|Sophia|Olivia|Vivian|Amber|Cathy|Rachel|Jenny|Kiki)/i;
+    function isLikelyFemaleNickname(nick) {
+        return FEMALE_NICK_HINT_REGEX.test(String(nick || ''));
+    }
+    window.__isLikelyFemaleNickname = isLikelyFemaleNickname;
+
+    function normalizeIdentityGuardKey(rawStr) {
+        return String(rawStr || '')
+            .trim()
+            .toLowerCase()
+            .replace(/[\s·._\-—()（）【】\[\]「」『』:：,，。！？!?~～]+/g, '');
+    }
+
+    // 动态海外华人男/女用户网名合成兜底器（支持超过 25,000+ 自然组合，零机械尾号，确保连续生成上千条也 100% 真实不重名）
+    const _DYN_OVERSEAS_CITIES = ['溫哥華', '多倫多', '洛杉磯', '法拉盛', '灣區', '西雅圖', '休斯頓', '芝加哥', '波士頓', '爾灣', '墨爾本', '悉尼', '布里斯班', '奧克蘭', '新加坡', '吉隆坡', '新山', '檳城', '怡保', '九龍', '沙田', '觀塘', '銅鑼灣', '台北', '新北', '台中', '台南', '高雄', '新竹', '倫敦', '曼城', '東京', '大阪', '橫濱'];
+    const _DYN_MALE_SCENES = ['', '老街', '夜跑', '海邊', '工程師', '老饕', '夜貓', '釣魚佬', '咖啡控', '下班路', '唐人街', '碼頭', '山景', '騎行', '健身'];
+    const _DYN_MALE_ROLES = ['老陳', '老林', '老張', '老王', '老周', '老吳', '老劉', '老黃', '老鄭', '老許', '老趙', '老孫', '老郭', '老何', '老馬', '阿豪', '阿凱', '阿杰', '阿強', '阿偉', '阿明', '阿輝', '阿軒', '阿宏', '阿哲', '阿良', '阿俊', '阿威', '阿峰', '志豪', '家豪', '建宏', '冠宇', '俊傑', '柏翰', '承恩', 'Kevin', 'Jason', 'Eric', 'Alex', 'Ryan', 'Daniel', 'Marcus', 'Leo', 'Ken', 'David', 'Victor', 'Ray'];
+    const _DYN_CITY_CODES = ['YVR', 'YYZ', 'LAX', 'NYC', 'SFO', 'SEA', 'MEL', 'SYD', 'AKL', 'SIN', 'KUL', 'HKG', 'TPE', 'KHH', 'LON', 'TYO'];
+    const _DYN_FEMALE_ROLES = ['小柔', '小魚', '小夏', '小敏', '小雅', '小鹿', '阿欣', '阿詩', '阿May', '萱萱', '芷晴', '嘉欣', '曉雯', 'Sandy', 'Chloe', 'Mia', 'Grace', 'Sophia', 'Vivian', 'Amber', 'Cathy', 'Rachel', 'Jenny'];
+    let _dynNickSeq = Math.floor(Math.random() * 900) + 100;
+    function synthesizeFreshOverseasMaleNick(avoidNormSet) {
+        for (let attempt = 0; attempt < 320; attempt++) {
+            const c = _DYN_OVERSEAS_CITIES[(attempt * 7 + _dynNickSeq) % _DYN_OVERSEAS_CITIES.length];
+            const s = _DYN_MALE_SCENES[(attempt * 5 + _dynNickSeq) % _DYN_MALE_SCENES.length];
+            const r = _DYN_MALE_ROLES[(attempt * 13 + _dynNickSeq) % _DYN_MALE_ROLES.length];
+            const code = _DYN_CITY_CODES[(attempt * 11 + _dynNickSeq) % _DYN_CITY_CODES.length];
+            _dynNickSeq++;
+            const style = attempt % 3;
+            const cand = style === 0
+                ? `${c}${s}${r}`
+                : (style === 1 ? `${r}_${code}` : `${c}${r}`);
+            if (isLikelyFemaleNickname(cand)) continue;
+            const k = normalizeIdentityGuardKey(cand);
+            if (k && (!avoidNormSet || !avoidNormSet.has(k))) return cand;
+        }
+        _dynNickSeq++;
+        return `溫哥華阿豪_${_dynNickSeq}`;
+    }
+    function synthesizeFreshOverseasFemaleNick(avoidNormSet) {
+        for (let attempt = 0; attempt < 180; attempt++) {
+            const c = _DYN_OVERSEAS_CITIES[(attempt * 9 + _dynNickSeq) % _DYN_OVERSEAS_CITIES.length];
+            const f = _DYN_FEMALE_ROLES[(attempt * 7 + _dynNickSeq) % _DYN_FEMALE_ROLES.length];
+            const code = _DYN_CITY_CODES[(attempt * 5 + _dynNickSeq) % _DYN_CITY_CODES.length];
+            _dynNickSeq++;
+            const cand = (attempt % 2 === 0) ? `${c}${f}` : `${f}_${code}`;
+            const k = normalizeIdentityGuardKey(cand);
+            if (k && (!avoidNormSet || !avoidNormSet.has(k))) return cand;
+        }
+        _dynNickSeq++;
+        return `溫哥華小柔_${_dynNickSeq}`;
+    }
 
     /* ==========================================================================
-       ★ 问题五：昵称/头像双层去重（本机 localStorage + 跨设备后端/设备指纹分流）
-                 + 内置 Gemini Flash AI 动态生成海外华人昵称 + 海外华人头像持续更新源
+       ★ 问题五升级：全历史昵称 & 弹幕文案查重守卫（85%+ 海外华人男性占比 + AI 生成强校验不重复）
        ========================================================================== */
-    const USED_NICKNAMES_STORAGE_KEY = 'LAYA_USED_NICKNAMES_V1';
+    const USED_NICKNAMES_STORAGE_KEY = 'LAYA_USED_NICKNAMES_GUARD_V2';
+    const USED_DANMAKU_TEXT_STORAGE_KEY = 'LAYA_USED_DANMAKU_GUARD_V2';
     const USED_AVATARS_STORAGE_KEY = 'LAYA_USED_AVATARS_V1';
-    const AI_NICKNAMES_CACHE_KEY = 'LAYA_AI_OVERSEAS_NICKNAMES_V1';
+    const AI_NICKNAMES_CACHE_KEY = 'LAYA_AI_OVERSEAS_NICKNAMES_V2';
     const DYNAMIC_AVATARS_CACHE_KEY = 'LAYA_DYNAMIC_ASIAN_AVATARS_V1';
     const DEVICE_FINGERPRINT_SEED_KEY = 'LAYA_DEVICE_SHARD_SEED_V1';
 
-    // [降级方案注释]：当跨设备后端 (/api/claim-identity 或 GAS) 暂不可用或处于静态站点/离线环境时，
-    // 采用设备硬件特征指纹 + 时区/分辨率/语言 + 持久随机盐生成确定性分流种子 (Device Fingerprint Shard)，
-    // 将不同设备分配到 320+ 昵称库与 340+ 头像库的不同起始区间，大幅降低跨电脑撞车率。
     function getDeviceFingerprintShardOffset(poolLength = 300) {
         try {
             let savedSeed = parseInt(localStorage.getItem(DEVICE_FINGERPRINT_SEED_KEY) || '0', 10);
@@ -1415,7 +1468,7 @@ window.switchRightTab = function (mode, opts) {
         return new Set();
     }
 
-    function saveUsedSetToStorage(key, setObj, maxKeep = 260) {
+    function saveUsedSetToStorage(key, setObj, maxKeep = 1800) {
         try {
             let arr = Array.from(setObj);
             if (arr.length > maxKeep) {
@@ -1426,18 +1479,76 @@ window.switchRightTab = function (mode, opts) {
     }
 
     const __localUsedNicknames = loadUsedSetFromStorage(USED_NICKNAMES_STORAGE_KEY);
+    const __localUsedNickNormSet = new Set(Array.from(__localUsedNicknames).map(normalizeIdentityGuardKey).filter(Boolean));
+    const __localUsedDanmakuTexts = loadUsedSetFromStorage(USED_DANMAKU_TEXT_STORAGE_KEY);
+    const __localUsedDanmakuNormSet = new Set(Array.from(__localUsedDanmakuTexts).map(normalizeIdentityGuardKey).filter(Boolean));
     const __localUsedAvatars = loadUsedSetFromStorage(USED_AVATARS_STORAGE_KEY);
     const __crossDeviceClaimedNicknames = [];
     const __crossDeviceClaimedAvatarIds = [];
 
-    // 恢复本地缓存的 AI 海外华人昵称并前置注入 NICKNAME_POOL
+    function recordNicknameAsUsed(nick) {
+        const clean = String(nick || '').trim();
+        const nk = normalizeIdentityGuardKey(clean);
+        if (!clean || !nk) return;
+        __localUsedNicknames.add(clean);
+        __localUsedNickNormSet.add(nk);
+        if (!window.__isInitialPreBoot) {
+            saveUsedSetToStorage(USED_NICKNAMES_STORAGE_KEY, __localUsedNicknames, 1800);
+        }
+    }
+
+    function isNicknameAlreadyUsed(nick, extraBatchNormSet = null) {
+        const nk = normalizeIdentityGuardKey(nick);
+        if (!nk) return true;
+        if (extraBatchNormSet && extraBatchNormSet.has(nk)) return true;
+        return __localUsedNickNormSet.has(nk);
+    }
+
+    function recordDanmakuTextAsUsed(text) {
+        const clean = String(text || '').trim();
+        const tk = normalizeIdentityGuardKey(clean);
+        if (!clean || !tk) return;
+        __localUsedDanmakuTexts.add(clean);
+        __localUsedDanmakuNormSet.add(tk);
+        if (!window.__isInitialPreBoot) {
+            saveUsedSetToStorage(USED_DANMAKU_TEXT_STORAGE_KEY, __localUsedDanmakuTexts, 1800);
+        }
+    }
+
+    function isDanmakuTextAlreadyUsed(text, extraBatchNormSet = null) {
+        const tk = normalizeIdentityGuardKey(text);
+        if (!tk) return true;
+        if (extraBatchNormSet && extraBatchNormSet.has(tk)) return true;
+        return __localUsedDanmakuNormSet.has(tk);
+    }
+
+    function getRecentUsedNicknamesSample(limit = 32) {
+        const arr = Array.from(__localUsedNicknames);
+        return arr.slice(Math.max(0, arr.length - limit));
+    }
+    function getRecentUsedDanmakuSample(limit = 22) {
+        const arr = Array.from(__localUsedDanmakuTexts);
+        return arr.slice(Math.max(0, arr.length - limit));
+    }
+    window.__isNicknameAlreadyUsed = isNicknameAlreadyUsed;
+    window.__recordNicknameAsUsed = recordNicknameAsUsed;
+    window.__isDanmakuTextAlreadyUsed = isDanmakuTextAlreadyUsed;
+    window.__recordDanmakuTextAsUsed = recordDanmakuTextAsUsed;
+    window.__getRecentUsedNicknamesSample = getRecentUsedNicknamesSample;
+    window.__getRecentUsedDanmakuSample = getRecentUsedDanmakuSample;
+
+    // 恢复本地缓存的 AI 海外华人昵称并按性别注入对应候选池（仅保留未曾使用过的名字）
     try {
         const cachedAiNicks = JSON.parse(localStorage.getItem(AI_NICKNAMES_CACHE_KEY) || '[]');
         if (Array.isArray(cachedAiNicks)) {
             cachedAiNicks.forEach(n => {
                 const clean = String(n || '').trim();
-                if (clean && !NICKNAME_POOL.includes(clean)) {
-                    NICKNAME_POOL.unshift(clean);
+                if (!clean || clean.length < 2 || clean.length > 14) return;
+                if (!NICKNAME_POOL.includes(clean)) NICKNAME_POOL.unshift(clean);
+                if (isLikelyFemaleNickname(clean)) {
+                    if (!OVERSEAS_FEMALE_NICKNAME_POOL.includes(clean)) OVERSEAS_FEMALE_NICKNAME_POOL.unshift(clean);
+                } else {
+                    if (!OVERSEAS_MALE_NICKNAME_POOL.includes(clean)) OVERSEAS_MALE_NICKNAME_POOL.unshift(clean);
                 }
             });
         }
@@ -1452,52 +1563,108 @@ window.switchRightTab = function (mode, opts) {
         return s.slice(0, 140);
     }
 
-    // ★ 本机 + 跨设备双层去重：领取一个未使用的海外华人昵称（滑动窗口记忆，耗尽时仅淘汰最早旧记录，绝不清空重撞近期昵称）
-    function claimUniqueNickname(customPool = null) {
+    // ★ 领取一个全局唯一、未曾重复使用的海外华人昵称（默认 85% 概率为海外华人男性昵称，15% 为海外华人女性昵称）
+    function claimUniqueNickname(optionsOrPool = null) {
         const recordUsed = !window.__isInitialPreBoot;
-        // 1) 优先消费跨设备后端 (/api/claim-identity) 已申领的全局未用昵称
-        while (__crossDeviceClaimedNicknames.length > 0) {
-            const candidate = __crossDeviceClaimedNicknames.shift();
-            if (candidate && !__localUsedNicknames.has(candidate)) {
-                if (recordUsed) {
-                    __localUsedNicknames.add(candidate);
-                    saveUsedSetToStorage(USED_NICKNAMES_STORAGE_KEY, __localUsedNicknames, 300);
-                }
+        let customPool = null;
+        let preferMaleRatio = 0.85;
+        let avoidSet = null;
+        let forceMale = null;
+
+        if (Array.isArray(optionsOrPool)) {
+            customPool = optionsOrPool;
+        } else if (optionsOrPool && typeof optionsOrPool === 'object') {
+            if (Array.isArray(optionsOrPool.customPool)) customPool = optionsOrPool.customPool;
+            if (typeof optionsOrPool.preferMaleRatio === 'number') preferMaleRatio = optionsOrPool.preferMaleRatio;
+            if (optionsOrPool.avoidSet && typeof optionsOrPool.avoidSet.has === 'function') avoidSet = optionsOrPool.avoidSet;
+            if (typeof optionsOrPool.forceMale === 'boolean') forceMale = optionsOrPool.forceMale;
+        }
+
+        const avoidNormSet = new Set();
+        if (avoidSet) {
+            avoidSet.forEach(v => {
+                const k = normalizeIdentityGuardKey(v);
+                if (k) avoidNormSet.add(k);
+            });
+        }
+
+        const wantMale = (typeof forceMale === 'boolean') ? forceMale : (Math.random() < preferMaleRatio);
+
+        // 1) 优先消费跨设备/AI 刚补充的未使用昵称（同时符合男女性别比例要求）
+        for (let cIdx = 0; cIdx < __crossDeviceClaimedNicknames.length; cIdx++) {
+            const candidate = __crossDeviceClaimedNicknames[cIdx];
+            if (!candidate) continue;
+            const candIsFemale = isLikelyFemaleNickname(candidate);
+            if (wantMale ? candIsFemale : !candIsFemale) continue;
+            if (!isNicknameAlreadyUsed(candidate, avoidNormSet)) {
+                __crossDeviceClaimedNicknames.splice(cIdx, 1);
+                if (recordUsed) recordNicknameAsUsed(candidate);
+                if (avoidSet && typeof avoidSet.add === 'function') avoidSet.add(candidate);
                 return candidate;
             }
         }
 
-        const pool = (Array.isArray(customPool) && customPool.length > 0) ? customPool : NICKNAME_POOL;
-        const shardOffset = getDeviceFingerprintShardOffset(pool.length);
-        const randStart = (shardOffset + Math.floor(Math.random() * pool.length)) % pool.length;
+        const targetPool = (customPool && customPool.length > 0)
+            ? customPool
+            : (wantMale ? OVERSEAS_MALE_NICKNAME_POOL : OVERSEAS_FEMALE_NICKNAME_POOL);
 
-        for (let pass = 0; pass < 2; pass++) {
-            for (let i = 0; i < pool.length; i++) {
-                const idx = (randStart + i * 7) % pool.length;
-                const cand = pool[idx];
-                if (cand && !__localUsedNicknames.has(cand)) {
-                    if (recordUsed) {
-                        __localUsedNicknames.add(cand);
-                        saveUsedSetToStorage(USED_NICKNAMES_STORAGE_KEY, __localUsedNicknames, 300);
-                    }
-                    return cand;
-                }
+        const shardOffset = getDeviceFingerprintShardOffset(targetPool.length);
+        const randStart = (shardOffset + Math.floor(Math.random() * targetPool.length)) % targetPool.length;
+
+        for (let i = 0; i < targetPool.length; i++) {
+            const idx = (randStart + i * 7) % targetPool.length;
+            const cand = targetPool[idx];
+            if (cand && !isNicknameAlreadyUsed(cand, avoidNormSet)) {
+                if (recordUsed) recordNicknameAsUsed(cand);
+                if (avoidSet && typeof avoidSet.add === 'function') avoidSet.add(cand);
+                return cand;
             }
-            // 当前候选池已全部用完一轮时，仅保留最近使用的 45% 记录，释放较早记录供新一轮随机，杜绝刚出现过的名字紧接着重复
-            const arr = Array.from(__localUsedNicknames);
-            const keepRecent = new Set(arr.slice(-Math.min(120, Math.floor(pool.length * 0.45))));
-            __localUsedNicknames.clear();
-            keepRecent.forEach(k => __localUsedNicknames.add(k));
         }
 
-        const fallback = pool[randStart] || '溫哥華小鹿';
-        if (recordUsed) {
-            __localUsedNicknames.add(fallback);
-            saveUsedSetToStorage(USED_NICKNAMES_STORAGE_KEY, __localUsedNicknames, 300);
-        }
-        return fallback;
+        // 若目标池已全部用过一轮，按目标性别实时合成全新不重复海外华人网名，绝不重复旧名字！
+        const combinedAvoidAll = new Set([...__localUsedNickNormSet, ...avoidNormSet]);
+        const synthNick = wantMale
+            ? synthesizeFreshOverseasMaleNick(combinedAvoidAll)
+            : synthesizeFreshOverseasFemaleNick(combinedAvoidAll);
+        if (recordUsed) recordNicknameAsUsed(synthNick);
+        if (avoidSet && typeof avoidSet.add === 'function') avoidSet.add(synthNick);
+        return synthNick;
     }
     window.claimUniqueNickname = claimUniqueNickname;
+
+    function resolveAvatarModeByNick(nick, preferredMode) {
+        if (preferredMode === 'cn-male' || preferredMode === 'cn-female') return preferredMode;
+        return isLikelyFemaleNickname(nick) ? 'cn-female' : 'cn-male';
+    }
+    window.resolveAvatarModeByNick = resolveAvatarModeByNick;
+
+    // 校验 AI 生成的昵称：若未曾使用且符合 80%+ 海外华人男性目标则采纳并登记，若与历史撞名则自动换一个全新海外华人昵称
+    function validateOrReplaceAiNickname(rawAiNick, batchUsedNamesSet, wantMale = true) {
+        const cleaned = String(rawAiNick || '')
+            .replace(/^[@#•\-*\d.、)\s]+/, '')
+            .replace(/[\[\]【】]/g, '')
+            .trim();
+        const batchNorm = new Set();
+        if (batchUsedNamesSet) {
+            batchUsedNamesSet.forEach(n => batchNorm.add(normalizeIdentityGuardKey(n)));
+        }
+        if (
+            cleaned.length >= 2 &&
+            cleaned.length <= 13 &&
+            !/^(觀眾|用戶|網友|路人|匿名|主播|系統|管理員)/.test(cleaned) &&
+            !isNicknameAlreadyUsed(cleaned, batchNorm) &&
+            (!wantMale || !isLikelyFemaleNickname(cleaned))
+        ) {
+            recordNicknameAsUsed(cleaned);
+            if (batchUsedNamesSet) batchUsedNamesSet.add(cleaned);
+            if (!isLikelyFemaleNickname(cleaned) && !OVERSEAS_MALE_NICKNAME_POOL.includes(cleaned)) {
+                OVERSEAS_MALE_NICKNAME_POOL.unshift(cleaned);
+            }
+            return cleaned;
+        }
+        return claimUniqueNickname({ forceMale: wantMale, avoidSet: batchUsedNamesSet });
+    }
+    window.validateOrReplaceAiNickname = validateOrReplaceAiNickname;
 
     // ★ 本机 + 跨设备双层去重：从头像池领取一张未使用的头像（按实际池内剩余可用项判断，滑动窗口淘汰最早记录）
     function claimUniqueAvatarFromPool(pool, extraAvoidSet = null, maybeAvoidSet = null) {
@@ -1544,29 +1711,53 @@ window.switchRightTab = function (mode, opts) {
         return fallback;
     }
     window.claimUniqueAvatarFromPool = claimUniqueAvatarFromPool;
-    // 全繁体真实口语化评论词池（彻底去除生硬的「每句文案+末尾表情包」假模板，还原真实网友自然留言）
+    // 全繁体真实口语化评论词池（贴合海外华人真实留言习惯，自然长短结合，绝无模板套话）
     const COMMENT_TEXT_POOL = [
-        '牛總還是有點大智慧的',
-        '好一招釜底抽薪',
-        '這一段我反反覆覆看了五遍，細節真的拉滿',
-        '表面風平浪靜，實則全員八百個心眼子',
-        '還得是老戲骨，一個眼神直接封神',
-        '大數據果然懂我，剛想找這個系列就刷到了',
-        '看似漫不經心的一句話，其實前面早就鋪墊好了',
-        '這反轉真的沒猜到，編劇腦洞太大了',
-        '只有我覺得配樂一響起雞皮疙瘩都起來了嗎',
-        '這台詞功底太頂了，每一句都在點子上',
-        '終於有人把這段完整剪出來了，找了好久',
-        '注意看他最後那個眼神，信息量太大了',
-        '第一次看覺得好笑，看懂之後背後發涼',
-        '這運鏡和節奏把控得真好，完全不拖泥帶水',
-        '哈哈，我先入職花果山再回來應聘，完美閉環',
-        '評論區果然臥虎藏龍，不看解析差點漏掉細節',
-        '太真實了，這不就是現實中的職場縮影嗎',
-        '短短幾十秒把人物性格立住了，演技確實服氣',
-        '誰懂啊，看到最後一秒直接破防了',
-        '建議反覆細品最後那句話，後勁太大了'
+        '牛總還是有點大智慧的，幾句話就把局面穩住了',
+        '好一招釜底抽薪，對面估計到最後都沒反應過來',
+        '這一段我反反覆覆看了五遍，每個眼神細節真的拉滿',
+        '表面風平浪靜，實則在座全員八百個心眼子',
+        '還得是老戲骨壓陣，抬眼那一下氣場直接出來了',
+        '大數據果然懂我，剛在多倫多下班打開手機就刷到這個系列',
+        '看似漫不經心的一句話，其實前面早就把伏筆埋好了',
+        '這反轉真的沒猜到，編劇這腦洞確實有點東西',
+        '只有我覺得配樂一響起來，整段節奏一下子就對味了嗎',
+        '這台詞功底太紮實了，不看字幕都能聽出話裡有話',
+        '終於有人把這段高清完整版剪出來了，之前找了好久',
+        '注意看他最後放茶杯那個動作，信息量真的太大了',
+        '第一次看覺得挺好笑，看懂前因後果之後真的佩服',
+        '這運鏡和節奏把控得真舒服，一點都不拖泥帶水',
+        '哈哈，先入職花果山再回來應聘，這波操作完美閉環',
+        '評論區果然臥虎藏龍，不看老哥們分析差點漏掉重點',
+        '太真實了，在海外公司待久了一看就懂這種職場博弈',
+        '短短幾十秒就把人物性格立住了，演技確實讓人服氣',
+        '大半夜在溫哥華刷到這條，直接給我精神得睡不著了',
+        '建議反覆細品最後那句話，越琢磨越覺得後勁大',
+        '這畫面清晰度真不錯，連微表情都拍得一清二楚',
+        '能在短短一分鐘把故事講得這麼明白，導演功力深厚',
+        '老實講這種題材最考驗節奏，多一秒嫌慢少一秒不夠味',
+        '剛發給身邊幾個朋友看，大家都在猜下一集怎麼收場',
+        '不管看幾次還是覺得這段對手戲張力十足，沒一句廢話',
+        '這才是真正有內容的好作品，比那些水時長的強太多了'
     ];
+    function claimUniqueCommentText(avoidSet = null) {
+        const avoidNorm = new Set();
+        if (avoidSet) {
+            avoidSet.forEach(t => avoidNorm.add(normalizeIdentityGuardKey(t)));
+        }
+        const shuffled = [...COMMENT_TEXT_POOL].sort(() => Math.random() - 0.5);
+        for (const cand of shuffled) {
+            const k = normalizeIdentityGuardKey(cand);
+            if (!avoidNorm.has(k) && !isDanmakuTextAlreadyUsed(cand)) {
+                recordDanmakuTextAsUsed(cand);
+                if (avoidSet) avoidSet.add(cand);
+                return cand;
+            }
+        }
+        const fallback = shuffled.find(c => !avoidNorm.has(normalizeIdentityGuardKey(c))) || shuffled[0];
+        if (avoidSet && fallback) avoidSet.add(fallback);
+        return fallback;
+    }
     // 严格排除中国大陆省份，仅保留台湾、香港、马来西亚及海外国家地区（全繁体）
     const IP_POOL_TW = ['台灣', '台灣', '台灣', '台北', '新北', '台中', '高雄', '桃園', '台南'];
     const IP_POOL_HK_MO = ['香港', '香港', '香港', '澳門'];
@@ -1984,24 +2175,29 @@ window.switchRightTab = function (mode, opts) {
             const fPool = getChineseFemalePool();
             const mPool = getChineseMalePool();
             const avoidAvs = new Set();
-            const pickAv = (pool) => claimUniqueAvatarFromPool(pool, avoidAvs);
-            const u1 = claimUniqueNickname();
-            const u1Rep = claimUniqueNickname();
-            const u2 = claimUniqueNickname();
-            const u2Rep = claimUniqueNickname();
-            const u3 = claimUniqueNickname();
-            const u4 = claimUniqueNickname();
-            const u5 = claimUniqueNickname();
-            const u6 = claimUniqueNickname();
+            const avoidNicks = new Set();
+            const pickAvByNick = (nick, seedId) => {
+                const isFem = isLikelyFemaleNickname(nick);
+                const pool = isFem ? fPool : mPool;
+                return claimUniqueAvatarFromPool(pool, avoidAvs) || buildOnlineAvatarUrl(seedId, isFem ? 'cn-female' : 'cn-male', avoidAvs);
+            };
+            const u1 = claimUniqueNickname({ forceMale: true, avoidSet: avoidNicks });
+            const u1Rep = claimUniqueNickname({ forceMale: true, avoidSet: avoidNicks });
+            const u2 = claimUniqueNickname({ forceMale: true, avoidSet: avoidNicks });
+            const u2Rep = claimUniqueNickname({ forceMale: true, avoidSet: avoidNicks });
+            const u3 = claimUniqueNickname({ forceMale: true, avoidSet: avoidNicks });
+            const u4 = claimUniqueNickname({ forceMale: false, avoidSet: avoidNicks });
+            const u5 = claimUniqueNickname({ forceMale: true, avoidSet: avoidNicks });
+            const u6 = claimUniqueNickname({ forceMale: true, avoidSet: avoidNicks });
             this.list = [
                 {
                     id: 'c1',
                     user: u1,
-                    text: '牛總還是有點大智慧的',
+                    text: '牛總還是有點大智慧的，幾句話就把局面穩住了',
                     dateLoc: randomDateLoc('tw-only', 72),
                     likes: randomCommentLikes(),
                     liked: false,
-                    avatar: pickAv(fPool) || buildOnlineAvatarUrl('c1', 'cn-female'),
+                    avatar: pickAvByNick(u1, 'c1'),
                     image: '',
                     isCustomAvatar: false,
                     replies: [
@@ -2028,7 +2224,7 @@ window.switchRightTab = function (mode, opts) {
                             dateLoc: randomDateLoc('hk-mo', 36),
                             likes: randomCommentLikes(),
                             liked: false,
-                            avatar: pickAv(mPool) || buildOnlineAvatarUrl('r1_2', 'cn-male'),
+                            avatar: pickAvByNick(u1Rep, 'r1_2'),
                             isCustomAvatar: false
                         }
                     ]
@@ -2036,11 +2232,11 @@ window.switchRightTab = function (mode, opts) {
                 {
                     id: 'c2',
                     user: u2,
-                    text: '這一段我反反覆覆看了五遍，細節真的拉滿',
+                    text: '這一段我反反覆覆看了五遍，每個眼神細節真的拉滿',
                     dateLoc: randomDateLoc('hk-mo', 72),
                     likes: randomCommentLikes(),
                     liked: false,
-                    avatar: pickAv(mPool) || buildOnlineAvatarUrl('c2', 'cn-male'),
+                    avatar: pickAvByNick(u2, 'c2'),
                     image: '',
                     isCustomAvatar: false,
                     replies: [
@@ -2049,12 +2245,12 @@ window.switchRightTab = function (mode, opts) {
                             user: u2Rep,
                             isAuthor: false,
                             replyToUser: '',
-                            text: '尤其是最後遞茶杯那個眼神，絕了',
+                            text: '尤其是最後遞茶杯那個動作，信息量太大了',
                             image: '',
                             dateLoc: randomDateLoc('tw-only', 24),
                             likes: randomCommentLikes(),
                             liked: false,
-                            avatar: pickAv(fPool) || buildOnlineAvatarUrl('r2_1', 'cn-female'),
+                            avatar: pickAvByNick(u2Rep, 'r2_1'),
                             isCustomAvatar: false
                         }
                     ]
@@ -2062,11 +2258,11 @@ window.switchRightTab = function (mode, opts) {
                 {
                     id: 'c3',
                     user: u3,
-                    text: '哈哈，我先入職花果山再回來應聘，完美閉環',
+                    text: '哈哈，先入職花果山再回來應聘，這波操作完美閉環',
                     dateLoc: randomDateLoc('tw-only', 72),
                     likes: randomCommentLikes(),
                     liked: false,
-                    avatar: pickAv(fPool) || buildOnlineAvatarUrl('c3', 'cn-female'),
+                    avatar: pickAvByNick(u3, 'c3'),
                     image: '',
                     isCustomAvatar: false,
                     replies: []
@@ -2074,11 +2270,11 @@ window.switchRightTab = function (mode, opts) {
                 {
                     id: 'c4',
                     user: u4,
-                    text: '好一招釜底抽薪',
+                    text: '好一招釜底抽薪，對面估計到最後都沒反應過來',
                     dateLoc: randomDateLoc('my-sg', 72),
                     likes: randomCommentLikes(),
                     liked: false,
-                    avatar: pickAv(fPool) || buildOnlineAvatarUrl('c4', 'cn-female'),
+                    avatar: pickAvByNick(u4, 'c4'),
                     image: '',
                     isCustomAvatar: false,
                     replies: []
@@ -2086,11 +2282,11 @@ window.switchRightTab = function (mode, opts) {
                 {
                     id: 'c5',
                     user: u5,
-                    text: '表面風平浪靜，實則全員八百個心眼子',
+                    text: '表面風平浪靜，實則在座全員八百個心眼子',
                     dateLoc: randomDateLoc('none', 72),
                     likes: randomCommentLikes(),
                     liked: false,
-                    avatar: pickAv(mPool) || buildOnlineAvatarUrl('c5', 'cn-male'),
+                    avatar: pickAvByNick(u5, 'c5'),
                     image: '',
                     isCustomAvatar: false,
                     replies: []
@@ -2098,11 +2294,11 @@ window.switchRightTab = function (mode, opts) {
                 {
                     id: 'c6',
                     user: u6,
-                    text: '看似漫不經心的一句話，其實前面早就鋪墊好了',
+                    text: '看似漫不經心的一句話，其實前面早就把伏筆埋好了',
                     dateLoc: randomDateLoc('overseas-all', 72),
                     likes: randomCommentLikes(),
                     liked: false,
-                    avatar: pickAv(fPool) || buildOnlineAvatarUrl('c6', 'cn-female'),
+                    avatar: pickAvByNick(u6, 'c6'),
                     image: '',
                     isCustomAvatar: false,
                     replies: []
@@ -2118,37 +2314,44 @@ window.switchRightTab = function (mode, opts) {
             });
         },
 
-        // 每次打开页面时对未手动锁定的评论用户昵称与头像进行双层去重换新，确保同机连续刷新 10 次不重复
+        // 每次打开页面时对未手动锁定的评论用户昵称与头像进行双层去重换新（85%+ 海外华人男性昵称 + 匹配男头像），绝不重名
         refreshUnmodifiedIdentitiesOnBoot() {
             if (!Array.isArray(this.list) || this.list.length === 0) return;
             const avoidAvs = new Set();
+            const avoidNicks = new Set();
             const fPool = getChineseFemalePool();
             const mPool = getChineseMalePool();
-            const mixedPool = [...fPool, ...mPool];
-            this.list.forEach((it, idx) => {
+            const mixedPool = [...mPool, ...fPool];
+            this.list.forEach((it) => {
                 const oldMainNick = it.user;
                 if (!it.userEditedNick) {
-                    it.user = claimUniqueNickname();
+                    it.user = claimUniqueNickname({ preferMaleRatio: 0.86, avoidSet: avoidNicks });
+                } else if (it.user) {
+                    avoidNicks.add(it.user);
                 }
                 if (!it.isCustomAvatar) {
-                    const targetPool = (idx % 3 === 1 && mPool.length) ? mPool : (fPool.length ? fPool : mixedPool);
+                    const isFem = isLikelyFemaleNickname(it.user);
+                    const targetPool = isFem ? (fPool.length ? fPool : mixedPool) : (mPool.length ? mPool : mixedPool);
                     it.avatar = claimUniqueAvatarFromPool(targetPool, avoidAvs) || it.avatar;
                     it.avatarDataUrl = '';
                 }
                 if (Array.isArray(it.replies)) {
-                    it.replies.forEach((rep, rIdx) => {
+                    it.replies.forEach((rep) => {
                         if (rep.isAuthor) {
                             rep.user = this.getAuthorNameStage();
                             rep.avatar = this.getAuthorAvatarSrc();
                         } else {
                             if (!rep.userEditedNick) {
-                                rep.user = claimUniqueNickname();
+                                rep.user = claimUniqueNickname({ preferMaleRatio: 0.86, avoidSet: avoidNicks });
+                            } else if (rep.user) {
+                                avoidNicks.add(rep.user);
                             }
                             if (rep.replyToUser && rep.replyToUser === oldMainNick) {
                                 rep.replyToUser = it.user;
                             }
                             if (!rep.isCustomAvatar) {
-                                const rPool = (rIdx % 2 === 0 && mPool.length) ? mPool : (fPool.length ? fPool : mixedPool);
+                                const rIsFem = isLikelyFemaleNickname(rep.user);
+                                const rPool = rIsFem ? (fPool.length ? fPool : mixedPool) : (mPool.length ? mPool : mixedPool);
                                 rep.avatar = claimUniqueAvatarFromPool(rPool, avoidAvs) || rep.avatar;
                                 rep.avatarDataUrl = '';
                             }
@@ -2158,6 +2361,9 @@ window.switchRightTab = function (mode, opts) {
             });
             this.renderStage();
             this.renderEditor();
+            if (typeof window.refreshCommentDrawerWithGeminiAI === 'function') {
+                window.refreshCommentDrawerWithGeminiAI(this, false);
+            }
         },
 
         prefetchAvatarDataUrl(item) {
@@ -2284,10 +2490,17 @@ window.switchRightTab = function (mode, opts) {
             const loc = pickOverseasIpLocation(this.ipRegion);
             const seed = `rep_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
             const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
+            const usedNicks = new Set();
+            this.list.forEach(it => {
+                if (it.user) usedNicks.add(it.user);
+                if (Array.isArray(it.replies)) it.replies.forEach(r => { if (r.user) usedNicks.add(r.user); });
+            });
+            const repNick = isAuthor ? this.getAuthorNameStage() : claimUniqueNickname({ preferMaleRatio: 0.85, avoidSet: usedNicks });
+            const repAvMode = resolveAvatarModeByNick(repNick, this.apiMode);
 
             const newReply = {
                 id: seed,
-                user: isAuthor ? this.getAuthorNameStage() : NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
+                user: repNick,
                 isAuthor: isAuthor,
                 replyToUser: (this.replyTargetSubIdx >= 0 && this.replyTargetUser) ? this.replyTargetUser : '',
                 text: stageTxt,
@@ -2295,7 +2508,7 @@ window.switchRightTab = function (mode, opts) {
                 dateLoc: loc ? `剛剛 · ${loc}` : '剛剛',
                 likes: isAuthor ? String(Math.floor(Math.random() * 60) + 5) : '1',
                 liked: true,
-                avatar: isAuthor ? this.getAuthorAvatarSrc() : buildOnlineAvatarUrl(seed, this.apiMode, usedAvatars),
+                avatar: isAuthor ? this.getAuthorAvatarSrc() : buildOnlineAvatarUrl(seed, repAvMode, usedAvatars),
                 isCustomAvatar: false
             };
 
@@ -2424,16 +2637,16 @@ window.switchRightTab = function (mode, opts) {
             window.showToast('已随机切换真实中国风头像');
         },
 
-        // 单独随机某一条评论的昵称（英文或繁体中文）
+        // 单独随机某一条评论的昵称（85%+ 海外华人男性唯一昵称，严格历史去重）
         randomizeSingleNickname(idx) {
             const item = this.list[idx];
             if (!item) return;
-            const usedNames = new Set(this.list.map((it, i) => i !== idx ? it.user : ''));
-            let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-            let tries = 0;
-            while ((usedNames.has(nick) || nick === item.user) && tries++ < 25) {
-                nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-            }
+            const usedNames = new Set();
+            this.list.forEach((it) => {
+                if (it.user) usedNames.add(it.user);
+                if (Array.isArray(it.replies)) it.replies.forEach(r => { if (r.user) usedNames.add(r.user); });
+            });
+            const nick = claimUniqueNickname({ preferMaleRatio: 0.85, avoidSet: usedNames });
             item.user = nick;
             this.renderStage();
             this.renderEditor();
@@ -2509,11 +2722,12 @@ window.switchRightTab = function (mode, opts) {
         randomizeReplyNickname(idx, rIdx) {
             const rep = this.list[idx] && this.list[idx].replies && this.list[idx].replies[rIdx];
             if (!rep) return;
-            let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-            let tries = 0;
-            while (nick === rep.user && tries++ < 25) {
-                nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-            }
+            const usedNames = new Set();
+            this.list.forEach((it) => {
+                if (it.user) usedNames.add(it.user);
+                if (Array.isArray(it.replies)) it.replies.forEach(r => { if (r.user) usedNames.add(r.user); });
+            });
+            const nick = claimUniqueNickname({ preferMaleRatio: 0.85, avoidSet: usedNames });
             rep.user = nick;
             this.renderStage();
             this.renderEditor();
@@ -2558,13 +2772,20 @@ window.switchRightTab = function (mode, opts) {
         randomizeReplyAll(idx, rIdx) {
             const rep = this.list[idx] && this.list[idx].replies && this.list[idx].replies[rIdx];
             if (!rep) return;
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
+            const baseMode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
             const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
+            const usedNames = new Set();
+            this.list.forEach((it) => {
+                if (it.user) usedNames.add(it.user);
+                if (Array.isArray(it.replies)) it.replies.forEach(r => { if (r.user) usedNames.add(r.user); });
+            });
+            const nextNick = claimUniqueNickname({ preferMaleRatio: 0.85, avoidSet: usedNames });
+            const mode = resolveAvatarModeByNick(nextNick, baseMode);
             const seed = `rep_all_${Date.now()}_${idx}_${rIdx}_${Math.random().toString(36).slice(2, 7)}`;
+            rep.user = nextNick;
             rep.avatar = buildOnlineAvatarUrl(seed, mode, usedAvatars);
             rep.isCustomAvatar = true;
             this.prefetchAvatarDataUrl(rep);
-            rep.user = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
             rep.dateLoc = randomDateLoc(this.ipRegion, this.pubWindowHours);
             rep.likes = randomCommentLikes();
             this.renderStage();
@@ -2573,25 +2794,25 @@ window.switchRightTab = function (mode, opts) {
             window.showToast('🎲 已随机切换该条回复的头像、名字、日期、IP与点赞数');
         },
 
-        // 单条评论点击总筛子 🎲：同时随机更换头像、繁体/英文昵称、发布后~上传前的时间、海外/台港澳马IP、点赞数
+        // 单条评论点击总筛子 🎲：同时随机更换头像、85%+ 海外华人男性唯一昵称、时间、IP、点赞数
         randomizeSingleItem(idx) {
             const item = this.list[idx];
             if (!item) return;
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
-            this.apiMode = mode;
+            const baseMode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
+            this.apiMode = baseMode;
+            const usedNames = new Set();
+            this.list.forEach((it) => {
+                if (it.user) usedNames.add(it.user);
+                if (Array.isArray(it.replies)) it.replies.forEach(r => { if (r.user) usedNames.add(r.user); });
+            });
+            const nick = claimUniqueNickname({ preferMaleRatio: 0.85, avoidSet: usedNames });
+            item.user = nick;
             const usedAvatars = new Set(this.list.map(it => it.avatar).filter(Boolean));
             const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 8)}`;
-            item.avatar = buildOnlineAvatarUrl(seed, mode, usedAvatars);
+            item.avatar = buildOnlineAvatarUrl(seed, resolveAvatarModeByNick(nick, baseMode), usedAvatars);
             item.isCustomAvatar = false;
             this.prefetchAvatarDataUrl(item);
 
-            const usedNames = new Set(this.list.map((it, i) => i !== idx ? it.user : ''));
-            let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-            let tries = 0;
-            while (usedNames.has(nick) && tries++ < 20) {
-                nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-            }
-            item.user = nick;
             item.dateLoc = randomDateLoc(this.ipRegion, this.pubWindowHours);
             item.likes = randomCommentLikes();
 
@@ -2601,31 +2822,27 @@ window.switchRightTab = function (mode, opts) {
         },
 
         randomizeAll(includeText = true, overrideAvatarMode = null) {
-            const mode = overrideAvatarMode || document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
+            const baseMode = overrideAvatarMode || document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
             const ipReg = document.getElementById('sel-cmt-ip-region')?.value || this.ipRegion || 'tw-hk-my';
             const pubWin = parseFloat(document.getElementById('sel-cmt-pub-window')?.value) || this.pubWindowHours || 72;
-            this.apiMode = mode;
+            this.apiMode = baseMode;
             this.ipRegion = ipReg;
             this.pubWindowHours = pubWin;
             const usedNames = new Set();
             const usedTexts = new Set();
             const usedAvatars = new Set();
             this.list.forEach((item, idx) => {
+                const oldNick = item.user;
+                const nick = claimUniqueNickname({ preferMaleRatio: 0.86, avoidSet: usedNames });
+                item.user = nick;
                 const seed = `${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 7)}`;
                 if (!item.isCustomAvatar || includeText || overrideAvatarMode) {
-                    const nextAv = buildOnlineAvatarUrl(seed, mode, usedAvatars);
+                    const nextAv = buildOnlineAvatarUrl(seed, resolveAvatarModeByNick(nick, baseMode), usedAvatars);
                     usedAvatars.add(nextAv);
                     item.avatar = nextAv;
                     item.isCustomAvatar = false;
                     this.prefetchAvatarDataUrl(item);
                 }
-                let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-                let tries = 0;
-                while (usedNames.has(nick) && tries++ < 15) {
-                    nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-                }
-                usedNames.add(nick);
-                item.user = nick;
                 item.dateLoc = randomDateLoc(ipReg, pubWin);
                 item.likes = randomCommentLikes();
 
@@ -2634,31 +2851,38 @@ window.switchRightTab = function (mode, opts) {
                         if (rep.isAuthor) {
                             rep.user = this.getAuthorNameStage();
                             if (!rep.isCustomAvatar) rep.avatar = this.getAuthorAvatarSrc();
-                        } else if (!rep.isCustomAvatar || overrideAvatarMode) {
-                            const rAv = buildOnlineAvatarUrl(`${seed}_r_${rIdx}`, mode, usedAvatars);
-                            usedAvatars.add(rAv);
-                            rep.avatar = rAv;
-                            this.prefetchAvatarDataUrl(rep);
+                        } else {
+                            if (!rep.userEditedNick) {
+                                rep.user = claimUniqueNickname({ preferMaleRatio: 0.86, avoidSet: usedNames });
+                            } else if (rep.user) {
+                                usedNames.add(rep.user);
+                            }
+                            if (rep.replyToUser && rep.replyToUser === oldNick) {
+                                rep.replyToUser = item.user;
+                            }
+                            if (!rep.isCustomAvatar || overrideAvatarMode) {
+                                const rAv = buildOnlineAvatarUrl(`${seed}_r_${rIdx}`, resolveAvatarModeByNick(rep.user, baseMode), usedAvatars);
+                                usedAvatars.add(rAv);
+                                rep.avatar = rAv;
+                                this.prefetchAvatarDataUrl(rep);
+                            }
                         }
                     });
                 }
 
                 if (includeText) {
-                    let txt = COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)];
-                    tries = 0;
-                    while (usedTexts.has(txt) && tries++ < 15) {
-                        txt = COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)];
-                    }
-                    usedTexts.add(txt);
-                    item.text = txt;
+                    item.text = claimUniqueCommentText(usedTexts);
                 }
             });
             this.renderStage();
             this.renderEditor();
+            if (typeof window.refreshCommentDrawerWithGeminiAI === 'function') {
+                window.refreshCommentDrawerWithGeminiAI(this, includeText);
+            }
             if (typeof triggerSaveStorage === 'function') triggerSaveStorage();
         },
 
-        // 🎬 按当前视频/画面标题、话题、热搜词智能生成匹配的评论（自然口语，拒绝每句末尾带表情包）
+        // 🎬 按当前视频/画面标题、话题、热搜词智能生成匹配的评论（85%+ 海外华人男性唯一昵称 + 调用 AI 接口动态换新）
         smartGenerateByScene() {
             const rawDesc = (document.getElementById('in-dy-desc')?.value || document.getElementById('in-m-sub-title')?.value || document.getElementById('in-title')?.value || '').trim();
             const rawTags = (document.getElementById('in-dy-tags')?.value || '').trim();
@@ -2678,18 +2902,18 @@ window.switchRightTab = function (mode, opts) {
             const topic = rawCol || rawFeat || kw1;
 
             const sceneTemplates = [
-                `衝著「${kw1}」點進來的，果然沒讓我失望`,
-                `這段關於${kw1}的演繹真的太到位了，細節滿滿`,
-                `反覆看了三遍，${kw2}那裡處理得真的很絕`,
-                `大數據太懂我了，剛想搜${topic}就刷到了這條`,
-                `注意看畫面裡的細節，導演在${kw1}這裡埋了伏筆`,
-                `表面看是${kw1}，實際上每一句話都在博弈`,
-                `終於刷到完整版了，之前找${topic}找了好久`,
-                `這運鏡和畫面質感真好，完全是電影級別的節奏`,
-                `第一次看覺得節奏快，看懂${kw2}之後真的佩服編劇`,
-                `評論區有沒有懂行的分析一下，最後那個眼神是什麼意思`,
-                `太真實了，把${kw1}那種微妙的氣氛全拍出來了`,
-                `建議把這個系列一口氣看完，前後呼應得太巧妙了`
+                `衝著「${kw1}」點進來的，整段看下來節奏真的沒讓我失望`,
+                `這段關於${kw1}的演繹確實太到位了，每個細節都經得起細看`,
+                `反覆拉進度條看了三遍，${kw2}那裡處理得實在很有水平`,
+                `大數據還是懂我，剛在海外下班想搜${topic}就刷到了這條`,
+                `注意看畫面裡的微表情，導演在${kw1}這裡早就埋了伏筆`,
+                `表面看是在講${kw1}，實際上每一句話都在暗中較勁`,
+                `終於刷到高清完整版了，之前找${topic}這段找了好幾天`,
+                `這運鏡和畫面質感真不錯，完全是電影級別的敘事節奏`,
+                `第一次看覺得節奏快，看懂${kw2}背後意思之後真的佩服編劇`,
+                `評論區有沒有懂行的老哥分析一下，最後那個眼神到底什麼意思`,
+                `太真實了，把${kw1}那種微妙的氣氛完完全全拍出來了`,
+                `建議把這個系列一口氣看完，前後呼應得確實很巧妙`
             ];
 
             const shuffled = sceneTemplates
@@ -2697,7 +2921,7 @@ window.switchRightTab = function (mode, opts) {
                 .map(t => typeof window.toStageTrad === 'function' ? window.toStageTrad(t) : t);
 
             const targetCount = Math.max(6, this.list.length);
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
+            const baseMode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
             const ipReg = document.getElementById('sel-cmt-ip-region')?.value || this.ipRegion || 'tw-hk-my';
             const pubWin = parseFloat(document.getElementById('sel-cmt-pub-window')?.value) || this.pubWindowHours || 72;
 
@@ -2707,13 +2931,8 @@ window.switchRightTab = function (mode, opts) {
 
             for (let i = 0; i < targetCount; i++) {
                 const seed = `scene_${Date.now()}_${i}_${Math.random().toString(36).slice(2, 6)}`;
-                let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-                let tries = 0;
-                while (usedNames.has(nick) && tries++ < 20) {
-                    nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-                }
-                usedNames.add(nick);
-                const av = buildOnlineAvatarUrl(seed, mode, usedAvatars);
+                const nick = claimUniqueNickname({ preferMaleRatio: 0.86, avoidSet: usedNames });
+                const av = buildOnlineAvatarUrl(seed, resolveAvatarModeByNick(nick, baseMode), usedAvatars);
                 usedAvatars.add(av);
                 const item = {
                     id: seed,
@@ -2737,6 +2956,9 @@ window.switchRightTab = function (mode, opts) {
             if (!this.isOpen && !(renderTarget && renderTarget.classList.contains('dy-live-open'))) {
                 this.setDrawerOpen(true, false);
             }
+            if (typeof window.refreshCommentDrawerWithGeminiAI === 'function') {
+                window.refreshCommentDrawerWithGeminiAI(this, true, `${kw1} ${kw2} ${topic}`);
+            }
             // ★ 同步更新直播间公屏滚动评论池（自然穿插「名字：文案」与「名字 来了」），并触发直播间 AI 画面匹配
             const liveDmTextarea = document.getElementById('in-live-danmaku-list');
             if (liveDmTextarea && newList.length > 0) {
@@ -2746,7 +2968,7 @@ window.switchRightTab = function (mode, opts) {
                 newList.forEach((item, idx) => {
                     syncedLiveLines.push(`${item.user}：${item.text}`);
                     if (idx % 3 === 1) {
-                        const jNick = NICKNAME_POOL[(idx * 7 + 3) % NICKNAME_POOL.length] || '輕輕吹風';
+                        const jNick = claimUniqueNickname({ preferMaleRatio: 0.86, avoidSet: usedNames });
                         syncedLiveLines.push(`${jNick} ${joinWord}`);
                     }
                 });
@@ -2772,7 +2994,7 @@ window.switchRightTab = function (mode, opts) {
                 return 0;
             }
 
-            const mode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
+            const baseMode = document.getElementById('sel-cmt-avatar-api')?.value || this.apiMode || 'cn-mixed';
             const ipReg = document.getElementById('sel-cmt-ip-region')?.value || this.ipRegion || 'tw-hk-my';
             const pubWin = parseFloat(document.getElementById('sel-cmt-pub-window')?.value) || this.pubWindowHours || 72;
 
@@ -2781,13 +3003,8 @@ window.switchRightTab = function (mode, opts) {
 
             const createdItems = lines.map((lineText, idx) => {
                 const seed = `batch_${Date.now()}_${idx}_${Math.random().toString(36).slice(2, 6)}`;
-                let nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-                let tries = 0;
-                while (usedNames.has(nick) && tries++ < 25) {
-                    nick = NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)];
-                }
-                usedNames.add(nick);
-                const av = buildOnlineAvatarUrl(seed, mode, usedAvatars);
+                const nick = claimUniqueNickname({ preferMaleRatio: 0.86, avoidSet: usedNames });
+                const av = buildOnlineAvatarUrl(seed, resolveAvatarModeByNick(nick, baseMode), usedAvatars);
                 usedAvatars.add(av);
                 const stageTxt = typeof window.toStageTrad === 'function' ? window.toStageTrad(lineText) : lineText;
                 const item = {
@@ -4638,14 +4855,17 @@ window.switchRightTab = function (mode, opts) {
     if (btnCmtAddText) {
         btnCmtAddText.addEventListener('click', () => {
             const seed = `new_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+            const usedNames = new Set(CommentEngine.list.map(it => it.user));
+            const usedTexts = new Set(CommentEngine.list.map(it => it.text));
+            const nick = claimUniqueNickname({ preferMaleRatio: 0.85, avoidSet: usedNames });
             const newItem = {
                 id: seed,
-                user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
-                text: COMMENT_TEXT_POOL[Math.floor(Math.random() * COMMENT_TEXT_POOL.length)],
+                user: nick,
+                text: claimUniqueCommentText(usedTexts),
                 dateLoc: randomDateLoc(CommentEngine.ipRegion, CommentEngine.pubWindowHours),
                 likes: String(Math.floor(Math.random() * 30) + 1),
                 liked: false,
-                avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
+                avatar: buildOnlineAvatarUrl(seed, resolveAvatarModeByNick(nick, CommentEngine.apiMode)),
                 image: '',
                 isCustomAvatar: false
             };
@@ -4740,14 +4960,16 @@ window.switchRightTab = function (mode, opts) {
                     const stageInp = document.getElementById('dy-cmt-stage-input');
                     const typedTxt = stageInp ? stageInp.value.trim() : '';
                     if (stageInp) stageInp.value = '';
+                    const usedNames = new Set(CommentEngine.list.map(it => it.user));
+                    const nick = claimUniqueNickname({ preferMaleRatio: 0.85, avoidSet: usedNames });
                     const newItem = {
                         id: seed,
-                        user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
+                        user: nick,
                         text: typedTxt ? (typeof window.toStageTrad === 'function' ? window.toStageTrad(typedTxt) : typedTxt) : '',
                         dateLoc: randomDateLoc(CommentEngine.ipRegion, CommentEngine.pubWindowHours),
                         likes: String(Math.floor(Math.random() * 50) + 1),
                         liked: false,
-                        avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
+                        avatar: buildOnlineAvatarUrl(seed, resolveAvatarModeByNick(nick, CommentEngine.apiMode)),
                         image: dataUrl,
                         isCustomAvatar: false,
                         replies: []
@@ -4809,14 +5031,16 @@ window.switchRightTab = function (mode, opts) {
         const seed = `post_${Date.now()}`;
         const loc = pickOverseasIpLocation(CommentEngine.ipRegion);
         const stageTxt = rawVal ? (typeof window.toStageTrad === 'function' ? window.toStageTrad(rawVal) : rawVal) : '';
+        const usedNames = new Set(CommentEngine.list.map(it => it.user));
+        const nick = claimUniqueNickname({ preferMaleRatio: 0.85, avoidSet: usedNames });
         const newItem = {
             id: seed,
-            user: NICKNAME_POOL[Math.floor(Math.random() * NICKNAME_POOL.length)],
+            user: nick,
             text: stageTxt,
             dateLoc: loc ? `剛剛 · ${loc}` : '剛剛',
             likes: '1',
             liked: true,
-            avatar: buildOnlineAvatarUrl(seed, CommentEngine.apiMode),
+            avatar: buildOnlineAvatarUrl(seed, resolveAvatarModeByNick(nick, CommentEngine.apiMode)),
             image: imgData,
             isCustomAvatar: false,
             replies: []
@@ -5227,12 +5451,11 @@ window.switchRightTab = function (mode, opts) {
         'iphone16': {
             name: '🍎 iPhone 16 Pro Max (纯净全面屏默认)',
             cutout: 'none',
-            cutout: 'none',
             signal: 'single-4',
             net: 'wifi',
             carrier: '',
             loc: true, speed: false, bt: false, alarm: false, mute: false,
-            hd: false, vpn: false, nfc: false, dnd: false, notifs: false, rec: false,
+            hd: false, vpn: false, nfc: false, dnd: false, notifs: true, rec: false,
             batPct: true
         },
         'iphone16-music': {
@@ -5242,7 +5465,7 @@ window.switchRightTab = function (mode, opts) {
             net: '5g',
             carrier: '',
             loc: true, speed: false, bt: true, alarm: false, mute: false,
-            hd: false, vpn: false, nfc: false, dnd: false, notifs: false, rec: false,
+            hd: false, vpn: false, nfc: false, dnd: false, notifs: true, rec: false,
             batPct: true
         },
         'iphone14': {
@@ -5252,7 +5475,7 @@ window.switchRightTab = function (mode, opts) {
             net: 'wifi',
             carrier: '',
             loc: true, speed: false, bt: false, alarm: false, mute: false,
-            hd: false, vpn: false, nfc: false, dnd: false, notifs: false, rec: false,
+            hd: false, vpn: false, nfc: false, dnd: false, notifs: true, rec: false,
             batPct: false
         },
         'huawei-mate60': {
@@ -5317,6 +5540,302 @@ window.switchRightTab = function (mode, opts) {
         }
     };
 
+    // ★ V62 升级：手机顶部状态栏真实软件通知小图标库（单色矢量高清渲染，100% 还原真机状态栏质感，支持手动点选、系统随机、用户自己上传图标）
+    const CUSTOM_SB_APP_ICONS_KEY = 'LAYA_CUSTOM_SB_APP_ICONS_V1';
+    const ACTIVE_SB_APP_ICONS_KEY = 'LAYA_ACTIVE_SB_APP_ICONS_V1';
+    const LAST_SB_SNAPSHOT_KEY = 'LAYA_LAST_SB_SNAPSHOT_V2';
+
+    const STATUS_BAR_APP_ICONS = [
+        {
+            key: 'x',
+            label: 'X (推特)',
+            weight: 3,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>'
+        },
+        {
+            key: 'ins',
+            label: 'Ins',
+            weight: 3,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.2"/><circle cx="12" cy="12" r="4.3"/><circle cx="17.4" cy="6.6" r="1.25" fill="currentColor" stroke="none"/></svg>'
+        },
+        {
+            key: 'sms',
+            label: '短信',
+            weight: 3,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M20 2H4C2.9 2 2 2.9 2 4v17.2l3.8-3.2H20c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM7 9h10v1.8H7V9zm6 4.5H7v-1.8h6v1.8zm4-7.2H7V4.5h10v1.8z"/></svg>'
+        },
+        {
+            key: 'whatsapp',
+            label: 'WhatsApp',
+            weight: 3,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2zm5.82 14.01c-.24.68-1.4 1.3-1.95 1.38-.5.08-1.13.11-1.83-.11-.42-.14-.97-.32-1.67-.62-2.94-1.27-4.86-4.23-5.01-4.43-.15-.2-1.2-1.59-1.2-3.04 0-1.45.76-2.16 1.03-2.46.27-.3.59-.37.79-.37.2 0 .4 0 .57.01.18.01.43-.07.67.51.25.59.84 2.05.91 2.2.07.15.12.32.02.52-.1.2-.15.32-.3.49-.15.17-.31.38-.45.51-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.03 1.12 1 2.06 1.31 2.36 1.46.3.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.73.81 2.02.96.3.15.49.22.57.35.07.12.07.71-.17 1.39z"/></svg>'
+        },
+        {
+            key: 'telegram',
+            label: 'TG 纸飞机',
+            weight: 3,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M21.94 3.66c.26-1.12-.41-1.56-1.42-1.18L2.58 9.41c-1.22.48-1.2 1.16-.21 1.46l4.59 1.43 10.64-6.71c.5-.31.96-.14.58.2l-8.62 7.78-.33 4.74c.48 0 .69-.22.96-.48l2.3-2.24 4.79 3.53c.88.49 1.51.24 1.73-.81l3.13-14.65z"/></svg>'
+        },
+        {
+            key: 'line',
+            label: 'LINE',
+            weight: 2,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M12 2.5c-5.52 0-10 3.64-10 8.13 0 4.02 3.56 7.39 8.37 8.02.33.07.77.22.88.51.1.26.07.67.03.93l-.14.86c-.04.26-.2 1.02.89.56 1.09-.46 5.89-3.47 8.04-5.94C21.38 14.02 22 12.18 22 10.63c0-4.49-4.48-8.13-10-8.13zm-4.1 10.8H5.65a.55.55 0 0 1-.55-.55V8.7a.55.55 0 1 1 1.1 0v3.5H7.9a.55.55 0 1 1 0 1.1zm2.05-.55a.55.55 0 1 1-1.1 0V8.7a.55.55 0 1 1 1.1 0v4.05zm4.65 0a.55.55 0 0 1-.99.33l-1.91-2.6v2.27a.55.55 0 1 1-1.1 0V8.7a.55.55 0 0 1 .99-.33l1.91 2.6V8.7a.55.55 0 1 1 1.1 0v4.05zm3.75-2.58a.55.55 0 1 1 0 1.1h-1.6v.93h1.6a.55.55 0 1 1 0 1.1h-2.15a.55.55 0 0 1-.55-.55V8.7c0-.3.25-.55.55-.55h2.15a.55.55 0 1 1 0 1.1h-1.6v.92h1.6z"/></svg>'
+        },
+        {
+            key: 'gmail',
+            label: 'Gmail 邮件',
+            weight: 2,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4.2-8 5-8-5V6l8 5 8-5v2.2z"/></svg>'
+        },
+        {
+            key: 'messenger',
+            label: 'Messenger',
+            weight: 2,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.14.26.35.27.57l.05 1.78c.02.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.05.91.25 1.87.39 2.88.39 5.64 0 10-4.13 10-9.7C22 6.13 17.64 2 12 2zm5.8 7.56-2.9 4.61c-.46.73-1.45.91-2.13.4l-2.3-1.72a.6.6 0 0 0-.72 0l-3.1 2.35c-.41.31-.95-.18-.68-.62l2.9-4.61c.46-.73 1.45-.91 2.13-.4l2.3 1.72a.6.6 0 0 0 .72 0l3.1-2.35c.41-.31.95.18.68.62z"/></svg>'
+        },
+        {
+            key: 'youtube',
+            label: 'YouTube',
+            weight: 2,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M21.58 7.19a2.75 2.75 0 0 0-1.94-1.95C17.93 4.78 12 4.78 12 4.78s-5.93 0-7.64.46a2.75 2.75 0 0 0-1.94 1.95C1.96 8.9 1.96 12 1.96 12s0 3.1.46 4.81a2.75 2.75 0 0 0 1.94 1.95c1.71.46 7.64.46 7.64.46s5.93 0 7.64-.46a2.75 2.75 0 0 0 1.94-1.95c.46-1.71.46-4.81.46-4.81s0-3.1-.46-4.81zM9.95 15.02V8.98L15.22 12l-5.27 3.02z"/></svg>'
+        },
+        {
+            key: 'tiktok',
+            label: 'TikTok',
+            weight: 2,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.29 0 .58.04.85.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66 6.34 6.34 0 0 0 9.33 22a6.34 6.34 0 0 0 6.34-6.34V9.05a8.16 8.16 0 0 0 4.77 1.52V7.12a4.85 4.85 0 0 1-.85-.43z"/></svg>'
+        },
+        {
+            key: 'discord',
+            label: 'Discord',
+            weight: 1,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.44.87-.61 1.25a18.27 18.27 0 0 0-5.48 0 12.64 12.64 0 0 0-.62-1.25.08.08 0 0 0-.08-.04c-1.7.29-3.35.81-4.89 1.52a.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.22-2a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13c.13-.09.25-.19.37-.29a.08.08 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.07 0a.08.08 0 0 1 .08.01c.12.1.25.2.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.65-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.37 1.22 2a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .03-.06c.5-5.18-.84-9.68-3.55-13.66a.06.06 0 0 0-.03-.03zM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42zm7.97 0c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42z"/></svg>'
+        },
+        {
+            key: 'facebook',
+            label: 'Facebook',
+            weight: 2,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>'
+        },
+        {
+            key: 'wechat',
+            label: '微信',
+            weight: 2,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M8.7 4C4.45 4 1 6.91 1 10.5c0 2.02 1.09 3.83 2.81 5.02l-.71 2.14 2.49-1.25c.98.38 2.02.59 3.11.59.33 0 .66-.02.98-.06-.21-.67-.33-1.38-.33-2.12 0-3.82 3.63-6.92 8.11-6.92.34 0 .68.02 1.01.06C17.65 5.67 13.59 4 8.7 4zm-2.55 4.8a1.05 1.05 0 1 1 0-2.1 1.05 1.05 0 0 1 0 2.1zm4.9 0a1.05 1.05 0 1 1 0-2.1 1.05 1.05 0 0 1 0 2.1zm5.95.6c-3.87 0-7 2.6-7 5.8s3.13 5.8 7 5.8c.86 0 1.69-.13 2.46-.37l2.04 1.02-.56-1.72c1.27-.96 2.06-2.36 2.06-3.93 0-3.2-3.13-5.8-7-5.8zm-2.25 4.4a.88.88 0 1 1 0-1.75.88.88 0 0 1 0 1.75zm4.5 0a.88.88 0 1 1 0-1.75.88.88 0 0 1 0 1.75z"/></svg>'
+        },
+        {
+            key: 'missed_call',
+            label: '未接来电',
+            weight: 1,
+            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M19.59 7 12 14.59 6.41 9H11V7H3v8h2v-4.59l7 7 9-9L19.59 7z"/></svg>'
+        }
+    ];
+
+    let customSbAppIconsList = (() => {
+        try {
+            const arr = JSON.parse(localStorage.getItem(CUSTOM_SB_APP_ICONS_KEY) || '[]');
+            if (Array.isArray(arr)) return arr.filter(it => it && it.key && it.dataUrl);
+        } catch (e) {}
+        return [];
+    })();
+
+    let activeSbAppIconKeys = (() => {
+        try {
+            const arr = JSON.parse(localStorage.getItem(ACTIVE_SB_APP_ICONS_KEY) || '[]');
+            if (Array.isArray(arr) && arr.length > 0) return arr.map(String).slice(0, 5);
+        } catch (e) {}
+        return ['x', 'ins', 'sms'];
+    })();
+
+    function saveCustomSbAppIcons() {
+        try {
+            localStorage.setItem(CUSTOM_SB_APP_ICONS_KEY, JSON.stringify(customSbAppIconsList.slice(0, 16)));
+        } catch (e) {}
+    }
+
+    function saveActiveSbAppIcons() {
+        try {
+            localStorage.setItem(ACTIVE_SB_APP_ICONS_KEY, JSON.stringify(activeSbAppIconKeys.slice(0, 5)));
+        } catch (e) {}
+    }
+
+    function getAllAvailableSbAppIcons() {
+        const customMapped = customSbAppIconsList.map(it => ({
+            key: it.key,
+            label: it.label || '自定图标',
+            weight: 2,
+            isCustom: true,
+            dataUrl: it.dataUrl
+        }));
+        return [...STATUS_BAR_APP_ICONS, ...customMapped];
+    }
+
+    function buildSbNotifIconMarkup(keysArr) {
+        const allItems = getAllAvailableSbAppIcons();
+        const itemMap = new Map(allItems.map(it => [it.key, it]));
+        const validKeys = (Array.isArray(keysArr) ? keysArr : []).filter(k => itemMap.has(k)).slice(0, 5);
+        return validKeys.map(k => {
+            const meta = itemMap.get(k);
+            if (!meta) return '';
+            if (meta.isCustom && meta.dataUrl) {
+                return `<img class="dy-sb-notif-custom-img" src="${meta.dataUrl}" alt="${meta.label}" data-app-key="${meta.key}">`;
+            }
+            return meta.svg;
+        }).join('');
+    }
+
+    function pickRandomSbAppIconCombo(avoidComboStr = '') {
+        const allItems = getAllAvailableSbAppIcons();
+        if (!allItems.length) return ['x', 'ins'];
+        const weightedPool = [];
+        allItems.forEach(it => {
+            const w = Math.max(1, it.weight || 1);
+            for (let i = 0; i < w; i++) weightedPool.push(it.key);
+        });
+        // 随机挑 1 ~ 3 个真实软件通知图标，保证与上一次组合完全不同
+        const countChoices = [2, 2, 3, 3, 1, 2];
+        for (let attempt = 0; attempt < 25; attempt++) {
+            const targetLen = Math.min(allItems.length, countChoices[Math.floor(Math.random() * countChoices.length)]);
+            const picked = [];
+            let guard = 0;
+            while (picked.length < targetLen && guard++ < 40) {
+                const k = weightedPool[Math.floor(Math.random() * weightedPool.length)];
+                if (!picked.includes(k)) picked.push(k);
+            }
+            const sig = picked.join(',');
+            if (sig && sig !== avoidComboStr) {
+                return picked;
+            }
+        }
+        return ['x', 'ins'];
+    }
+
+    const mSbNotifs = document.getElementById('m-sb-notifs');
+    const dylSbNotifs = document.getElementById('dyl-sb-notifs');
+    const sbAppIconsPicker = document.getElementById('sb-app-icons-picker');
+    const btnSbAppRandom = document.getElementById('btn-sb-app-random');
+    const btnSbAppUpload = document.getElementById('btn-sb-app-upload');
+    const upSbAppCustom = document.getElementById('up-sb-app-custom');
+    const btnSbAppClear = document.getElementById('btn-sb-app-clear');
+    const btnDySbRandAll = document.getElementById('btn-dy-sb-rand-all');
+    const swDySbLockRefresh = document.getElementById('sw-dy-sb-lock-refresh');
+
+    function syncSbAppIconsPickerUI() {
+        if (!sbAppIconsPicker) return;
+        const showNotifs = !!(swDySbNotifs && swDySbNotifs.checked);
+        sbAppIconsPicker.querySelectorAll('.sb-app-chip[data-app-key]').forEach(chip => {
+            const k = chip.dataset.appKey;
+            chip.classList.toggle('is-active', showNotifs && activeSbAppIconKeys.includes(k));
+        });
+    }
+
+    function renderSbAppIconsPicker() {
+        if (!sbAppIconsPicker) return;
+        sbAppIconsPicker.innerHTML = '';
+
+        // 1) 首枚「🎲 随机加一个」快捷芯片：点一下系统就自动随机加一个不重复软件图标
+        const randAddChip = document.createElement('button');
+        randAddChip.type = 'button';
+        randAddChip.className = 'sb-app-chip sb-app-chip-rand-one';
+        randAddChip.title = '点击让系统随机加一个不重复的软件图标到状态栏';
+        randAddChip.innerHTML = '<span>🎲 随机加一个</span>';
+        randAddChip.addEventListener('click', () => {
+            const allKeys = getAllAvailableSbAppIcons().map(it => it.key);
+            const unused = allKeys.filter(k => !activeSbAppIconKeys.includes(k));
+            if (swDySbNotifs) swDySbNotifs.checked = true;
+            if (unused.length > 0) {
+                const nextK = unused[Math.floor(Math.random() * unused.length)];
+                if (activeSbAppIconKeys.length >= 4) {
+                    activeSbAppIconKeys = [...activeSbAppIconKeys.slice(1), nextK];
+                } else {
+                    activeSbAppIconKeys = [...activeSbAppIconKeys, nextK];
+                }
+            } else {
+                activeSbAppIconKeys = pickRandomSbAppIconCombo(activeSbAppIconKeys.join(','));
+            }
+            saveActiveSbAppIcons();
+            renderDyStatusBar();
+            triggerSaveStorage();
+            const meta = getAllAvailableSbAppIcons().find(it => it.key === activeSbAppIconKeys[activeSbAppIconKeys.length - 1]);
+            window.showToast(`🎲 已随机加入状态栏图标：${meta ? meta.label : ''}`);
+        });
+        sbAppIconsPicker.appendChild(randAddChip);
+
+        // 2) 全部真实软件图标 + 用户自定义上传图标芯片（点击可手动加入/取消）
+        getAllAvailableSbAppIcons().forEach(item => {
+            const chip = document.createElement('button');
+            chip.type = 'button';
+            chip.className = 'sb-app-chip';
+            chip.dataset.appKey = item.key;
+            chip.title = item.isCustom
+                ? `点击开启/取消「${item.label}」（右键可删除该自定图标）`
+                : `点击在手机顶部状态栏加入/取消「${item.label}」图标`;
+            const iconHtml = item.isCustom
+                ? `<img class="dy-sb-notif-custom-img" src="${item.dataUrl}" alt="${item.label}">`
+                : item.svg;
+            chip.innerHTML = `${iconHtml}<span>${item.label}</span>`;
+
+            chip.addEventListener('click', () => {
+                if (swDySbNotifs && !swDySbNotifs.checked) {
+                    swDySbNotifs.checked = true;
+                }
+                if (activeSbAppIconKeys.includes(item.key)) {
+                    activeSbAppIconKeys = activeSbAppIconKeys.filter(k => k !== item.key);
+                    if (activeSbAppIconKeys.length === 0 && swDySbNotifs) {
+                        swDySbNotifs.checked = false;
+                    }
+                    window.showToast(`已从状态栏移除「${item.label}」`);
+                } else {
+                    if (activeSbAppIconKeys.length >= 5) {
+                        activeSbAppIconKeys = [...activeSbAppIconKeys.slice(1), item.key];
+                    } else {
+                        activeSbAppIconKeys = [...activeSbAppIconKeys, item.key];
+                    }
+                    window.showToast(`✨ 已加入状态栏图标：${item.label}`);
+                }
+                saveActiveSbAppIcons();
+                renderDyStatusBar();
+                triggerSaveStorage();
+            });
+
+            if (item.isCustom) {
+                chip.addEventListener('contextmenu', (e) => {
+                    e.preventDefault();
+                    customSbAppIconsList = customSbAppIconsList.filter(c => c.key !== item.key);
+                    activeSbAppIconKeys = activeSbAppIconKeys.filter(k => k !== item.key);
+                    saveCustomSbAppIcons();
+                    saveActiveSbAppIcons();
+                    renderSbAppIconsPicker();
+                    renderDyStatusBar();
+                    triggerSaveStorage();
+                    window.showToast(`🗑️ 已删除自定义图标「${item.label}」`);
+                });
+            }
+
+            sbAppIconsPicker.appendChild(chip);
+        });
+
+        syncSbAppIconsPickerUI();
+    }
+
+    function randomizeSbAppIconsNow(showNotice = true) {
+        const prevSig = activeSbAppIconKeys.join(',');
+        activeSbAppIconKeys = pickRandomSbAppIconCombo(prevSig);
+        if (swDySbNotifs) swDySbNotifs.checked = true;
+        saveActiveSbAppIcons();
+        renderDyStatusBar();
+        if (!window.__isAutoRandomizing) triggerSaveStorage();
+        if (showNotice) {
+            const labels = activeSbAppIconKeys
+                .map(k => (getAllAvailableSbAppIcons().find(it => it.key === k) || {}).label)
+                .filter(Boolean)
+                .join(' + ');
+            window.showToast(`🎲 已随机切换状态栏通知图标：${labels}`);
+        }
+    }
+    window.randomizeSbAppIconsNow = randomizeSbAppIconsNow;
+
     function renderDyStatusBar() {
         if (!dyStatusBar) return;
 
@@ -5356,10 +5875,24 @@ window.switchRightTab = function (mode, opts) {
             dySbCarrier.style.display = carrierVal ? 'inline-block' : 'none';
         }
 
-        // 5. 左侧与右侧小状态图标显隐
+        // 5. 左侧与右侧小状态图标显隐 + 多软件真实通知图标渲染（三端状态栏同步）
         if (dySbLoc) dySbLoc.style.display = (swDySbLoc && swDySbLoc.checked) ? 'inline-block' : 'none';
         if (dySbDnd) dySbDnd.style.display = (swDySbDnd && swDySbDnd.checked) ? 'inline-block' : 'none';
-        if (dySbNotifs) dySbNotifs.style.display = (swDySbNotifs && swDySbNotifs.checked) ? 'inline-flex' : 'none';
+        const showAppNotifs = !!(swDySbNotifs && swDySbNotifs.checked) && activeSbAppIconKeys.length > 0;
+        const notifMarkup = showAppNotifs ? buildSbNotifIconMarkup(activeSbAppIconKeys) : '';
+        if (dySbNotifs) {
+            dySbNotifs.innerHTML = notifMarkup;
+            dySbNotifs.style.display = (showAppNotifs && notifMarkup) ? 'inline-flex' : 'none';
+        }
+        if (mSbNotifs) {
+            mSbNotifs.innerHTML = notifMarkup;
+            mSbNotifs.style.display = (showAppNotifs && notifMarkup) ? 'inline-flex' : 'none';
+        }
+        if (dylSbNotifs) {
+            dylSbNotifs.innerHTML = notifMarkup;
+            dylSbNotifs.style.display = (showAppNotifs && notifMarkup) ? 'inline-flex' : 'none';
+        }
+        syncSbAppIconsPickerUI();
 
         // 5.2 ★ 需求三升级：顶部通知栏可切换 Laya 小图标（默认紫色 Laya2.png，支持8款样式、舞台单击切换、拖拽调位置、滚轮调大小、三端同步）
         const showLayaSb = !swDySbLayaIcon || swDySbLayaIcon.checked;
@@ -5680,6 +6213,121 @@ window.switchRightTab = function (mode, opts) {
     window.cycleStatusBarLayaIcon = cycleStatusBarLayaIcon;
 
     buildSbLayaPresetChips();
+    renderSbAppIconsPicker();
+
+    if (btnSbAppRandom) {
+        btnSbAppRandom.addEventListener('click', () => {
+            randomizeSbAppIconsNow(true);
+        });
+    }
+
+    if (btnSbAppClear) {
+        btnSbAppClear.addEventListener('click', () => {
+            activeSbAppIconKeys = [];
+            if (swDySbNotifs) swDySbNotifs.checked = false;
+            saveActiveSbAppIcons();
+            renderDyStatusBar();
+            triggerSaveStorage();
+            window.showToast('已清空状态栏软件通知图标，可随时点选或随机恢复');
+        });
+    }
+
+    if (btnSbAppUpload && upSbAppCustom) {
+        btnSbAppUpload.addEventListener('click', () => upSbAppCustom.click());
+        upSbAppCustom.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            if (!file) return;
+            const rawName = String(file.name || '自定').replace(/\.[^.]+$/, '').slice(0, 6) || '自定';
+            const reader = new FileReader();
+            reader.onload = (evt) => {
+                const rawUrl = evt.target && evt.target.result ? String(evt.target.result) : '';
+                if (!rawUrl) return;
+                const img = new Image();
+                img.onload = () => {
+                    let finalDataUrl = rawUrl;
+                    try {
+                        const c = document.createElement('canvas');
+                        c.width = 64;
+                        c.height = 64;
+                        const cx = c.getContext('2d');
+                        cx.imageSmoothingEnabled = true;
+                        cx.imageSmoothingQuality = 'high';
+                        cx.drawImage(img, 0, 0, 64, 64);
+                        finalDataUrl = c.toDataURL('image/png');
+                    } catch (_err) {}
+                    const newKey = `custom_app_${Date.now().toString(36)}`;
+                    customSbAppIconsList.push({
+                        key: newKey,
+                        label: rawName,
+                        dataUrl: finalDataUrl
+                    });
+                    if (customSbAppIconsList.length > 16) {
+                        customSbAppIconsList = customSbAppIconsList.slice(-16);
+                    }
+                    saveCustomSbAppIcons();
+                    if (swDySbNotifs) swDySbNotifs.checked = true;
+                    if (activeSbAppIconKeys.length >= 5) {
+                        activeSbAppIconKeys = [...activeSbAppIconKeys.slice(1), newKey];
+                    } else {
+                        activeSbAppIconKeys = [...activeSbAppIconKeys, newKey];
+                    }
+                    saveActiveSbAppIcons();
+                    renderSbAppIconsPicker();
+                    renderDyStatusBar();
+                    triggerSaveStorage();
+                    window.showToast(`✅ 已添加你上传的软件图标「${rawName}」到状态栏！`);
+                };
+                img.src = rawUrl;
+            };
+            reader.readAsDataURL(file);
+            e.target.value = '';
+        });
+    }
+
+    // 支持直接在舞台状态栏点击软件通知图标组 -> 一键随机换一批真实软件图标并定位右侧面板
+    [dySbNotifs, mSbNotifs, dylSbNotifs].forEach(notifEl => {
+        if (!notifEl) return;
+        notifEl.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            randomizeSbAppIconsNow(true);
+            if (typeof window.locateSidebarControl === 'function') {
+                window.locateSidebarControl({
+                    tab: 'dy',
+                    cardId: 'card-dy-statusbar',
+                    targetSelector: '#sb-app-icons-picker',
+                    highlightSelector: '#box-dy-sb-app-notifs'
+                });
+            }
+        });
+    });
+
+    if (btnDySbRandAll) {
+        btnDySbRandAll.addEventListener('click', () => {
+            if (typeof window.randomizeFullStatusBarEveryRefresh === 'function') {
+                window.randomizeFullStatusBarEveryRefresh(true);
+                if (swDySbLockRefresh && swDySbLockRefresh.checked) {
+                    saveActiveSbAppIcons();
+                    saveAllToStorage();
+                }
+            }
+        });
+    }
+
+    if (swDySbLockRefresh) {
+        swDySbLockRefresh.addEventListener('change', () => {
+            if (swDySbLockRefresh.checked && typeof window.captureCurrentStatusBarSnapshot === 'function') {
+                window.captureCurrentStatusBarSnapshot();
+            }
+            saveActiveSbAppIcons();
+            saveAllToStorage();
+            if (swDySbLockRefresh.checked) {
+                window.showToast('🔒 已锁定当前整套状态栏（刷新网页保持当前时间/电量/运营商/通知图标不变）');
+            } else {
+                window.showToast('🎲 已恢复每次刷新网页自动换一套全新状态栏');
+            }
+        });
+    }
 
     if (btnDySbLayaCycle) {
         btnDySbLayaCycle.addEventListener('click', () => {
@@ -7603,16 +8251,17 @@ window.switchRightTab = function (mode, opts) {
     const dylSvgVolOff = document.getElementById('dyl-svg-vol-off');
     if (dylBtnVol) {
         dylBtnVol.addEventListener('click', () => {
-            const vid = document.getElementById('preview-video');
-            const nextMuted = vid ? !vid.muted : (dylSvgVolOff ? dylSvgVolOff.style.display === 'none' : true);
-            if (window.PlayerEngine && typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
-                window.PlayerEngine.setVideoSoundMuted(nextMuted, true);
-            } else {
-                if (vid) vid.muted = nextMuted;
-                if (dylSvgVolOn) dylSvgVolOn.style.display = nextMuted ? 'none' : 'block';
-                if (dylSvgVolOff) dylSvgVolOff.style.display = nextMuted ? 'block' : 'none';
-                window.showToast(nextMuted ? '🔇 已静音' : '🔊 已开启声音');
-            }
+            const pct = (window.PlayerEngine && typeof window.PlayerEngine.getVolume === 'function')
+                ? Math.round(window.PlayerEngine.getVolume() * 100)
+                : 100;
+            const isUserMuted = (window.PlayerEngine && typeof window.PlayerEngine.isUserMuted === 'function')
+                ? window.PlayerEngine.isUserMuted()
+                : false;
+            if (dylSvgVolOn) dylSvgVolOn.style.display = isUserMuted ? 'none' : 'block';
+            if (dylSvgVolOff) dylSvgVolOff.style.display = isUserMuted ? 'block' : 'none';
+            window.showToast(isUserMuted
+                ? '🔇 当前已静音（请点击下方时间轴右侧静音按键恢复声音）'
+                : `🔊 视频原声常开中（当前音量 ${pct}% · 移至画面右侧细条可拖动调音量，仅时间轴右侧静音键可静音）`);
         });
     }
 
@@ -8087,11 +8736,13 @@ window.switchRightTab = function (mode, opts) {
     // ★ 问题四：区分「用户手动修改过的字段」与「每次页面加载随机一次且不写入持久化的仿真数据」
     const USER_MODIFIED_FIELDS_KEY = 'LAYA_USER_MODIFIED_FIELDS_V1';
     const SIMULATION_TRANSIENT_FIELD_IDS = new Set([
-        // 竖屏/横屏/全屏状态栏时间、电量、信号、运营商、网速、充电态、Wi-Fi/5G
+        // 竖屏/横屏/全屏状态栏时间、电量、信号、运营商、网速、充电态、低电量、Wi-Fi/5G、系统图标、通知图标
         'in-dy-sb-time', 'in-m-status-time', 'in-dyl-clock-time',
         'in-dy-sb-battery', 'in-m-battery-pct', 'in-dyl-battery',
         'sel-dy-sb-carrier', 'sw-dy-sb-speed', 'in-dy-sb-speed', 'sel-dy-sb-signal', 'sel-dy-sb-net',
-        'sw-dy-sb-charging', 'sel-m-signal',
+        'sw-dy-sb-charging', 'sw-dy-sb-lowpower', 'sel-m-signal',
+        'sw-dy-sb-loc', 'sw-dy-sb-bt', 'sw-dy-sb-alarm', 'sw-dy-sb-mute',
+        'sw-dy-sb-hd', 'sw-dy-sb-vpn', 'sw-dy-sb-nfc', 'sw-dy-sb-dnd', 'sw-dy-sb-notifs',
         // 直播间实时数字：主播昵称、本场点赞、在线人数、送礼人名
         'in-live-host-name', 'in-live-host-id', 'in-live-viewers-text', 'in-live-viewers',
         'in-live-gift-user',
@@ -8200,6 +8851,7 @@ window.switchRightTab = function (mode, opts) {
             });
             document.querySelectorAll('input[type="checkbox"]').forEach(el => {
                 if (!el.id) return;
+                if (el.id === 'sw-live-ai-unl' || el.id === 'sw-dm-studio-ai-unl') return;
                 if (SIMULATION_TRANSIENT_FIELD_IDS.has(el.id) && !__userModifiedFieldSet.has(el.id)) return;
                 data.checkboxes[el.id] = el.checked;
             });
@@ -8208,6 +8860,10 @@ window.switchRightTab = function (mode, opts) {
                 if (SIMULATION_TRANSIENT_FIELD_IDS.has(el.id) && !__userModifiedFieldSet.has(el.id)) return;
                 data.selects[el.id] = el.value;
             });
+
+            if (!window.__isInitialPreBoot && !window.__isRestoringStorage && swDySbLockRefresh && swDySbLockRefresh.checked && typeof window.captureCurrentStatusBarSnapshot === 'function') {
+                window.captureCurrentStatusBarSnapshot();
+            }
 
             localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
         } catch (e) {
@@ -8354,6 +9010,31 @@ window.switchRightTab = function (mode, opts) {
                 localStorage.setItem('LAYA_V57_LIVE_REALISM_MIGRATED', '1');
             }
 
+            // ★ V62 一次性升级迁移：弹幕默认升级为 25 条海外华人男性为主的真实自然长句，清理旧版 14 条短句缓存
+            if (localStorage.getItem('LAYA_V62_LONGER_OVERSEAS_MALE_MIGRATED') !== '1') {
+                if (data.inputs) {
+                    const oldDmTxt = String(data.inputs['in-live-danmaku-list'] || '');
+                    if (!__userModifiedFieldSet.has('in-live-danmaku-list') || /微醺小貓|星河少女|石頭baby/.test(oldDmTxt)) {
+                        delete data.inputs['in-live-danmaku-list'];
+                        __userModifiedFieldSet.delete('in-live-danmaku-list');
+                    }
+                    data.inputs['in-live-ai-dm-count'] = '25';
+                    data.inputs['in-dm-studio-ai-count'] = '25';
+                }
+                localStorage.setItem('LAYA_V62_LONGER_OVERSEAS_MALE_MIGRATED', '1');
+            }
+
+            const isSbLockedSaved = !!(data.checkboxes && data.checkboxes['sw-dy-sb-lock-refresh']);
+            const STATUS_BAR_LOCKABLE_FIELD_IDS = new Set([
+                'in-dy-sb-time', 'in-m-status-time', 'in-dyl-clock-time',
+                'in-dy-sb-battery', 'in-m-battery-pct', 'in-dyl-battery',
+                'sel-dy-sb-carrier', 'sw-dy-sb-speed', 'in-dy-sb-speed', 'sel-dy-sb-signal', 'sel-dy-sb-net',
+                'sw-dy-sb-charging', 'sw-dy-sb-lowpower', 'sw-dy-sb-bat-pct', 'sel-m-signal',
+                'sw-dy-sb-loc', 'sw-dy-sb-bt', 'sw-dy-sb-alarm', 'sw-dy-sb-mute',
+                'sw-dy-sb-hd', 'sw-dy-sb-vpn', 'sw-dy-sb-nfc', 'sw-dy-sb-dnd', 'sw-dy-sb-notifs',
+                'sel-dy-sb-laya-logo', 'sw-dy-sb-laya-icon'
+            ]);
+
             if (data.inputs) {
                 // ★ V39 跨电脑全量同步迁移：自动清理其他电脑浏览器中残留的旧版直播间与底栏红点缓存（如「小鹿同學」「54.3萬」「高顏值精選」「粉絲螢光棒」「消息 3」）
                 if (!localStorage.getItem('LAYA_BETA_V39_FRESH_SYNC')) {
@@ -8376,8 +9057,8 @@ window.switchRightTab = function (mode, opts) {
                 }
                 Object.entries(data.inputs).forEach(([id, val]) => {
                     if (id === 'in-m-start-time' || id === 'in-m-total-time' || id === 'in-m-progress' || id === 'in-dyl-start-time' || id === 'in-dyl-total-time' || id === 'in-dyl-progress' || id === 'in-progress' || id === 'in-custom-sec' || id === 'in-media-scale' || id === 'in-pos-x' || id === 'in-pos-y') return;
-                    // 未被用户手动修改过的仿真数据不从旧缓存恢复，而是每次页面加载随机生成
-                    if (SIMULATION_TRANSIENT_FIELD_IDS.has(id) && !__userModifiedFieldSet.has(id)) return;
+                    // 未被用户手动修改过的仿真数据不从旧缓存恢复，而是每次页面加载随机生成（若勾选了「锁定当前状态栏」则完整恢复状态栏字段）
+                    if (SIMULATION_TRANSIENT_FIELD_IDS.has(id) && !__userModifiedFieldSet.has(id) && !(isSbLockedSaved && STATUS_BAR_LOCKABLE_FIELD_IDS.has(id))) return;
                     // 送礼停留时间、消失时间、最短/最长空窗间隔由独立 V3 存储管理，防止旧版 V12 缓存将其覆盖回 3.0 秒
                     if (id === 'in-live-gift-stay-sec' || id === 'in-live-gift-fade-sec' || id === 'in-live-gift-gap-min' || id === 'in-live-gift-gap-max') return;
                     if (id === 'in-live-gift-speed' && Number(val) <= 0) return;
@@ -8404,7 +9085,8 @@ window.switchRightTab = function (mode, opts) {
                 Object.entries(data.checkboxes).forEach(([id, checked]) => {
                     const el = document.getElementById(id);
                     if (!el) return;
-                    if (SIMULATION_TRANSIENT_FIELD_IDS.has(id) && !__userModifiedFieldSet.has(id)) return;
+                    if (id === 'sw-live-ai-unl' || id === 'sw-dm-studio-ai-unl') return;
+                    if (SIMULATION_TRANSIENT_FIELD_IDS.has(id) && !__userModifiedFieldSet.has(id) && !(isSbLockedSaved && STATUS_BAR_LOCKABLE_FIELD_IDS.has(id))) return;
                     // 每次打开页面始终默认开启直播间公屏弹幕自动滚动、礼物弹窗自动轮播与送完消失间隔，并默认关闭每行末尾假紫心
                     if (id === 'sw-live-auto-roll-dm' || id === 'sw-live-auto-cycle-gift') {
                         el.checked = true;
@@ -8418,7 +9100,9 @@ window.switchRightTab = function (mode, opts) {
                         return;
                     }
                     el.checked = checked;
-                    el.dispatchEvent(new Event('change'));
+                    if (id !== 'sw-dy-sb-lock-refresh') {
+                        el.dispatchEvent(new Event('change'));
+                    }
                 });
             }
 
@@ -8426,7 +9110,7 @@ window.switchRightTab = function (mode, opts) {
                 Object.entries(data.selects).forEach(([id, val]) => {
                     // 每次打开页面始终默认 1.0x 原速，且录制秒数由视频时间轴区间 (LAYA_LAST_MEDIA_STATE) 精确接管
                     if (id === 'sel-preview-speed' || id === 'jy-sel-speed' || id === 'sel-record-sec' || id === 'sel-crop-orient') return;
-                    if (SIMULATION_TRANSIENT_FIELD_IDS.has(id) && !__userModifiedFieldSet.has(id)) return;
+                    if (SIMULATION_TRANSIENT_FIELD_IDS.has(id) && !__userModifiedFieldSet.has(id) && !(isSbLockedSaved && STATUS_BAR_LOCKABLE_FIELD_IDS.has(id))) return;
                     const el = document.getElementById(id);
                     if (el) {
                         el.value = val;
@@ -8665,75 +9349,267 @@ window.switchRightTab = function (mode, opts) {
         });
     }
 
-    // ★ 问题四核心实现：每次页面加载时，对所有未被用户手动修改过的状态栏与仿真数据执行一次全量随机（且不写入持久化）
-    function randomizeUneditedSimulationDataOnBoot() {
+    // ★ V62 全面升级：每次打开或刷新网页，状态栏时间、电量、运营商、网络、系统小图标、Laya 标样式、真实软件通知图标全部自动换一套（绝不与上次相同！）
+    function randomizeFullStatusBarEveryRefresh(showToastNotice = false) {
+        const prevState = (() => {
+            try {
+                return JSON.parse(localStorage.getItem(LAST_SB_SNAPSHOT_KEY) || '{}') || {};
+            } catch (e) {
+                return {};
+            }
+        })();
+
+        const wasAuto = window.__isAutoRandomizing;
         window.__isAutoRandomizing = true;
         try {
-            // 1) 状态栏时间随机 08:00 ~ 23:59（若用户未手动修改时间）
-            const timeEdited = __userModifiedFieldSet.has('in-dy-sb-time') || __userModifiedFieldSet.has('in-m-status-time') || __userModifiedFieldSet.has('in-dyl-clock-time');
-            if (!timeEdited) {
-                const randClock = generateRandomClockTime08To23();
-                syncAllPhoneClockTimes(randClock, false);
+            // 1) 状态栏时间（08:00 ~ 23:59），保证与上一次刷新完全不同
+            let randClock = generateRandomClockTime08To23();
+            let guard = 0;
+            while (randClock === prevState.time && guard++ < 25) {
+                randClock = generateRandomClockTime08To23();
+            }
+            syncAllPhoneClockTimes(randClock, false);
+
+            // 2) 电量（21% ~ 99%），保证与上一次相差至少 5% 以上，同时随机快充闪电或低电量色彩
+            let randBat = Math.floor(Math.random() * 79) + 21;
+            guard = 0;
+            while (typeof prevState.bat === 'number' && Math.abs(randBat - prevState.bat) < 6 && guard++ < 25) {
+                randBat = Math.floor(Math.random() * 79) + 21;
+            }
+            if (inDySbBattery) inDySbBattery.value = String(randBat);
+            if (txtDySbBattery) txtDySbBattery.textContent = randBat + '%';
+            if (inMBatteryPct) {
+                inMBatteryPct.value = String(randBat);
+                inMBatteryPct.dispatchEvent(new Event('input'));
+            }
+            const inDylBat = document.getElementById('in-dyl-battery');
+            if (inDylBat) {
+                inDylBat.value = String(randBat);
+                inDylBat.dispatchEvent(new Event('input'));
+            }
+            const isChg = Math.random() < 0.28;
+            if (swDySbCharging) swDySbCharging.checked = isChg;
+            if (swDySbLowpower) swDySbLowpower.checked = (!isChg && randBat <= 29 && Math.random() < 0.65);
+            if (swDySbBatPct) swDySbBatPct.checked = Math.random() < 0.86;
+
+            // 3) 运营商（优先台港澳新马美加澳等海外主流运营商或清爽无运营商，保证与上次不同）
+            if (selDySbCarrier && selDySbCarrier.options.length > 0) {
+                const allValidCarriers = Array.from(selDySbCarrier.options)
+                    .map(o => o.value)
+                    .filter(v => v !== 'none' && !['中国移动', '中国联通', '中国电信', '中国广电'].includes(v));
+                let nextCarrier = '';
+                guard = 0;
+                do {
+                    if (Math.random() < 0.22) {
+                        nextCarrier = '';
+                    } else if (allValidCarriers.length > 0) {
+                        nextCarrier = allValidCarriers[Math.floor(Math.random() * allValidCarriers.length)];
+                    }
+                } while (nextCarrier === prevState.carrier && guard++ < 20);
+                selDySbCarrier.value = nextCarrier;
             }
 
-            // 2) 竖屏/横屏/全屏状态栏电量随机 20% ~ 100%（若用户未手动修改电量）
-            const batEdited = __userModifiedFieldSet.has('in-dy-sb-battery') || __userModifiedFieldSet.has('in-m-battery-pct') || __userModifiedFieldSet.has('in-dyl-battery');
-            if (!batEdited) {
-                const randBat = Math.floor(Math.random() * 81) + 20; // 20% ~ 100%
-                if (inDySbBattery) inDySbBattery.value = String(randBat);
-                if (txtDySbBattery) txtDySbBattery.textContent = randBat + '%';
+            // 4) 信号条 + Wi-Fi/5G/5G-A/4G 网络 + 实时网速（保证网络标识与上次不同）
+            if (selDySbSignal && selDySbSignal.options.length > 0) {
+                const sigChoices = ['single-4', 'single-3', 'dual-4', 'dual-3'];
+                const validSigs = sigChoices.filter(v => Array.from(selDySbSignal.options).some(o => o.value === v));
+                if (validSigs.length > 0) {
+                    let nextSig = validSigs[Math.floor(Math.random() * validSigs.length)];
+                    if (validSigs.length > 1 && nextSig === prevState.sig) {
+                        nextSig = validSigs[(validSigs.indexOf(nextSig) + 1) % validSigs.length];
+                    }
+                    selDySbSignal.value = nextSig;
+                }
+            }
+            if (selDySbNet && selDySbNet.options.length > 0) {
+                const netChoices = ['wifi', '5g', '5ga', 'wifi+5g', '4g'];
+                const validNets = netChoices.filter(v => Array.from(selDySbNet.options).some(o => o.value === v));
+                if (validNets.length > 0) {
+                    let nextNet = validNets[Math.floor(Math.random() * validNets.length)];
+                    guard = 0;
+                    while (validNets.length > 1 && nextNet === prevState.net && guard++ < 15) {
+                        nextNet = validNets[Math.floor(Math.random() * validNets.length)];
+                    }
+                    selDySbNet.value = nextNet;
+                }
+            }
+            if (swDySbSpeed) {
+                // 避免左侧已有运营商+软件图标+Laya标时右侧还过挤，约 42% 概率显示实时网速
+                swDySbSpeed.checked = Math.random() < 0.42;
+            }
+            if (inDySbSpeed) {
+                inDySbSpeed.value = (0.7 + Math.random() * 18.5).toFixed(1) + 'M/s';
+            }
+            if (selMSignal && selMSignal.options.length > 0) {
+                selMSignal.selectedIndex = Math.floor(Math.random() * selMSignal.options.length);
+                selMSignal.dispatchEvent(new Event('change'));
+            }
+
+            // 5) 系统小图标组合（定位、蓝牙、闹钟、静音、HD、VPN、NFC、勿扰）每次刷新随机组合 1~3 个，绝不与上次雷同
+            const sysPool = [
+                { el: swDySbLoc, key: 'loc', p: 0.46 },
+                { el: swDySbBt, key: 'bt', p: 0.44 },
+                { el: swDySbAlarm, key: 'alarm', p: 0.36 },
+                { el: swDySbMute, key: 'mute', p: 0.22 },
+                { el: swDySbHd, key: 'hd', p: 0.28 },
+                { el: swDySbVpn, key: 'vpn', p: 0.20 },
+                { el: swDySbNfc, key: 'nfc', p: 0.18 },
+                { el: swDySbDnd, key: 'dnd', p: 0.14 }
+            ];
+            let sysCombo = '';
+            for (let attempt = 0; attempt < 20; attempt++) {
+                const chosen = [];
+                sysPool.forEach(it => {
+                    if (Math.random() < it.p && chosen.length < 3) chosen.push(it.key);
+                });
+                if (chosen.length === 0) {
+                    const fallbackIt = sysPool[Math.floor(Math.random() * 4)];
+                    chosen.push(fallbackIt.key);
+                }
+                sysCombo = chosen.sort().join(',');
+                if (sysCombo !== prevState.sysCombo) {
+                    sysPool.forEach(it => {
+                        if (it.el) it.el.checked = chosen.includes(it.key);
+                    });
+                    break;
+                }
+            }
+
+            // 6) 状态栏 Laya 小图标样式（若未上传自定义图标，也在多款紫色/精致官方小图标间轻量轮换，保持新鲜感）
+            let nextLayaKey = selDySbLayaLogo ? selDySbLayaLogo.value : 'Laya2.png';
+            if (selDySbLayaLogo && (!swDySbLayaIcon || swDySbLayaIcon.checked) && nextLayaKey !== 'custom') {
+                const presetKeys = SB_LAYA_PRESET_META.map(m => m.key).filter(k => k !== 'custom');
+                if (presetKeys.length > 1) {
+                    guard = 0;
+                    do {
+                        nextLayaKey = presetKeys[Math.floor(Math.random() * presetKeys.length)];
+                    } while (nextLayaKey === prevState.layaKey && guard++ < 15);
+                    selDySbLayaLogo.value = nextLayaKey;
+                }
+            }
+
+            // 7) 真实多软件通知图标（X、Ins、短信、WhatsApp、TG、LINE、Gmail、微信等）每次刷新随机换一套 1~3 个，绝不重样！
+            activeSbAppIconKeys = pickRandomSbAppIconCombo(prevState.appCombo || activeSbAppIconKeys.join(','));
+            if (swDySbNotifs) swDySbNotifs.checked = true;
+            saveActiveSbAppIcons();
+
+            renderDyStatusBar();
+
+            // 记录本次状态栏完整快照（既用于防下次刷新雷同，也用于勾选「锁定当前状态栏」时 100% 精准还原）
+            captureCurrentStatusBarSnapshot();
+
+            if (showToastNotice) {
+                const appNames = activeSbAppIconKeys
+                    .map(k => (getAllAvailableSbAppIcons().find(it => it.key === k) || {}).label)
+                    .filter(Boolean)
+                    .join('/');
+                window.showToast(`🎲 状态栏已全量换新：${randClock} · ${randBat}% · 通知[${appNames}]`);
+            }
+        } finally {
+            window.__isAutoRandomizing = wasAuto;
+        }
+    }
+    window.randomizeFullStatusBarEveryRefresh = randomizeFullStatusBarEveryRefresh;
+
+    function captureCurrentStatusBarSnapshot() {
+        try {
+            const sysPairs = [
+                ['loc', swDySbLoc], ['bt', swDySbBt], ['alarm', swDySbAlarm], ['mute', swDySbMute],
+                ['hd', swDySbHd], ['vpn', swDySbVpn], ['nfc', swDySbNfc], ['dnd', swDySbDnd]
+            ];
+            const activeSys = sysPairs.filter(([, el]) => el && el.checked).map(([k]) => k).sort().join(',');
+            const snap = {
+                time: (inDySbTime && inDySbTime.value) ? inDySbTime.value : (dySbTime ? dySbTime.textContent.trim() : '20:30'),
+                bat: parseInt((inDySbBattery && inDySbBattery.value) || '80', 10) || 80,
+                charging: !!(swDySbCharging && swDySbCharging.checked),
+                lowpower: !!(swDySbLowpower && swDySbLowpower.checked),
+                batPctOn: swDySbBatPct ? !!swDySbBatPct.checked : true,
+                carrier: selDySbCarrier ? selDySbCarrier.value : '',
+                sig: selDySbSignal ? selDySbSignal.value : 'single-4',
+                mSigIdx: selMSignal ? selMSignal.selectedIndex : 0,
+                net: selDySbNet ? selDySbNet.value : '5g',
+                speedOn: !!(swDySbSpeed && swDySbSpeed.checked),
+                speedVal: (inDySbSpeed && inDySbSpeed.value) ? inDySbSpeed.value : '6.8M/s',
+                sysCombo: activeSys,
+                layaIconOn: swDySbLayaIcon ? !!swDySbLayaIcon.checked : true,
+                layaKey: selDySbLayaLogo ? selDySbLayaLogo.value : 'Laya2.png',
+                notifsOn: swDySbNotifs ? !!swDySbNotifs.checked : true,
+                appCombo: activeSbAppIconKeys.join(',')
+            };
+            localStorage.setItem(LAST_SB_SNAPSHOT_KEY, JSON.stringify(snap));
+        } catch (e) {}
+    }
+    window.captureCurrentStatusBarSnapshot = captureCurrentStatusBarSnapshot;
+
+    function restoreLockedStatusBarSnapshot() {
+        try {
+            const snap = JSON.parse(localStorage.getItem(LAST_SB_SNAPSHOT_KEY) || '{}');
+            if (!snap || typeof snap !== 'object') {
+                renderDyStatusBar();
+                return;
+            }
+            if (snap.time) {
+                syncAllPhoneClockTimes(snap.time, false);
+            }
+            if (typeof snap.bat === 'number' && !Number.isNaN(snap.bat)) {
+                if (inDySbBattery) inDySbBattery.value = String(snap.bat);
+                if (txtDySbBattery) txtDySbBattery.textContent = snap.bat + '%';
                 if (inMBatteryPct) {
-                    inMBatteryPct.value = String(randBat);
+                    inMBatteryPct.value = String(snap.bat);
                     inMBatteryPct.dispatchEvent(new Event('input'));
                 }
                 const inDylBat = document.getElementById('in-dyl-battery');
                 if (inDylBat) {
-                    inDylBat.value = String(randBat);
+                    inDylBat.value = String(snap.bat);
                     inDylBat.dispatchEvent(new Event('input'));
                 }
             }
-
-            // 3) 竖屏状态栏运营商、实时网速、信号格数、充电状态、Wi-Fi/5G 状态随机（匹配真实下拉 option 值）
-            if (!__userModifiedFieldSet.has('sel-dy-sb-carrier') && selDySbCarrier && selDySbCarrier.options.length > 0) {
-                if (Math.random() < 0.35) {
-                    selDySbCarrier.value = '';
-                } else {
-                    const validCarriers = Array.from(selDySbCarrier.options).map(o => o.value).filter(v => v && v !== 'none');
-                    if (validCarriers.length > 0) {
-                        selDySbCarrier.value = validCarriers[Math.floor(Math.random() * validCarriers.length)];
-                    }
-                }
-            }
-            if (!__userModifiedFieldSet.has('sw-dy-sb-speed') && swDySbSpeed) {
-                swDySbSpeed.checked = Math.random() < 0.45;
-            }
-            if (!__userModifiedFieldSet.has('in-dy-sb-speed') && inDySbSpeed) {
-                const randSpd = (0.6 + Math.random() * 17.8).toFixed(1) + 'M/s';
-                inDySbSpeed.value = randSpd;
-            }
-            if (!__userModifiedFieldSet.has('sel-dy-sb-signal') && selDySbSignal && selDySbSignal.options.length > 0) {
-                const sigChoices = ['single-4', 'single-3', 'dual-4', 'dual-3', 'single-2'];
-                const validSigs = sigChoices.filter(v => Array.from(selDySbSignal.options).some(o => o.value === v));
-                if (validSigs.length > 0) {
-                    selDySbSignal.value = validSigs[Math.floor(Math.random() * validSigs.length)];
-                }
-            }
-            if (!__userModifiedFieldSet.has('sel-dy-sb-net') && selDySbNet && selDySbNet.options.length > 0) {
-                const netChoices = ['wifi', '5g', '5ga', 'wifi+5g', '4g'];
-                const validNets = netChoices.filter(v => Array.from(selDySbNet.options).some(o => o.value === v));
-                if (validNets.length > 0) {
-                    selDySbNet.value = validNets[Math.floor(Math.random() * validNets.length)];
-                }
-            }
-            if (!__userModifiedFieldSet.has('sw-dy-sb-charging') && swDySbCharging) {
-                swDySbCharging.checked = Math.random() < 0.28;
-            }
-            if (!__userModifiedFieldSet.has('sel-m-signal') && selMSignal && selMSignal.options.length > 0) {
-                selMSignal.selectedIndex = Math.floor(Math.random() * selMSignal.options.length);
+            if (typeof snap.charging === 'boolean' && swDySbCharging) swDySbCharging.checked = snap.charging;
+            if (typeof snap.lowpower === 'boolean' && swDySbLowpower) swDySbLowpower.checked = snap.lowpower;
+            if (typeof snap.batPctOn === 'boolean' && swDySbBatPct) swDySbBatPct.checked = snap.batPctOn;
+            if (typeof snap.carrier === 'string' && selDySbCarrier) selDySbCarrier.value = snap.carrier;
+            if (typeof snap.sig === 'string' && selDySbSignal) selDySbSignal.value = snap.sig;
+            if (typeof snap.mSigIdx === 'number' && selMSignal && selMSignal.options[snap.mSigIdx]) {
+                selMSignal.selectedIndex = snap.mSigIdx;
                 selMSignal.dispatchEvent(new Event('change'));
             }
-            if (typeof renderDyStatusBar === 'function') {
-                renderDyStatusBar();
+            if (typeof snap.net === 'string' && selDySbNet) selDySbNet.value = snap.net;
+            if (typeof snap.speedOn === 'boolean' && swDySbSpeed) swDySbSpeed.checked = snap.speedOn;
+            if (typeof snap.speedVal === 'string' && inDySbSpeed) inDySbSpeed.value = snap.speedVal;
+            if (typeof snap.sysCombo === 'string') {
+                const chosenSet = new Set(snap.sysCombo.split(',').filter(Boolean));
+                const sysMap = [
+                    ['loc', swDySbLoc], ['bt', swDySbBt], ['alarm', swDySbAlarm], ['mute', swDySbMute],
+                    ['hd', swDySbHd], ['vpn', swDySbVpn], ['nfc', swDySbNfc], ['dnd', swDySbDnd]
+                ];
+                sysMap.forEach(([k, el]) => {
+                    if (el) el.checked = chosenSet.has(k);
+                });
+            }
+            if (typeof snap.layaIconOn === 'boolean' && swDySbLayaIcon) swDySbLayaIcon.checked = snap.layaIconOn;
+            if (typeof snap.layaKey === 'string' && selDySbLayaLogo) selDySbLayaLogo.value = snap.layaKey;
+            if (typeof snap.notifsOn === 'boolean' && swDySbNotifs) swDySbNotifs.checked = snap.notifsOn;
+            if (typeof snap.appCombo === 'string') {
+                const validKeys = new Set(getAllAvailableSbAppIcons().map(i => i.key));
+                activeSbAppIconKeys = snap.appCombo.split(',').map(s => s.trim()).filter(k => validKeys.has(k));
+                saveActiveSbAppIcons();
+            }
+            renderSbAppIconsPicker();
+            renderDyStatusBar();
+        } catch (e) {
+            renderDyStatusBar();
+        }
+    }
+
+    // ★ 问题四核心实现：每次页面加载/刷新时，状态栏（除非勾选锁定开关）+ 互动量 + 评论昵称头像 + 直播间全量换新
+    function randomizeUneditedSimulationDataOnBoot() {
+        window.__isAutoRandomizing = true;
+        try {
+            const isSbLocked = !!(swDySbLockRefresh && swDySbLockRefresh.checked);
+            if (!isSbLocked) {
+                randomizeFullStatusBarEveryRefresh(false);
+            } else {
+                restoreLockedStatusBarSnapshot();
             }
 
             // 4) 竖屏右下角点赞/评论/收藏/转发每次打开成比例随机（评论≈点赞1/30，收藏≈1/80，转发≈1/50），自动保留用户已手动修改过的单项
@@ -9250,6 +10126,22 @@ window.switchRightTab = function (mode, opts) {
             clonedCmtInner.style.transform = `translateY(-${origCmtList.scrollTop}px)`;
         }
 
+        // 同步状态栏真实软件通知 SVG 矢量颜色与尺寸到克隆节点，确保 html2canvas 截图与 MP4 导出 100% 锐利无缺失
+        const sbIconColor = isLightMode ? '#161823' : 'rgba(255, 255, 255, 0.94)';
+        clonedDoc.querySelectorAll('#dy-sb-notifs svg, #m-sb-notifs svg, #dyl-sb-notifs svg').forEach(svg => {
+            svg.style.setProperty('color', sbIconColor, 'important');
+            svg.style.setProperty('width', '11.5px', 'important');
+            svg.style.setProperty('height', '11.5px', 'important');
+            svg.style.setProperty('display', 'inline-block', 'important');
+            svg.style.setProperty('vertical-align', 'middle', 'important');
+        });
+        clonedDoc.querySelectorAll('.dy-sb-notif-custom-img').forEach(img => {
+            img.style.setProperty('width', '12px', 'important');
+            img.style.setProperty('height', '12px', 'important');
+            img.style.setProperty('object-fit', 'contain', 'important');
+            img.style.setProperty('display', 'inline-block', 'important');
+        });
+
         // 同步波浪线 Canvas 内容到克隆节点
         const origWave = document.getElementById('waveform-canvas');
         const clonedWave = clonedDoc.getElementById('waveform-canvas');
@@ -9356,7 +10248,7 @@ window.switchRightTab = function (mode, opts) {
             : ((itemRect.top + itemRect.height * 0.5 - 12) - targetRect.top) * scaleY;
 
         targetCtx.save();
-        targetCtx.globalAlpha = 0.88;
+        targetCtx.globalAlpha = 0.64;
         targetCtx.drawImage(imgSource, Math.round(gx), Math.round(gy), Math.round(gw), Math.round(gh));
         targetCtx.restore();
     }
@@ -9762,17 +10654,22 @@ window.switchRightTab = function (mode, opts) {
             // 结合用户设定的倍速计算实际导出的成片时长（例如 13.6s 片段在 1.0x 原速下严格导出 13.6s）
             const recordSeconds = Math.max(0.5, Number((sourceClipSpan / exportSpeedRate).toFixed(2)));
             const origLoopState = previewVideo.loop;
-            const origMutedState = !!previewVideo.muted;
+            const origMutedState = (window.PlayerEngine && typeof window.PlayerEngine.isUserMuted === 'function')
+                ? window.PlayerEngine.isUserMuted()
+                : !!previewVideo.muted;
+            const exportVolumeGain = (window.PlayerEngine && typeof window.PlayerEngine.getVolume === 'function')
+                ? window.PlayerEngine.getVolume()
+                : (typeof previewVideo.volume === 'number' ? previewVideo.volume : 1.0);
             const origPausedState = !!(previewVideo.paused || (window.PlayerEngine && window.PlayerEngine._stoppedAtClipEnd));
 
             origVidBtnText = '🎥 录屏导出视频';
             btnSaveVid.textContent = `⏳ 正在构建 1080P 手机硬解覆层...`;
             window.__isExportRecording = true;
 
-            // 在 html2canvas 构建 UI 覆层期间，暂停视频并锁定在裁剪起点，同时严格尊重用户的静音/原声开关选择
+            // 在 html2canvas 构建 UI 覆层期间，暂停视频并锁定在裁剪起点，同时严格尊重用户的静音/原声开关与右侧音量条大小
             previewVideo.loop = false;
             previewVideo.muted = origMutedState;
-            previewVideo.volume = 1.0;
+            previewVideo.volume = origMutedState ? 0 : exportVolumeGain;
             if (!origMutedState && window._audioCtx && window._audioCtx.state === 'suspended') {
                 window._audioCtx.resume().catch(() => {});
             }
@@ -9982,13 +10879,15 @@ window.switchRightTab = function (mode, opts) {
                     ? getActiveOsFontStack()
                     : '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Source Han Sans SC", "Noto Sans SC", sans-serif';
 
-                // ★ 问题二 & 问题三：恒定 30fps（源视频 60fps 则 60fps）CFR 超清参数与全设备通用标准 MP4
-                //   - 1080p 显式采用 'avc1.640033' (H.264 High Profile Level 5.1)，固定高码率 14~16 Mbps (10~16 Mbps)
-                //   - 720p  显式采用 'avc1.640028' (H.264 High Profile Level 4.0)，固定高码率 7~8 Mbps   (5~8 Mbps)
-                //   - 音频固定 AAC (mp4a.40.2, 44100/48000Hz, 128kbps)
+                // ★ H.264 High Profile 恒定 30fps/60fps CFR 影院级近无损超清画质参数（V62 二次加固）：
+                //   - 首选硬件 quantizer 恒定超清模式升级至 1080p QP=14 / 720p QP=16，任何复杂枝叶纹理、快速晃动、转场与关键帧绝不出现一丝局部马赛克或涂抹感
+                //   - 若个别设备不支持 quantizer，则回退至 42Mbps (1080p) / 22Mbps (720p) 超高码率 VBR 动态码率，严禁使用硬件 constant CBR
                 const is1080pExport = (Math.max(outW, outH) >= 1080);
                 const TARGET_FPS = (window.__detectedSourceFps === 60) ? 60 : 30;
-                const TARGET_VIDEO_BITRATE = is1080pExport ? 15_000_000 : 7_500_000;
+                const TARGET_VIDEO_BITRATE = is1080pExport ? 42_000_000 : 22_000_000;
+                const TARGET_SW_BITRATE = is1080pExport ? 30_000_000 : 15_000_000;
+                const TARGET_QUANTIZER_QP = is1080pExport ? 14 : 16;
+                const TARGET_GOP_FRAMES = TARGET_FPS * 2;
                 const TARGET_AUDIO_BITRATE = 128_000;
 
                 const danmakuParticles = [];
@@ -10081,16 +10980,25 @@ window.switchRightTab = function (mode, opts) {
                 if (Math.abs((previewVideo.currentTime || 0) - exportStartSec) > 0.05) {
                     try { previewVideo.currentTime = exportStartSec; } catch (e) {}
                 }
-                if (previewVideo.seeking || previewVideo.readyState < 2) {
+                if (previewVideo.seeking || previewVideo.readyState < 3) {
                     await new Promise(resolve => {
                         const onReady = () => {
-                            previewVideo.removeEventListener('seeked', onReady);
-                            previewVideo.removeEventListener('canplay', onReady);
-                            resolve();
+                            if (!previewVideo.seeking && previewVideo.readyState >= 3) {
+                                previewVideo.removeEventListener('seeked', onReady);
+                                previewVideo.removeEventListener('canplaythrough', onReady);
+                                previewVideo.removeEventListener('loadeddata', onReady);
+                                resolve();
+                            }
                         };
                         previewVideo.addEventListener('seeked', onReady);
-                        previewVideo.addEventListener('canplay', onReady);
-                        setTimeout(resolve, 350);
+                        previewVideo.addEventListener('canplaythrough', onReady);
+                        previewVideo.addEventListener('loadeddata', onReady);
+                        setTimeout(() => {
+                            previewVideo.removeEventListener('seeked', onReady);
+                            previewVideo.removeEventListener('canplaythrough', onReady);
+                            previewVideo.removeEventListener('loadeddata', onReady);
+                            resolve();
+                        }, 550);
                     });
                 }
 
@@ -10108,21 +11016,23 @@ window.switchRightTab = function (mode, opts) {
                     ctx.fillStyle = isLightRecord ? '#f5f6fa' : '#000000';
                     ctx.fillRect(0, 0, outW, outH);
 
-                    // 1. 绘制底层超清视频画面
+                    // 1. 绘制底层超清视频画面（整数像素对齐 + 高阶插值，彻底消除亚像素采样柔糊）
                     if (previewVideo.readyState >= 2 || previewVideo.videoWidth > 0) {
                         ctx.save();
+                        ctx.imageSmoothingEnabled = true;
+                        ctx.imageSmoothingQuality = 'high';
                         if (cachedFilter && cachedFilter !== 'none') ctx.filter = cachedFilter;
                         if (isSpecialSubBox) {
                             ctx.beginPath();
-                            ctx.rect(mediaWrapBox.x, mediaWrapBox.y, mediaWrapBox.w, mediaWrapBox.h);
+                            ctx.rect(Math.round(mediaWrapBox.x), Math.round(mediaWrapBox.y), Math.round(mediaWrapBox.w), Math.round(mediaWrapBox.h));
                             ctx.clip();
                         }
                         ctx.drawImage(
                             previewVideo,
-                            mediaWrapBox.x + cachedCropRect.offX,
-                            mediaWrapBox.y + cachedCropRect.offY,
-                            cachedCropRect.renderW,
-                            cachedCropRect.renderH
+                            Math.round(mediaWrapBox.x + cachedCropRect.offX),
+                            Math.round(mediaWrapBox.y + cachedCropRect.offY),
+                            Math.round(cachedCropRect.renderW),
+                            Math.round(cachedCropRect.renderH)
                         );
                         if (!isLightRecord) {
                             ctx.strokeStyle = '#000000';
@@ -10327,6 +11237,7 @@ window.switchRightTab = function (mode, opts) {
                 // =========================================================================
                 let webCodecsSupported = false;
                 let selectedVideoCodecConfig = null;
+                let useQuantizerEncodeMode = false;
                 let selectedAudioCodecConfig = null;
                 let decodedAudioBuffer = null;
 
@@ -10345,36 +11256,74 @@ window.switchRightTab = function (mode, opts) {
                         'avc1.42e02a',        // H.264 Constrained Baseline Level 4.2
                         'avc1.42e028'         // H.264 Constrained Baseline Level 4.0
                     ];
-                    // 兼容各显卡驱动的多阶配置：优先 High Profile + quality + CBR，若部分显卡不支持 CBR+quality 共存则平滑回退 High Profile + quality (高码率 VBR)
+                    // 单帧硬件实测预检函数：确保显卡驱动在 quantizer 模式下真正支持 encode({ avc: { quantizer } }) 且产出有效切片
+                    const verifyQuantizerConfig = async (testCfg, qpVal) => {
+                        let probeEnc = null;
+                        let probeFrame = null;
+                        try {
+                            let gotChunk = false;
+                            let probeErr = null;
+                            probeEnc = new VideoEncoder({
+                                output: (chunk) => {
+                                    if (chunk && chunk.byteLength > 0) gotChunk = true;
+                                },
+                                error: (err) => {
+                                    probeErr = err;
+                                }
+                            });
+                            probeEnc.configure(testCfg);
+                            probeFrame = new VideoFrame(offCanvas, { timestamp: 0, duration: Math.round(1_000_000 / TARGET_FPS) });
+                            probeEnc.encode(probeFrame, { keyFrame: true, avc: { quantizer: qpVal } });
+                            probeFrame.close();
+                            probeFrame = null;
+                            await probeEnc.flush();
+                            probeEnc.close();
+                            probeEnc = null;
+                            return gotChunk && !probeErr;
+                        } catch (_e) {
+                            try { if (probeFrame) probeFrame.close(); } catch (_e2) {}
+                            try { if (probeEnc && probeEnc.state !== 'closed') probeEnc.close(); } catch (_e3) {}
+                            return false;
+                        }
+                    };
+
+                    // ★ 多级零骤糊编码模板链（彻底禁用硬件 constant CBR，优先采用硬件恒定无损画质 quantizer QP=16/18，其次 32Mbps 高码率动态 VBR）
                     const encoderVariantTemplates = [
-                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'quality', bitrateMode: 'constant' },
-                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'quality' },
-                        { latencyMode: 'quality' },
-                        { hardwareAcceleration: 'prefer-software', latencyMode: 'quality' },
-                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'realtime' }
+                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'quality', bitrateMode: 'quantizer' },
+                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'realtime', bitrateMode: 'quantizer' },
+                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'realtime', bitrateMode: 'variable', bitrate: TARGET_VIDEO_BITRATE },
+                        { hardwareAcceleration: 'prefer-hardware', latencyMode: 'quality', bitrateMode: 'variable', bitrate: TARGET_VIDEO_BITRATE },
+                        { latencyMode: 'quality', bitrateMode: 'variable', bitrate: TARGET_VIDEO_BITRATE },
+                        { hardwareAcceleration: 'prefer-software', latencyMode: 'realtime', bitrateMode: 'variable', bitrate: TARGET_SW_BITRATE }
                     ];
                     outerCodecLoop:
                     for (const codecStr of h264Candidates) {
                         for (const variant of encoderVariantTemplates) {
                             try {
-                                const cfg = Object.assign({
+                                const isQuant = variant.bitrateMode === 'quantizer';
+                                const baseFields = {
                                     codec: codecStr,
                                     width: outW,
                                     height: outH,
-                                    bitrate: TARGET_VIDEO_BITRATE,
                                     framerate: TARGET_FPS,
                                     avc: { format: 'avc' }
-                                }, variant);
+                                };
+                                if (!isQuant) {
+                                    baseFields.bitrate = variant.bitrate || TARGET_VIDEO_BITRATE;
+                                }
+                                const cfg = Object.assign({}, baseFields, variant);
                                 const sup = await VideoEncoder.isConfigSupported(cfg);
                                 if (sup && sup.supported) {
-                                    selectedVideoCodecConfig = Object.assign({}, sup.config || cfg, {
-                                        codec: codecStr,
-                                        width: outW,
-                                        height: outH,
-                                        bitrate: TARGET_VIDEO_BITRATE,
-                                        framerate: TARGET_FPS,
-                                        avc: { format: 'avc' }
+                                    const candidateFinalCfg = Object.assign({}, sup.config || cfg, baseFields, {
+                                        bitrateMode: variant.bitrateMode
                                     });
+                                    if (isQuant) {
+                                        delete candidateFinalCfg.bitrate;
+                                        const quantOk = await verifyQuantizerConfig(candidateFinalCfg, TARGET_QUANTIZER_QP);
+                                        if (!quantOk) continue;
+                                    }
+                                    selectedVideoCodecConfig = candidateFinalCfg;
+                                    useQuantizerEncodeMode = isQuant;
                                     webCodecsSupported = true;
                                     break outerCodecLoop;
                                 }
@@ -10472,6 +11421,11 @@ window.switchRightTab = function (mode, opts) {
                                                 const frac = srcPos - idx0;
                                                 planarBuf[dstOffset + i] = srcCh[idx0] * (1 - frac) + srcCh[idx1] * frac;
                                             }
+                                        }
+                                    }
+                                    if (Math.abs(exportVolumeGain - 1.0) > 0.005) {
+                                        for (let i = 0; i < curFrames; i++) {
+                                            planarBuf[dstOffset + i] *= exportVolumeGain;
                                         }
                                     }
                                 }
@@ -10602,9 +11556,15 @@ window.switchRightTab = function (mode, opts) {
                                 previewVideo.loop = origLoopState;
                                 previewVideo.playbackRate = origPlaybackRate;
                                 previewVideo.defaultPlaybackRate = origPlaybackRate;
-                                previewVideo.muted = origMutedState;
+                                if (window.PlayerEngine && typeof window.PlayerEngine.setVideoVolume === 'function') {
+                                    window.PlayerEngine.setVideoVolume(exportVolumeGain, false, false);
+                                } else {
+                                    previewVideo.volume = exportVolumeGain;
+                                }
                                 if (window.PlayerEngine && typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
-                                    window.PlayerEngine.setVideoSoundMuted(origMutedState, false);
+                                    window.PlayerEngine.setVideoSoundMuted(origMutedState, false, true);
+                                } else {
+                                    previewVideo.muted = origMutedState;
                                 }
                                 if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                                 btnSaveVid.textContent = origVidBtnText;
@@ -10712,14 +11672,18 @@ window.switchRightTab = function (mode, opts) {
                                 renderSingleFrame(now, exactElapsedSec);
 
                                 if (videoEncoder.state === 'configured' && encodedFrameCount < totalFrames) {
-                                    // 每帧 timestamp = frameIndex * (1e6 / fps) 微秒，严格保证 CFR，关键帧间隔约 1 秒
+                                    // 每帧 timestamp = frameIndex * (1e6 / fps) 微秒，严格保证 CFR，关键帧间隔 2 秒（避免 1 秒频繁 IDR 与自然转场撞车）
                                     const frameIndex = encodedFrameCount;
                                     const timestampUs = Math.round(frameIndex * (1e6 / TARGET_FPS));
                                     const frame = new VideoFrame(offCanvas, {
                                         timestamp: timestampUs,
                                         duration: frameDurationUs
                                     });
-                                    videoEncoder.encode(frame, { keyFrame: (frameIndex % TARGET_FPS === 0) });
+                                    const isKey = (frameIndex === 0 || frameIndex % TARGET_GOP_FRAMES === 0);
+                                    const encodeOpts = useQuantizerEncodeMode
+                                        ? { keyFrame: isKey, avc: { quantizer: TARGET_QUANTIZER_QP } }
+                                        : { keyFrame: isKey };
+                                    videoEncoder.encode(frame, encodeOpts);
                                     frame.close();
                                     encodedFrameCount++;
                                 }
@@ -10768,10 +11732,12 @@ window.switchRightTab = function (mode, opts) {
                             window._audioSrcNode = window._audioCtx.createMediaElementSource(previewVideo);
                             window._audioDstNode = window._audioCtx.createMediaStreamDestination();
                             window._audioGainNode = window._audioCtx.createGain();
-                            window._audioGainNode.gain.value = 1.0;
                             window._audioSrcNode.connect(window._audioGainNode);
                             window._audioGainNode.connect(window._audioDstNode);
                             window._audioGainNode.connect(window._audioCtx.destination);
+                        }
+                        if (window._audioGainNode) {
+                            window._audioGainNode.gain.value = exportVolumeGain;
                         }
                         if (window._audioDstNode && window._audioDstNode.stream) {
                             audioTracks = window._audioDstNode.stream.getAudioTracks().filter(t => t.readyState === 'live');
@@ -10885,9 +11851,18 @@ window.switchRightTab = function (mode, opts) {
                     previewVideo.loop = origLoopState;
                     previewVideo.playbackRate = origPlaybackRate;
                     previewVideo.defaultPlaybackRate = origPlaybackRate;
-                    previewVideo.muted = origMutedState;
+                    if (window._audioGainNode) {
+                        window._audioGainNode.gain.value = 1.0;
+                    }
+                    if (window.PlayerEngine && typeof window.PlayerEngine.setVideoVolume === 'function') {
+                        window.PlayerEngine.setVideoVolume(exportVolumeGain, false, false);
+                    } else {
+                        previewVideo.volume = exportVolumeGain;
+                    }
                     if (window.PlayerEngine && typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
-                        window.PlayerEngine.setVideoSoundMuted(origMutedState, false);
+                        window.PlayerEngine.setVideoSoundMuted(origMutedState, false, true);
+                    } else {
+                        previewVideo.muted = origMutedState;
                     }
                     if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                     btnSaveVid.textContent = origVidBtnText;
@@ -10969,9 +11944,18 @@ window.switchRightTab = function (mode, opts) {
                 previewVideo.loop = origLoopState;
                 previewVideo.playbackRate = origPlaybackRate;
                 previewVideo.defaultPlaybackRate = origPlaybackRate;
-                previewVideo.muted = origMutedState;
+                if (window._audioGainNode) {
+                    window._audioGainNode.gain.value = 1.0;
+                }
+                if (window.PlayerEngine && typeof window.PlayerEngine.setVideoVolume === 'function') {
+                    window.PlayerEngine.setVideoVolume(exportVolumeGain, false, false);
+                } else {
+                    previewVideo.volume = exportVolumeGain;
+                }
                 if (window.PlayerEngine && typeof window.PlayerEngine.setVideoSoundMuted === 'function') {
-                    window.PlayerEngine.setVideoSoundMuted(origMutedState, false);
+                    window.PlayerEngine.setVideoSoundMuted(origMutedState, false, true);
+                } else {
+                    previewVideo.muted = origMutedState;
                 }
                 if (offCanvas.parentNode) offCanvas.parentNode.removeChild(offCanvas);
                 console.error(err);
@@ -11821,24 +12805,40 @@ window.switchRightTab = function (mode, opts) {
     }
 
     const defaultLiveChatLines = [
-        '微醺小貓：哈哈哈哈笑死我了😂',
-        '輕輕吹風 來了',
-        '阿傑：666牛啊',
-        '晚風溫柔：👍',
-        '再次邂逅說愛你 來了',
-        '小羊：太美了吧😘',
-        '星河少女：主播哪裡人',
-        '麥兜黑鳳梨 來了',
-        '夜色有點濃：😄好看好看',
-        '皓哥：來了來了☕',
-        '南城舊夢 來了',
-        '石頭baby：這多少錢👀',
-        '漫渡：👏',
-        '深海裡的星星 來了'
+        '溫哥華老陳Jason：剛下班打開手機就刷到開播，今天這畫面清晰度看著真舒服👍',
+        '多倫多阿豪 來了',
+        '洛杉磯凱哥：哈哈哈哈剛才那一下差點把我看樂了，這反應速度也是沒誰了😂',
+        '悉尼老林：在這邊用WiFi看一點都不卡，主播今天狀態看著挺精神的',
+        '吉隆坡建豪 來了',
+        '灣區工程師阿哲：👍',
+        '台北信義區老吳：這套衣服搭得挺順眼的，平時自己挑的還是朋友幫忙選的👀',
+        '紐約法拉盛強哥：剛跟幾個朋友吃完宵夜回來，正好泡杯茶蹲直播間聽一會兒☕',
+        '新加坡裕廊阿明 來了',
+        '墨爾本小鹿Chloe：笑起來挺好看的，講話聲音聽著也很自然舒服😊',
+        '西雅圖老張Marcus：666這波操作確實穩，剛點進來就趕上最精彩的一段',
+        '香港九龍阿峰：主播這是幾點開播的呀，感覺今天直播間裡老熟人挺多的',
+        '倫敦留學阿宇：👏',
+        '奧克蘭老鄭：剛才背景音樂配得挺好聽的，有沒有懂行的老哥知道是什麼歌😄',
+        '東京新宿阿健 來了',
+        '休斯頓老劉：哈哈哈評論區老哥們太有才了，看彈幕比看電視還有意思🤣',
+        '檳城老街阿榮：這角度拍出來光線剛剛好，看著特別真實一點都不假',
+        '曼谷阿威Kevin：平時這個點正好在休息，每次刷到都會留著聽十幾分鐘💪',
+        '溫哥華リッチモンド林姐：今天這髮型挺適合你的，比上次那個看著更顯年輕😘',
+        '芝加哥老周：剛給身邊朋友也分享了一下，大家都在問這是哪個直播間',
+        '布里斯班阿翔 來了',
+        '舊金山老趙Alex：真的假的，剛才那個細節要不是彈幕提醒我差點沒注意看😲',
+        '台中逢甲阿宏：老粉前排打個卡，今天這場節奏把控得確實很不錯👌',
+        '多倫多世嘉堡老唐：順手點了幾十個讚支持一下，主播慢慢聊不用著急🌹',
+        '吉隆坡阿杰Eric：看著挺接地氣的沒有那些花裡胡哨的套路，果斷點關注了❤️'
     ];
     const presetLevels = [19, 12, 26, 25, 21, 16, 29, 24, 18, 33, 28, 31, 15, 22, 36];
     const presetFanLevels = [10, 12, 8, 15, 9, 11, 16, 14, 6, 18, 13, 10, 7, 19, 11];
-    const fallbackNicknames = ['小羊', '七月初五', '輕輕吹風', '蒙蒙', '夜色有點濃', '微醺小貓', '阿傑', '捉事盧鑫', '石頭baby', '希拉', '皓哥', '漫渡', '晚風溫柔', '星河少女'];
+    const fallbackNicknames = [
+        '溫哥華老陳', '多倫多志豪', '洛杉磯凱哥', '灣區工程師阿哲', '悉尼老林', '墨爾本阿翔',
+        '吉隆坡建強', '新加坡裕廊老吳', '台北大安阿宏', '香港銅鑼灣強哥', '紐約法拉盛老劉', '西雅圖Marcus',
+        '休斯頓老周', '倫敦阿宇', '東京池袋阿健', '奧克蘭老鄭', '溫哥華Amy', '多倫多Chloe',
+        '檳城老街阿榮', '芝加哥Alex', '布里斯班David', '舊金山老趙', '曼谷阿威', '台中阿博'
+    ];
 
     // ★ 将逗号/分号分隔或挤在一行的弹幕文本自动拆分为「每行一条」
     function splitDanmakuTextToMultiline(rawStr) {
@@ -11907,28 +12907,32 @@ window.switchRightTab = function (mode, opts) {
         return `<span class="live-chat-nick" style="color:${solidCol};">${escapeHtmlSafe(clean)}${colonSuffix}</span>`;
     }
 
-    // ★ 独立高频进场观众池（约 70% 为无灯牌无等级的纯「名字 来了」普通路人观众，约 30% 带单蓝牌等级）
+    // ★ 独立高频进场观众池（85%+ 海外华人男性唯一昵称，约 70% 为无灯牌普通路人观众，约 30% 带单蓝牌等级）
     const liveJoinViewerPool = [
-        { lv: 0,  fan: 0, nick: '再次邂逅說愛你' },
-        { lv: 0,  fan: 0, nick: '輕輕吹風' },
-        { lv: 17, fan: 0, nick: '足弟' },
-        { lv: 0,  fan: 0, nick: '晚風溫柔' },
-        { lv: 0,  fan: 0, nick: '麥兜黑鳳梨' },
-        { lv: 25, fan: 0, nick: 'LOL' },
-        { lv: 0,  fan: 0, nick: '滴水成冰' },
-        { lv: 0,  fan: 0, nick: '捉事盧鑫' },
-        { lv: 18, fan: 0, nick: '混凝土銷售' },
-        { lv: 0,  fan: 0, nick: '南城舊夢' },
-        { lv: 0,  fan: 0, nick: '漫渡' },
-        { lv: 21, fan: 0, nick: '風止何安' },
-        { lv: 0,  fan: 0, nick: '晨霸' },
-        { lv: 0,  fan: 0, nick: '石頭baby' },
-        { lv: 14, fan: 0, nick: '香港明' },
-        { lv: 0,  fan: 0, nick: '歲月如歌' },
-        { lv: 0,  fan: 0, nick: '深海裡的星星' },
-        { lv: 29, fan: 0, nick: '皓哥' },
-        { lv: 0,  fan: 0, nick: '暴富小錦鯉' },
-        { lv: 36, fan: 0, nick: 'Laya榜一大哥' }
+        { lv: 0,  fan: 0, nick: '溫哥華列治文老陳' },
+        { lv: 0,  fan: 0, nick: '多倫多萬錦阿豪' },
+        { lv: 17, fan: 0, nick: '洛杉磯聖蓋博凱哥' },
+        { lv: 0,  fan: 0, nick: '悉尼車士活老林' },
+        { lv: 0,  fan: 0, nick: '吉隆坡武吉免登阿強' },
+        { lv: 25, fan: 0, nick: '灣區工程師Jason' },
+        { lv: 0,  fan: 0, nick: '新加坡裕廊西老吳' },
+        { lv: 0,  fan: 0, nick: '紐約法拉盛阿峰' },
+        { lv: 18, fan: 0, nick: '台北內湖阿哲' },
+        { lv: 0,  fan: 0, nick: '墨爾本BoxHill阿翔' },
+        { lv: 0,  fan: 0, nick: '西雅圖貝爾維尤老張' },
+        { lv: 21, fan: 0, nick: '香港旺角明哥' },
+        { lv: 0,  fan: 0, nick: '休斯頓糖城老劉' },
+        { lv: 0,  fan: 0, nick: '溫哥華小鹿Chloe' },
+        { lv: 14, fan: 0, nick: '檳城喬治市阿榮' },
+        { lv: 0,  fan: 0, nick: '東京新宿阿健' },
+        { lv: 0,  fan: 0, nick: '奧克蘭北岸老鄭' },
+        { lv: 29, fan: 0, nick: '芝加哥唐人街周哥' },
+        { lv: 0,  fan: 0, nick: '多倫多欣怡Vivian' },
+        { lv: 0,  fan: 0, nick: '布里斯班南岸阿威' },
+        { lv: 22, fan: 0, nick: '舊金山日落區老趙' },
+        { lv: 0,  fan: 0, nick: '台中西屯阿宏' },
+        { lv: 0,  fan: 0, nick: '曼谷輝煌區Kevin' },
+        { lv: 36, fan: 0, nick: '溫哥華榜一豪哥' }
     ];
 
     function parseLiveDanmakuTexts() {
@@ -12509,11 +13513,11 @@ window.switchRightTab = function (mode, opts) {
     // 3) 每次弹出自动轮换不同的送礼人、真人头像、礼物图标、连击数与胶囊流光渐变色，绝不千篇一律；
     // 4) 单击小弹窗随机切换下一条，双击小弹窗可直接原地编辑全部内容！
     const giftUserPresets = [
-        '皓哥', '晨霸', '漫渡', '輕輕吹風', 'Laya榜一大哥', '微醺小貓', '夜色有點濃', '萬里星河',
-        '暴富小錦鯉', '阿傑', '南城舊夢', '星河少女', '深海裡的星星', '威廉W', '陳先生HK', '台北小宇',
-        '溫哥華阿凱', '墨爾本小鹿', '半夏微涼', '風止何安', '晚風溫柔', '草莓氣泡水', '山海皆可平', '落日歸山海',
-        '加州陽光Leo', '倫敦夜未眠', '星辰大海', '人間小甜豆', '芝士奶蓋', '江上清風', '追光者Eric', '月亮不睡我不睡',
-        '東京鐵塔的貓', '新加坡老陳', '多倫多小魚', '微風不燥'
+        '溫哥華老陳', '多倫多豪哥', '洛杉磯阿凱', '灣區Jason哥', '悉尼老林', '吉隆坡強哥', '新加坡裕廊陳總', '紐約法拉盛明哥',
+        '台北信義區宇哥', '香港中環陳先生', '西雅圖Marcus', '墨爾本David哥', '休斯頓老劉', '芝加哥周總', '奧克蘭鄭哥', '東京銀座健哥',
+        '溫哥華小鹿', '檳城阿榮哥', '布里斯班阿翔', '舊金山Alex哥', '倫敦金融城Eric', '曼谷Kevin哥', '多倫多Sandy', '台中阿宏哥',
+        '卡爾加里老唐', '珀斯阿威哥', '拉斯維加斯龍哥', '波士頓阿哲', '新山阿杰哥', '高雄左營豪哥', '悉尼Claire', '渥太華Daniel哥',
+        '法蘭克福老張', '阿姆斯特丹林總', '首爾弘大阿勳', '米蘭華人街老胡'
     ];
     const LIVE_GIFT_CATALOG = [
         { icon: '🎠', name: '送 嘉年華',     color: '#9333ea', endColor: 'rgba(245, 158, 11, 0.85)', counts: ['x1', 'x3', 'x9', 'x18'] },
@@ -14955,13 +15959,106 @@ window.switchRightTab = function (mode, opts) {
     const btnLiveSaveAiKey = document.getElementById('btn-live-save-ai-key');
     const btnLiveShareAiKey = document.getElementById('btn-live-share-ai-key');
 
-    // ★ 全站默认共享 AI API Key（已内置团队专属 Gemini 3.8 Flash 秘钥 + 严格 30 秒最小调用间隔防刷保护）
+    // ★ V62 新增：AI 弹幕生成条数控制（默认 25 条，可手动调整 1~150 条）与私密破限小开关控件
+    const inLiveAiDmCount = document.getElementById('in-live-ai-dm-count');
+    const inDmStudioAiCount = document.getElementById('in-dm-studio-ai-count');
+    const aiCntQuickBtns = document.querySelectorAll('.ai-cnt-qbtn');
+
+    const swLiveAiUnl = document.getElementById('sw-live-ai-unl');
+    const boxLiveAiUnlPwd = document.getElementById('box-live-ai-unl-pwd');
+    const inLiveAiUnlPwd = document.getElementById('in-live-ai-unl-pwd');
+    const btnLiveAiUnlOk = document.getElementById('btn-live-ai-unl-ok');
+
+    const swDmStudioAiUnl = document.getElementById('sw-dm-studio-ai-unl');
+    const boxDmStudioAiUnlPwd = document.getElementById('box-dm-studio-ai-unl-pwd');
+    const inDmStudioAiUnlPwd = document.getElementById('in-dm-studio-ai-unl-pwd');
+    const btnDmStudioAiUnlOk = document.getElementById('btn-dm-studio-ai-unl-ok');
+
+    /* ==========================================================================
+       ★ 管理员私密破限密码（仅在代码此处修改，页面上绝不以任何形式暴露该密码！）
+       输入此密码开启旁边的「不限」小开关后，即可突破 30 秒冷却与每日 40 次等所有生成限制
+       ========================================================================== */
+    const AI_UNLIMITED_SECRET_PASSWORD = '112233';
+    const AI_UNLIMITED_SESSION_KEY = 'LAYA_AI_UNL_UNLOCKED_V1';
+    let isAiUnlimitedUnlocked = (sessionStorage.getItem(AI_UNLIMITED_SESSION_KEY) === '1');
+
+    function getTargetAiDanmakuCount() {
+        const raw = (inLiveAiDmCount && inLiveAiDmCount.value)
+            || (inDmStudioAiCount && inDmStudioAiCount.value)
+            || '25';
+        const parsed = parseInt(raw, 10);
+        if (Number.isNaN(parsed)) return 25;
+        return Math.min(150, Math.max(1, parsed));
+    }
+    window.getTargetAiDanmakuCount = getTargetAiDanmakuCount;
+
+    function getBtnCntAttr(btn) {
+        return parseInt((btn && (btn.dataset.cnt || btn.dataset.aiCnt)) || '0', 10);
+    }
+
+    function syncAiDanmakuCountInputs(val, saveNow = false) {
+        const clamped = Math.min(150, Math.max(1, parseInt(val, 10) || 25));
+        if (inLiveAiDmCount && parseInt(inLiveAiDmCount.value, 10) !== clamped) {
+            inLiveAiDmCount.value = String(clamped);
+        }
+        if (inDmStudioAiCount && parseInt(inDmStudioAiCount.value, 10) !== clamped) {
+            inDmStudioAiCount.value = String(clamped);
+        }
+        aiCntQuickBtns.forEach(btn => {
+            btn.classList.toggle('is-active', getBtnCntAttr(btn) === clamped);
+        });
+        if (saveNow && !window.__isRestoringStorage && typeof triggerSaveStorage === 'function') {
+            triggerSaveStorage();
+        }
+        return clamped;
+    }
+
+    if (inLiveAiDmCount) {
+        inLiveAiDmCount.addEventListener('change', () => syncAiDanmakuCountInputs(inLiveAiDmCount.value, true));
+        inLiveAiDmCount.addEventListener('input', () => {
+            const v = parseInt(inLiveAiDmCount.value, 10);
+            if (!Number.isNaN(v)) {
+                if (v > 150) {
+                    syncAiDanmakuCountInputs(150, true);
+                    return;
+                }
+                if (v >= 1 && v <= 150) {
+                    if (inDmStudioAiCount) inDmStudioAiCount.value = String(v);
+                    aiCntQuickBtns.forEach(btn => btn.classList.toggle('is-active', getBtnCntAttr(btn) === v));
+                }
+            }
+        });
+    }
+    if (inDmStudioAiCount) {
+        inDmStudioAiCount.addEventListener('change', () => syncAiDanmakuCountInputs(inDmStudioAiCount.value, true));
+        inDmStudioAiCount.addEventListener('input', () => {
+            const v = parseInt(inDmStudioAiCount.value, 10);
+            if (!Number.isNaN(v)) {
+                if (v > 150) {
+                    syncAiDanmakuCountInputs(150, true);
+                    return;
+                }
+                if (v >= 1 && v <= 150) {
+                    if (inLiveAiDmCount) inLiveAiDmCount.value = String(v);
+                    aiCntQuickBtns.forEach(btn => btn.classList.toggle('is-active', getBtnCntAttr(btn) === v));
+                }
+            }
+        });
+    }
+    aiCntQuickBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const c = syncAiDanmakuCountInputs(getBtnCntAttr(btn) || 25, true);
+            window.showToast(`✨ 已設定每次生成 ${c} 條彈幕`);
+        });
+    });
+
+    // ★ 全站默认共享 AI API Key（已内置团队专属 Gemini 3.8 Flash 秘钥 + 默认 30 秒间隔与每日 40 次限制）
     const _TEAM_BUILTIN_KEY_PARTS = ['AQ.Ab8RN6JEu2BzQVh7cehw', 'LxkkCOnsQG4E4a8_I3RTKtzd5AIS6w'];
     const GLOBAL_SHARED_DEFAULT_AI_KEY = window.LAYA_GLOBAL_SHARED_AI_KEY || _TEAM_BUILTIN_KEY_PARTS.join('');
     const GLOBAL_SHARED_DEFAULT_AI_URL = window.LAYA_GLOBAL_SHARED_AI_URL || '';
     const TEAM_AI_PASSCODE = '0000';
-    const TEAM_AI_DAILY_LIMIT = 40;       // 每人每天最多调用 40 次（8人合计最多 320 次/天）
-    const TEAM_AI_COOLDOWN_SEC = 30;      // ★ 每次使用 AI 间隔严格不能低于 30 秒
+    const TEAM_AI_DAILY_LIMIT = 40;       // 普通模式每人每天最多调用 40 次
+    const TEAM_AI_COOLDOWN_SEC = 30;      // 普通模式每次使用 AI 间隔严格不能低于 30 秒
     let lastAiCallTimestamp = parseInt(localStorage.getItem('LAYA_GLOBAL_LAST_AI_TS') || '0', 10) || 0;
     let aiCooldownTimer = null;
     const videoAiResultCache = new Map(); // 同视频/图片自动触发时的防重复消耗缓存
@@ -14973,6 +16070,9 @@ window.switchRightTab = function (mode, opts) {
 
     function getDailyAiQuotaState() {
         const today = getTodayDateKey();
+        if (isAiUnlimitedUnlocked) {
+            return { date: today, used: 0, remain: 999999 };
+        }
         try {
             const raw = JSON.parse(localStorage.getItem('LAYA_LIVE_AI_QUOTA_V1') || '{}');
             if (raw.date === today && typeof raw.used === 'number') {
@@ -14983,6 +16083,10 @@ window.switchRightTab = function (mode, opts) {
     }
 
     function consumeOneDailyAiQuota() {
+        if (isAiUnlimitedUnlocked) {
+            updateLiveAiQuotaStatusText();
+            return 999999;
+        }
         const st = getDailyAiQuotaState();
         const nextUsed = st.used + 1;
         try {
@@ -14993,6 +16097,12 @@ window.switchRightTab = function (mode, opts) {
     }
 
     function updateLiveAiQuotaStatusText(prefixMsg = '⚡ Gemini 3.8 Flash 就緒') {
+        if (isAiUnlimitedUnlocked) {
+            const unlStr = `${prefixMsg} (🔓 無限制模式 · 免冷卻/不限次)`;
+            if (txtLiveAiStatus) txtLiveAiStatus.textContent = unlStr;
+            if (txtDmStudioAiStatus) txtDmStudioAiStatus.textContent = unlStr;
+            return;
+        }
         const { remain } = getDailyAiQuotaState();
         const statusStr = `${prefixMsg} (30s冷卻 · 今日剩餘 ${remain}/${TEAM_AI_DAILY_LIMIT})`;
         if (txtLiveAiStatus) txtLiveAiStatus.textContent = statusStr;
@@ -15000,6 +16110,7 @@ window.switchRightTab = function (mode, opts) {
     }
 
     function verifyTeamAiPasscode(isInteractive = true) {
+        if (isAiUnlimitedUnlocked) return true;
         const savedPass = localStorage.getItem('LAYA_LIVE_TEAM_PASS_OK') || '';
         const boxPass = (inLiveAiGasUrl && inLiveAiGasUrl.value.trim()) || '';
         // 默认为空或等于 0000 时直接自动通过验证并写入 0000（防止旧版 localStorage 空值覆盖导致弹窗卡死）
@@ -15030,6 +16141,19 @@ window.switchRightTab = function (mode, opts) {
     ];
 
     function syncAllAiButtonsCooldownUI() {
+        if (isAiUnlimitedUnlocked) {
+            if (aiCooldownTimer) {
+                clearInterval(aiCooldownTimer);
+                aiCooldownTimer = null;
+            }
+            allAiDanmakuButtons.forEach(({ el, defaultLabel }) => {
+                if (!el) return;
+                el.disabled = false;
+                el.style.opacity = '1';
+                el.textContent = defaultLabel;
+            });
+            return false;
+        }
         const elapsedMs = Date.now() - lastAiCallTimestamp;
         const elapsedSec = Math.floor(elapsedMs / 1000);
         const leftSec = TEAM_AI_COOLDOWN_SEC - elapsedSec;
@@ -15056,6 +16180,10 @@ window.switchRightTab = function (mode, opts) {
     }
 
     function startAiButtonCooldown(initialTimestamp = Date.now()) {
+        if (isAiUnlimitedUnlocked) {
+            syncAllAiButtonsCooldownUI();
+            return;
+        }
         lastAiCallTimestamp = initialTimestamp;
         try {
             localStorage.setItem('LAYA_GLOBAL_LAST_AI_TS', String(lastAiCallTimestamp));
@@ -15067,8 +16195,98 @@ window.switchRightTab = function (mode, opts) {
         }, 400);
     }
 
-    // 页面加载时若仍在 30 秒冷却期内，自动恢复倒计时状态
-    if (lastAiCallTimestamp > 0 && (Date.now() - lastAiCallTimestamp) < TEAM_AI_COOLDOWN_SEC * 1000) {
+    // 绑定「不限」私密小开关与密码验证交互（双向同步直播间面板与弹幕工坊面板）
+    function syncAiUnlimitedSwitchesUI() {
+        [swLiveAiUnl, swDmStudioAiUnl].forEach(sw => {
+            if (!sw) return;
+            sw.checked = isAiUnlimitedUnlocked;
+            const lbl = sw.closest('.ai-unl-mini-toggle');
+            if (lbl) lbl.classList.toggle('is-unlocked', isAiUnlimitedUnlocked);
+        });
+        if (isAiUnlimitedUnlocked) {
+            if (boxLiveAiUnlPwd) boxLiveAiUnlPwd.style.display = 'none';
+            if (boxDmStudioAiUnlPwd) boxDmStudioAiUnlPwd.style.display = 'none';
+        }
+    }
+
+    function attemptUnlockAiUnlimited(pwdInputEl, pwdBoxEl) {
+        const typed = pwdInputEl ? String(pwdInputEl.value || '').trim() : '';
+        if (pwdInputEl) pwdInputEl.value = '';
+        if (typed === AI_UNLIMITED_SECRET_PASSWORD) {
+            isAiUnlimitedUnlocked = true;
+            try { sessionStorage.setItem(AI_UNLIMITED_SESSION_KEY, '1'); } catch (_e) {}
+            if (pwdBoxEl) pwdBoxEl.style.display = 'none';
+            syncAiUnlimitedSwitchesUI();
+            syncAllAiButtonsCooldownUI();
+            updateLiveAiQuotaStatusText();
+            window.showToast('🔓 已開啟無限制 AI 生成模式（免 30 秒冷卻 · 不限每日次數）');
+        } else {
+            isAiUnlimitedUnlocked = false;
+            try { sessionStorage.removeItem(AI_UNLIMITED_SESSION_KEY); } catch (_e) {}
+            if (pwdBoxEl) pwdBoxEl.style.display = 'none';
+            syncAiUnlimitedSwitchesUI();
+            window.showToast('❌ 密碼不正確，未能開啟無限制模式');
+        }
+    }
+
+    function bindAiUnlimitedTogglePair(swEl, boxEl, inpEl, okBtnEl) {
+        if (!swEl) return;
+        swEl.addEventListener('change', () => {
+            if (swEl.checked) {
+                if (isAiUnlimitedUnlocked) {
+                    syncAiUnlimitedSwitchesUI();
+                    return;
+                }
+                // 先保持未解锁状态，弹出小巧密码输入框验证
+                swEl.checked = false;
+                if (boxEl) {
+                    const showNow = boxEl.style.display === 'none';
+                    boxEl.style.display = showNow ? 'inline-flex' : 'none';
+                    if (showNow && inpEl) {
+                        inpEl.value = '';
+                        setTimeout(() => inpEl.focus(), 20);
+                    }
+                }
+            } else {
+                isAiUnlimitedUnlocked = false;
+                try { sessionStorage.removeItem(AI_UNLIMITED_SESSION_KEY); } catch (_e) {}
+                if (boxEl) boxEl.style.display = 'none';
+                syncAiUnlimitedSwitchesUI();
+                syncAllAiButtonsCooldownUI();
+                updateLiveAiQuotaStatusText();
+                window.showToast('🔒 已恢復 30 秒冷卻與每日 40 次限制');
+            }
+        });
+        if (okBtnEl) {
+            okBtnEl.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                attemptUnlockAiUnlimited(inpEl, boxEl);
+            });
+        }
+        if (inpEl) {
+            inpEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    attemptUnlockAiUnlimited(inpEl, boxEl);
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    inpEl.value = '';
+                    if (boxEl) boxEl.style.display = 'none';
+                    syncAiUnlimitedSwitchesUI();
+                }
+            });
+        }
+    }
+
+    bindAiUnlimitedTogglePair(swLiveAiUnl, boxLiveAiUnlPwd, inLiveAiUnlPwd, btnLiveAiUnlOk);
+    bindAiUnlimitedTogglePair(swDmStudioAiUnl, boxDmStudioAiUnlPwd, inDmStudioAiUnlPwd, btnDmStudioAiUnlOk);
+    syncAiUnlimitedSwitchesUI();
+    syncAiDanmakuCountInputs(getTargetAiDanmakuCount(), false);
+
+    // 页面加载时若未处于无限制模式且仍在 30 秒冷却期内，自动恢复倒计时状态
+    if (!isAiUnlimitedUnlocked && lastAiCallTimestamp > 0 && (Date.now() - lastAiCallTimestamp) < TEAM_AI_COOLDOWN_SEC * 1000) {
         startAiButtonCooldown(lastAiCallTimestamp);
     }
 
@@ -15228,43 +16446,124 @@ window.switchRightTab = function (mode, opts) {
         return list;
     }
 
-    // 高质量真人短句离线弹幕素材库（2~10字居多、口语化、无AI腔，AI不可用时100%真实兜底）
+    // 高质量真人自然长句离线弹幕素材库（12~32字口语化长句、像海外华人日常看直播随口聊天、零AI腔，AI不可用时100%真实兜底）
     const REAL_HUMAN_DANMAKU_CORPUS = {
         general: [
-            '哈哈哈', '哈哈', '笑死我了', '哈哈哈哈絕了', '哈哈哈哈哈哈哈',
-            '臥槽', '666', '牛啊', '真的假的', '太強了',
-            '愛了愛了', '太美了吧', '好看好看', '絕了', '好甜啊',
-            '來了來了', '路過', '打卡', '有人嗎', '前排',
-            '主播多大了', '主播哪裡人', '這多少錢', '怎麼買', '有連結嗎',
-            '剛刷到', '晚上好呀', '今天人好多', '終於開播了', '蹲一會兒',
-            '可以啊這波', '笑不活了', '有點東西', '越看越順眼', '幾點下播',
-            '又刷到你了', '這畫質真清楚', '一點都不卡', '主播說話好溫柔', '支持一下'
+            '剛從溫哥華下班回來就刷到開播，今天這畫面清晰度看著真舒服',
+            '哈哈哈哈剛才那一下差點把我看樂了，這反應速度也是沒誰了',
+            '在這邊用WiFi看一點都不卡，主播今天整個狀態看著挺精神的',
+            '剛跟幾個朋友吃完宵夜回來，正好泡杯茶蹲在直播間聽一會兒',
+            '666這波操作確實穩，剛點進來沒兩分鐘就趕上最精彩的一段',
+            '主播這是幾點開播的呀，感覺今天直播間裡熟面孔老哥挺多的',
+            '哈哈哈評論區老哥們說話太逗了，看你們發彈幕比看電視還有意思',
+            '平時這個點正好忙完手頭的事，每次刷到都會留著聽十幾分鐘',
+            '剛順手分享給身邊兩個朋友了，大家都在問這是哪個平台的直播',
+            '老粉前排打個卡，今天這場聊天節奏把控得確實挺自然舒服的',
+            '順手點了幾十個讚支持一下，主播慢慢聊不用著急我們都在聽',
+            '看著挺接地氣的沒有那些花裡胡哨的套路，果斷點個關注不迷路',
+            '我在多倫多這邊剛吃完晚飯，打開手機第一眼就看到你在播了',
+            '剛才那個細節要不是彈幕老哥提醒，我光顧著聽講話差點沒注意到',
+            '今天收音效果比前兩天還要清楚，戴著耳機聽感覺就在旁邊聊天一樣',
+            '這角度打光剛剛好，整個背景看著特別乾淨舒服一點都不刺眼',
+            '本來準備睡覺了結果刷到這場，硬生生又精神抖擻看了快半小時',
+            '主播講話挺實在的，有什麼說什麼一點不端著，這種風格最耐看',
+            '悉尼這邊剛下午休息，摸魚進來聽兩句，直播間氣氛還是這麼熱鬧',
+            '剛才那句大實話真是說到心坎裡去了，評論區一排全在刷同感',
+            '有沒有也在北美西海岸時區的老哥，這個時間點看直播剛剛好',
+            '第一次刷到這個直播間，待了五分鐘感覺氛圍挺融洽就留下來了',
+            '哈哈看主播憋笑那個表情太真實了，隔著屏幕都跟著笑出聲來',
+            '今天在吉隆坡外面下大雨，宅在家裡看會兒直播喝杯冰美式挺愜意',
+            '這畫質真沒得挑，連後面背景裡的小細節都拍得一清二楚的',
+            '主播平時一般都什麼時間段開播呀，我好設個提醒下次準時過來',
+            '看了一圈還是這邊聊天最放鬆，沒有亂七八糟帶節奏的人真好',
+            '剛在車裡連著藍牙聽了一路，現在到家停好車繼續進來捧個場',
+            '不得不說這波臨場反應確實快，換一般人估計當場都要愣一下',
+            '大家進來的順手幫忙點點右下角讚唄，把直播間人氣再往上頂一頂'
         ],
         beauty_dance: [
-            '太美了吧', '好看好看', '愛了愛了', '這套好看', '今天這身絕了',
-            '衣服哪買的', '有連結嗎', '這多少錢', '主播多大了', '主播哪裡人',
-            '求口紅色號', '身材真好', '笑起來好甜', '哈哈哈可愛', '耐看型',
-            '剛刷到就不想划走了', '前排看美女', '髮型好看', '再跳一段唄', '666好看'
+            '今天這套穿搭配色看著真顯氣質，平時是自己搭配的還是朋友挑的',
+            '這髮型確實挺適合你的臉型，比上禮拜那款看著還要清爽自然不少',
+            '剛刷到這畫面就捨不得往上划走了，笑起來彎彎的眼睛挺有感染力',
+            '主播今天這身衣服哪裡買的呀，看著版型挺正的能不能給個同款參考',
+            '鏡頭拉近皮膚狀態還是這麼抗打，這打光和妝容搭在一起剛剛好',
+            '哈哈剛才轉身那一下節奏卡得真準，看得出來私底下肯定練了不少遍',
+            '在海外刷了半天短視頻，難得遇到一個審美和氣質都在線的主播',
+            '這件上衣料子看著挺舒服的，日常出門穿肯定回頭率特別高',
+            '耐看型真的越看越順眼，說話溫溫柔柔的一點都不吵人挺加分的',
+            '前排給主播捧個場，要是待會兒方便的話能不能再跳一段剛才那個',
+            '項鍊和耳環配得挺精緻的，小小一個點綴把整套穿搭都提亮了',
+            '剛進來還以為是在拍雜誌花絮呢，這鏡頭感拿捏得確實很自然'
         ],
         music_singing: [
-            '這首好聽', '求歌名', '唱得真穩', '聲音好好聽', '再來一首',
-            '前奏一響就愛了', '開口脆', '666好聽', '這是什麼歌', '點歌可以嗎',
-            '聽入迷了', '高音牛啊', '比原唱好聽', '來了來了', '睡前聽剛剛好',
-            '哈哈哈好聽', '伴奏不錯', '嗓子真好', '每天都來聽', '絕了這嗓音'
+            '這首歌前奏一響起來回憶直接湧上來了，主播嗓音唱這種慢歌真合適',
+            '高音上去那一下真穩一點都沒飄，不開混響清唱估計也特別能打',
+            '求問剛才唱的那首是什麼歌名呀，旋律挺抓耳的想加進我車載歌單裡',
+            '在溫哥華開夜車回家路上聽著這嗓音，一天的疲憊都消散一大半了',
+            '這伴奏音質調得挺舒服的人聲很突出，戴著降噪耳機聽簡直是享受',
+            '能不能點一首老歌呀，感覺主播這種偏溫暖的聲線唱粵語歌肯定好聽',
+            '不知不覺在直播間聽了快四十分鐘了，比平時自己亂切歌單舒服多了',
+            '換氣細節處理得挺專業的，以前是不是專門學過聲樂或者駐唱過呀',
+            '睡前刷到這種安安靜靜唱歌的直播間真不容易，果斷留著當晚安曲了',
+            '副歌那兩句轉音處理得太絲滑了，比好幾個翻唱版本聽著更有味道'
         ],
         mahjong_game: [
-            '臥槽666', '這牌能胡嗎', '對面懵了', '等一個自摸', '哈哈這手氣',
-            '別打出去了', '笑死我了', '牛啊這波', '真的假的', '太強了',
-            '這把穩了', '哈哈哈哈絕了', '看傻了', '神預判啊', '主播牌技可以',
-            '換我早輸了', '刺激刺激', '這都能贏', '前排圍觀', '太逗了吧'
+            '臥槽這手牌居然能摸到這張關鍵張，主播今天這手氣簡直旺到沒邊了',
+            '剛才那張牌忍住沒打出去太明智了，不然對家估計當場就直接胡大了',
+            '哈哈哈哈對面估計現在還在納悶呢，怎麼算來算去最後還是防不住自摸',
+            '這波算牌思路確實清晰，換我坐在那兒十有八九早就拆錯搭子了',
+            '前排泡好茶圍觀高端局，看主播打牌比我自己上場搓兩圈還要刺激',
+            '別急別急這把牌型已經聽得很寬了，穩住節奏等一個自摸就徹底起飛',
+            '剛才那一下神預判真是看呆我了，怎麼猜到下家手裡剛好憋著那張的',
+            '過年跟家裡親戚打麻將要是能有主播一半冷靜，我也不至於年年發紅包',
+            '這局勢反轉得太快了，前一秒還捏把汗下一秒直接把全場鎮住了',
+            '666這牌技確實有點東西，什麼時候開個教學局帶帶我們這些菜鳥'
         ],
         drama_cinema: [
-            '臥槽反轉了', '這段看過', '眼神有戲', '看入迷了', '後面更刺激',
-            '真的假的', '這是什麼劇', '演技可以啊', '哈哈哈哈笑死', '絕了這段',
-            '細節拉得真足', '沒猜到結局', '求劇名', '畫質好清晰', '前排追劇',
-            '太強了吧', '這台詞絕了', '越看越上頭', '有人看懂嗎', '666好看'
+            '剛才那個抬眼的微表情全是戲，一句重話沒說但壓迫感直接出來了',
+            '這段對手戲我來回看了好幾遍，兩個人台詞表面客氣其實句句都在試探',
+            '有沒有懂劇情的兄弟透露一下，後面這兩個人到底有沒有徹底攤牌呀',
+            '導演這段運鏡和配樂卡得太準了，門關上那一秒整個懸念全都立住了',
+            '第一次看的時候光顧著看熱鬧，現在二刷才發現前面茶杯那裡早有伏筆',
+            '還是實力派老演員看著過癮，光靠眼神變化就能把人物心理演得明明白白',
+            '這畫質修復得真乾淨連衣領紋理都清清楚楚，比之前刷到的模糊片段強多了',
+            '最後那句話越琢磨越有深意，職場裡混過幾年的人一看就懂裡面的門道',
+            '求問這是哪部劇的第幾集呀，看這幾分鐘片段直接把胃口吊起來了',
+            '節奏一點都不拖泥帶水，短短幾十秒就把幾方人物的利害關係交代清楚了'
         ]
     };
+
+    // 动态长句口语组合生成器：当单次生成 50~150 条或连续多批生成时，自动组合生成绝不与历史重复的海外华人真实长句（900+ 种自然组合）
+    const LONG_DM_OPENERS = [
+        '剛在溫哥華忙完手頭工作點進來，', '多倫多這邊剛吃完晚飯刷到你，', '在悉尼家裡泡了杯熱茶邊喝邊看，',
+        '剛從洛杉磯超市買完菜回來打開手機，', '吉隆坡這邊晚上正好沒事做進來蹲會兒，', '新加坡下班地鐵上戴著耳機看直播，',
+        '剛在西雅圖跟朋友聚完餐回到家，', '台北這邊剛忙完一天的事進來透口氣，', '在墨爾本陽台上吹著晚風刷到這場，',
+        '紐約法拉盛剛吃完宵夜回來躺沙發上，', '香港九龍這邊剛到家打開手機就看到了，', '在灣區剛加完班出來透口氣刷到開播，',
+        '倫敦這邊時間剛剛好不用熬夜就能看，', '奧克蘭這邊週末在家休息順手點進來，', '在東京新宿剛吃完拉麵回來刷到直播，',
+        '休斯頓這邊剛停好車在車裡看兩分鐘，', '芝加哥這邊外面挺冷的宅家看直播剛好，', '檳城這邊剛喝完早茶進來打個卡，',
+        '剛把直播間連結發給老同學一起看，', '刷了一晚上短視頻最後還是停在這兒了，'
+    ];
+    const LONG_DM_BODIES = [
+        '感覺今天直播間整體節奏特別舒服一點都不吵', '畫面清晰度真不錯連細節都看得清清楚楚',
+        '主播說話慢條斯理的聽著讓人挺放鬆挺解壓', '評論區這幫老哥聊天氛圍真好沒有人亂帶節奏',
+        '剛才那一段確實挺有意思的我看得都笑出聲了', '用這邊家裡寬帶看高清畫質一點卡頓都沒有',
+        '今天這場在線人數漲得挺快看來大家都愛看這種', '主播這臨場接話的反應速度確實比一般人快不少',
+        '背景燈光調得挺柔和的盯著屏幕看久了也不累眼', '順手把小讚點滿支持一下希望主播今天多播一會兒',
+        '這種實實在在聊天的直播間現在真的越來越難得了', '剛才講的那個觀點挺中肯的聽完確實挺有共鳴',
+        '不管是收音還是畫面構圖都弄得挺用心的必須點讚', '看主播狀態這麼飽滿連帶著我們看直播的心情也好了',
+        '待了十幾分鐘感覺像老朋友嘮家常一樣特別自然', '已經默默點好關注了以後這個點有空就過來捧場'
+    ];
+
+    function synthesizeFreshLongHumanDanmaku(avoidSet) {
+        for (let tries = 0; tries < 80; tries++) {
+            const op = LONG_DM_OPENERS[Math.floor(Math.random() * LONG_DM_OPENERS.length)];
+            const bd = LONG_DM_BODIES[Math.floor(Math.random() * LONG_DM_BODIES.length)];
+            const candidate = `${op}${bd}`;
+            if (!isDanmakuTextAlreadyUsed(candidate, avoidSet)) {
+                return candidate;
+            }
+        }
+        return `${LONG_DM_OPENERS[Math.floor(Math.random() * LONG_DM_OPENERS.length)]}今天直播間氣氛真不錯，前排支持一下`;
+    }
 
     // 同一直播会话级弹幕去重记忆池 + 上一条表情记忆（确保不重复、连续多条不用同表情）
     const liveSessionUsedDanmakuSet = new Set();
@@ -15276,16 +16575,37 @@ window.switchRightTab = function (mode, opts) {
         const codeStr = String(secretCode || '4748').trim() || '4748';
         const res = [];
         if (/穿搭|衣服|裙|好看|美|顏值|颜值|妝|妆/.test(rawT)) {
-            res.push('今天這套穿搭真好看', '衣服好好看哪買的', '這身太適合你了', '穿搭絕了求連結', '今天狀態真好');
+            res.push(
+                '今天這套穿搭整體配色真好看，看著特別顯氣質',
+                '主播這身衣服版型挺正的，平時在哪家店買的呀',
+                '這身搭配確實很適合你，鏡頭前看著清爽又大方',
+                '剛進來就被今天這套穿搭吸引了，求個同款連結參考'
+            );
         } else if (/連結|链接|多少錢|多少钱|買|买|同款|價格|价格|福利/.test(rawT)) {
-            res.push('這多少錢', '有連結嗎', '怎麼買呀', '求同款連結', '包郵嗎主播');
+            res.push(
+                '請問這個現在是什麼價格呀，海外這邊能直接拍嗎',
+                '看著質量挺紮實的，有購買連結的話麻煩發一下唄',
+                '剛進來沒聽清怎麼買，老粉能不能指個路去哪裡拍',
+                '同款連結安排一下吧，剛好最近正想買一個這樣的'
+            );
         } else if (/心情|聊|陪|晚安|開心|开心/.test(rawT)) {
-            res.push('今天心情不錯呀', '下班過來聽你聊天', '哈哈今天挺開心的', '晚上好呀主播', '陪主播嘮會兒');
+            res.push(
+                '今天忙完一天過來聽主播聊聊天，整個人都放鬆不少',
+                '哈哈看主播今天心情挺不錯的，隔著屏幕都能感受到開心',
+                '晚上好呀主播，泡了杯熱茶準備在直播間安安靜靜陪聊會兒'
+            );
         } else if (tradTheme) {
-            const shortKw = tradTheme.slice(0, 8);
-            res.push(`${shortKw}真不錯`, `哈哈${shortKw}`, `衝著${shortKw}來的`);
+            const shortKw = tradTheme.slice(0, 10);
+            res.push(
+                `專門衝著「${shortKw}」點進來的，講得確實挺到位`,
+                `剛看到${shortKw}這個話題就留步了，主播多聊兩句唄`
+            );
         }
-        res.push(codeStr, `發${codeStr}是吧`, `${codeStr}已發`, `${codeStr}安排一下`);
+        res.push(
+            `剛看到提示先把暗號 ${codeStr} 發在公屏上打個卡`,
+            `${codeStr} 已經發出來啦，看看能不能觸發專屬福利互動`,
+            `跟上大部隊節奏發個 ${codeStr}，主播看到記得翻個牌呀`
+        );
         return res;
     }
 
@@ -15294,28 +16614,31 @@ window.switchRightTab = function (mode, opts) {
         if (chars.length === 0) return emoji;
         const roll = (seedIdx + Math.floor(Math.random() * 3)) % 3;
         if (roll === 0) {
-            // 句首
             return `${emoji}${chars.join('')}`;
         }
-        if (roll === 1 && chars.length >= 3) {
-            // 句中
-            const mid = Math.max(1, Math.min(chars.length - 1, Math.floor(chars.length / 2)));
+        if (roll === 1 && chars.length >= 6) {
+            const commaPos = chars.findIndex((c, idx) => idx >= 3 && idx <= chars.length - 3 && (c === '，' || c === ','));
+            const mid = commaPos > 0 ? (commaPos + 1) : Math.max(2, Math.min(chars.length - 2, Math.floor(chars.length / 2)));
             return `${chars.slice(0, mid).join('')}${emoji}${chars.slice(mid).join('')}`;
         }
-        // 句尾
         return `${chars.join('')}${emoji}`;
     }
 
-    // 核心合成器：输出满足「真人短句 + 无AI腔 + 29黄脸表情不重复 + 纯表情/文字+表情/纯文字三形态并存 + 会话内文字不重复」的分行弹幕
+    // 核心合成器（V62 升级）：
+    // - 默认生成 25 条，支持手动指定 1 ~ 150 条（输出条数 100% 精确等于请求条数）
+    // - 内容更长更自然（12~34字真实口语长句为主），严禁 AI 套话，严禁与历史已生成弹幕重复
+    // - 发言人名字 100% 互不重复且 >= 85% 为海外华人男性名字（优先采纳并校验 AI 生成的新名字，撞名自动替换）
+    // - 29 款抖音黄脸表情严格去重，绝不在同批重复同一个表情
     function composeAuthenticLiveDanmakuBatch(options = {}) {
         const {
             rawCandidateLines = [],
             category = 'general',
             contextText = '',
             forceIncludeSecret = null,
-            totalRows = 14
+            totalRows = getTargetAiDanmakuCount()
         } = options;
 
+        const targetTotal = Math.min(150, Math.max(1, parseInt(totalRows, 10) || 25));
         const isSimp = window.__currentLangMode === 'simp';
         const joinWord = isSimp ? '来了' : '來了';
         const secretOn = forceIncludeSecret !== null
@@ -15324,61 +16647,83 @@ window.switchRightTab = function (mode, opts) {
         const secretCode = (inLiveSecretCode && inLiveSecretCode.value.trim()) ? inLiveSecretCode.value.trim() : '4748';
         const secretTheme = (inLiveSecretTheme && inLiveSecretTheme.value.trim()) ? inLiveSecretTheme.value.trim() : '夸主播今天这套穿搭好看';
 
-        // 若会话已累计超过 110 条，自动释放最早批次防止无限耗尽
-        if (liveSessionUsedDanmakuSet.size > 110) {
+        if (liveSessionUsedDanmakuSet.size > 400) {
             liveSessionUsedDanmakuSet.clear();
         }
 
-        // 1) 收集纯文字候选短句（优先采用已过滤 AI 腔的候选行 + 暗号主题短句 + 对应场景真人素材库兜底）
+        // 收集 AI 候选行中的「AI 生成昵称」与「长句文案」
+        const aiNickCandidates = [];
         const purePhraseQueue = [];
-        const pushCleanPhrase = (rawMsg) => {
+        const batchPhraseNormSet = new Set();
+
+        const pushCleanPhrase = (rawMsg, allowShort = false) => {
             let txt = sanitizeDanmakuAllowedEmojisOnly(rawMsg, true)
                 .replace(/^[：:\-\s]+/, '')
                 .trim();
             if (!txt) return;
             if (BANNED_AI_CLICHE_REGEX.test(txt)) return;
-            if (Array.from(txt).length > 16) return;
+            const charLen = Array.from(txt).length;
+            if (charLen < (allowShort ? 4 : 8) || charLen > 56) return;
             const stageTxt = (!isSimp && typeof window.toStageTrad === 'function') ? window.toStageTrad(txt) : txt;
-            if (!liveSessionUsedDanmakuSet.has(stageTxt) && !purePhraseQueue.includes(stageTxt)) {
+            const normKey = normalizeIdentityGuardKey(stageTxt);
+            if (!normKey || batchPhraseNormSet.has(normKey)) return;
+            if (!isDanmakuTextAlreadyUsed(stageTxt, batchPhraseNormSet) && !liveSessionUsedDanmakuSet.has(stageTxt)) {
+                batchPhraseNormSet.add(normKey);
                 purePhraseQueue.push(stageTxt);
             }
         };
 
         if (secretOn) {
-            buildThemedHumanPhrases(secretTheme, secretCode).forEach(pushCleanPhrase);
+            buildThemedHumanPhrases(secretTheme, secretCode).forEach(m => pushCleanPhrase(m, true));
         }
 
         (rawCandidateLines || []).forEach(line => {
             const trimmed = String(line || '').trim();
-            if (!trimmed || /(\s|^|：|:)(來了|来了|進入直播間|进入直播间)[！!~～]*$/.test(trimmed)) return;
+            if (!trimmed) return;
+            const joinMatch = trimmed.match(/^([^\s:：]+)\s+(來了|来了|進入直播間|进入直播间)[！!~～]*$/);
+            if (joinMatch) {
+                const jn = sanitizeDanmakuAllowedEmojisOnly(joinMatch[1].trim(), true);
+                if (jn && jn.length >= 2 && jn.length <= 13) aiNickCandidates.push(jn);
+                return;
+            }
             const cIdx = trimmed.indexOf('：') !== -1 ? trimmed.indexOf('：') : trimmed.indexOf(':');
-            const msgBody = cIdx > 0 ? trimmed.slice(cIdx + 1).trim() : trimmed;
-            pushCleanPhrase(msgBody);
+            if (cIdx > 0) {
+                const rawNick = sanitizeDanmakuAllowedEmojisOnly(trimmed.slice(0, cIdx).trim(), true);
+                if (rawNick && rawNick.length >= 2 && rawNick.length <= 13) {
+                    aiNickCandidates.push(rawNick);
+                }
+                pushCleanPhrase(trimmed.slice(cIdx + 1).trim(), false);
+            } else {
+                pushCleanPhrase(trimmed, false);
+            }
         });
 
-        // 提取视频/标题简短自然词（不拼任何 AI 套话）
         const cleanTokens = String(contextText || '')
             .replace(/#[\S]+/g, m => ' ' + m.slice(1) + ' ')
             .split(/[\s,，。！？!?:：；;、/\-—_（）()【】\[\]《》""''「」]+/)
             .map(s => s.trim())
-            .filter(s => s.length >= 2 && s.length <= 6 && !/^(mp4|mov|webm|video|screenrecording|IMG|VID|作者声明|虚构演绎|仅供娱乐|小王小王)$/i.test(s));
+            .filter(s => s.length >= 2 && s.length <= 8 && !/^(mp4|mov|webm|video|screenrecording|IMG|VID|作者声明|虚构演绎|仅供娱乐|小王小王)$/i.test(s));
         if (cleanTokens.length > 0) {
-            pushCleanPhrase(`衝著${cleanTokens[0]}來的`);
+            pushCleanPhrase(`專門衝著「${cleanTokens[0]}」點進來的，這畫面看著確實挺過癮`, false);
         }
 
         const catPool = (REAL_HUMAN_DANMAKU_CORPUS[category] || []).slice().sort(() => Math.random() - 0.5);
         const genPool = REAL_HUMAN_DANMAKU_CORPUS.general.slice().sort(() => Math.random() - 0.5);
-        [...catPool, ...genPool].forEach(pushCleanPhrase);
+        [...catPool, ...genPool].forEach(m => pushCleanPhrase(m, false));
 
-        // 若极端情况下候选不足，放宽会话去重兜底，但依然保证本批次内 100% 不重复
-        if (purePhraseQueue.length < 12) {
-            [...catPool, ...genPool].forEach(rawMsg => {
-                const stageTxt = (!isSimp && typeof window.toStageTrad === 'function') ? window.toStageTrad(rawMsg) : rawMsg;
-                if (!purePhraseQueue.includes(stageTxt)) purePhraseQueue.push(stageTxt);
-            });
+        // 若单次请求数量较大（如 50 ~ 150 条），自动使用长句合成器补足 100% 不重复的海外华人真实长句
+        let synthGuard = 0;
+        while (purePhraseQueue.length < targetTotal + 6 && synthGuard++ < targetTotal * 3) {
+            const synthTxt = synthesizeFreshLongHumanDanmaku(batchPhraseNormSet);
+            const stageSynth = (!isSimp && typeof window.toStageTrad === 'function') ? window.toStageTrad(synthTxt) : synthTxt;
+            const nk = normalizeIdentityGuardKey(stageSynth);
+            if (nk && !batchPhraseNormSet.has(nk)) {
+                batchPhraseNormSet.add(nk);
+                purePhraseQueue.push(stageSynth);
+            }
         }
 
-        // 2) 准备本批次去重黄脸表情池（打乱全部 29 个抖音黄脸 emoji，每个最多只用 1 次，且首条避开上一批末尾表情）
+        // 准备 29 款抖音黄脸去重表情池（同批内绝不重复使用同一款表情）
         const emojiDeck = ALLOWED_DOUYIN_EMOJIS.slice().sort(() => Math.random() - 0.5);
         const usedBatchEmojis = new Set();
         const claimDistinctEmoji = () => {
@@ -15390,21 +16735,30 @@ window.switchRightTab = function (mode, opts) {
                     return em;
                 }
             }
-            return ALLOWED_DOUYIN_EMOJIS[0];
+            return '';
         };
 
-        // 3) 组装三种形态弹幕（纯文字 4~5 条 + 文字+表情[句首/句中/句尾随机] 5 条 + 纯表情 2 条 = 11 条评论 + 3 条进场 = 14 条）
-        const commentCount = Math.max(9, totalRows - 3);
-        const pureEmojiCount = 2;
-        const textWithEmojiCount = Math.max(4, Math.round((commentCount - pureEmojiCount) * 0.52));
-        const pureTextCount = Math.max(3, commentCount - pureEmojiCount - textWithEmojiCount);
+        // 精确计算「评论行 + 进场行 = targetTotal」
+        const joinCount = targetTotal <= 4 ? 0 : Math.max(1, Math.min(18, Math.round(targetTotal * 0.14)));
+        const commentCount = Math.max(1, targetTotal - joinCount);
+
+        let pureEmojiCount = 0;
+        let textWithEmojiCount = 0;
+        if (commentCount <= 2) {
+            pureEmojiCount = 0;
+            textWithEmojiCount = Math.min(1, commentCount);
+        } else {
+            pureEmojiCount = Math.min(3, Math.max(1, Math.floor(commentCount * 0.06)));
+            // 控制带表情总条数不超过 25 条，确保即使一次生成 150 条也 100% 不会重复任何一个黄脸表情！
+            textWithEmojiCount = Math.min(22, Math.max(2, Math.round((commentCount - pureEmojiCount) * 0.42)));
+        }
+        const pureTextCount = Math.max(0, commentCount - pureEmojiCount - textWithEmojiCount);
 
         const formSlots = [
             ...Array(pureTextCount).fill('pure_text'),
             ...Array(textWithEmojiCount).fill('text_emoji'),
             ...Array(pureEmojiCount).fill('pure_emoji')
         ];
-        // 打乱三种形态出现顺序，但避免两条纯表情紧挨着同质化
         for (let i = formSlots.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
             const tmp = formSlots[i];
@@ -15412,11 +16766,44 @@ window.switchRightTab = function (mode, opts) {
             formSlots[j] = tmp;
         }
 
-        const pickUniqueViewerNick = (idx) => {
-            if (typeof window.claimUniqueNickname === 'function') {
-                return sanitizeDanmakuAllowedEmojisOnly(window.claimUniqueNickname(), true) || fallbackNicknames[idx % fallbackNicknames.length];
+        // 严格保证整批所有发言人与进场人名中 >= 85% 为海外华人男性，且 100% 全局不重名！
+        const maleQuotaCount = Math.ceil(targetTotal * 0.86);
+        const genderSlots = [
+            ...Array(maleQuotaCount).fill(true),
+            ...Array(Math.max(0, targetTotal - maleQuotaCount)).fill(false)
+        ];
+        for (let i = genderSlots.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            const t = genderSlots[i];
+            genderSlots[i] = genderSlots[j];
+            genderSlots[j] = t;
+        }
+
+        const batchUsedNames = new Set();
+        const batchUsedNormNames = new Set();
+        let genderCursor = 0;
+
+        const allocateVerifiedUniqueNick = () => {
+            const wantMale = genderSlots[genderCursor++ % genderSlots.length] !== false;
+            const foundIdx = aiNickCandidates.findIndex(candAi => {
+                const candStage = (!isSimp && typeof window.toStageTrad === 'function') ? window.toStageTrad(candAi) : candAi;
+                if (wantMale && isLikelyFemaleNickname(candStage)) return false;
+                if (!wantMale && !isLikelyFemaleNickname(candStage)) return false;
+                return !isNicknameAlreadyUsed(candStage, batchUsedNormNames);
+            });
+            if (foundIdx !== -1) {
+                const pickedRaw = aiNickCandidates.splice(foundIdx, 1)[0];
+                const candStage = (!isSimp && typeof window.toStageTrad === 'function') ? window.toStageTrad(pickedRaw) : pickedRaw;
+                recordNicknameAsUsed(candStage);
+                batchUsedNames.add(candStage);
+                batchUsedNormNames.add(normalizeIdentityGuardKey(candStage));
+                return candStage;
             }
-            return fallbackNicknames[idx % fallbackNicknames.length];
+            const claimed = validateOrReplaceAiNickname('', batchUsedNames, wantMale);
+            const finalStage = (!isSimp && typeof window.toStageTrad === 'function') ? window.toStageTrad(claimed) : claimed;
+            batchUsedNames.add(finalStage);
+            batchUsedNormNames.add(normalizeIdentityGuardKey(finalStage));
+            return finalStage;
         };
 
         let phraseCursor = 0;
@@ -15424,14 +16811,13 @@ window.switchRightTab = function (mode, opts) {
         const batchMsgSet = new Set();
 
         formSlots.forEach((formType, idx) => {
-            const nick = pickUniqueViewerNick(idx);
+            const nick = allocateVerifiedUniqueNick();
             let finalMsg = '';
             if (formType === 'pure_emoji') {
-                const em1 = claimDistinctEmoji();
-                // 偶尔双不同黄脸表情，大部分单黄脸表情，均严格互不重复
-                if (idx % 2 === 1 && emojiDeck.length - usedBatchEmojis.size > 4) {
+                const em1 = claimDistinctEmoji() || ALLOWED_DOUYIN_EMOJIS[idx % ALLOWED_DOUYIN_EMOJIS.length];
+                if (idx % 2 === 1 && (emojiDeck.length - usedBatchEmojis.size) > 4) {
                     const em2 = claimDistinctEmoji();
-                    finalMsg = `${em1}${em2}`;
+                    finalMsg = em2 ? `${em1}${em2}` : em1;
                 } else {
                     finalMsg = em1;
                 }
@@ -15439,13 +16825,14 @@ window.switchRightTab = function (mode, opts) {
                 while (phraseCursor < purePhraseQueue.length && batchMsgSet.has(purePhraseQueue[phraseCursor])) {
                     phraseCursor++;
                 }
-                const basePhrase = purePhraseQueue[phraseCursor++] || '666';
+                const basePhrase = purePhraseQueue[phraseCursor++] || synthesizeFreshLongHumanDanmaku(batchPhraseNormSet);
                 batchMsgSet.add(basePhrase);
                 liveSessionUsedDanmakuSet.add(basePhrase);
+                recordDanmakuTextAsUsed(basePhrase);
 
                 if (formType === 'text_emoji') {
                     const em = claimDistinctEmoji();
-                    finalMsg = insertEmojiRandomPosition(basePhrase, em, idx);
+                    finalMsg = em ? insertEmojiRandomPosition(basePhrase, em, idx) : basePhrase;
                 } else {
                     finalMsg = basePhrase;
                 }
@@ -15454,17 +16841,26 @@ window.switchRightTab = function (mode, opts) {
             commentRows.push(`${nick}：${finalMsg}`);
         });
 
-        // 4) 穿插 3 条「观众昵称 来了」进场行
+        // 均匀穿插 joinCount 条「海外华人观众昵称 来了」进场行，使最终总行数 100% 精确等于 targetTotal
+        if (joinCount <= 0) {
+            return commentRows.slice(0, targetTotal);
+        }
         const finalLines = [];
-        const joinInsertAfter = new Set([1, 5, 9]);
+        const step = Math.max(1, Math.floor(commentRows.length / (joinCount + 1)));
+        let joinsInserted = 0;
         commentRows.forEach((row, idx) => {
             finalLines.push(row);
-            if (joinInsertAfter.has(idx)) {
-                finalLines.push(`${pickUniqueViewerNick(idx + 20)} ${joinWord}`);
+            if (joinsInserted < joinCount && ((idx + 1) % step === 0)) {
+                finalLines.push(`${allocateVerifiedUniqueNick()} ${joinWord}`);
+                joinsInserted++;
             }
         });
+        while (joinsInserted < joinCount) {
+            finalLines.push(`${allocateVerifiedUniqueNick()} ${joinWord}`);
+            joinsInserted++;
+        }
 
-        return finalLines;
+        return finalLines.slice(0, targetTotal);
     }
     window.__composeAuthenticLiveDanmakuBatch = composeAuthenticLiveDanmakuBatch;
 
@@ -15562,8 +16958,9 @@ window.switchRightTab = function (mode, opts) {
         }
         const secretCode = (inLiveSecretCode && inLiveSecretCode.value.trim()) || '4748';
         const secretTheme = (inLiveSecretTheme && inLiveSecretTheme.value.trim()) || '夸主播今天这套穿搭好看';
+        const targetRows = getTargetAiDanmakuCount();
         const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
-        const canCallCloudAi = (lastAiCallTimestamp === 0 || sinceLastSec >= TEAM_AI_COOLDOWN_SEC)
+        const canCallCloudAi = (isAiUnlimitedUnlocked || lastAiCallTimestamp === 0 || sinceLastSec >= TEAM_AI_COOLDOWN_SEC)
             && getDailyAiQuotaState().remain > 0
             && verifyTeamAiPasscode(false);
 
@@ -15572,7 +16969,7 @@ window.switchRightTab = function (mode, opts) {
             startAiButtonCooldown(Date.now());
             try {
                 const { frames } = await extractCurrentVideoFramesAndStats(null);
-                aiLines = await requestCloudVisionVideoDanmaku(frames, `互動主題：${secretTheme}；觀眾暗號：${secretCode}`);
+                aiLines = await requestCloudVisionVideoDanmaku(frames, `互動主題：${secretTheme}；觀眾暗號：${secretCode}`, targetRows);
                 if (aiLines && aiLines.length >= 4) consumeOneDailyAiQuota();
             } catch (e) {
                 aiLines = null;
@@ -15584,7 +16981,8 @@ window.switchRightTab = function (mode, opts) {
             rawCandidateLines: aiLines || [],
             category: 'beauty_dance',
             contextText: secretTheme,
-            forceIncludeSecret: true
+            forceIncludeSecret: true,
+            totalRows: targetRows
         });
         if (inLiveDanmakuList) {
             markFieldUserModified('in-live-danmaku-list');
@@ -15792,163 +17190,222 @@ window.switchRightTab = function (mode, opts) {
         return { lines, sceneLabel };
     }
 
-    // ★ 调用云端 Gemini 3.8 Flash Vision API (支持 AQ. 与 AIza Key)、OpenAI/DeepSeek 兼容接口或 Google Apps Script 代理
-    async function requestCloudVisionVideoDanmaku(frames, contextText) {
+    // ★ 调用云端 Gemini 3.8 Flash Vision API (支持 1~150 条自动分批、长句真实口语、85%+ 海外华人男性唯一名字 + 历史黑名单去重校验)
+    async function requestCloudVisionVideoDanmaku(frames, contextText, requestedCount = 25) {
         const { apiKey, apiUrl } = getActiveLiveAiKeyAndUrl();
         const hostName = (inLiveHostName && inLiveHostName.value.trim()) ? inLiveHostName.value.trim() : '主播';
-        const randSeed = Math.floor(1000 + Math.random() * 9000);
+        const totalNeeded = Math.min(150, Math.max(1, parseInt(requestedCount, 10) || getTargetAiDanmakuCount()));
         const secretOn = !!(swLiveAiSecret && swLiveAiSecret.checked);
         const secretCode = (inLiveSecretCode && inLiveSecretCode.value.trim()) || '4748';
         const secretTheme = (inLiveSecretTheme && inLiveSecretTheme.value.trim()) || '';
-        const secretRulePrompt = secretOn
-            ? `6.當前主播已開啟互動暗號【${secretCode}】，主題為「${secretTheme}」，請穿插 2~3 條觀眾發送「${secretCode}」及圍繞「${secretTheme}」的真實口語短句。`
-            : '';
-        const commonStyleRules = `要求：1.必須是真實觀眾隨手打的口語短句（2~10字為主，如：哈哈哈、笑死我了、臥槽、666、牛啊、真的假的、太美了吧、好看好看、來了來了、路過、主播哪裡人、這多少錢、有連結嗎）；2.嚴禁任何AI腔套話（絕對禁用：氛圍感拉滿、治癒系天花板、絕絕子、yyds、狠狠愛住、一整個拿捏住、太頂了、直接封神）；3.表情只允許從以下抖音黃臉小表情中挑選且每條表情互不相同（😊 😁 😄 😂 🤣 🤦 😳 😘 🤗 🙏 👏 😭 😢 😅 😲 😡 😴 👍 👌 💪 👀 🐮 🫶 ❤️ 🌹 🎁 🎆 🍺 ☕），嚴禁出現🔥🎉💕💖等彩色符號；4.混合出現「純表情」「文字+表情（表情隨機在句首/句中/句尾）」「純文字」三種形態，每條文字互不重複；5.全部繁體中文，每行一條無編號，只輸出這14行文本。${secretRulePrompt}`;
-        const promptText = frames && frames.length > 0
-            ? `你是抖音/Laya直播間的真實觀眾彈幕生成助手。觀察直播畫面截圖（主播：${hostName}，參考信息：${contextText || '無'}，批次：${randSeed}），針對畫面細節生成 14 條真實公屏內容（11 條「觀眾暱稱：彈幕內容」+ 3 條「觀眾暱稱 來了」）。${commonStyleRules}`
-            : `你是抖音/Laya直播間的真實觀眾彈幕生成助手。根據直播間信息（主播：${hostName}，參考主題：${contextText || '直播互動'}，批次：${randSeed}），生成 14 條真實公屏內容（11 條「觀眾暱稱：彈幕內容」+ 3 條「觀眾暱稱 來了」）。${commonStyleRules}`;
+
+        // 读取最近已使用过的名字与弹幕样本传给 AI，从源头杜绝重复名字与重复话术
+        const getRecentBlacklistPrompt = (extraNames = [], extraMsgs = []) => {
+            let recentNicks = [];
+            try {
+                const rawN = JSON.parse(localStorage.getItem(USED_NICKNAMES_STORAGE_KEY) || '[]');
+                if (Array.isArray(rawN)) recentNicks = rawN.slice(-36);
+            } catch (_e) {}
+            const mergedNicks = [...new Set([...recentNicks, ...extraNames])].slice(-48);
+            const mergedMsgs = [...new Set(extraMsgs)].slice(-24);
+            let s = '';
+            if (mergedNicks.length > 0) {
+                s += `【嚴禁重複以下已用過的觀眾名字】：${mergedNicks.join('、')}。`;
+            }
+            if (mergedMsgs.length > 0) {
+                s += `【嚴禁與以下已生成的句子雷同】：${mergedMsgs.join(' | ')}。`;
+            }
+            return s;
+        };
 
         const cleanParsedAiLines = (rawText) => {
             const lines = splitDanmakuTextToMultiline(rawText)
                 .map(line => line.replace(/^(\d+[\.、\)\s]+|[-•*]\s*)/, '').replace(/^\*\*|\*\*$/g, '').trim())
-                .filter(line => line.length >= 2 && !/^(好的|以下是|根據畫面|這裡是)/.test(line));
+                .filter(line => line.length >= 3 && !/^(好的|以下是|根據畫面|這裡是|當然)/.test(line));
             return lines;
         };
 
-        // 1. Google Gemini 3.8 Flash API Key (支持 AQ... 或 AIza...)
-        if (apiKey && (/^(AIza|AQ\.)/i.test(apiKey))) {
-            const parts = [{ text: promptText }];
-            frames.slice(0, 2).forEach(dataUrl => {
-                const base64Data = String(dataUrl).split(',')[1];
-                if (base64Data) {
-                    parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Data } });
-                }
-            });
+        const requestSingleChunk = async (chunkSize, chunkIdx, collectedNames, collectedMsgs) => {
+            const randSeed = Math.floor(10000 + Math.random() * 90000) + chunkIdx * 137;
+            const joinCnt = chunkSize <= 4 ? 0 : Math.max(1, Math.round(chunkSize * 0.14));
+            const cmtCnt = Math.max(1, chunkSize - joinCnt);
+            const secretRulePrompt = (secretOn && chunkIdx === 0)
+                ? `7.當前主播開啟互動暗號【${secretCode}】，主題為「${secretTheme}」，請穿插 2~3 條觀眾發送「${secretCode}」及圍繞「${secretTheme}」的自然長句。`
+                : '';
+            const blacklistNote = getRecentBlacklistPrompt(collectedNames, collectedMsgs);
 
-            // 针对 gemini-3.8-flash 必须使用 thinkingLevel: 'LOW' + maxOutputTokens: 2048，避免思考 Token 占满输出上限导致只返回 1 行
-            const candidateConfigs = [
-                {
-                    url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-                    generationConfig: {
-                        thinkingConfig: { thinkingLevel: 'LOW' },
-                        maxOutputTokens: 2048,
-                        temperature: 0.9
-                    }
-                },
-                {
-                    url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${encodeURIComponent(apiKey)}`,
-                    generationConfig: {
-                        maxOutputTokens: 2048,
-                        temperature: 0.9
-                    }
-                },
-                {
-                    url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
-                    generationConfig: {
-                        maxOutputTokens: 2048,
-                        temperature: 0.9
-                    }
-                }
-            ];
+            const styleRules = `核心要求：1.【內容要長一點、真實自然】每條彈幕正文請寫 12~28 個字左右的完整口語長句（像海外華人老哥下班看直播隨口聊天的自然句子，不要兩三個字敷衍，也絕不准寫排比句或AI套話，絕對禁用：氛圍感拉滿、治癒系天花板、絕絕子、yyds、狠狠愛住、一整個拿捏住、太頂了、直接封神）；2.【名字必須 85% 以上為海外華人男性且100%不重名】每一條的觀眾暱稱都必須完全不同，且至少 85% 是北美/澳洲/新馬/港澳台/歐洲日韓的海外華人男性日常網名（如：溫哥華老陳、多倫多志豪、灣區Jason哥、吉隆坡阿強、悉尼老林、台北信義阿哲、紐約法拉盛強哥 等風格，但必須新創，不要照抄示例），最多 15% 女性網名；3.表情只允許從以下抖音黃臉小表情中少量挑選且絕不重複（😊 😁 😄 😂 🤣 🤦 😳 😘 🤗 🙏 👏 😭 😢 😅 😲 😡 😴 👍 👌 💪 👀 🐮 🫶 ❤️ 🌹 🎁 🎆 🍺 ☕），嚴禁🔥🎉💕💖等彩色符號；4.以「純文字長句」與「長句+單個黃臉表情」為主；5.全部繁體中文，每行一條無序號，只輸出這 ${chunkSize} 行（${cmtCnt} 條「暱稱：長句彈幕」+ ${joinCnt} 條「暱稱 來了」）。6.${blacklistNote}${secretRulePrompt}`;
 
-            for (const cfg of candidateConfigs) {
-                try {
-                    const res = await fetch(cfg.url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            contents: [{ role: 'user', parts }],
-                            generationConfig: cfg.generationConfig
-                        })
+            const promptText = (frames && frames.length > 0)
+                ? `你是Laya海外華人直播間的真實觀眾彈幕生成助手。觀察直播畫面截圖（主播：${hostName}，參考信息：${contextText || '日常直播'}，批次：${randSeed}），結合畫面細節生成 ${chunkSize} 條不重複的真實長句公屏內容。${styleRules}`
+                : `你是Laya海外華人直播間的真實觀眾彈幕生成助手。根據直播間信息（主播：${hostName}，參考主題：${contextText || '日常直播'}，批次：${randSeed}），生成 ${chunkSize} 條不重複的真實長句公屏內容。${styleRules}`;
+
+            // 1. Google Gemini 3.8 Flash API Key
+            if (apiKey && (/^(AIza|AQ\.)/i.test(apiKey))) {
+                const parts = [{ text: promptText }];
+                if (frames && frames.length > 0) {
+                    frames.slice(0, 2).forEach(dataUrl => {
+                        const base64Data = String(dataUrl).split(',')[1];
+                        if (base64Data) {
+                            parts.push({ inline_data: { mime_type: 'image/jpeg', data: base64Data } });
+                        }
                     });
-                    if (res.ok) {
-                        const json = await res.json();
-                        const resParts = json?.candidates?.[0]?.content?.parts || [];
-                        const textPart = resParts.find(p => typeof p.text === 'string' && !p.thought) || resParts[0];
-                        const outTxt = textPart?.text || '';
-                        const parsed = cleanParsedAiLines(outTxt);
-                        if (parsed.length >= 4) return parsed;
+                }
+
+                const candidateConfigs = [
+                    {
+                        url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+                        generationConfig: {
+                            thinkingConfig: { thinkingLevel: 'LOW' },
+                            maxOutputTokens: 8192,
+                            temperature: 0.92
+                        }
+                    },
+                    {
+                        url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${encodeURIComponent(apiKey)}`,
+                        generationConfig: {
+                            maxOutputTokens: 8192,
+                            temperature: 0.92
+                        }
+                    },
+                    {
+                        url: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(apiKey)}`,
+                        generationConfig: {
+                            maxOutputTokens: 8192,
+                            temperature: 0.92
+                        }
                     }
-                } catch (e) {}
-            }
-        }
+                ];
 
-        // 2. OpenAI / DeepSeek / 硅基流动 等兼容 API Key (sk-...)
-        if (apiKey && !/^(AIza|AQ\.)/i.test(apiKey)) {
-            let endpoint = 'https://api.deepseek.com/v1/chat/completions';
-            let modelName = 'deepseek-chat';
-            let messagesPayload = [{ role: 'user', content: promptText }];
-
-            if (apiUrl && /^https?:\/\//i.test(apiUrl) && !/script\.google\.com/i.test(apiUrl)) {
-                endpoint = apiUrl.replace(/\/+$/, '');
-                if (!/\/chat\/completions$/i.test(endpoint)) {
-                    endpoint += (endpoint.endsWith('/v1') ? '/chat/completions' : '/v1/chat/completions');
-                }
-            } else if (/^sk-proj-|openai/i.test(apiKey)) {
-                endpoint = 'https://api.openai.com/v1/chat/completions';
-                modelName = 'gpt-4o-mini';
-                if (frames.length > 0) {
-                    const contentArr = [{ type: 'text', text: promptText }];
-                    frames.slice(0, 2).forEach(u => contentArr.push({ type: 'image_url', image_url: { url: u } }));
-                    messagesPayload = [{ role: 'user', content: contentArr }];
+                for (const cfg of candidateConfigs) {
+                    try {
+                        const res = await fetch(cfg.url, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                contents: [{ role: 'user', parts }],
+                                generationConfig: cfg.generationConfig
+                            })
+                        });
+                        if (res.ok) {
+                            const json = await res.json();
+                            const resParts = json?.candidates?.[0]?.content?.parts || [];
+                            const outTxt = resParts.filter(p => typeof p.text === 'string' && !p.thought).map(p => p.text).join('\n') || (resParts[0]?.text || '');
+                            const parsed = cleanParsedAiLines(outTxt);
+                            if (parsed.length >= Math.min(3, chunkSize)) return parsed;
+                        }
+                    } catch (e) {}
                 }
             }
 
-            const res = await fetch(endpoint, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                body: JSON.stringify({
-                    model: modelName,
-                    messages: messagesPayload,
-                    temperature: 0.8
-                })
+            // 2. OpenAI / DeepSeek 兼容接口
+            if (apiKey && !/^(AIza|AQ\.)/i.test(apiKey)) {
+                let endpoint = 'https://api.deepseek.com/v1/chat/completions';
+                let modelName = 'deepseek-chat';
+                let messagesPayload = [{ role: 'user', content: promptText }];
+
+                if (apiUrl && /^https?:\/\//i.test(apiUrl) && !/script\.google\.com/i.test(apiUrl)) {
+                    endpoint = apiUrl.replace(/\/+$/, '');
+                    if (!/\/chat\/completions$/i.test(endpoint)) {
+                        endpoint += (endpoint.endsWith('/v1') ? '/chat/completions' : '/v1/chat/completions');
+                    }
+                } else if (/^sk-proj-|openai/i.test(apiKey)) {
+                    endpoint = 'https://api.openai.com/v1/chat/completions';
+                    modelName = 'gpt-4o-mini';
+                    if (frames && frames.length > 0) {
+                        const contentArr = [{ type: 'text', text: promptText }];
+                        frames.slice(0, 2).forEach(u => contentArr.push({ type: 'image_url', image_url: { url: u } }));
+                        messagesPayload = [{ role: 'user', content: contentArr }];
+                    }
+                }
+
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: modelName,
+                        messages: messagesPayload,
+                        max_tokens: 4096,
+                        temperature: 0.88
+                    })
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    const outTxt = json?.choices?.[0]?.message?.content || '';
+                    const parsed = cleanParsedAiLines(outTxt);
+                    if (parsed.length >= Math.min(3, chunkSize)) return parsed;
+                }
+            }
+
+            // 3. Google Apps Script 代理 URL
+            if (apiUrl && /script\.google\.com/i.test(apiUrl)) {
+                const res = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'aiVideoDanmaku',
+                        context: contextText,
+                        count: chunkSize,
+                        frames: (frames || []).slice(0, 2)
+                    })
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    if (Array.isArray(json.danmaku) && json.danmaku.length >= 2) {
+                        return json.danmaku;
+                    }
+                    if (typeof json.text === 'string' && json.text.trim()) {
+                        return cleanParsedAiLines(json.text);
+                    }
+                }
+            }
+            return null;
+        };
+
+        // 支持单次最多 150 条：每批最多请求 50 条，自动串联去重收集
+        const CHUNK_MAX = 50;
+        const chunkCount = Math.ceil(totalNeeded / CHUNK_MAX);
+        const aggregatedLines = [];
+        const seenNames = [];
+        const seenMsgs = [];
+
+        for (let c = 0; c < chunkCount; c++) {
+            const remain = totalNeeded - aggregatedLines.length;
+            if (remain <= 0) break;
+            const askCount = Math.min(CHUNK_MAX, remain + 4);
+            const chunkLines = await requestSingleChunk(askCount, c, seenNames, seenMsgs);
+            if (!chunkLines || chunkLines.length === 0) break;
+            chunkLines.forEach(line => {
+                aggregatedLines.push(line);
+                const cIdx = line.indexOf('：') !== -1 ? line.indexOf('：') : line.indexOf(':');
+                if (cIdx > 0) {
+                    seenNames.push(line.slice(0, cIdx).trim());
+                    seenMsgs.push(line.slice(cIdx + 1).trim());
+                }
             });
-            if (res.ok) {
-                const json = await res.json();
-                const outTxt = json?.choices?.[0]?.message?.content || '';
-                const parsed = splitDanmakuTextToMultiline(outTxt);
-                if (parsed.length >= 4) return parsed;
-            }
         }
 
-        // 3. Google Apps Script 代理 URL
-        if (apiUrl && /script\.google\.com/i.test(apiUrl)) {
-            const res = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({
-                    action: 'aiVideoDanmaku',
-                    context: contextText,
-                    frames: frames.slice(0, 2)
-                })
-            });
-            if (res.ok) {
-                const json = await res.json();
-                if (Array.isArray(json.danmaku) && json.danmaku.length >= 3) {
-                    return json.danmaku;
-                }
-                if (typeof json.text === 'string' && json.text.trim()) {
-                    return splitDanmakuTextToMultiline(json.text);
-                }
-            }
-        }
-        return null;
+        return aggregatedLines.length > 0 ? aggregatedLines : null;
     }
 
-    // ★ 核心主入口：无论上传的是视频还是图片，只要有弹幕的地方（直播间弹幕 / 飘屏弹幕工坊 / 电脑端弹幕）均可通过 AI 获取话术，且严格执行每次调用间隔 ≥ 30 秒！
+    // ★ 核心主入口：支持默认 25 条 / 手动 1~150 条长句生成；普通模式执行 30s 冷却与每日 40 次保护，开启私密无限制开关后 0 冷却无上限！
     async function autoMatchLiveDanmakuByVideoAI(isManualClick = true, preFrames = null, targetScope = 'all') {
-        // 1) 严格 30 秒冷却时间检查（无论手动点击还是上传自动触发，两次 AI 调用之间绝不低于 30 秒）
-        const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
-        if (lastAiCallTimestamp > 0 && sinceLastSec < TEAM_AI_COOLDOWN_SEC) {
-            const waitSec = TEAM_AI_COOLDOWN_SEC - sinceLastSec;
-            syncAllAiButtonsCooldownUI();
-            if (isManualClick) {
-                window.showToast(`⏳ 每次使用 AI 間隔不能低於 ${TEAM_AI_COOLDOWN_SEC} 秒，請等待 ${waitSec} 秒後再試`);
+        const targetCount = syncAiDanmakuCountInputs(getTargetAiDanmakuCount(), false);
+
+        // 1) 冷却检查（若已输入私密密码开启 isAiUnlimitedUnlocked，则直接跳过所有冷却限制！）
+        if (!isAiUnlimitedUnlocked) {
+            const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
+            if (lastAiCallTimestamp > 0 && sinceLastSec < TEAM_AI_COOLDOWN_SEC) {
+                const waitSec = TEAM_AI_COOLDOWN_SEC - sinceLastSec;
+                syncAllAiButtonsCooldownUI();
+                if (isManualClick) {
+                    window.showToast(`⏳ 每次使用 AI 間隔不能低於 ${TEAM_AI_COOLDOWN_SEC} 秒，請等待 ${waitSec} 秒後再試`);
+                }
+                return;
             }
-            return;
         }
 
         if (isManualClick && targetScope === 'live') {
@@ -15957,13 +17414,13 @@ window.switchRightTab = function (mode, opts) {
             }
         }
 
-        if (txtLiveAiStatus) txtLiveAiStatus.textContent = '🔍 Gemini 3.8 Flash 正在識別視頻/圖片畫面並生成彈幕...';
-        if (txtDmStudioAiStatus) txtDmStudioAiStatus.textContent = '🔍 AI 正在識別畫面生成彈幕話術...';
+        if (txtLiveAiStatus) txtLiveAiStatus.textContent = `🔍 Gemini 3.8 Flash 正在識別畫面並生成 ${targetCount} 條長句彈幕...`;
+        if (txtDmStudioAiStatus) txtDmStudioAiStatus.textContent = `🔍 AI 正在識別畫面生成 ${targetCount} 條彈幕話術...`;
         allAiDanmakuButtons.forEach(({ el }) => {
             if (!el) return;
             el.disabled = true;
             el.style.opacity = '0.82';
-            el.textContent = '🔍 AI 正在識別畫面...';
+            el.textContent = `🔍 AI 生成 ${targetCount} 條中...`;
         });
 
         try {
@@ -15974,31 +17431,30 @@ window.switchRightTab = function (mode, opts) {
             const fileName = window.__lastUploadedMediaName || '';
             const contextText = [fileName, rawDesc, rawTags, rawTitle].filter(Boolean).join(' ');
 
-            const cacheSig = `${fileName}|${contextText}|${stats.avgLuma}|${stats.skinRatio.toFixed(2)}`;
+            const cacheSig = `${fileName}|${contextText}|${targetCount}|${stats.avgLuma}|${stats.skinRatio.toFixed(2)}`;
             let matchedLines = null;
             let sceneLabel = 'Gemini 3.8 Flash 視覺大模型';
 
-            // 无论云端或本地，一旦发起本次 AI 识别，立即启动 30 秒全局冷却计时
             startAiButtonCooldown(Date.now());
 
-            if (!isManualClick && videoAiResultCache.has(cacheSig)) {
+            if (!isAiUnlimitedUnlocked && !isManualClick && videoAiResultCache.has(cacheSig)) {
                 matchedLines = videoAiResultCache.get(cacheSig);
                 sceneLabel = 'Flash 緩存秒配 (0消耗)';
             } else {
                 const quota = getDailyAiQuotaState();
                 const passOk = verifyTeamAiPasscode(isManualClick);
-                if (passOk && quota.remain > 0) {
+                if (passOk && (isAiUnlimitedUnlocked || quota.remain > 0)) {
                     try {
-                        matchedLines = await requestCloudVisionVideoDanmaku(frames, contextText);
-                        if (matchedLines && matchedLines.length >= 4) {
+                        matchedLines = await requestCloudVisionVideoDanmaku(frames, contextText, targetCount);
+                        if (matchedLines && matchedLines.length >= Math.min(3, targetCount)) {
                             consumeOneDailyAiQuota();
                             videoAiResultCache.set(cacheSig, matchedLines);
                         }
                     } catch (err) {
                         matchedLines = null;
                     }
-                } else if (isManualClick && quota.remain <= 0) {
-                    window.showToast(`⚠️ 今日雲端 AI 額度 (${TEAM_AI_DAILY_LIMIT}次) 已用完，已自動切換為本地智能匹配`);
+                } else if (isManualClick && !isAiUnlimitedUnlocked && quota.remain <= 0) {
+                    window.showToast(`⚠️ 今日雲端 AI 額度 (${TEAM_AI_DAILY_LIMIT}次) 已用完，已自動切換為本地長句智能匹配`);
                 }
             }
 
@@ -16007,11 +17463,11 @@ window.switchRightTab = function (mode, opts) {
                 matchedLines = localRes.lines;
                 sceneLabel = localRes.sceneLabel;
             } else {
-                // 对云端 AI 返回内容强制执行「去AI套话 + 29黄脸表情去重 + 三形态混排 + 会话文字去重」质检合成
                 matchedLines = composeAuthenticLiveDanmakuBatch({
                     rawCandidateLines: matchedLines,
                     category: 'general',
-                    contextText
+                    contextText,
+                    totalRows: targetCount
                 });
             }
 
@@ -16032,7 +17488,7 @@ window.switchRightTab = function (mode, opts) {
             renderLiveChatBubbles(false);
             restartLiveChatRollTimer();
 
-            // B) 提取纯弹幕话术（剥离「昵称：」与「XXX 来了」进场行），同步到全模式飘屏弹幕工坊 (DanmakuEngine) 与底部弹幕输入框
+            // B) 提取纯弹幕话术，同步到全模式飘屏弹幕工坊 (DanmakuEngine) 与批量弹幕输入框
             const pureDanmakuMsgs = matchedLines
                 .filter(line => !/(\s|^|：|:)(來了|来了|進入直播間|进入直播间)[！!~～]*$/.test(String(line).trim()))
                 .map(line => {
@@ -16049,14 +17505,17 @@ window.switchRightTab = function (mode, opts) {
             if (window.DanmakuEngine && Array.isArray(window.DanmakuEngine.list) && pureDanmakuMsgs.length > 0) {
                 const topLanes = [10, 14, 18, 22, 26, 30];
                 const colors = ['#ffffff', '#ffeaa7', '#81ecec', '#ffffff', '#fab1a0', '#ffffff'];
-                window.DanmakuEngine.list = pureDanmakuMsgs.slice(0, 8).map((pureMsg, idx) => ({
+                const maxEngineTracks = (targetScope === 'studio' || targetScope === 'web')
+                    ? Math.min(150, pureDanmakuMsgs.length)
+                    : Math.min(25, pureDanmakuMsgs.length);
+                window.DanmakuEngine.list = pureDanmakuMsgs.slice(0, maxEngineTracks).map((pureMsg, idx) => ({
                     id: 'ai_dm_' + Date.now() + '_' + idx,
                     text: pureMsg,
                     top: topLanes[idx % topLanes.length],
                     left: (10 + idx * 14) % 76,
                     color: colors[idx % colors.length],
                     size: parseInt(document.getElementById('in-danmaku-size')?.value, 10) || 14,
-                    speed: 9 + (idx % 4),
+                    speed: 10 + (idx % 5),
                     visible: true
                 }));
                 if (targetScope === 'studio' || targetScope === 'web') {
@@ -16074,7 +17533,7 @@ window.switchRightTab = function (mode, opts) {
                 }
             }
 
-            // C) 同步更新电脑网页端与全屏横屏底部弹幕占位骚话
+            // C) 同步更新电脑网页端与全屏横屏底部弹幕占位话术
             if (pureDanmakuMsgs.length > 0) {
                 const firstHotDm = pureDanmakuMsgs[0];
                 const inWebDm = document.getElementById('in-dm-placeholder');
@@ -16086,10 +17545,11 @@ window.switchRightTab = function (mode, opts) {
             }
 
             if (typeof window.triggerSaveStorage === 'function') window.triggerSaveStorage();
-            updateLiveAiQuotaStatusText(`✅ AI 已匹配 (${sceneLabel})`);
+            updateLiveAiQuotaStatusText(`✅ AI 已生成 ${matchedLines.length} 條 (${sceneLabel})`);
             const mediaKindLabel = (window.PlayerEngine && window.PlayerEngine.isVideoMode === false) ? '圖片' : '視頻';
             if (isManualClick) {
-                window.showToast(`🤖 AI 已識別${mediaKindLabel}畫面（${sceneLabel}）並同步生成彈幕話術！（冷卻 30 秒）`);
+                const cdSuffix = isAiUnlimitedUnlocked ? '🔓無限制秒發' : '冷卻 30 秒';
+                window.showToast(`🤖 AI 已識別${mediaKindLabel}並生成 ${matchedLines.length} 條長句彈幕（85%+海外華人男粉不重名 · ${cdSuffix}）`);
             }
         } finally {
             syncAllAiButtonsCooldownUI();
@@ -16101,14 +17561,106 @@ window.switchRightTab = function (mode, opts) {
         const allowLiveAuto = !swLiveAutoAiDm || swLiveAutoAiDm.checked;
         const allowStudioAuto = !swDmStudioAutoAi || swDmStudioAutoAi.checked;
         if (!allowLiveAuto && !allowStudioAuto) return;
-        const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
-        if (lastAiCallTimestamp > 0 && sinceLastSec < TEAM_AI_COOLDOWN_SEC) {
-            syncAllAiButtonsCooldownUI();
-            return;
+        if (!isAiUnlimitedUnlocked) {
+            const sinceLastSec = Math.floor((Date.now() - lastAiCallTimestamp) / 1000);
+            if (lastAiCallTimestamp > 0 && sinceLastSec < TEAM_AI_COOLDOWN_SEC) {
+                syncAllAiButtonsCooldownUI();
+                return;
+            }
         }
         autoMatchLiveDanmakuByVideoAI(false, aiFrames, 'all');
         const mediaKindLabel = (window.PlayerEngine && window.PlayerEngine.isVideoMode === false) ? '圖片' : '視頻';
         window.showToast(`🤖 AI 已根據新上傳${mediaKindLabel}自動識別並填充彈幕話術`);
+    };
+
+    // ★ 短视频评论区抽屉专属 AI 异步名字与评论换新（调用 Gemini 接口生成 85%+ 海外华人男性唯一名字并做历史去重校验，不锁按钮不扣配额）
+    let __lastCmtDrawerAiTs = 0;
+    window.refreshCommentDrawerWithGeminiAI = async function (engine, updateTexts = false, topicHint = '') {
+        try {
+            if (!engine || !Array.isArray(engine.list) || engine.list.length === 0) return;
+            if (!isAiUnlimitedUnlocked && (Date.now() - __lastCmtDrawerAiTs) < 12000) return;
+            const { apiKey } = getActiveLiveAiKeyAndUrl();
+            if (!apiKey || !/^(AIza|AQ\.)/i.test(apiKey)) return;
+            __lastCmtDrawerAiTs = Date.now();
+
+            let totalUsersNeeded = 0;
+            engine.list.forEach(it => {
+                if (!it.userEditedNick) totalUsersNeeded++;
+                if (Array.isArray(it.replies)) {
+                    it.replies.forEach(r => { if (!r.isAuthor && !r.userEditedNick) totalUsersNeeded++; });
+                }
+            });
+            if (totalUsersNeeded <= 0) return;
+
+            let recentUsed = [];
+            try {
+                const arr = JSON.parse(localStorage.getItem(USED_NICKNAMES_STORAGE_KEY) || '[]');
+                if (Array.isArray(arr)) recentUsed = arr.slice(-40);
+            } catch (_e) {}
+
+            const seed = Math.floor(10000 + Math.random() * 90000);
+            const ctxTopic = topicHint || document.getElementById('in-dy-desc')?.value || '熱門短視頻';
+            const prompt = updateTexts
+                ? `請為短視頻評論區（主題：${ctxTopic}，批次：${seed}）生成 ${totalUsersNeeded} 條「暱稱：評論內容」。要求：1.暱稱必須 85% 以上是海外華人男性日常網名（涵蓋溫哥華/多倫多/洛杉磯/灣區/紐約/悉尼/墨爾本/吉隆坡/新加坡/台北/香港男性用戶），最多15%女性網名，且每個名字完全不同，嚴禁與以下已用名字重複：${recentUsed.join('、')}；2.評論內容自然口語 14~28 字，繁體中文，無序號，每行一條。`
+                : `請生成 ${totalUsersNeeded + 4} 個完全不重複的海外華人社交帳號繁體暱稱（批次：${seed}）。要求：至少 85% 必須是海外華人男性用戶網名（北美/澳洲/新馬/港澳台/歐洲日韓華人男性風格），最多 15% 女性網名；每行一個名字無序號；嚴禁與以下已用名字重複：${recentUsed.join('、')}。`;
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                    generationConfig: { thinkingConfig: { thinkingLevel: 'LOW' }, maxOutputTokens: 2048, temperature: 0.95 }
+                })
+            });
+            if (!res.ok) return;
+            const json = await res.json();
+            const parts = json?.candidates?.[0]?.content?.parts || [];
+            const outTxt = parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('\n');
+            if (!outTxt.trim()) return;
+
+            const rawRows = outTxt.split(/\r?\n/).map(s => s.replace(/^(\d+[\.、\)\s]+|[-•*]\s*)/, '').trim()).filter(Boolean);
+            if (rawRows.length < 2) return;
+
+            const batchNames = new Set();
+            let cursor = 0;
+            const totalSlots = totalUsersNeeded;
+            const maleTarget = Math.ceil(totalSlots * 0.85);
+            let assignedIdx = 0;
+
+            engine.list.forEach((it) => {
+                const oldMain = it.user;
+                if (!it.userEditedNick) {
+                    const rowStr = rawRows[cursor++ % rawRows.length] || '';
+                    const cIdx = rowStr.indexOf('：') !== -1 ? rowStr.indexOf('：') : rowStr.indexOf(':');
+                    const rawN = cIdx > 0 ? rowStr.slice(0, cIdx).trim() : rowStr;
+                    const rawC = cIdx > 0 ? rowStr.slice(cIdx + 1).trim() : '';
+                    const wantMale = (assignedIdx++ < maleTarget);
+                    it.user = validateOrReplaceAiNickname(rawN, batchNames, wantMale);
+                    if (updateTexts && rawC.length >= 6 && !BANNED_AI_CLICHE_REGEX.test(rawC) && !isDanmakuTextAlreadyUsed(rawC)) {
+                        const stageC = typeof window.toStageTrad === 'function' ? window.toStageTrad(rawC) : rawC;
+                        recordDanmakuTextAsUsed(stageC);
+                        it.text = stageC;
+                    }
+                }
+                if (Array.isArray(it.replies)) {
+                    it.replies.forEach(rep => {
+                        if (!rep.isAuthor && !rep.userEditedNick) {
+                            const rowStr = rawRows[cursor++ % rawRows.length] || '';
+                            const cIdx = rowStr.indexOf('：') !== -1 ? rowStr.indexOf('：') : rowStr.indexOf(':');
+                            const rawN = cIdx > 0 ? rowStr.slice(0, cIdx).trim() : rowStr;
+                            const wantMale = (assignedIdx++ < maleTarget);
+                            rep.user = validateOrReplaceAiNickname(rawN, batchNames, wantMale);
+                            if (rep.replyToUser && rep.replyToUser === oldMain) {
+                                rep.replyToUser = it.user;
+                            }
+                        }
+                    });
+                }
+            });
+            engine.renderStage();
+            engine.renderEditor();
+        } catch (_err) {}
     };
 
     if (btnLiveAiMatchDm) {
@@ -16446,8 +17998,35 @@ window.switchRightTab = function (mode, opts) {
     const liveGiftIconSpriteCache = new Map();
     let liveGiftPillBgCache = { key: '', canvas: null, pad: 0 };
 
+    // 对 48×48 放大至 1080p 的离屏小图标精灵执行一次性 3×3 边缘微锐化补偿，消除位图放大软边（仅在首次建缓存时运行一次，0 帧耗）
+    function applySubtleSpriteSharpness(cx, w, h, strength = 0.24) {
+        if (!cx || w < 6 || h < 6) return;
+        try {
+            const imgData = cx.getImageData(0, 0, w, h);
+            const src = new Uint8ClampedArray(imgData.data);
+            const dst = imgData.data;
+            const kCenter = 1 + 4 * strength;
+            const kSide = -strength;
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    const idx = (y * w + x) * 4;
+                    if (src[idx + 3] < 24) continue;
+                    const up = ((y - 1) * w + x) * 4;
+                    const dn = ((y + 1) * w + x) * 4;
+                    const lf = (y * w + (x - 1)) * 4;
+                    const rt = (y * w + (x + 1)) * 4;
+                    for (let c = 0; c < 3; c++) {
+                        const v = src[idx + c] * kCenter + (src[up + c] + src[dn + c] + src[lf + c] + src[rt + c]) * kSide;
+                        dst[idx + c] = v < 0 ? 0 : (v > 255 ? 255 : v);
+                    }
+                }
+            }
+            cx.putImageData(imgData, 0, 0);
+        } catch (_e) {}
+    }
+
     function getCachedCheerParticleSprite(tokenKey, isHeart, heartCol, baseSizePx, scaleRatioX, scaleRatioY) {
-        const cacheKey = `v5_${tokenKey}_${isHeart ? heartCol : 'em'}_${baseSizePx}_${Math.round(scaleRatioX * 10)}`;
+        const cacheKey = `v6_${tokenKey}_${isHeart ? heartCol : 'em'}_${baseSizePx}_${Math.round(scaleRatioX * 10)}`;
         if (liveCheerSpriteCache.has(cacheKey)) {
             return liveCheerSpriteCache.get(cacheKey);
         }
@@ -16536,14 +18115,16 @@ window.switchRightTab = function (mode, opts) {
                 cx.imageSmoothingQuality = 'high';
                 const drawSz = baseSizePx * 1.26;
                 cx.drawImage(sprImg, -drawSz * 0.5, -drawSz * 0.5, drawSz, drawSz);
+                cx.restore();
+                if (drawSz > 52) applySubtleSpriteSharpness(cx, boxW, boxH, 0.22);
             } else {
                 shouldCache = false;
                 cx.font = `${baseSizePx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
                 cx.textAlign = 'center';
                 cx.textBaseline = 'middle';
                 cx.fillText(tokenKey, 0, 0);
+                cx.restore();
             }
-            cx.restore();
         }
 
         const entry = { canvas: c, halfW: boxW * 0.5, halfH: boxH * 0.5 };
@@ -16552,7 +18133,7 @@ window.switchRightTab = function (mode, opts) {
     }
 
     function getCachedGiftIconSprite(iconStr, iconFontPx, gs) {
-        const key = `v5_${iconStr}_${iconFontPx}_${Math.round(gs * 10)}`;
+        const key = `v6_${iconStr}_${iconFontPx}_${Math.round(gs * 10)}`;
         if (liveGiftIconSpriteCache.has(key)) {
             return liveGiftIconSpriteCache.get(key);
         }
@@ -16574,14 +18155,16 @@ window.switchRightTab = function (mode, opts) {
             cx.imageSmoothingQuality = 'high';
             const drawSz = iconFontPx * 1.26;
             cx.drawImage(sprImg, -drawSz * 0.5, -drawSz * 0.5, drawSz, drawSz);
+            cx.restore();
+            if (drawSz > 52) applySubtleSpriteSharpness(cx, side, side, 0.22);
         } else {
             shouldCache = false;
             cx.font = `${iconFontPx}px "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif`;
             cx.textAlign = 'center';
             cx.textBaseline = 'middle';
             cx.fillText(iconStr, 0, 0);
+            cx.restore();
         }
-        cx.restore();
         const entry = { canvas: c, half: side * 0.5 };
         if (shouldCache) liveGiftIconSpriteCache.set(key, entry);
         return entry;
@@ -18003,56 +19586,47 @@ window.switchRightTab = function (mode, opts) {
             applyLiveBrandTagDisplay(randGrp.join(' | '), false);
         }
 
-        // 6) 若公屏弹幕未被用户手动编辑过，每次打开会话自动合成一批全新的「真人短句 + 抖音29黄脸表情去重 + 三形态随机混排」直播弹幕并换上不重复的海外华人昵称
+        // 6) 若公屏弹幕未被用户手动编辑过，每次打开会话自动合成 25 条全新的「长句真人风 + 85%+海外华人男性不重名 + 抖音29黄脸去重」直播弹幕
         if (!modSet.has('in-live-danmaku-list') && inLiveDanmakuList) {
             if (typeof window.__composeAuthenticLiveDanmakuBatch === 'function') {
                 const freshBatch = window.__composeAuthenticLiveDanmakuBatch({
                     category: 'general',
-                    totalRows: 15
+                    totalRows: getTargetAiDanmakuCount()
                 });
                 if (freshBatch && freshBatch.length > 0) {
                     inLiveDanmakuList.value = freshBatch.join('\n');
-                    renderLiveChatBubbles(false);
-                }
-            } else if (typeof window.claimUniqueNickname === 'function') {
-                const rawLines = String(inLiveDanmakuList.value || '').split(/\r?\n/).filter(Boolean);
-                if (rawLines.length > 0) {
-                    const updatedLines = rawLines.map((line) => {
-                        const freshNick = window.claimUniqueNickname();
-                        if (/(\s)(來了|来了)$/.test(line.trim())) {
-                            return `${freshNick} ${window.__currentLangMode === 'simp' ? '来了' : '來了'}`;
-                        }
-                        const colonIdx = line.indexOf('：') >= 0 ? line.indexOf('：') : line.indexOf(':');
-                        if (colonIdx > 0) {
-                            return `${freshNick}：${line.slice(colonIdx + 1).trim()}`;
-                        }
-                        return `${freshNick}：${line.trim()}`;
-                    });
-                    inLiveDanmakuList.value = updatedLines.join('\n');
                     renderLiveChatBubbles(false);
                 }
             }
         }
     };
 
-    // ★ 问题五.1：复用已内置的团队共享 Gemini Flash AI 接口（口令 0000、独立 30 秒预热冷却，不锁定用户 AI 弹幕按钮、不扣减用户每日配额），后台静默补充海外华人昵称
+    // ★ 问题五.1（V62 升级）：复用内置 Gemini Flash AI 接口后台静默补充「85%+ 海外华人男性唯一昵称」，并对照历史已用库严格去重
     const AI_NICK_WARMUP_TS_KEY = 'LAYA_AI_NICK_WARMUP_TS_V1';
     async function requestGeminiOverseasNicknamesOnLoad() {
         try {
-            // 若本地 AI 昵称缓存仍有 >= 8 条本机未使用的候选昵称，直接复用，无需每次刷新都请求网络
+            let usedRaw = [];
+            try {
+                usedRaw = JSON.parse(localStorage.getItem(USED_NICKNAMES_STORAGE_KEY) || '[]');
+                if (!Array.isArray(usedRaw)) usedRaw = [];
+            } catch (_uErr) {
+                usedRaw = [];
+            }
+            const usedNormSetLocal = new Set(usedRaw.map(normalizeIdentityGuardKey));
+
             try {
                 const cachedAi = JSON.parse(localStorage.getItem(AI_NICKNAMES_CACHE_KEY) || '[]');
-                const usedRaw = JSON.parse(localStorage.getItem(USED_NICKNAMES_STORAGE_KEY) || '[]');
-                const usedSetLocal = new Set(Array.isArray(usedRaw) ? usedRaw : []);
                 if (Array.isArray(cachedAi)) {
-                    const unusedCached = cachedAi.filter(n => n && !usedSetLocal.has(n));
-                    if (unusedCached.length >= 8) return;
+                    const unusedCached = cachedAi.filter(n => n && !usedNormSetLocal.has(normalizeIdentityGuardKey(n)) && !isLikelyFemaleNickname(n));
+                    if (unusedCached.length >= 16) return;
                 }
             } catch (_cErr) {}
 
-            const lastWarmupTs = parseInt(localStorage.getItem(AI_NICK_WARMUP_TS_KEY) || '0', 10) || 0;
-            if (lastWarmupTs > 0 && (Date.now() - lastWarmupTs) < TEAM_AI_COOLDOWN_SEC * 1000) {
-                return; // 遵守 30 秒间隔保护，冷却期内直接走本地 325+ 大昵称库
+            if (!isAiUnlimitedUnlocked) {
+                const lastWarmupTs = parseInt(localStorage.getItem(AI_NICK_WARMUP_TS_KEY) || '0', 10) || 0;
+                if (lastWarmupTs > 0 && (Date.now() - lastWarmupTs) < TEAM_AI_COOLDOWN_SEC * 1000) {
+                    return;
+                }
             }
             const passOk = verifyTeamAiPasscode(false);
             if (!passOk) return;
@@ -18062,12 +19636,13 @@ window.switchRightTab = function (mode, opts) {
 
             try { localStorage.setItem(AI_NICK_WARMUP_TS_KEY, String(Date.now())); } catch (_e) {}
 
-            const seed = Math.floor(1000 + Math.random() * 9000);
-            const prompt = `請生成 20 個「海外華人/真實社交用戶風格」的繁體中文暱稱（例如：溫哥華小鹿、洛杉磯老陳、多倫多Sandy、墨爾本阿豪、悉尼小陳、倫敦Chloé、西雅圖老林、東京小夏、新加坡阿杰、灣區工程師阿哲 等，批次號：${seed}）。要求：1.每行一個暱稱，不要序號、不要標點解釋；2.風格自然真實，涵蓋北美/澳洲/歐洲/日韓新馬港澳台華人日常網名；3.長度 3~8 個字。`;
+            const seed = Math.floor(10000 + Math.random() * 90000);
+            const recentUsedTail = usedRaw.slice(-45).join('、');
+            const prompt = `請生成 35 個完全不重複的「海外華人真實社交用戶風格」繁體中文暱稱（批次號：${seed}）。核心要求：1.【性別比例】至少 85%（30個以上）必須是海外華人男性用戶網名（涵蓋溫哥華/多倫多/洛杉磯/灣區/紐約/西雅圖/悉尼/墨爾本/吉隆坡/新加坡/台北/香港/東京/倫敦華人男性日常稱呼，如老陳、阿豪、凱哥、Jason、Marcus、工程師阿哲 等自然組合，請全新創作勿照抄示例），最多 15% 女性網名；2.每行一個暱稱，不要序號與標點解釋，長度 3~10 個字；3.【嚴禁與以下之前生成過的名字重複】：${recentUsedTail || '無'}。`;
 
             const modelsToTry = [
-                { id: 'gemini-3.8-flash', genCfg: { thinkingConfig: { thinkingLevel: 'LOW' }, maxOutputTokens: 1024, temperature: 0.95 } },
-                { id: 'gemini-2.5-flash', genCfg: { maxOutputTokens: 512, temperature: 0.95 } }
+                { id: 'gemini-3.8-flash', genCfg: { thinkingConfig: { thinkingLevel: 'LOW' }, maxOutputTokens: 1536, temperature: 0.96 } },
+                { id: 'gemini-2.5-flash', genCfg: { maxOutputTokens: 1024, temperature: 0.96 } }
             ];
             let outTxt = '';
             for (const mSpec of modelsToTry) {
@@ -18092,18 +19667,31 @@ window.switchRightTab = function (mode, opts) {
             const nicks = String(outTxt)
                 .split(/[\r\n,，、|]+/)
                 .map(s => s.replace(/^(\d+[\.、\)\s]+|[-•*]\s*)/, '').trim())
-                .filter(s => s.length >= 2 && s.length <= 12 && !/^(好的|以下|暱稱)/.test(s));
+                .filter(s => s.length >= 2 && s.length <= 12 && !/^(好的|以下|暱稱)/.test(s))
+                .filter(s => !isNicknameAlreadyUsed(s, usedNormSetLocal));
 
             if (nicks.length >= 4) {
+                const uniqFresh = [];
+                const seenLocal = new Set();
                 nicks.forEach(n => {
+                    const k = normalizeIdentityGuardKey(n);
+                    if (!k || seenLocal.has(k)) return;
+                    seenLocal.add(k);
+                    uniqFresh.push(n);
                     if (!NICKNAME_POOL.includes(n)) NICKNAME_POOL.unshift(n);
+                    if (isLikelyFemaleNickname(n)) {
+                        if (!OVERSEAS_FEMALE_NICKNAME_POOL.includes(n)) OVERSEAS_FEMALE_NICKNAME_POOL.unshift(n);
+                    } else {
+                        if (!OVERSEAS_MALE_NICKNAME_POOL.includes(n)) OVERSEAS_MALE_NICKNAME_POOL.unshift(n);
+                    }
+                    __crossDeviceClaimedNicknames.push(n);
                 });
                 try {
-                    localStorage.setItem(AI_NICKNAMES_CACHE_KEY, JSON.stringify(nicks.slice(0, 40)));
+                    localStorage.setItem(AI_NICKNAMES_CACHE_KEY, JSON.stringify(uniqFresh.slice(0, 60)));
                 } catch (e) {}
             }
         } catch (e) {
-            // AI 失败或离线时完全静默回退到本地 325+ 海外华人昵称库
+            // AI 失败或离线时静默回退到本地海外华人男性大词库 + 动态合成器
         }
     }
     setTimeout(() => {
@@ -18323,6 +19911,27 @@ window.switchRightTab = function (mode, opts) {
         if (btnCloseCropWinEl) btnCloseCropWinEl.addEventListener('click', () => setTimeout(syncCropWindowButtonsUI, 20));
         setTimeout(syncCropWindowButtonsUI, 80);
 
+        const stageVolRailEl = document.getElementById('stage-volume-rail-wrap');
+
+        function syncStageVolumeRailPosition() {
+            if (!stageVolRailEl || !stageEl || !boxEl) return;
+            if (stageVolRailEl.classList.contains('is-export-hidden')) return;
+            const stageRect = stageEl.getBoundingClientRect();
+            const boxRect = boxEl.getBoundingClientRect();
+            if (!stageRect.width || !stageRect.height || !boxRect.width || !boxRect.height) return;
+            const stageW = stageRect.width;
+            const stageH = stageRect.height;
+            // 紧贴视频画面右侧外缘 4px（普段 4px 细条距视频右缘约 22px，鼠标碰触展开 38px 胶囊时恰贴视频右缘不遮挡画面）
+            const idealLeft = Math.round(boxRect.right - stageRect.left + 4);
+            const clampedLeft = Math.min(Math.max(8, idealLeft), Math.max(8, stageW - 44));
+            const idealCenterY = Math.round((boxRect.top - stageRect.top) + (boxRect.height / 2));
+            const clampedTop = Math.min(Math.max(102, idealCenterY), Math.max(102, stageH - 102));
+            stageVolRailEl.style.right = 'auto';
+            stageVolRailEl.style.left = `${clampedLeft}px`;
+            stageVolRailEl.style.top = `${clampedTop}px`;
+        }
+        window.syncStageVolumeRailPosition = syncStageVolumeRailPosition;
+
         function applyBoxTransformNow() {
             if (boxEl.classList.contains('stage-mag-export-suspend')) {
                 boxEl.style.transform = 'none';
@@ -18332,6 +19941,7 @@ window.switchRightTab = function (mode, opts) {
             const totalScale = Number((stageFitScale * zoomScale).toFixed(4));
             boxEl.style.transformOrigin = 'center center';
             boxEl.style.transform = `translate3d(${Math.round(stagePanX)}px, ${Math.round(stagePanY)}px, 0px) scale(${totalScale})`;
+            syncStageVolumeRailPosition();
         }
 
         function updateStageFitScale() {
@@ -18348,7 +19958,8 @@ window.switchRightTab = function (mode, opts) {
             const baseH = boxEl.offsetHeight || (boxEl.classList.contains('mode-mobile-port') ? 650 : 585);
             if (baseW <= 0 || baseH <= 0) return;
 
-            const padX = 12;
+            // 预留右侧音量调节细条空间，确保 16:9 横屏与 9:16 竖屏下视频右侧均能完整容纳伸缩音量条
+            const padX = 56;
             const padY = 6;
             const availW = Math.max(180, stageW - padX);
             const availH = Math.max(180, stageH - padY);
@@ -18542,10 +20153,10 @@ window.switchRightTab = function (mode, opts) {
             btnGlobalResetEl.addEventListener('click', () => resetStageMagnifier(false));
         }
 
-        // 2. 鼠标滚轮放大/缩小整个素材画面：排除内部弹幕、直播间公屏/礼物区与评论列表自身的滚轮操作
+        // 2. 鼠标滚轮放大/缩小整个素材画面：排除内部弹幕、直播间公屏/礼物区、评论列表以及画面右侧音量调节条自身的滚轮操作
         const wheelTargetEl = workspaceEl || stageEl;
         wheelTargetEl.addEventListener('wheel', (e) => {
-            if (e.target && e.target.closest && (e.target.closest('.viewport-tabs') || e.target.closest('#jy-trimmer-panel') || e.target.closest('#crop-inspector-window'))) {
+            if (e.target && e.target.closest && (e.target.closest('.viewport-tabs') || e.target.closest('#jy-trimmer-panel') || e.target.closest('#crop-inspector-window') || e.target.closest('#stage-volume-rail-wrap'))) {
                 return;
             }
             const isOverEmptyArea = !boxEl.contains(e.target);
@@ -18570,9 +20181,9 @@ window.switchRightTab = function (mode, opts) {
             }
         });
 
-        // 4. 鼠标拖拽平移整个素材画面（在拖动查看模式开启时、或在空白区域按住左键拖拽时、或按鼠标中键时均生效）
+        // 4. 鼠标拖拽平移整个素材画面（在拖动查看模式开启时、或在空白区域按住左键拖拽时、或按鼠标中键时均生效；排除画面右侧音量调节条）
         stageEl.addEventListener('mousedown', (e) => {
-            if (e.target && e.target.closest && (e.target.closest('#stage-magnifier-bar') || e.target.closest('#crop-inspector-window'))) return;
+            if (e.target && e.target.closest && (e.target.closest('#stage-magnifier-bar') || e.target.closest('#crop-inspector-window') || e.target.closest('#stage-volume-rail-wrap'))) return;
             const isOverEmptyStage = !boxEl.contains(e.target);
             const canPanNow = isStagePanMode || e.button === 1 || (e.button === 0 && isOverEmptyStage);
             if (!canPanNow) return;
@@ -18610,10 +20221,10 @@ window.switchRightTab = function (mode, opts) {
             }
         });
 
-        // 在拖动查看模式下或刚拖拽完画面时，拦截内部点击与双击，防止误触暂停视频或弹出上传框
+        // 在拖动查看模式下或刚拖拽完画面时，拦截内部点击与双击，防止误触暂停视频或弹出上传框（放行放大镜与右侧音量条）
         ['click', 'dblclick'].forEach(evtName => {
             stageEl.addEventListener(evtName, (e) => {
-                if (e.target && e.target.closest && e.target.closest('#stage-magnifier-bar')) return;
+                if (e.target && e.target.closest && (e.target.closest('#stage-magnifier-bar') || e.target.closest('#stage-volume-rail-wrap'))) return;
                 if (isStagePanMode || performance.now() < suppressClickUntil) {
                     e.preventDefault();
                     e.stopPropagation();
@@ -18626,9 +20237,11 @@ window.switchRightTab = function (mode, opts) {
         if (typeof ResizeObserver !== 'undefined') {
             const ro = new ResizeObserver(() => {
                 updateStageFitScale();
+                requestAnimationFrame(syncStageVolumeRailPosition);
             });
             ro.observe(stageEl);
             if (workspaceEl) ro.observe(workspaceEl);
+            ro.observe(boxEl);
         } else {
             window.addEventListener('resize', updateStageFitScale);
         }
@@ -18636,6 +20249,7 @@ window.switchRightTab = function (mode, opts) {
         if (typeof MutationObserver !== 'undefined') {
             const mo = new MutationObserver(() => {
                 updateStageFitScale();
+                requestAnimationFrame(syncStageVolumeRailPosition);
             });
             mo.observe(boxEl, { attributes: true, attributeFilter: ['class'] });
             if (trimmerEl) {
@@ -18643,16 +20257,19 @@ window.switchRightTab = function (mode, opts) {
             }
         }
 
-        // 6. 截图与录屏导出时的无损暂挂/恢复钩子（确保导出的截图与 MP4 视频永远 100% 原始满画幅无偏移）
+        // 6. 截图与录屏导出时的无损暂挂/恢复钩子（确保导出的截图与 MP4 视频永远 100% 原始满画幅无偏移，且隐藏舞台右侧音量条）
         window.suspendStageMagnifierForExport = function () {
+            if (stageVolRailEl) stageVolRailEl.classList.add('is-export-hidden');
             boxEl.classList.add('stage-mag-export-suspend');
             boxEl.style.transform = 'none';
             void boxEl.offsetWidth;
         };
         window.restoreStageMagnifierAfterExport = function () {
             boxEl.classList.remove('stage-mag-export-suspend');
+            if (stageVolRailEl) stageVolRailEl.classList.remove('is-export-hidden');
             updateStageFitScale();
             syncStageMagnifierUI();
+            requestAnimationFrame(syncStageVolumeRailPosition);
         };
         window.resetStageMagnifier = resetStageMagnifier;
 
@@ -18661,6 +20278,7 @@ window.switchRightTab = function (mode, opts) {
         setTimeout(() => {
             updateStageFitScale();
             syncStageMagnifierUI();
+            syncStageVolumeRailPosition();
         }, 120);
     })();
 

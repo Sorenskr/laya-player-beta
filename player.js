@@ -179,6 +179,15 @@ window.PlayerEngine = {
     const jyBtnReset = document.getElementById('jy-btn-reset');
     const jyRuler = document.getElementById('jy-ruler');
     const jyBtnMute = document.getElementById('jy-btn-mute');
+    const jyBtnMuteRight = document.getElementById('jy-btn-mute-right');
+    const jyBtnMuteToolbar = document.getElementById('jy-btn-mute-toolbar');
+    const jyAudioLabel = document.getElementById('jy-audio-label');
+    const stageVolWrap = document.getElementById('stage-volume-rail-wrap');
+    const stageVolTrack = document.getElementById('stage-vol-track');
+    const stageVolFill = document.getElementById('stage-vol-fill');
+    const stageVolThumb = document.getElementById('stage-vol-thumb');
+    const stageVolPct = document.getElementById('stage-vol-pct');
+    const stageVolIco = document.getElementById('stage-vol-ico');
     const jyTrackMain = document.getElementById('jy-track-main');
     const jyFilmstrip = document.getElementById('jy-filmstrip');
     const jyWaveCanvas = document.getElementById('jy-wave-canvas');
@@ -201,38 +210,156 @@ window.PlayerEngine = {
     };
 
     /* ==========================================================================
-       0. 页面预览原声控制 & 预览倍速同步中枢
+       0. 页面预览原声常开守护、右侧双态拖动音量条 & 预览倍速同步中枢
+       规则：上传视频默认一直有声音，只有用户点击时间轴右侧静音按键才静音！
        ========================================================================== */
-    function syncSoundUI(isMuted) {
-        if (jyBtnMute) jyBtnMute.textContent = isMuted ? '🔇' : '🔊';
-        if (btnHeaderSound) {
-            btnHeaderSound.textContent = isMuted ? '🔇 已静音' : '🔊 原声开启';
-            btnHeaderSound.style.borderColor = isMuted ? 'rgba(148, 163, 184, 0.4)' : 'rgba(56, 189, 248, 0.5)';
-            btnHeaderSound.style.color = isMuted ? '#94a3b8' : '#38bdf8';
-        }
-        const dylSvgVolOn = document.getElementById('dyl-svg-vol-on');
-        const dylSvgVolOff = document.getElementById('dyl-svg-vol-off');
-        if (dylSvgVolOn) dylSvgVolOn.style.display = isMuted ? 'none' : 'block';
-        if (dylSvgVolOff) dylSvgVolOff.style.display = isMuted ? 'block' : 'none';
-        const mBtnVol = document.getElementById('m-btn-vol');
-        if (mBtnVol) mBtnVol.style.opacity = isMuted ? '0.55' : '1';
+    const PREVIEW_VOL_STORAGE_KEY = 'LAYA_PREVIEW_VOLUME_V1';
+    let currentVolume = (() => {
+        try {
+            const raw = parseFloat(localStorage.getItem(PREVIEW_VOL_STORAGE_KEY) || '1');
+            if (isFinite(raw) && raw > 0.02 && raw <= 1) return Number(raw.toFixed(2));
+        } catch (e) {}
+        return 1.0;
+    })();
+    let userExplicitlyMuted = false;     // 仅当用户主动点击时间轴静音键才为 true
+    let _tempAutoplayBlocked = false;    // 仅刷新页面尚未点击屏幕前的临时策略标记，用户一碰页面立即自动恢复出声
+    let _gestureUnmuteArmed = false;
+
+    function armFirstGestureAutoUnmute() {
+        if (_gestureUnmuteArmed) return;
+        _gestureUnmuteArmed = true;
+        const restoreNow = (ev) => {
+            // 如果用户第一下点的刚好就是时间轴静音键，交由静音键自身处理
+            if (ev && ev.target && ev.target.closest && ev.target.closest('#jy-btn-mute, #jy-btn-mute-right, #jy-btn-mute-toolbar')) {
+                cleanup();
+                return;
+            }
+            _tempAutoplayBlocked = false;
+            if (!userExplicitlyMuted && previewVideo) {
+                previewVideo.muted = false;
+                previewVideo.volume = currentVolume;
+                if (window._audioCtx && window._audioCtx.state === 'suspended') {
+                    window._audioCtx.resume().catch(() => {});
+                }
+                syncSoundUI();
+            }
+            cleanup();
+        };
+        const cleanup = () => {
+            _gestureUnmuteArmed = false;
+            ['pointerdown', 'mousedown', 'keydown', 'touchstart'].forEach(evt => {
+                window.removeEventListener(evt, restoreNow, true);
+            });
+        };
+        ['pointerdown', 'mousedown', 'keydown', 'touchstart'].forEach(evt => {
+            window.addEventListener(evt, restoreNow, true);
+        });
     }
 
-    function setVideoSoundMuted(isMuted, showMsg = false) {
-        if (previewVideo) {
-            previewVideo.muted = !!isMuted;
-            previewVideo.volume = 1.0;
+    function syncSoundUI() {
+        const isMuted = !!userExplicitlyMuted;
+        const volPct = isMuted ? 0 : Math.round(currentVolume * 100);
+        const icoChar = (isMuted || volPct === 0) ? '🔇' : (volPct < 35 ? '🔈' : (volPct < 75 ? '🔉' : '🔊'));
+
+        if (jyBtnMute) jyBtnMute.textContent = isMuted ? '🔇' : '🔊';
+        if (jyBtnMuteRight) {
+            jyBtnMuteRight.textContent = isMuted ? '🔇' : '🔊';
+            const parentSide = jyBtnMuteRight.closest('.jy-track-side-right');
+            if (parentSide) parentSide.classList.toggle('is-muted', isMuted);
         }
-        if (!isMuted && window._audioCtx && window._audioCtx.state === 'suspended') {
+        if (jyBtnMuteToolbar) {
+            jyBtnMuteToolbar.textContent = isMuted ? '🔇 已静音' : '🔊 静音开关';
+            jyBtnMuteToolbar.classList.toggle('is-muted', isMuted);
+        }
+        if (jyAudioLabel) {
+            jyAudioLabel.textContent = isMuted
+                ? '🔇 已手动静音 (点击时间轴右侧喇叭可恢复声音)'
+                : `🎵 视频原声轨道 (音量 ${Math.round(currentVolume * 100)}% · 含导出音频)`;
+        }
+        if (btnHeaderSound) {
+            btnHeaderSound.textContent = isMuted ? '🔇 已静音(点此恢复)' : `🔊 原声 ${Math.round(currentVolume * 100)}%`;
+            btnHeaderSound.style.borderColor = isMuted ? 'rgba(248, 113, 113, 0.5)' : 'rgba(56, 189, 248, 0.5)';
+            btnHeaderSound.style.color = isMuted ? '#fca5a5' : '#38bdf8';
+        }
+        if (stageVolWrap) {
+            stageVolWrap.classList.toggle('is-muted', isMuted || volPct === 0);
+        }
+        if (stageVolFill) {
+            stageVolFill.style.height = `${volPct}%`;
+        }
+        if (stageVolThumb) {
+            stageVolThumb.style.bottom = `${volPct}%`;
+        }
+        if (stageVolPct) {
+            stageVolPct.textContent = isMuted ? '静音' : `${volPct}%`;
+        }
+        if (stageVolIco) {
+            stageVolIco.textContent = icoChar;
+        }
+    }
+
+    function setVideoVolume(nextVol, showMsg = false, fromUserSlider = false) {
+        const clamped = Math.min(1, Math.max(0, Number(nextVol)));
+        currentVolume = Number((isFinite(clamped) ? clamped : 1).toFixed(2));
+        try {
+            localStorage.setItem(PREVIEW_VOL_STORAGE_KEY, String(currentVolume));
+        } catch (e) {}
+
+        // 用户主动拖动右侧音量条调高音量时，若之前点过静音则自动解除静音立即出声
+        if (fromUserSlider && currentVolume > 0.005 && userExplicitlyMuted) {
+            userExplicitlyMuted = false;
+        }
+        _tempAutoplayBlocked = false;
+
+        if (previewVideo && !window.__isExportRecording) {
+            previewVideo.volume = currentVolume;
+            previewVideo.muted = !!userExplicitlyMuted;
+        }
+        if (!userExplicitlyMuted && currentVolume > 0 && window._audioCtx && window._audioCtx.state === 'suspended') {
             window._audioCtx.resume().catch(() => {});
         }
-        syncSoundUI(!!isMuted);
+        syncSoundUI();
         if (showMsg) {
-            toast(isMuted ? '🔇 已静音页面预览' : '🔊 已开启页面视频原声播放');
+            toast(`🔊 音量已调至 ${Math.round(currentVolume * 100)}%`);
+        }
+    }
+    window.PlayerEngine.setVideoVolume = setVideoVolume;
+    window.PlayerEngine.getVolume = () => currentVolume;
+    window.PlayerEngine.isUserMuted = () => !!userExplicitlyMuted;
+
+    function setVideoSoundMuted(isMuted, showMsg = false, allowExplicitMute = false) {
+        if (isMuted) {
+            // ★ 严格守护：除非点击时间轴右侧静音键（或导出结束还原之前的明确静音态），否则绝不允许把视频静音！
+            if (!allowExplicitMute) {
+                return;
+            }
+            userExplicitlyMuted = true;
+        } else {
+            userExplicitlyMuted = false;
+            _tempAutoplayBlocked = false;
+            if (currentVolume <= 0.01) {
+                currentVolume = 1.0;
+                try { localStorage.setItem(PREVIEW_VOL_STORAGE_KEY, '1'); } catch (e) {}
+            }
+        }
+        if (previewVideo && !window.__isExportRecording) {
+            previewVideo.muted = !!userExplicitlyMuted;
+            previewVideo.volume = currentVolume;
+        }
+        if (!userExplicitlyMuted && window._audioCtx && window._audioCtx.state === 'suspended') {
+            window._audioCtx.resume().catch(() => {});
+        }
+        syncSoundUI();
+        if (showMsg) {
+            toast(userExplicitlyMuted ? '🔇 已静音视频（再次点击时间轴静音键可恢复声音）' : `🔊 已开启视频声音（当前音量 ${Math.round(currentVolume * 100)}%）`);
         }
     }
     window.PlayerEngine.setVideoSoundMuted = setVideoSoundMuted;
     window.PlayerEngine.setSoundMuted = setVideoSoundMuted;
+
+    function toggleTimelineMuteButton() {
+        setVideoSoundMuted(!userExplicitlyMuted, true, true);
+    }
 
     function setPreviewPlaybackSpeed(rateVal, showMsg = false) {
         const rate = parseFloat(rateVal) || 1.0;
@@ -253,9 +380,15 @@ window.PlayerEngine = {
     }
     window.PlayerEngine.setPreviewPlaybackSpeed = setPreviewPlaybackSpeed;
 
+    // 顶部状态按钮不会误关声音：若已静音点它可恢复原声，若未静音则提示一直保持开启
     if (btnHeaderSound) {
         btnHeaderSound.addEventListener('click', () => {
-            setVideoSoundMuted(!previewVideo.muted, true);
+            if (userExplicitlyMuted) {
+                setVideoSoundMuted(false, true, true);
+            } else {
+                setVideoSoundMuted(false, false, false);
+                toast(`🔊 视频声音默认一直开启（音量 ${Math.round(currentVolume * 100)}%，如需静音请点下方时间轴右侧静音按键）`);
+            }
         });
     }
     if (selPreviewSpeed) {
@@ -269,12 +402,88 @@ window.PlayerEngine = {
         });
     }
     if (previewVideo) {
+        previewVideo.volume = currentVolume;
+        previewVideo.muted = false;
         previewVideo.addEventListener('play', () => {
+            if (!window.__isExportRecording && !userExplicitlyMuted && !_tempAutoplayBlocked) {
+                previewVideo.muted = false;
+                previewVideo.volume = currentVolume;
+            }
             if (window._audioCtx && window._audioCtx.state === 'suspended') {
                 window._audioCtx.resume().catch(() => {});
             }
         });
+        // 底层防篡改守护：只要非导出过程且用户没按时间轴静音键，任何意外静音都自动拉回有声状态！
+        previewVideo.addEventListener('volumechange', () => {
+            if (window.__isExportRecording) return;
+            if (!userExplicitlyMuted && !_tempAutoplayBlocked && previewVideo.muted) {
+                previewVideo.muted = false;
+            }
+            if (!userExplicitlyMuted && Math.abs(previewVideo.volume - currentVolume) > 0.015) {
+                previewVideo.volume = currentVolume;
+            }
+        });
     }
+
+    // ★ 视频画面右侧「平时细细一条、碰上去自动放大可拖动」悬浮音量条交互
+    if (stageVolWrap && stageVolTrack) {
+        let isDraggingVol = false;
+
+        const updateVolFromClientY = (clientY) => {
+            const rect = stageVolTrack.getBoundingClientRect();
+            if (!rect || rect.height <= 4) return;
+            // 从底部 0% 到顶部 100%
+            const ratio = 1 - ((clientY - rect.top) / rect.height);
+            const clamped = Math.min(1, Math.max(0, ratio));
+            setVideoVolume(clamped, false, true);
+        };
+
+        const onMouseDownVol = (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            isDraggingVol = true;
+            stageVolWrap.classList.add('is-dragging-vol');
+            // 等一帧若刚展开或直接按当前轨道位置计算
+            updateVolFromClientY(e.clientY);
+        };
+
+        stageVolTrack.addEventListener('mousedown', onMouseDownVol);
+        if (stageVolThumb) {
+            stageVolThumb.addEventListener('mousedown', onMouseDownVol);
+        }
+        stageVolWrap.addEventListener('mousedown', (e) => {
+            if (e.target === stageVolTrack || e.target === stageVolThumb) return;
+            if (e.button !== 0) return;
+            e.preventDefault();
+            e.stopPropagation();
+            isDraggingVol = true;
+            stageVolWrap.classList.add('is-dragging-vol');
+            requestAnimationFrame(() => updateVolFromClientY(e.clientY));
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingVol) return;
+            updateVolFromClientY(e.clientY);
+        }, { passive: true });
+
+        window.addEventListener('mouseup', () => {
+            if (!isDraggingVol) return;
+            isDraggingVol = false;
+            stageVolWrap.classList.remove('is-dragging-vol');
+        });
+
+        // 鼠标悬停在音量条上时，也支持滚轮微调音量（不触发舞台缩放）
+        stageVolWrap.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            const step = e.deltaY < 0 ? 0.05 : -0.05;
+            const base = userExplicitlyMuted ? 0 : currentVolume;
+            setVideoVolume(Math.min(1, Math.max(0, base + step)), false, true);
+        }, { passive: false });
+    }
+
+    syncSoundUI();
 
     /* ==========================================================================
        1. 视口画幅切换器 (支持 mode-pc / mode-mobile-land / mode-mobile-port / mode-dy-land)
@@ -485,7 +694,14 @@ window.PlayerEngine = {
             previewVideo.style.display = 'block';
             previewVideo.loop = false;
             previewVideo.playsInline = true;
-            setVideoSoundMuted(false, false);
+            // ★ 每次上传或恢复视频时，强制默认开启声音（绝不默认静音！）
+            userExplicitlyMuted = false;
+            _tempAutoplayBlocked = false;
+            if (!isRestoring && currentVolume <= 0.02) {
+                currentVolume = 1.0;
+                try { localStorage.setItem(PREVIEW_VOL_STORAGE_KEY, '1'); } catch (e) {}
+            }
+            setVideoSoundMuted(false, false, true);
             const curSpeed = selPreviewSpeed ? (parseFloat(selPreviewSpeed.value) || 1.0) : 1.0;
             if (previewVideo.src && previewVideo.src.startsWith('blob:')) {
                 URL.revokeObjectURL(previewVideo.src);
@@ -494,6 +710,8 @@ window.PlayerEngine = {
             previewVideo.src = vidUrl;
             previewVideo.playbackRate = curSpeed;
             previewVideo.defaultPlaybackRate = curSpeed;
+            previewVideo.muted = false;
+            previewVideo.volume = currentVolume;
 
             if (savedPlayState) {
                 const restoreMetaHandler = () => {
@@ -517,17 +735,44 @@ window.PlayerEngine = {
                 if (inMediaScale) inMediaScale.value = 100;
             }
 
-            previewVideo.play().then(() => {
-                updatePlayStateUI(true);
-            }).catch(() => {
-                // 若浏览器有声自动播放策略拦截，自动降级为静音播放，确保视频绝不卡在暂停态
-                setVideoSoundMuted(true, false);
+            const attemptPlayWithSound = () => {
+                if (!window.PlayerEngine.isVideoMode || window.PlayerEngine._userExplicitlyPaused) return;
+                previewVideo.muted = !!userExplicitlyMuted;
+                previewVideo.volume = currentVolume;
                 previewVideo.play().then(() => {
+                    _tempAutoplayBlocked = false;
                     updatePlayStateUI(true);
-                }).catch(() => {
-                    updatePlayStateUI(false);
+                    syncSoundUI();
+                }).catch((err) => {
+                    // 仅当刷新页面尚未交互、浏览器明确抛出 NotAllowedError 时，临时让画面跑起来并在用户首次触碰页面瞬间自动开声，绝不把静音状态写死！
+                    if (err && err.name === 'NotAllowedError' && !userExplicitlyMuted) {
+                        _tempAutoplayBlocked = true;
+                        previewVideo.muted = true;
+                        armFirstGestureAutoUnmute();
+                        previewVideo.play().then(() => {
+                            updatePlayStateUI(true);
+                        }).catch(() => {
+                            updatePlayStateUI(false);
+                        });
+                    } else if (err && err.name === 'AbortError') {
+                        setTimeout(() => {
+                            if (window.PlayerEngine.isVideoMode && !window.PlayerEngine._userExplicitlyPaused) {
+                                previewVideo.muted = !!userExplicitlyMuted;
+                                previewVideo.volume = currentVolume;
+                                previewVideo.play().then(() => updatePlayStateUI(true)).catch(() => {});
+                            }
+                        }, 60);
+                    } else {
+                        updatePlayStateUI(false);
+                    }
                 });
-            });
+            };
+
+            if (previewVideo.readyState >= 2) {
+                attemptPlayWithSound();
+            } else {
+                previewVideo.addEventListener('loadeddata', attemptPlayWithSound, { once: true });
+            }
 
             if (jyTrimmerPanel) jyTrimmerPanel.style.display = 'flex';
             buildJianyingTimeline(vidUrl, isRestoring);
@@ -1108,11 +1353,15 @@ window.PlayerEngine = {
             toast('✂️ 已恢复完整视频导出区间');
         });
     }
-    if (jyBtnMute) {
-        jyBtnMute.addEventListener('click', () => {
-            setVideoSoundMuted(!previewVideo.muted, true);
+    [jyBtnMute, jyBtnMuteRight, jyBtnMuteToolbar].forEach(btn => {
+        if (!btn) return;
+        btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            toggleTimelineMuteButton();
+            btn.blur();
         });
-    }
+    });
 
     /* ==========================================================================
        2.8 取景边框横竖自由切换 (竖着框 9:16 / 横着框 16:9) & 全屏观看联动
@@ -1284,12 +1533,18 @@ window.PlayerEngine = {
             if (previewVideo.currentTime < range.start || previewVideo.currentTime >= range.end - 0.05) {
                 try { previewVideo.currentTime = range.start; } catch (e) {}
             }
+            previewVideo.muted = !!userExplicitlyMuted;
+            previewVideo.volume = currentVolume;
             previewVideo.play().then(() => {
+                _tempAutoplayBlocked = false;
                 updatePlayStateUI(true);
-            }).catch(() => {
-                previewVideo.muted = true;
-                syncSoundUI(true);
-                previewVideo.play().then(() => updatePlayStateUI(true)).catch(() => {});
+            }).catch((err) => {
+                if (err && err.name === 'NotAllowedError' && !userExplicitlyMuted) {
+                    _tempAutoplayBlocked = true;
+                    previewVideo.muted = true;
+                    armFirstGestureAutoUnmute();
+                    previewVideo.play().then(() => updatePlayStateUI(true)).catch(() => {});
+                }
             });
         }
     }
@@ -1305,6 +1560,9 @@ window.PlayerEngine = {
         if (previewVideo.paused) {
             window.PlayerEngine._userExplicitlyPaused = false;
             window.PlayerEngine._stoppedAtClipEnd = false;
+            _tempAutoplayBlocked = false;
+            previewVideo.muted = !!userExplicitlyMuted;
+            previewVideo.volume = currentVolume;
             const range = window.PlayerEngine.getTrimRange();
             if (previewVideo.currentTime < range.start || previewVideo.currentTime >= range.end - 0.08) {
                 previewVideo.currentTime = range.start;
@@ -1317,6 +1575,52 @@ window.PlayerEngine = {
         }
     }
     window.PlayerEngine.togglePlayback = togglePlayback;
+
+    // ★ 全局空格键（Space）独占播放/暂停控制：
+    // 除了正在文字输入框（textarea / 文本类 input / contenteditable）打字以外，
+    // 无论当前焦点停留在哪个按钮、开关、下拉框或滑块上，按空格键一律禁止触发其他控件或滚动页面，只能用于视频播放和暂停！
+    function isActivelyTypingText(el) {
+        if (!el || !el.tagName) return false;
+        const tag = el.tagName.toUpperCase();
+        if (tag === 'TEXTAREA') return !el.readOnly && !el.disabled;
+        if (el.isContentEditable) return true;
+        if (tag === 'INPUT') {
+            const tp = String(el.type || 'text').toLowerCase();
+            const textTypes = ['text', 'password', 'search', 'url', 'email', 'tel', 'number'];
+            return textTypes.includes(tp) && !el.readOnly && !el.disabled;
+        }
+        return false;
+    }
+
+    window.addEventListener('keydown', (e) => {
+        const isSpace = (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar');
+        if (!isSpace) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        const activeEl = document.activeElement;
+        if (isActivelyTypingText(e.target) || isActivelyTypingText(activeEl)) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+
+        // 若焦点停留在按钮/勾选框/下拉框/滑块上，立即移出焦点，防止松开空格时误点按钮
+        if (activeEl && activeEl !== document.body && typeof activeEl.blur === 'function' && !isActivelyTypingText(activeEl)) {
+            try { activeEl.blur(); } catch (_err) {}
+        }
+
+        if (e.repeat || window.__isExportRecording) return;
+        togglePlayback();
+    }, true);
+
+    window.addEventListener('keyup', (e) => {
+        const isSpace = (e.code === 'Space' || e.key === ' ' || e.key === 'Spacebar');
+        if (!isSpace) return;
+        if (e.ctrlKey || e.metaKey || e.altKey) return;
+        if (isActivelyTypingText(e.target) || isActivelyTypingText(document.activeElement)) return;
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+    }, true);
 
     if (btnTogglePlayback) btnTogglePlayback.addEventListener('click', togglePlayback);
     if (btnBotPlayState) btnBotPlayState.addEventListener('click', togglePlayback);

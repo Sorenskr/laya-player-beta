@@ -126,27 +126,27 @@ const presetNames = {
     traffic: '前排打卡互動組'
 };
 
-// 默认全部采用原生洁净白字 (#ffffff)，真人随手打的短句风格 + 抖音黄脸表情去重，无任何 AI 套话
+// 默认全部采用原生洁净白字 (#ffffff)，较长真人自然口语风格 + 抖音黄脸表情去重，无任何 AI 套话
 const presetsDB = {
     driver: [
-        { id: 'd1', text: '太美了吧😘', top: 10, left: 14, color: '#ffffff', size: 14, speed: 9, visible: true },
-        { id: 'd2', text: '好看好看', top: 13, left: 45, color: '#ffffff', size: 14, speed: 11, visible: true },
-        { id: 'd3', text: '👍', top: 16, left: 10, color: '#ffffff', size: 14, speed: 8, visible: true },
-        { id: 'd4', text: '愛了愛了❤️', top: 19, left: 52, color: '#ffffff', size: 14, speed: 12, visible: true },
-        { id: 'd5', text: '畫質好清晰👀', top: 22, left: 22, color: '#ffffff', size: 14, speed: 10, visible: true }
+        { id: 'd1', text: '這套穿搭看著真舒服，鏡頭拉近皮膚狀態也太好了吧😘', top: 10, left: 10, color: '#ffffff', size: 14, speed: 10, visible: true },
+        { id: 'd2', text: '剛下班打開就刷到這段，連看三遍捨不得划走了', top: 13, left: 42, color: '#ffffff', size: 14, speed: 11, visible: true },
+        { id: 'd3', text: '👍', top: 16, left: 12, color: '#ffffff', size: 14, speed: 8, visible: true },
+        { id: 'd4', text: '笑起來特別自然耐看，完全不是那種千篇一律的網紅臉❤️', top: 19, left: 46, color: '#ffffff', size: 14, speed: 12, visible: true },
+        { id: 'd5', text: '這畫質清晰度真的沒話說，連髮絲細節都看得清清楚楚👀', top: 22, left: 18, color: '#ffffff', size: 14, speed: 10, visible: true }
     ],
     climax: [
-        { id: 'c1', text: '臥槽666', top: 10, left: 20, color: '#ffffff', size: 14, speed: 8, visible: true },
-        { id: 'c2', text: '😂笑死我了', top: 13, left: 48, color: '#ffffff', size: 14, speed: 9, visible: true },
-        { id: 'c3', text: '牛啊🐮', top: 16, left: 12, color: '#ffffff', size: 14, speed: 8, visible: true },
-        { id: 'c4', text: '真的假的😲', top: 19, left: 58, color: '#ffffff', size: 14, speed: 10, visible: true },
-        { id: 'c5', text: '👏', top: 22, left: 28, color: '#ffffff', size: 14, speed: 11, visible: true }
+        { id: 'c1', text: '臥槽這波操作直接看傻了，換成我絕對反應不過來666', top: 10, left: 14, color: '#ffffff', size: 14, speed: 9, visible: true },
+        { id: 'c2', text: '😂剛才那個小表情笑死我了，差點把嘴裡的咖啡噴出來', top: 13, left: 44, color: '#ffffff', size: 14, speed: 10, visible: true },
+        { id: 'c3', text: '前面鋪墊了那麼久原來在這裡等著呢，這反轉太牛了🐮', top: 16, left: 10, color: '#ffffff', size: 14, speed: 9, visible: true },
+        { id: 'c4', text: '真的假的😲這段現場發揮也太穩了吧，全程沒有一點尿點', top: 19, left: 50, color: '#ffffff', size: 14, speed: 11, visible: true },
+        { id: 'c5', text: '👏', top: 22, left: 26, color: '#ffffff', size: 14, speed: 11, visible: true }
     ],
     traffic: [
-        { id: 't1', text: '4748', top: 10, left: 15, color: '#ffffff', size: 14, speed: 9, visible: true },
-        { id: 't2', text: '來了來了😊', top: 13, left: 46, color: '#ffffff', size: 14, speed: 11, visible: true },
-        { id: 't3', text: '前排打卡☕', top: 16, left: 8, color: '#ffffff', size: 14, speed: 8, visible: true },
-        { id: 't4', text: '一點都不卡👌', top: 19, left: 52, color: '#ffffff', size: 14, speed: 10, visible: true },
+        { id: 't1', text: '剛從朋友那邊推薦過來的，前排先打個卡佔個好位置😊', top: 10, left: 12, color: '#ffffff', size: 14, speed: 10, visible: true },
+        { id: 't2', text: '在海外這邊看一點都不卡頓，聲音和畫面都特別穩👌', top: 13, left: 45, color: '#ffffff', size: 14, speed: 11, visible: true },
+        { id: 't3', text: '蹲了好幾天終於更新了，泡杯咖啡慢慢看完整版☕', top: 16, left: 8, color: '#ffffff', size: 14, speed: 9, visible: true },
+        { id: 't4', text: '評論區老哥們都在聊細節，果然好內容大家都識貨', top: 19, left: 48, color: '#ffffff', size: 14, speed: 10, visible: true },
         { id: 't5', text: '🫶', top: 22, left: 20, color: '#ffffff', size: 14, speed: 12, visible: true }
     ]
 };

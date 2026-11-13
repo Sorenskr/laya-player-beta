@@ -16,7 +16,7 @@
     <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" crossorigin="anonymous"></noscript>
     <script defer src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/mp4-muxer@5.1.3/build/mp4-muxer.min.js"></script>
-    <link rel="stylesheet" href="style.css?v=20261113_v60">
+    <link rel="stylesheet" href="style.css?v=20261114_v64">
     <style>
         /* ====== 内置加固样式：彻底解决右侧卡片并排歪斜与画质徽标/中央按键美化 ====== */
         .sidebar .tab-panel.active {
@@ -249,6 +249,18 @@
                 ✋ 画面拖动模式已开启：按住鼠标左键任意拖动画面 · 滚轮放大/缩小 · 再按 <strong>M</strong> 键或点「↺ 重置」退出
             </div>
 
+            <!-- 视频画面右侧悬浮音量条（平时不碰只是细细一条，鼠标碰上去自动放大展开并可上下拖动圆钮调音量，不进入截图和导出视频） -->
+            <div class="stage-volume-rail-wrap" id="stage-volume-rail-wrap" data-html2canvas-ignore="true" title="上下拖动圆钮或滚动滚轮调整视频音量大小">
+                <div class="stage-vol-capsule" id="stage-vol-capsule">
+                    <span class="stage-vol-pct" id="stage-vol-pct">100%</span>
+                    <div class="stage-vol-track" id="stage-vol-track">
+                        <div class="stage-vol-fill" id="stage-vol-fill" style="height: 100%;"></div>
+                        <div class="stage-vol-thumb" id="stage-vol-thumb" style="bottom: 100%;"></div>
+                    </div>
+                    <span class="stage-vol-ico" id="stage-vol-ico" aria-hidden="true">🔊</span>
+                </div>
+            </div>
+
             <!-- 播放器核心容器 -->
             <div class="player-box mode-pc skin-laya-app" id="render-target">
                 <!-- 媒体底层容器 -->
@@ -375,6 +387,7 @@
                             <span class="dy-sb-laya-notif-wrap m-sb-laya-wrap interactive-elem" id="m-sb-laya-wrap" title="单击循环切换 Laya 状态栏小图标样式">
                                 <img src="Laya.png" class="dy-sb-laya-notif-icon" id="m-sb-laya-icon" alt="Laya">
                             </span>
+                            <div class="dy-sb-notifs m-sb-notifs interactive-elem" id="m-sb-notifs" title="点击随机切换状态栏软件通知图标"></div>
                         </div>
                         <div class="m-status-icons">
                             <div class="m-signal-group" id="m-signal-group" title="蜂窝网络信号">
@@ -504,13 +517,8 @@
                             <svg class="dy-sb-icon" id="dy-sb-dnd" style="display: none;" viewBox="0 0 24 24" fill="currentColor" title="勿扰模式">
                                 <path d="M12 3a9 9 0 1 0 9 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 0 1-4.4 2.26 5.403 5.403 0 0 1-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/>
                             </svg>
-                            <!-- 安卓/鸿蒙左侧应用通知小图标组 -->
-                            <div class="dy-sb-notifs" id="dy-sb-notifs" style="display: none;">
-                                <!-- 微信图标 -->
-                                <svg class="dy-sb-notif-svg" viewBox="0 0 24 24" fill="currentColor"><path d="M8.5 4C4.91 4 2 6.46 2 9.5c0 1.7.92 3.22 2.36 4.23L3.8 15.8l2.14-1.07c.8.22 1.66.35 2.56.35.34 0 .68-.02 1.01-.06-.2-.58-.31-1.2-.31-1.85 0-3.31 3.13-6 7-6 .35 0 .69.03 1.03.07C16.54 5.29 12.89 4 8.5 4zm-2.25 3.5a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm4.5 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2zM16.2 8.5c-3.2 0-5.8 2.15-5.8 4.8s2.6 4.8 5.8 4.8c.75 0 1.47-.12 2.13-.33l1.77.89-.46-1.72c1.2-.84 1.96-2.1 1.96-3.64 0-2.65-2.6-4.8-5.4-4.8zm-1.9 2.8a.85.85 0 1 1 0 1.7.85.85 0 0 1 0-1.7zm3.8 0a.85.85 0 1 1 0 1.7.85.85 0 0 1 0-1.7z"/></svg>
-                                <!-- 消息/社交小图标 -->
-                                <svg class="dy-sb-notif-svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
-                            </div>
+                            <!-- 真实社交/系统软件通知小图标组（默认每次刷新随机，支持 X / Ins / 短信 / WhatsApp / TG 等手动开关与自定义上传） -->
+                            <div class="dy-sb-notifs interactive-elem" id="dy-sb-notifs" title="点击随机切换软件通知图标（也可在右侧自由点选或自己上传添加）"></div>
                         </div>
 
                         <!-- 居中硬件开孔区：灵动岛 / 灵动岛音乐态 / 经典刘海 / 居中单挖孔 / 华为三挖孔 -->
@@ -1229,6 +1237,7 @@
                             <span class="dy-sb-laya-notif-wrap dyl-sb-laya-wrap interactive-elem" id="dyl-sb-laya-wrap" title="单击循环切换 Laya 状态栏小图标样式">
                                 <img src="Laya.png" class="dy-sb-laya-notif-icon" id="dyl-sb-laya-icon" alt="Laya">
                             </span>
+                            <div class="dy-sb-notifs dyl-sb-notifs interactive-elem" id="dyl-sb-notifs" title="点击随机切换状态栏软件通知图标"></div>
                         </div>
                         <div class="dyl-sb-center interactive-elem" id="dyl-disp-clock" title="点击可随机切换时间" style="cursor:pointer;">04:23</div>
                         <div class="dyl-sb-right">
@@ -1377,6 +1386,7 @@
                     <button class="jy-mini-btn" id="jy-btn-set-in" title="将当前播放位置设为起点">[ 设为起点</button>
                     <button class="jy-mini-btn" id="jy-btn-set-out" title="将当前播放位置设为终点">设为终点 ]</button>
                     <button class="jy-mini-btn" id="jy-btn-reset" title="重置为完整视频时长">完整区间</button>
+                    <button type="button" class="jy-mini-btn jy-toolbar-mute-btn" id="jy-btn-mute-toolbar" title="点击切换静音 / 恢复视频原声">🔊 静音开关</button>
                 </div>
             </div>
 
@@ -1422,6 +1432,11 @@
                             <div class="jy-playhead-head"></div>
                             <div class="jy-playhead-line"></div>
                         </div>
+                    </div>
+
+                    <!-- 右侧轨道静音按键（点击才静音，否则一直保持有声音） -->
+                    <div class="jy-track-side jy-track-side-right">
+                        <button type="button" class="jy-mute-btn" id="jy-btn-mute-right" title="点击静音 / 开启视频声音">🔊</button>
                     </div>
                 </div>
             </div>
@@ -2113,6 +2128,14 @@
                     </label>
                 </div>
 
+                <div class="sb-fresh-quick-bar">
+                    <button type="button" class="sub-mini-act sb-rand-all-btn" id="btn-dy-sb-rand-all" title="一键随机切换时间、电量、信号、网络、系统图标与软件通知图标">🎲 随机换整栏内容与图标</button>
+                    <label class="sb-lock-mini-wrap" title="默认每次打开/刷新网页自动生成全新的状态栏内容与图标；勾选后才固定当前状态栏不随刷新变化">
+                        <input type="checkbox" id="sw-dy-sb-lock-refresh">
+                        <span>📌 固定不随刷新变</span>
+                    </label>
+                </div>
+
                 <div class="form-row">
                     <label>📱 选择手机型号预设 (自动匹配专属布局/开孔/图标风格)：</label>
                     <select id="sel-dy-phone-model" style="background:#151821; font-weight:700; color:#f39c12;">
@@ -2196,6 +2219,12 @@
                             <option value="遠傳電信">遠傳電信</option>
                             <option value="台灣大哥大">台灣大哥大</option>
                             <option value="CMHK">CMHK</option>
+                            <option value="CSL">CSL</option>
+                            <option value="Singtel">Singtel</option>
+                            <option value="Maxis">Maxis</option>
+                            <option value="T-Mobile">T-Mobile</option>
+                            <option value="Rogers">Rogers</option>
+                            <option value="Optus">Optus</option>
                         </select>
                     </div>
                     <div class="form-row">
@@ -2300,9 +2329,9 @@
                             </label>
                         </div>
                         <div class="switch-tile">
-                            <span>💬 微信/通知标</span>
+                            <span>💬 软件通知图标</span>
                             <label class="ios-toggle">
-                                <input type="checkbox" id="sw-dy-sb-notifs">
+                                <input type="checkbox" id="sw-dy-sb-notifs" checked>
                                 <span class="slider-round"></span>
                             </label>
                         </div>
@@ -2314,6 +2343,20 @@
                             </label>
                         </div>
                     </div>
+                </div>
+
+                <!-- ★ 状态栏各类软件通知图标（默认每次打开/刷新自动随机不同组合；支持手动点选 X / Ins / 短信 等、自己上传添加图标或一键随机） -->
+                <div class="form-row sb-laya-cfg-card" id="box-dy-sb-app-notifs" style="border-color:rgba(56,189,248,0.35);">
+                    <div class="sb-laya-cfg-head">
+                        <span class="sb-laya-cfg-title" style="color:#7dd3fc;">📲 状态栏软件通知图标 <small>(默认随机 · 可手动点选或自己加)</small></span>
+                        <div style="display:inline-flex; align-items:center; gap:5px; flex-wrap:wrap;">
+                            <button type="button" class="sub-mini-act" id="btn-sb-app-random" style="padding:2px 8px; background:rgba(14,165,233,0.25); color:#bae6fd; border-color:rgba(56,189,248,0.5);" title="让系统随机换一批真实的软件通知图标">🎲 随机图标</button>
+                            <input type="file" id="up-sb-app-custom" accept="image/*" style="display:none;">
+                            <button type="button" class="sub-mini-act" id="btn-sb-app-upload" style="padding:2px 8px; background:rgba(16,185,129,0.22); color:#a7f3d0; border-color:rgba(52,211,153,0.45);" title="上传并添加你自己的软件小图标到状态栏">＋ 自己加图标</button>
+                            <button type="button" class="sub-mini-act" id="btn-sb-app-clear" style="padding:2px 7px;" title="清空所有软件通知小图标">🧹 清空</button>
+                        </div>
+                    </div>
+                    <div class="sb-app-icons-picker" id="sb-app-icons-picker" aria-label="点击开关状态栏软件通知图标"></div>
                 </div>
 
                 <!-- ★ 需求三：最上面通知栏（状态栏）Laya 小图标独立定制面板（支持单击图标循环切换、可视化点选与自定义上传） -->
@@ -3119,12 +3162,33 @@
                             <button type="button" class="sub-mini-act" id="btn-live-toggle-ai-cfg" title="配置可选的云端视觉大模型 Key (Gemini / GAS)">⚙️ 雲端AI</button>
                         </div>
                     </div>
-                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px; font-size:11.5px; color:#cbd5e1;">
-                        <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:#e9d5ff;">
-                            <input type="checkbox" id="sw-live-auto-ai-dm" checked>
-                            <span>上傳視頻或圖片時自動讓 AI 匹配並填充彈幕 (每次使用 AI 間隔 ≥ 30秒)</span>
-                        </label>
-                        <span id="txt-live-ai-status" style="color:#34d399; font-size:11px; font-weight:700;">⚡ Flash AI 就緒 (30s冷卻 · 今日剩餘 40/40)</span>
+                    <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:6px; margin-bottom:5px; font-size:11.5px; color:#cbd5e1;">
+                        <div style="display:inline-flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                            <label style="display:inline-flex; align-items:center; gap:5px; cursor:pointer; margin:0; color:#e9d5ff;">
+                                <input type="checkbox" id="sw-live-auto-ai-dm" checked>
+                                <span>自動AI配彈幕</span>
+                            </label>
+                            <span class="ai-dm-count-ctl" title="設置一次性生成多少條彈幕（默認25條，最高150條）">
+                                <span>每次生成</span>
+                                <input type="number" id="in-live-ai-dm-count" min="1" max="150" value="25" class="ai-dm-count-inp">
+                                <span>條</span>
+                                <button type="button" class="ai-cnt-qbtn is-active" data-cnt="25" data-ai-cnt="25">25</button>
+                                <button type="button" class="ai-cnt-qbtn" data-cnt="50" data-ai-cnt="50">50</button>
+                                <button type="button" class="ai-cnt-qbtn" data-cnt="100" data-ai-cnt="100">100</button>
+                                <button type="button" class="ai-cnt-qbtn" data-cnt="150" data-ai-cnt="150">150</button>
+                            </span>
+                        </div>
+                        <div class="ai-status-with-secret">
+                            <span id="txt-live-ai-status" style="color:#34d399; font-size:11px; font-weight:700;">⚡ Flash AI 就緒 (30s冷卻 · 今日剩餘 40/40)</span>
+                            <label class="ai-unl-mini-toggle" title="進階權限開關">
+                                <input type="checkbox" id="sw-live-ai-unl">
+                                <span class="ai-unl-mini-slider"></span>
+                            </label>
+                            <span class="ai-unl-pwd-pop" id="box-live-ai-unl-pwd" style="display:none;">
+                                <input type="password" id="in-live-ai-unl-pwd" class="ai-unl-pwd-inp" placeholder="密碼" autocomplete="off">
+                                <button type="button" id="btn-live-ai-unl-ok" class="ai-unl-pwd-btn">✓</button>
+                            </span>
+                        </div>
                     </div>
                     <div id="box-live-ai-vision-cfg" style="display:none; margin-bottom:6px; padding:8px 10px; border-radius:7px; background:rgba(15,23,42,0.92); border:1px solid rgba(168,85,247,0.55); font-size:11.5px;">
                         <div style="display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:4px; margin-bottom:5px;">
@@ -3145,20 +3209,31 @@
                             </div>
                         </div>
                     </div>
-                    <textarea id="in-live-danmaku-list" rows="7" style="width:100%; background:#0f1219; color:#f1f5f9; border:1px solid #2b3142; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.5; resize:vertical;">微醺小貓：哈哈哈哈笑死我了😂
-輕輕吹風 來了
-阿傑：666牛啊
-晚風溫柔：👍
-再次邂逅說愛你 來了
-小羊：太美了吧😘
-星河少女：主播哪裡人
-麥兜黑鳳梨 來了
-夜色有點濃：😄好看好看
-皓哥：來了來了☕
-南城舊夢 來了
-石頭baby：這多少錢👀
-漫渡：👏
-深海裡的星星 來了</textarea>
+                    <textarea id="in-live-danmaku-list" rows="7" style="width:100%; background:#0f1219; color:#f1f5f9; border:1px solid #2b3142; border-radius:6px; padding:6px 8px; font-size:12px; line-height:1.5; resize:vertical;">溫哥華老陳：剛下班打開手機就刷到你開播了，今天畫面也太清楚了吧😂
+多倫多阿豪 來了
+Kevin林：這套搭配看著真舒服，在北美這邊很少見到這麼耐看的風格👍
+新山阿杰：哈哈哈哈剛才那個小表情笑死我了，差點把嘴裡的咖啡噴出來
+法拉盛阿凱 來了
+墨爾本大衛：主播今天狀態真不錯啊，說話聲音聽著特別放鬆自然☕
+硅谷工程師阿哲：蹲了好幾天終於趕上現場直播了，今天準備播到幾點呀
+吉隆坡家豪 來了
+志豪_TW：😄這波操作確實666，換成我估計早就笑場撐不住了
+九龍塘老周：剛從朋友那邊推薦過來的，前排先點個關注不迷路👌
+悉尼唐人街阿強 來了
+Eric張：請問背景裡那個小擺件是在哪裡買的呀，看著挺有意思👀
+西雅圖老林：👏
+檳城老街阿輝：聽主播聊天真的挺解壓的，在海外加班完過來歇一會兒
+曼徹斯特老高 來了
+台北信義區小柔：今天這個燈光打得剛剛好，整個人看著特別有精神😘
+布魯克林阿Ken：剛進來就看到這麼熱鬧，直播間裡有沒有老鄉出來冒個泡
+東京新宿老李 來了
+裕廊東阿文：一點都不卡頓，連聲音都這麼清晰，給技術加個雞腿🍺
+奧克蘭北岸阿明：💪
+休斯頓老張：哈哈哈評論區老哥們說話都太逗了，刷了半小時捨不得划走🤣
+卡爾加里老鄭 來了
+台中阿宏：主播平時都是這個點開播嗎，我記一下時間明天繼續來蹲
+橫濱海風Ryan：這段互動真的自然，比那些照著稿子念的直播好看太多了😊
+銅鑼灣阿詩：❤️</textarea>
                 </div>
 
                 <div class="form-grid-2">
@@ -3787,14 +3862,33 @@
                 <div class="form-row" style="margin-top: 4px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 8px; padding: 8px 10px;">
                     <div style="display:flex; justify-content:space-between; align-items:center; gap:6px; flex-wrap:wrap; margin-bottom:6px;">
                         <span style="font-size:11.5px; font-weight:800; color:#6ee7b7;">🤖 AI 视觉识别视频/图片生成弹幕话术 (全模式通用)</span>
-                        <span id="txt-dm-studio-ai-status" style="font-size:10px; color:#34d399; font-weight:700;">⚡ 每次调用间隔 ≥ 30秒</span>
+                        <div class="ai-status-with-secret">
+                            <span id="txt-dm-studio-ai-status" style="font-size:10px; color:#34d399; font-weight:700;">⚡ 每次调用间隔 ≥ 30秒</span>
+                            <label class="ai-unl-mini-toggle" title="進階權限開關">
+                                <input type="checkbox" id="sw-dm-studio-ai-unl">
+                                <span class="ai-unl-mini-slider"></span>
+                            </label>
+                            <span class="ai-unl-pwd-pop" id="box-dm-studio-ai-unl-pwd" style="display:none;">
+                                <input type="password" id="in-dm-studio-ai-unl-pwd" class="ai-unl-pwd-inp" placeholder="密碼" autocomplete="off">
+                                <button type="button" id="btn-dm-studio-ai-unl-ok" class="ai-unl-pwd-btn">✓</button>
+                            </span>
+                        </div>
                     </div>
                     <div style="display:flex; gap:6px; align-items:center; flex-wrap:wrap; margin-bottom:6px;">
-                        <button type="button" class="btn btn-sm" id="btn-dm-studio-ai-gen" style="flex:1; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; font-weight:800; padding:6px 10px;" title="无论上传的是视频还是图片，一键通过 AI 识别画面内容并生成弹幕话术（每次间隔不少于30秒）">🤖 AI 识别视频/图片获取弹幕话术</button>
+                        <button type="button" class="btn btn-sm" id="btn-dm-studio-ai-gen" style="flex:1; background:linear-gradient(135deg,#059669,#10b981); color:#fff; border:none; font-weight:800; padding:6px 10px;" title="无论上传的是视频还是图片，一键通过 AI 识别画面内容并生成弹幕话术">🤖 AI 识别视频/图片获取弹幕话术</button>
+                        <span class="ai-dm-count-ctl" title="設置一次性生成多少條彈幕（默認25條，最高150條）">
+                            <span>生成</span>
+                            <input type="number" id="in-dm-studio-ai-count" min="1" max="150" value="25" class="ai-dm-count-inp">
+                            <span>條</span>
+                            <button type="button" class="ai-cnt-qbtn is-active" data-cnt="25" data-ai-cnt="25">25</button>
+                            <button type="button" class="ai-cnt-qbtn" data-cnt="50" data-ai-cnt="50">50</button>
+                            <button type="button" class="ai-cnt-qbtn" data-cnt="100" data-ai-cnt="100">100</button>
+                            <button type="button" class="ai-cnt-qbtn" data-cnt="150" data-ai-cnt="150">150</button>
+                        </span>
                     </div>
                     <label style="display:flex; align-items:center; gap:5px; font-size:10.5px; color:#a7f3d0; cursor:pointer; user-select:none;">
                         <input type="checkbox" id="sw-dm-studio-auto-ai" checked style="accent-color:#10b981; width:13px; height:13px; cursor:pointer;">
-                        <span>上传视频或图片时自动通过 AI 获取并填充弹幕 (30秒冷却保护)</span>
+                        <span>上传视频或图片时自动通过 AI 获取并填充弹幕 (默认25条，最高可调150条)</span>
                     </label>
                 </div>
 
@@ -3900,10 +3994,10 @@
     </div>
 </main>
 
-<script src="logos.js?v=20261113_v60"></script>
-<script src="player.js?v=20261113_v60"></script>
-<script src="danmaku.js?v=20261113_v60"></script>
-<script src="app.js?v=20261113_v60"></script>
+<script src="logos.js?v=20261114_v64"></script>
+<script src="player.js?v=20261114_v64"></script>
+<script src="danmaku.js?v=20261114_v64"></script>
+<script src="app.js?v=20261114_v64"></script>
 <script>
     // 自动迁移旧版 "4K-Laya-8669" 缓存为独立的 [4K 徽标] + [Laya-1896]
     window.addEventListener('DOMContentLoaded', () => {
