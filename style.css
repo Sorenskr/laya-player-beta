@@ -10033,15 +10033,15 @@ input[type="range"] {
     display: none !important;
 }
 
-/* 平时不碰它的时候：细细的一条 (宽仅 4px) */
+/* 平时不碰它的时候：细细的一条 (宽仅 4px，无多余边框吃宽度，亮色填充清晰利落) */
 .stage-vol-capsule {
     flex-shrink: 0;
     width: 4px;
     height: 132px;
     padding: 0;
     border-radius: 999px;
-    background: rgba(255, 255, 255, 0.22);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.24);
+    border: 0 solid transparent;
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.45);
     display: flex;
     flex-direction: column;

@@ -1826,16 +1826,14 @@ window.switchRightTab = function (mode, opts) {
         'https://images.unsplash.com/photo-1506277886164-e25aa3f4ef7f?auto=format&fit=crop&w=200&h=200&q=82'
     ];
 
+    const FALLBACK_SAFE_AVATAR_SVG = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#4f46e5"/><stop offset="100%" stop-color="#0ea5e9"/></linearGradient></defs><rect width="96" height="96" rx="48" fill="url(#g)"/><circle cx="48" cy="37" r="16" fill="rgba(255,255,255,0.9)"/><path d="M20 82c4-15 16-24 28-24s24 9 28 24" fill="rgba(255,255,255,0.9)"/></svg>');
+
     function getDynamicCachedAvatars() {
-        if (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') {
-            return { females: [], males: [] };
-        }
         try {
             const parsed = JSON.parse(localStorage.getItem(DYNAMIC_AVATARS_CACHE_KEY) || '{}');
-            return {
-                females: Array.isArray(parsed.females) ? parsed.females : [],
-                males: Array.isArray(parsed.males) ? parsed.males : []
-            };
+            const safeFemales = Array.isArray(parsed.females) ? parsed.females.filter(u => typeof u === 'string' && u.startsWith('data:')) : [];
+            const safeMales = Array.isArray(parsed.males) ? parsed.males.filter(u => typeof u === 'string' && u.startsWith('data:')) : [];
+            return { females: safeFemales, males: safeMales };
         } catch (e) {
             return { females: [], males: [] };
         }
@@ -1844,17 +1842,17 @@ window.switchRightTab = function (mode, opts) {
     function getChineseFemalePool() {
         const db = window.LAYA_ASIAN_AVATARS || {};
         const dyn = getDynamicCachedAvatars();
-        // 严格优先使用内置 196+ 张海外华人女生离线高清 Base64 头像 + randomuser.me 动态缓存头像，剔除易失效或跨域污染的外链缩略图
+        // 100% 使用内置 196+ 张海外华人女生离线高清 Base64 真人头像，彻底杜绝 randomuser/unsplash 欧美面孔混入与导出跨域污染
         const base64First = [...(db.beauties || []), ...dyn.females];
-        return base64First.length > 0 ? base64First : CN_REAL_FEMALE_URLS;
+        return base64First.length > 0 ? base64First : [FALLBACK_SAFE_AVATAR_SVG];
     }
 
     function getChineseMalePool() {
         const db = window.LAYA_ASIAN_AVATARS || {};
         const dyn = getDynamicCachedAvatars();
-        // 严格优先使用内置 144+ 张海外华人男生离线高清 Base64 头像 + randomuser.me 动态缓存头像，剔除易失效或跨域污染的外链缩略图
+        // 100% 使用内置 144+ 张海外华人男生离线高清 Base64 真人头像，彻底杜绝 randomuser/unsplash 欧美面孔混入与导出跨域污染
         const base64First = [...(db.guys || []), ...dyn.males];
-        return base64First.length > 0 ? base64First : CN_REAL_MALE_URLS;
+        return base64First.length > 0 ? base64First : [FALLBACK_SAFE_AVATAR_SVG];
     }
 
     function getChineseVibePool() {
@@ -1878,48 +1876,14 @@ window.switchRightTab = function (mode, opts) {
         return claimUniqueAvatarFromPool(pool, avoidSet);
     }
 
-    // ★ 从可更新头像源 (randomuser.me + 稳定亚洲/华人面孔源) 动态拉取补充头像并缓存到 localStorage 复用；网络失败完全回退本地 340+ Base64 库
+    // ★ 净化历史遗留外链头像缓存：不再请求无 CORS 头且含欧美面孔的 randomuser.me 外链，全程 100% 启用本地 340+ 高清华人 Base64 头像库（零跨域报错、截图录屏零白块）
     async function fetchDynamicOverseasChineseAvatarsOnLoad() {
-        if (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:') {
-            return;
-        }
         try {
-            const dyn = getDynamicCachedAvatars();
-            const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-            const timer = controller ? setTimeout(() => controller.abort(), 3200) : null;
-            const res = await fetch('https://randomuser.me/api/?results=24&inc=gender,name,picture,nat&noinfo', {
-                mode: 'cors',
-                signal: controller ? controller.signal : undefined
-            });
-            if (timer) clearTimeout(timer);
-            if (res.ok) {
-                const json = await res.json();
-                const results = Array.isArray(json?.results) ? json.results : [];
-                const asianSurnameRe = /^(chen|lin|wang|zhang|li|liu|huang|wu|xu|sun|ma|zhu|hu|guo|he|gao|luo|zheng|liang|xie|song|tang|deng|han|feng|cao|peng|zeng|xiao|tian|dong|pan|yuan|cai|jiang|yu|du|ye|cheng|wei|su|lu|ding|ren|shen|yao|cui|tan|fan|jin|shi|liao|zou|xiong|meng|qin|bai|hou|yin|chang|long|lai|wen|hong|choi|kim|park|lee|ng|chan|wong|cheung|lau|ho|leung|tam|tsang|kwok|fung|yip|lam|chong|lim|goh|koh|teo|ong|yeo|chua|tay|yap|chin)$/i;
-                results.forEach(u => {
-                    const pic = u?.picture?.large || u?.picture?.medium || '';
-                    if (!pic || !pic.startsWith('https://')) return;
-                    const last = String(u?.name?.last || '').trim();
-                    const first = String(u?.name?.first || '').trim();
-                    if (asianSurnameRe.test(last) || asianSurnameRe.test(first) || (dyn.females.length + dyn.males.length < 16)) {
-                        if (u.gender === 'female') {
-                            if (!dyn.females.includes(pic)) dyn.females.push(pic);
-                        } else {
-                            if (!dyn.males.includes(pic)) dyn.males.push(pic);
-                        }
-                    }
-                });
-                if (dyn.females.length > 60) dyn.females = dyn.females.slice(-60);
-                if (dyn.males.length > 60) dyn.males = dyn.males.slice(-60);
-                localStorage.setItem(DYNAMIC_AVATARS_CACHE_KEY, JSON.stringify({
-                    females: dyn.females,
-                    males: dyn.males,
-                    updatedAt: Date.now()
-                }));
+            const raw = localStorage.getItem(DYNAMIC_AVATARS_CACHE_KEY);
+            if (raw && /https?:\/\//i.test(raw)) {
+                localStorage.removeItem(DYNAMIC_AVATARS_CACHE_KEY);
             }
-        } catch (e) {
-            // 网络失败完全静默回退本地 logos.js 340+ Base64 离线真人头像库
-        }
+        } catch (e) {}
     }
 
     // ★ 跨设备去重申领：仅在支持 Serverless API 的线上环境（如 Vercel）调用 /api/claim-identity；本地 file:// / localhost / GitHub Pages 静态环境零报错自动启用设备指纹分流降级方案
@@ -2369,7 +2333,18 @@ window.switchRightTab = function (mode, opts) {
         prefetchAvatarDataUrl(item) {
             if (!item) return;
             const runBlobPrefetch = (urlToFetch) => {
-                if (!urlToFetch || urlToFetch.startsWith('data:')) return;
+                if (!urlToFetch || urlToFetch.startsWith('data:') || urlToFetch.startsWith('blob:')) return;
+                // 拦截历史遗留无跨域许可的外链头像，直接无缝替换为离线高清华人 Base64 头像，杜绝控制台 CORS 报错
+                const isBlockedExternal = /randomuser\.me|pravatar\.cc|dicebear\.com|unsplash\.com/i.test(urlToFetch)
+                    || (typeof window !== 'undefined' && window.location && window.location.protocol === 'file:' && /^https?:\/\//i.test(urlToFetch));
+                if (isBlockedExternal) {
+                    const targetPool = isLikelyFemaleNickname(item.user) ? getChineseFemalePool() : getChineseMalePool();
+                    item.avatar = claimUniqueAvatarFromPool(targetPool) || FALLBACK_SAFE_AVATAR_SVG;
+                    item.avatarDataUrl = '';
+                    this.renderStage();
+                    this.renderEditor();
+                    return;
+                }
                 fetch(urlToFetch, { mode: 'cors' })
                     .then(res => res.ok ? res.blob() : Promise.reject())
                     .then(blob => new Promise((resolve) => {
@@ -5550,85 +5525,85 @@ window.switchRightTab = function (mode, opts) {
             key: 'x',
             label: 'X (推特)',
             weight: 3,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>'
         },
         {
             key: 'ins',
             label: 'Ins',
             weight: 3,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.2"/><circle cx="12" cy="12" r="4.3"/><circle cx="17.4" cy="6.6" r="1.25" fill="currentColor" stroke="none"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="2.6" width="18.8" height="18.8" rx="5.2"/><circle cx="12" cy="12" r="4.3"/><circle cx="17.4" cy="6.6" r="1.25" fill="currentColor" stroke="none"/></svg>'
         },
         {
             key: 'sms',
             label: '短信',
             weight: 3,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M20 2H4C2.9 2 2 2.9 2 4v17.2l3.8-3.2H20c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM7 9h10v1.8H7V9zm6 4.5H7v-1.8h6v1.8zm4-7.2H7V4.5h10v1.8z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M20 2H4C2.9 2 2 2.9 2 4v17.2l3.8-3.2H20c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zM7 9h10v1.8H7V9zm6 4.5H7v-1.8h6v1.8zm4-7.2H7V4.5h10v1.8z"/></svg>'
         },
         {
             key: 'whatsapp',
             label: 'WhatsApp',
             weight: 3,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2zm5.82 14.01c-.24.68-1.4 1.3-1.95 1.38-.5.08-1.13.11-1.83-.11-.42-.14-.97-.32-1.67-.62-2.94-1.27-4.86-4.23-5.01-4.43-.15-.2-1.2-1.59-1.2-3.04 0-1.45.76-2.16 1.03-2.46.27-.3.59-.37.79-.37.2 0 .4 0 .57.01.18.01.43-.07.67.51.25.59.84 2.05.91 2.2.07.15.12.32.02.52-.1.2-.15.32-.3.49-.15.17-.31.38-.45.51-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.03 1.12 1 2.06 1.31 2.36 1.46.3.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.73.81 2.02.96.3.15.49.22.57.35.07.12.07.71-.17 1.39z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38c1.45.79 3.08 1.21 4.74 1.21 5.46 0 9.91-4.45 9.91-9.91C21.95 6.45 17.5 2 12.04 2zm5.82 14.01c-.24.68-1.4 1.3-1.95 1.38-.5.08-1.13.11-1.83-.11-.42-.14-.97-.32-1.67-.62-2.94-1.27-4.86-4.23-5.01-4.43-.15-.2-1.2-1.59-1.2-3.04 0-1.45.76-2.16 1.03-2.46.27-.3.59-.37.79-.37.2 0 .4 0 .57.01.18.01.43-.07.67.51.25.59.84 2.05.91 2.2.07.15.12.32.02.52-.1.2-.15.32-.3.49-.15.17-.31.38-.45.51-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.03 1.12 1 2.06 1.31 2.36 1.46.3.15.47.12.64-.07.17-.2.74-.86.94-1.16.2-.3.4-.25.67-.15.27.1 1.73.81 2.02.96.3.15.49.22.57.35.07.12.07.71-.17 1.39z"/></svg>'
         },
         {
             key: 'telegram',
             label: 'TG 纸飞机',
             weight: 3,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M21.94 3.66c.26-1.12-.41-1.56-1.42-1.18L2.58 9.41c-1.22.48-1.2 1.16-.21 1.46l4.59 1.43 10.64-6.71c.5-.31.96-.14.58.2l-8.62 7.78-.33 4.74c.48 0 .69-.22.96-.48l2.3-2.24 4.79 3.53c.88.49 1.51.24 1.73-.81l3.13-14.65z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M21.94 3.66c.26-1.12-.41-1.56-1.42-1.18L2.58 9.41c-1.22.48-1.2 1.16-.21 1.46l4.59 1.43 10.64-6.71c.5-.31.96-.14.58.2l-8.62 7.78-.33 4.74c.48 0 .69-.22.96-.48l2.3-2.24 4.79 3.53c.88.49 1.51.24 1.73-.81l3.13-14.65z"/></svg>'
         },
         {
             key: 'line',
             label: 'LINE',
             weight: 2,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M12 2.5c-5.52 0-10 3.64-10 8.13 0 4.02 3.56 7.39 8.37 8.02.33.07.77.22.88.51.1.26.07.67.03.93l-.14.86c-.04.26-.2 1.02.89.56 1.09-.46 5.89-3.47 8.04-5.94C21.38 14.02 22 12.18 22 10.63c0-4.49-4.48-8.13-10-8.13zm-4.1 10.8H5.65a.55.55 0 0 1-.55-.55V8.7a.55.55 0 1 1 1.1 0v3.5H7.9a.55.55 0 1 1 0 1.1zm2.05-.55a.55.55 0 1 1-1.1 0V8.7a.55.55 0 1 1 1.1 0v4.05zm4.65 0a.55.55 0 0 1-.99.33l-1.91-2.6v2.27a.55.55 0 1 1-1.1 0V8.7a.55.55 0 0 1 .99-.33l1.91 2.6V8.7a.55.55 0 1 1 1.1 0v4.05zm3.75-2.58a.55.55 0 1 1 0 1.1h-1.6v.93h1.6a.55.55 0 1 1 0 1.1h-2.15a.55.55 0 0 1-.55-.55V8.7c0-.3.25-.55.55-.55h2.15a.55.55 0 1 1 0 1.1h-1.6v.92h1.6z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 2.5c-5.52 0-10 3.64-10 8.13 0 4.02 3.56 7.39 8.37 8.02.33.07.77.22.88.51.1.26.07.67.03.93l-.14.86c-.04.26-.2 1.02.89.56 1.09-.46 5.89-3.47 8.04-5.94C21.38 14.02 22 12.18 22 10.63c0-4.49-4.48-8.13-10-8.13zm-4.1 10.8H5.65a.55.55 0 0 1-.55-.55V8.7a.55.55 0 1 1 1.1 0v3.5H7.9a.55.55 0 1 1 0 1.1zm2.05-.55a.55.55 0 1 1-1.1 0V8.7a.55.55 0 1 1 1.1 0v4.05zm4.65 0a.55.55 0 0 1-.99.33l-1.91-2.6v2.27a.55.55 0 1 1-1.1 0V8.7a.55.55 0 0 1 .99-.33l1.91 2.6V8.7a.55.55 0 1 1 1.1 0v4.05zm3.75-2.58a.55.55 0 1 1 0 1.1h-1.6v.93h1.6a.55.55 0 1 1 0 1.1h-2.15a.55.55 0 0 1-.55-.55V8.7c0-.3.25-.55.55-.55h2.15a.55.55 0 1 1 0 1.1h-1.6v.92h1.6z"/></svg>'
         },
         {
             key: 'gmail',
             label: 'Gmail 邮件',
             weight: 2,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4.2-8 5-8-5V6l8 5 8-5v2.2z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4.2-8 5-8-5V6l8 5 8-5v2.2z"/></svg>'
         },
         {
             key: 'messenger',
             label: 'Messenger',
             weight: 2,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.14.26.35.27.57l.05 1.78c.02.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.05.91.25 1.87.39 2.88.39 5.64 0 10-4.13 10-9.7C22 6.13 17.64 2 12 2zm5.8 7.56-2.9 4.61c-.46.73-1.45.91-2.13.4l-2.3-1.72a.6.6 0 0 0-.72 0l-3.1 2.35c-.41.31-.95-.18-.68-.62l2.9-4.61c.46-.73 1.45-.91 2.13-.4l2.3 1.72a.6.6 0 0 0 .72 0l3.1-2.35c.41-.31.95.18.68.62z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M12 2C6.36 2 2 6.13 2 11.7c0 2.91 1.19 5.44 3.14 7.17.16.14.26.35.27.57l.05 1.78c.02.57.61.94 1.13.71l1.98-.87c.17-.08.36-.1.55-.05.91.25 1.87.39 2.88.39 5.64 0 10-4.13 10-9.7C22 6.13 17.64 2 12 2zm5.8 7.56-2.9 4.61c-.46.73-1.45.91-2.13.4l-2.3-1.72a.6.6 0 0 0-.72 0l-3.1 2.35c-.41.31-.95-.18-.68-.62l2.9-4.61c.46-.73 1.45-.91 2.13-.4l2.3 1.72a.6.6 0 0 0 .72 0l3.1-2.35c.41-.31.95.18.68.62z"/></svg>'
         },
         {
             key: 'youtube',
             label: 'YouTube',
             weight: 2,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M21.58 7.19a2.75 2.75 0 0 0-1.94-1.95C17.93 4.78 12 4.78 12 4.78s-5.93 0-7.64.46a2.75 2.75 0 0 0-1.94 1.95C1.96 8.9 1.96 12 1.96 12s0 3.1.46 4.81a2.75 2.75 0 0 0 1.94 1.95c1.71.46 7.64.46 7.64.46s5.93 0 7.64-.46a2.75 2.75 0 0 0 1.94-1.95c.46-1.71.46-4.81.46-4.81s0-3.1-.46-4.81zM9.95 15.02V8.98L15.22 12l-5.27 3.02z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M21.58 7.19a2.75 2.75 0 0 0-1.94-1.95C17.93 4.78 12 4.78 12 4.78s-5.93 0-7.64.46a2.75 2.75 0 0 0-1.94 1.95C1.96 8.9 1.96 12 1.96 12s0 3.1.46 4.81a2.75 2.75 0 0 0 1.94 1.95c1.71.46 7.64.46 7.64.46s5.93 0 7.64-.46a2.75 2.75 0 0 0 1.94-1.95c.46-1.71.46-4.81.46-4.81s0-3.1-.46-4.81zM9.95 15.02V8.98L15.22 12l-5.27 3.02z"/></svg>'
         },
         {
             key: 'tiktok',
             label: 'TikTok',
             weight: 2,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11" height="11" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.29 0 .58.04.85.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66 6.34 6.34 0 0 0 9.33 22a6.34 6.34 0 0 0 6.34-6.34V9.05a8.16 8.16 0 0 0 4.77 1.52V7.12a4.85 4.85 0 0 1-.85-.43z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64c.29 0 .58.04.85.13V9.4a6.33 6.33 0 0 0-1-.08A6.34 6.34 0 0 0 3 15.66 6.34 6.34 0 0 0 9.33 22a6.34 6.34 0 0 0 6.34-6.34V9.05a8.16 8.16 0 0 0 4.77 1.52V7.12a4.85 4.85 0 0 1-.85-.43z"/></svg>'
         },
         {
             key: 'discord',
             label: 'Discord',
             weight: 1,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.44.87-.61 1.25a18.27 18.27 0 0 0-5.48 0 12.64 12.64 0 0 0-.62-1.25.08.08 0 0 0-.08-.04c-1.7.29-3.35.81-4.89 1.52a.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.22-2a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13c.13-.09.25-.19.37-.29a.08.08 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.07 0a.08.08 0 0 1 .08.01c.12.1.25.2.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.65-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.37 1.22 2a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .03-.06c.5-5.18-.84-9.68-3.55-13.66a.06.06 0 0 0-.03-.03zM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42zm7.97 0c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M20.32 4.37a19.8 19.8 0 0 0-4.89-1.52.07.07 0 0 0-.08.04c-.21.38-.44.87-.61 1.25a18.27 18.27 0 0 0-5.48 0 12.64 12.64 0 0 0-.62-1.25.08.08 0 0 0-.08-.04c-1.7.29-3.35.81-4.89 1.52a.07.07 0 0 0-.03.03C.53 9.05-.32 13.58.1 18.06a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 5.99 3.03.08.08 0 0 0 .08-.03c.46-.63.87-1.3 1.22-2a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.89.08.08 0 0 1-.01-.13c.13-.09.25-.19.37-.29a.08.08 0 0 1 .08-.01c3.93 1.79 8.18 1.79 12.07 0a.08.08 0 0 1 .08.01c.12.1.25.2.37.29a.08.08 0 0 1-.01.13c-.6.35-1.22.65-1.87.89a.08.08 0 0 0-.04.11c.36.7.77 1.37 1.22 2a.08.08 0 0 0 .08.03 19.84 19.84 0 0 0 6-3.03.08.08 0 0 0 .03-.06c.5-5.18-.84-9.68-3.55-13.66a.06.06 0 0 0-.03-.03zM8.02 15.33c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.96 2.42-2.16 2.42zm7.97 0c-1.18 0-2.16-1.08-2.16-2.42 0-1.33.96-2.42 2.16-2.42 1.21 0 2.18 1.1 2.16 2.42 0 1.34-.95 2.42-2.16 2.42z"/></svg>'
         },
         {
             key: 'facebook',
             label: 'Facebook',
             weight: 2,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>'
         },
         {
             key: 'wechat',
             label: '微信',
             weight: 2,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M8.7 4C4.45 4 1 6.91 1 10.5c0 2.02 1.09 3.83 2.81 5.02l-.71 2.14 2.49-1.25c.98.38 2.02.59 3.11.59.33 0 .66-.02.98-.06-.21-.67-.33-1.38-.33-2.12 0-3.82 3.63-6.92 8.11-6.92.34 0 .68.02 1.01.06C17.65 5.67 13.59 4 8.7 4zm-2.55 4.8a1.05 1.05 0 1 1 0-2.1 1.05 1.05 0 0 1 0 2.1zm4.9 0a1.05 1.05 0 1 1 0-2.1 1.05 1.05 0 0 1 0 2.1zm5.95.6c-3.87 0-7 2.6-7 5.8s3.13 5.8 7 5.8c.86 0 1.69-.13 2.46-.37l2.04 1.02-.56-1.72c1.27-.96 2.06-2.36 2.06-3.93 0-3.2-3.13-5.8-7-5.8zm-2.25 4.4a.88.88 0 1 1 0-1.75.88.88 0 0 1 0 1.75zm4.5 0a.88.88 0 1 1 0-1.75.88.88 0 0 1 0 1.75z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M8.7 4C4.45 4 1 6.91 1 10.5c0 2.02 1.09 3.83 2.81 5.02l-.71 2.14 2.49-1.25c.98.38 2.02.59 3.11.59.33 0 .66-.02.98-.06-.21-.67-.33-1.38-.33-2.12 0-3.82 3.63-6.92 8.11-6.92.34 0 .68.02 1.01.06C17.65 5.67 13.59 4 8.7 4zm-2.55 4.8a1.05 1.05 0 1 1 0-2.1 1.05 1.05 0 0 1 0 2.1zm4.9 0a1.05 1.05 0 1 1 0-2.1 1.05 1.05 0 0 1 0 2.1zm5.95.6c-3.87 0-7 2.6-7 5.8s3.13 5.8 7 5.8c.86 0 1.69-.13 2.46-.37l2.04 1.02-.56-1.72c1.27-.96 2.06-2.36 2.06-3.93 0-3.2-3.13-5.8-7-5.8zm-2.25 4.4a.88.88 0 1 1 0-1.75.88.88 0 0 1 0 1.75zm4.5 0a.88.88 0 1 1 0-1.75.88.88 0 0 1 0 1.75z"/></svg>'
         },
         {
             key: 'missed_call',
             label: '未接来电',
             weight: 1,
-            svg: '<svg class="dy-sb-notif-svg" viewBox="0 0 24 24" width="11.5" height="11.5" fill="currentColor"><path d="M19.59 7 12 14.59 6.41 9H11V7H3v8h2v-4.59l7 7 9-9L19.59 7z"/></svg>'
+            svg: '<svg xmlns="http://www.w3.org/2000/svg" class="dy-sb-notif-svg" viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><path d="M19.59 7 12 14.59 6.41 9H11V7H3v8h2v-4.59l7 7 9-9L19.59 7z"/></svg>'
         }
     ];
 
@@ -8692,16 +8667,19 @@ window.switchRightTab = function (mode, opts) {
         btnOpenPreview.addEventListener('click', () => {
             const wasPlaying = window.PlayerEngine.isVideoMode && previewVideo && !previewVideo.paused;
             const curTime = previewVideo ? previewVideo.currentTime : 0;
+            const volRail = document.getElementById('stage-volume-rail-wrap');
+            if (volRail) volRail.classList.add('is-export-hidden');
 
             previewStageWrap.appendChild(renderTarget);
             fullscreenPreviewModal.classList.add('show');
+            if (typeof window.updateStageFitScale === 'function') window.updateStageFitScale();
 
             if (window.PlayerEngine.isVideoMode && previewVideo) {
                 previewVideo.currentTime = curTime;
                 if (wasPlaying) previewVideo.play().catch(() => {});
             }
             setTimeout(window.drawWaveform, 80);
-            window.showToast('🖥️ 全屏实机预览已启动');
+            window.showToast('🖥️ 全屏实机预览已启动（按 Esc 键或右上角按钮可退出）');
         });
     }
 
@@ -8712,6 +8690,13 @@ window.switchRightTab = function (mode, opts) {
 
         playerStage.appendChild(renderTarget);
         fullscreenPreviewModal.classList.remove('show');
+        const volRail = document.getElementById('stage-volume-rail-wrap');
+        if (volRail) volRail.classList.remove('is-export-hidden');
+        if (typeof window.updateStageFitScale === 'function') window.updateStageFitScale();
+        requestAnimationFrame(() => {
+            if (typeof window.updateStageFitScale === 'function') window.updateStageFitScale();
+            if (typeof window.syncStageVolumeRailPosition === 'function') window.syncStageVolumeRailPosition();
+        });
 
         if (window.PlayerEngine.isVideoMode && previewVideo) {
             previewVideo.currentTime = curTime;
@@ -8721,6 +8706,12 @@ window.switchRightTab = function (mode, opts) {
     }
 
     if (btnClosePreview) btnClosePreview.addEventListener('click', exitFullscreenPreview);
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && fullscreenPreviewModal && fullscreenPreviewModal.classList.contains('show')) {
+            e.preventDefault();
+            exitFullscreenPreview();
+        }
+    });
 
     if (btnPreviewPauseToggle) {
         btnPreviewPauseToggle.addEventListener('click', () => {
@@ -9233,15 +9224,16 @@ window.switchRightTab = function (mode, opts) {
                                 it.dateLoc = randomDateLoc(window.CommentEngine.ipRegion, window.CommentEngine.pubWindowHours);
                             }
                             const isFileProto = typeof window !== 'undefined' && window.location && window.location.protocol === 'file:';
-                            if (!it.avatar || it.avatar.includes('pravatar.cc') || it.avatar.includes('dicebear.com') || (isFileProto && /^https?:\/\//i.test(it.avatar))) {
+                            const isBadExternalAvatar = (u) => !u || /pravatar\.cc|dicebear\.com|randomuser\.me|unsplash\.com/i.test(u) || (isFileProto && /^https?:\/\//i.test(u));
+                            if (isBadExternalAvatar(it.avatar)) {
                                 it.avatar = buildOnlineAvatarUrl(`mig_${idx}`, window.CommentEngine.apiMode);
                                 it.avatarDataUrl = '';
                             }
                             if (!Array.isArray(it.replies)) {
                                 it.replies = [];
-                            } else if (isFileProto) {
+                            } else {
                                 it.replies.forEach((rep, rIdx) => {
-                                    if (rep && /^https?:\/\//i.test(rep.avatar || '')) {
+                                    if (rep && !rep.isAuthor && isBadExternalAvatar(rep.avatar || '')) {
                                         rep.avatar = buildOnlineAvatarUrl(`mig_rep_${idx}_${rIdx}`, window.CommentEngine.apiMode);
                                         rep.avatarDataUrl = '';
                                     }
@@ -9336,9 +9328,16 @@ window.switchRightTab = function (mode, opts) {
                 if (saveTimeout) clearTimeout(saveTimeout);
                 localStorage.removeItem(STORAGE_KEY);
                 localStorage.removeItem('LAYA_LAST_MEDIA_STATE');
+                localStorage.removeItem('LAYA_PREVIEW_VOLUME_V1');
                 localStorage.removeItem(USER_MODIFIED_FIELDS_KEY);
                 localStorage.removeItem(USED_NICKNAMES_STORAGE_KEY);
                 localStorage.removeItem(USED_AVATARS_STORAGE_KEY);
+                localStorage.removeItem(AI_NICKNAMES_CACHE_KEY);
+                localStorage.removeItem(DYNAMIC_AVATARS_CACHE_KEY);
+                localStorage.removeItem(LAST_SB_SNAPSHOT_KEY);
+                localStorage.removeItem(ACTIVE_SB_APP_ICONS_KEY);
+                localStorage.removeItem(CUSTOM_SB_APP_ICONS_KEY);
+                try { localStorage.removeItem('LAYA_USED_DANMAKU_TEXTS_V1'); } catch (_e) {}
                 if (window.LayaMediaPersistDB && typeof window.LayaMediaPersistDB.clearMedia === 'function') {
                     try {
                         await window.LayaMediaPersistDB.clearMedia();
@@ -9713,6 +9712,33 @@ window.switchRightTab = function (mode, opts) {
             if (clonedSbIcon && sbExportSrc) {
                 clonedSbIcon.src = sbExportSrc;
             }
+        });
+
+        // ★ 固化三端顶部状态栏内所有 SVG（含 X / Ins / 短信 / WhatsApp / TG 等真实通知图标与系统图标）的命名空间、像素宽高与显式颜色，防止 html2canvas 序列化时 currentColor 变纯黑隐形
+        const sbResolvedColor = isLightMode ? '#161823' : '#ffffff';
+        clonedDoc.querySelectorAll('#dy-status-bar svg, #m-status-bar svg, #dyl-status-bar svg, .dy-sb-notif-svg').forEach(svgEl => {
+            if (!svgEl.getAttribute('xmlns')) {
+                svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+            }
+            const rawW = parseFloat(svgEl.getAttribute('width') || '') || 12;
+            const rawH = parseFloat(svgEl.getAttribute('height') || '') || 12;
+            svgEl.setAttribute('width', String(Math.round(rawW)));
+            svgEl.setAttribute('height', String(Math.round(rawH)));
+            svgEl.style.color = sbResolvedColor;
+            if (svgEl.getAttribute('fill') === 'currentColor') {
+                svgEl.setAttribute('fill', sbResolvedColor);
+            }
+            if (svgEl.getAttribute('stroke') === 'currentColor') {
+                svgEl.setAttribute('stroke', sbResolvedColor);
+            }
+            svgEl.querySelectorAll('*').forEach(child => {
+                if (child.getAttribute('fill') === 'currentColor') {
+                    child.setAttribute('fill', sbResolvedColor);
+                }
+                if (child.getAttribute('stroke') === 'currentColor') {
+                    child.setAttribute('stroke', sbResolvedColor);
+                }
+            });
         });
 
         // 同步直播间礼物弹窗左侧真人头像/自定义头像到导出画布，绝不回退为蓝色 Laya 图标
@@ -17163,8 +17189,8 @@ window.switchRightTab = function (mode, opts) {
         return { frames: validFrames, stats: primaryStats };
     }
 
-    // ★ 根据视频抽帧像素特征 + 文件名/标题关键词智能生成匹配的直播间弹幕（零配置即时可用）
-    function buildSmartLocalVideoAiDanmaku(stats, contextText) {
+    // ★ 根据视频抽帧像素特征 + 文件名/标题关键词智能生成匹配的直播间弹幕（零配置即时可用，严格遵循用户设定的 1~150 条数）
+    function buildSmartLocalVideoAiDanmaku(stats, contextText, targetCount = 25) {
         const txt = String(contextText || '').toLowerCase();
         let category = 'beauty_dance';
         let sceneLabel = '高顏值才藝直播';
@@ -17183,9 +17209,11 @@ window.switchRightTab = function (mode, opts) {
             sceneLabel = '高顏值主播互動';
         }
 
+        const safeCount = Math.min(150, Math.max(1, parseInt(targetCount, 10) || 25));
         const lines = composeAuthenticLiveDanmakuBatch({
             category,
-            contextText
+            contextText,
+            totalRows: safeCount
         });
         return { lines, sceneLabel };
     }
@@ -17459,7 +17487,7 @@ window.switchRightTab = function (mode, opts) {
             }
 
             if (!matchedLines || matchedLines.length === 0) {
-                const localRes = buildSmartLocalVideoAiDanmaku(stats, contextText);
+                const localRes = buildSmartLocalVideoAiDanmaku(stats, contextText, targetCount);
                 matchedLines = localRes.lines;
                 sceneLabel = localRes.sceneLabel;
             } else {
@@ -17505,9 +17533,7 @@ window.switchRightTab = function (mode, opts) {
             if (window.DanmakuEngine && Array.isArray(window.DanmakuEngine.list) && pureDanmakuMsgs.length > 0) {
                 const topLanes = [10, 14, 18, 22, 26, 30];
                 const colors = ['#ffffff', '#ffeaa7', '#81ecec', '#ffffff', '#fab1a0', '#ffffff'];
-                const maxEngineTracks = (targetScope === 'studio' || targetScope === 'web')
-                    ? Math.min(150, pureDanmakuMsgs.length)
-                    : Math.min(25, pureDanmakuMsgs.length);
+                const maxEngineTracks = Math.min(150, Math.max(1, parseInt(targetCount, 10) || 25), pureDanmakuMsgs.length);
                 window.DanmakuEngine.list = pureDanmakuMsgs.slice(0, maxEngineTracks).map((pureMsg, idx) => ({
                     id: 'ai_dm_' + Date.now() + '_' + idx,
                     text: pureMsg,
@@ -17604,19 +17630,31 @@ window.switchRightTab = function (mode, opts) {
                 ? `請為短視頻評論區（主題：${ctxTopic}，批次：${seed}）生成 ${totalUsersNeeded} 條「暱稱：評論內容」。要求：1.暱稱必須 85% 以上是海外華人男性日常網名（涵蓋溫哥華/多倫多/洛杉磯/灣區/紐約/悉尼/墨爾本/吉隆坡/新加坡/台北/香港男性用戶），最多15%女性網名，且每個名字完全不同，嚴禁與以下已用名字重複：${recentUsed.join('、')}；2.評論內容自然口語 14~28 字，繁體中文，無序號，每行一條。`
                 : `請生成 ${totalUsersNeeded + 4} 個完全不重複的海外華人社交帳號繁體暱稱（批次：${seed}）。要求：至少 85% 必須是海外華人男性用戶網名（北美/澳洲/新馬/港澳台/歐洲日韓華人男性風格），最多 15% 女性網名；每行一個名字無序號；嚴禁與以下已用名字重複：${recentUsed.join('、')}。`;
 
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${encodeURIComponent(apiKey)}`;
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    generationConfig: { thinkingConfig: { thinkingLevel: 'LOW' }, maxOutputTokens: 2048, temperature: 0.95 }
-                })
-            });
-            if (!res.ok) return;
-            const json = await res.json();
-            const parts = json?.candidates?.[0]?.content?.parts || [];
-            const outTxt = parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('\n');
+            const cmtModelsToTry = [
+                { id: 'gemini-3.8-flash', genCfg: { thinkingConfig: { thinkingLevel: 'LOW' }, maxOutputTokens: 4096, temperature: 0.95 } },
+                { id: 'gemini-flash-latest', genCfg: { maxOutputTokens: 4096, temperature: 0.95 } },
+                { id: 'gemini-2.5-flash', genCfg: { maxOutputTokens: 4096, temperature: 0.95 } }
+            ];
+            let outTxt = '';
+            for (const mSpec of cmtModelsToTry) {
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${mSpec.id}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                            generationConfig: mSpec.genCfg
+                        })
+                    });
+                    if (res.ok) {
+                        const json = await res.json();
+                        const parts = json?.candidates?.[0]?.content?.parts || [];
+                        outTxt = parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('\n');
+                        if (outTxt.trim()) break;
+                    }
+                } catch (_err) {}
+            }
             if (!outTxt.trim()) return;
 
             const rawRows = outTxt.split(/\r?\n/).map(s => s.replace(/^(\d+[\.、\)\s]+|[-•*]\s*)/, '').trim()).filter(Boolean);
@@ -19641,26 +19679,29 @@ window.switchRightTab = function (mode, opts) {
             const prompt = `請生成 35 個完全不重複的「海外華人真實社交用戶風格」繁體中文暱稱（批次號：${seed}）。核心要求：1.【性別比例】至少 85%（30個以上）必須是海外華人男性用戶網名（涵蓋溫哥華/多倫多/洛杉磯/灣區/紐約/西雅圖/悉尼/墨爾本/吉隆坡/新加坡/台北/香港/東京/倫敦華人男性日常稱呼，如老陳、阿豪、凱哥、Jason、Marcus、工程師阿哲 等自然組合，請全新創作勿照抄示例），最多 15% 女性網名；2.每行一個暱稱，不要序號與標點解釋，長度 3~10 個字；3.【嚴禁與以下之前生成過的名字重複】：${recentUsedTail || '無'}。`;
 
             const modelsToTry = [
-                { id: 'gemini-3.8-flash', genCfg: { thinkingConfig: { thinkingLevel: 'LOW' }, maxOutputTokens: 1536, temperature: 0.96 } },
-                { id: 'gemini-2.5-flash', genCfg: { maxOutputTokens: 1024, temperature: 0.96 } }
+                { id: 'gemini-3.8-flash', genCfg: { thinkingConfig: { thinkingLevel: 'LOW' }, maxOutputTokens: 4096, temperature: 0.96 } },
+                { id: 'gemini-flash-latest', genCfg: { maxOutputTokens: 4096, temperature: 0.96 } },
+                { id: 'gemini-2.5-flash', genCfg: { maxOutputTokens: 4096, temperature: 0.96 } }
             ];
             let outTxt = '';
             for (const mSpec of modelsToTry) {
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/${mSpec.id}:generateContent?key=${encodeURIComponent(apiKey)}`;
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                        generationConfig: mSpec.genCfg
-                    })
-                });
-                if (res.ok) {
-                    const json = await res.json();
-                    const parts = json?.candidates?.[0]?.content?.parts || [];
-                    outTxt = parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('\n');
-                    if (outTxt.trim()) break;
-                }
+                try {
+                    const url = `https://generativelanguage.googleapis.com/v1beta/models/${mSpec.id}:generateContent?key=${encodeURIComponent(apiKey)}`;
+                    const res = await fetch(url, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                            generationConfig: mSpec.genCfg
+                        })
+                    });
+                    if (res.ok) {
+                        const json = await res.json();
+                        const parts = json?.candidates?.[0]?.content?.parts || [];
+                        outTxt = parts.filter(p => !p.thought && typeof p.text === 'string').map(p => p.text).join('\n');
+                        if (outTxt.trim()) break;
+                    }
+                } catch (_err) {}
             }
             if (!outTxt) return;
 

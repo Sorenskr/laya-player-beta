@@ -337,7 +337,7 @@ window.PlayerEngine = {
         } else {
             userExplicitlyMuted = false;
             _tempAutoplayBlocked = false;
-            if (currentVolume <= 0.01) {
+            if (currentVolume <= 0.02) {
                 currentVolume = 1.0;
                 try { localStorage.setItem(PREVIEW_VOL_STORAGE_KEY, '1'); } catch (e) {}
             }
@@ -444,8 +444,10 @@ window.PlayerEngine = {
             e.stopPropagation();
             isDraggingVol = true;
             stageVolWrap.classList.add('is-dragging-vol');
-            // 等一帧若刚展开或直接按当前轨道位置计算
-            updateVolFromClientY(e.clientY);
+            // 直接按住圆钮时不发生瞬间跳变，由拖动过程平滑接管；点击轨道时立即定位音量
+            if (e.target !== stageVolThumb) {
+                updateVolFromClientY(e.clientY);
+            }
         };
 
         stageVolTrack.addEventListener('mousedown', onMouseDownVol);
@@ -472,6 +474,32 @@ window.PlayerEngine = {
             isDraggingVol = false;
             stageVolWrap.classList.remove('is-dragging-vol');
         });
+
+        // 触屏设备展开与上下滑动调节音量支持
+        stageVolWrap.addEventListener('touchstart', (e) => {
+            if (!e.touches || !e.touches.length) return;
+            e.preventDefault();
+            e.stopPropagation();
+            isDraggingVol = true;
+            stageVolWrap.classList.add('is-dragging-vol');
+            if (e.target !== stageVolThumb) {
+                const y = e.touches[0].clientY;
+                requestAnimationFrame(() => updateVolFromClientY(y));
+            }
+        }, { passive: false });
+
+        window.addEventListener('touchmove', (e) => {
+            if (!isDraggingVol || !e.touches || !e.touches.length) return;
+            updateVolFromClientY(e.touches[0].clientY);
+        }, { passive: true });
+
+        const endTouchVol = () => {
+            if (!isDraggingVol) return;
+            isDraggingVol = false;
+            stageVolWrap.classList.remove('is-dragging-vol');
+        };
+        window.addEventListener('touchend', endTouchVol);
+        window.addEventListener('touchcancel', endTouchVol);
 
         // 鼠标悬停在音量条上时，也支持滚轮微调音量（不触发舞台缩放）
         stageVolWrap.addEventListener('wheel', (e) => {
@@ -504,6 +532,7 @@ window.PlayerEngine = {
         const currentSkin = skinVal === 'laya-app' ? 'skin-laya-app' : (skinVal === 'laya' ? 'skin-laya' : 'skin-douyin');
         const isCmtOpen = !!(
             (window.CommentEngine && window.CommentEngine.isOpen) ||
+            document.getElementById('sw-dy-comment-drawer')?.checked ||
             document.getElementById('sw-dy-cmt-open')?.checked ||
             document.getElementById('sw-dy-cmt-open-card')?.checked ||
             renderTarget.classList.contains('dy-comment-open')
@@ -694,14 +723,17 @@ window.PlayerEngine = {
             previewVideo.style.display = 'block';
             previewVideo.loop = false;
             previewVideo.playsInline = true;
-            // ★ 每次上传或恢复视频时，强制默认开启声音（绝不默认静音！）
+            // ★ 每次上传或恢复视频时，强制默认开启声音（绝不默认静音！若历史音量被拖到接近 0 则自动拉回 100%）
             userExplicitlyMuted = false;
             _tempAutoplayBlocked = false;
-            if (!isRestoring && currentVolume <= 0.02) {
+            if (currentVolume <= 0.02) {
                 currentVolume = 1.0;
                 try { localStorage.setItem(PREVIEW_VOL_STORAGE_KEY, '1'); } catch (e) {}
             }
             setVideoSoundMuted(false, false, true);
+            requestAnimationFrame(() => {
+                if (typeof window.syncStageVolumeRailPosition === 'function') window.syncStageVolumeRailPosition();
+            });
             const curSpeed = selPreviewSpeed ? (parseFloat(selPreviewSpeed.value) || 1.0) : 1.0;
             if (previewVideo.src && previewVideo.src.startsWith('blob:')) {
                 URL.revokeObjectURL(previewVideo.src);
